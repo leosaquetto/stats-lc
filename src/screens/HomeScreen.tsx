@@ -58,22 +58,24 @@ export default function HomeScreen() {
         {isLoading && !leoStats ? (
           <Skeleton className="h-[340px] w-full rounded-[42px]" />
         ) : error ? (
-           <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="glass-card flex flex-col items-center justify-center gap-4 py-12 border-red-500/10 bg-red-500/5"
-           >
-              <AlertTriangle className="h-8 w-8 text-red-500/50" />
-              <div className="text-center">
-                <p className="text-sm font-bold text-white/90">Erro de Sincronia</p>
-                <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1">Verifique o Console do Desenvolvedor</p>
-              </div>
-              <button 
-                onClick={() => fetchGroupStats(true)}
-                className="px-6 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/10"
-              >
-                Tentar Forçar
-              </button>
-           </motion.div>
+            <motion.div 
+             initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+             className="glass-card flex flex-col items-center justify-center gap-4 py-12 border-red-500/10 bg-red-500/5 px-6"
+            >
+               <AlertTriangle className="h-8 w-8 text-red-500/50" />
+               <div className="text-center">
+                 <p className="text-sm font-bold text-white/90">Erro de Sincronia</p>
+                 <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1 mb-4 leading-tight">
+                    {error || "Verifique sua conexão ou o status do backend."}
+                 </p>
+               </div>
+               <button 
+                 onClick={() => fetchGroupStats(true)}
+                 className="px-6 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/10"
+               >
+                 Tentar Sincronizar Agora
+               </button>
+            </motion.div>
         ) : (
           <LeoHeader 
             userId={LEO_ID}

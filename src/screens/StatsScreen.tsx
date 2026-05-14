@@ -32,13 +32,11 @@ export default function StatsScreen() {
     async function loadFullData() {
       setIsLocalLoading(true);
       try {
-        const data = await statsService.getRankings('months'); // Mock or fetch real
-        // Para StatsScreen, queremos os detalhes do Leo
-        const res = await fetch(`/api/stats/user/${LEO_ID}`);
-        const fullData = await res.json();
+        // Para StatsScreen, queremos os detalhes do Leo via Backend Vercel
+        const fullData = await statsService.getUserFullStats(LEO_ID);
         setFullUserData(fullData);
       } catch (e) {
-        console.error("Failed to load full user data");
+        console.error("Failed to load full user data", e);
       } finally {
         setIsLocalLoading(false);
       }

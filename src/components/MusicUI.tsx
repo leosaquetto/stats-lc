@@ -1314,7 +1314,22 @@ export const TrackLeaderboardModal = ({
     async function loadStats() {
       if (!track?.id) return;
       setLoading(true);
-      const results = await statsService.fetchGroupDetailedTrackStats(track);
+      
+      const users = statsService.getUsers();
+      const albumId = track.albums?.[0]?.id || track.album?.id;
+      const artistId = track.artists?.[0]?.id;
+      
+      const results: Record<string, { track: number, album: number, artist: number }> = {};
+      
+      await Promise.all(users.map(async (u) => {
+        const [tCount, alCount, arCount] = await Promise.all([
+          statsService.fetchEntityStats(u.id, 'track', track.id),
+          statsService.fetchEntityStats(u.id, 'album', albumId),
+          statsService.fetchEntityStats(u.id, 'artist', artistId)
+        ]);
+        results[u.id] = { track: tCount, album: alCount, artist: arCount };
+      }));
+
       setStats(results);
       setLoading(false);
     }
