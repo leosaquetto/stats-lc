@@ -12,7 +12,7 @@ import RankingScreen from './screens/RankingScreen';
 import { useStatsStore } from './store/useStatsStore';
 
 export default function App() {
-  const fetchStats = useStatsStore(s => s.fetchGroupStats);
+  const fetchStats = useStatsStore(s => s.fetchGroup);
   const setOffline = useStatsStore(s => s.setOffline);
 
   useEffect(() => {

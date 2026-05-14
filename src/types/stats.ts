@@ -57,5 +57,6 @@ export interface UserStats {
 
 export interface GroupStats {
   users: Record<string, UserStats>;
+  members?: UserStats[];
   lastUpdated: string;
 }

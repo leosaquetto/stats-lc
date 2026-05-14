@@ -7,27 +7,27 @@ import { Artist } from '../types/stats';
 
 export const GROUP_USERS = {
   LEO: {
-    id: "000997.3647cff9cc2b42359d6ca7f79a0f2c91.0428",
+    id: "leo",
     name: "Leo",
-    color: "#FF9F0A", // Laranja Vivo (Dark Mode)
+    color: "#FF9F0A",
   },
   GAB: {
-    id: "000859.740385afd8284174a94c84e9bcc9bdea.1440",
+    id: "gab",
     name: "Gab",
     color: "#FFFFFF",
   },
   SAVIO: {
-    id: "12151123201",
+    id: "savio",
     name: "Sávio",
     color: "#FFFFFF",
   },
   BENNY: {
-    id: "benante.m",
+    id: "benny",
     name: "Benny",
     color: "#FFFFFF",
   },
   PETER: {
-    id: "12182998998",
+    id: "peter",
     name: "Peter",
     color: "#FFFFFF",
   }

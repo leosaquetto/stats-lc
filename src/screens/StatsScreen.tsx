@@ -21,9 +21,10 @@ export default function StatsScreen() {
   const [fullUserData, setFullUserData] = useState<any>(null);
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   
-  const { groupStats, isLoading: isGlobalLoading, error: globalError, fetchGroupStats } = useStatsStore();
-  const LEO_ID = GROUP_USERS.LEO.id;
-  const leo = groupStats?.users[LEO_ID];
+  const { groupStats, isLoading: isGlobalLoading, error: globalError, fetchGroup } = useStatsStore();
+  const LEO_ID = GROUP_USERS.LEO.id; // Agora é "leo"
+  const members = groupStats?.members || Object.values(groupStats?.users || {});
+  const leo = groupStats?.users[LEO_ID] || members.find(m => m.id === LEO_ID);
   const accentColor = GROUP_USERS.LEO.color;
 
   const filters: Filter[] = ['Hoje', 'Semana', 'Mês', 'Geral'];
@@ -103,7 +104,7 @@ export default function StatsScreen() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Estatísticas</h1>
           <p className="text-white/60 text-sm">O legado sonoro de {leo?.name || 'Leo'}</p>
         </div>
-        <button onClick={() => fetchGroupStats(true)} className="h-8 w-8 glass rounded-xl flex items-center justify-center">
+        <button onClick={() => fetchGroup(true)} className="h-8 w-8 glass rounded-xl flex items-center justify-center">
            <RefreshCcw className={clsx("h-3 w-3 text-white/40", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
         </button>
       </header>
@@ -112,7 +113,7 @@ export default function StatsScreen() {
         <div className="glass-card p-10 flex flex-col items-center gap-4 border-orange-500/10">
            <AlertTriangle className="h-8 w-8 text-orange-500/60" />
            <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Sincronia Indisponível</p>
-           <button onClick={() => fetchGroupStats(true)} className="text-[9px] font-bold text-orange-500 uppercase tracking-widest py-2 px-4 glass rounded-full">Forçar Busca</button>
+           <button onClick={() => fetchGroup(true)} className="text-[9px] font-bold text-orange-500 uppercase tracking-widest py-2 px-4 glass rounded-full">Forçar Busca</button>
         </div>
       )}
 
@@ -162,7 +163,7 @@ export default function StatsScreen() {
           <SectionHeader title="Arena Battle" />
           <div className="relative overflow-hidden">
             <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-2 px-2 pb-2 scroll-fade-h">
-              {Object.values(groupStats.users)
+              {members
                 .filter(u => u.id !== LEO_ID)
                 .map(user => (
                   <button
@@ -192,7 +193,7 @@ export default function StatsScreen() {
       )}
 
       {groupStats && (activeFilter === 'Mês' || activeFilter === 'Geral') && (
-        <MonthlyGroupLeaderboard users={Object.values(groupStats.users)} />
+        <MonthlyGroupLeaderboard users={members} />
       )}
 
       <SectionHeader title={`Top Artistas (${activeFilter})`} />

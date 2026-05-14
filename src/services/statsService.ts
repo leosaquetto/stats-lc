@@ -67,18 +67,55 @@ export const statsService = {
   async getGroupData(forceRefresh = false): Promise<GroupStats> {
     try {
       const data = await fetchFromApi<any>('/api/group', {}, forceRefresh);
+      console.log("GROUP RESPONSE", data);
       
       const users: Record<string, UserStats> = {};
-      Object.keys(data.users || {}).forEach(uid => {
-        const u = data.users[uid];
-        users[uid] = {
-          ...u,
-          avatar: coreUtils.getAvatarUrl(uid, u.avatar)
-        };
-      });
+      const members: UserStats[] = [];
+      
+      if (data.members && Array.isArray(data.members)) {
+        data.members.forEach((m: any) => {
+          const uid = m.key || m.id;
+          
+          // Map NowPlaying
+          let nowPlaying = undefined;
+          if (m.nowPlaying) {
+            const track = m.nowPlaying.track;
+            nowPlaying = {
+              isNow: m.nowPlaying.isNow || false,
+              timestamp: m.nowPlaying.timestamp || new Date().toISOString(),
+              progressMs: m.nowPlaying.progressMs,
+              track: {
+                id: track?.id,
+                name: track?.name || "Desconhecido",
+                artists: track?.artists || [],
+                image: track?.image,
+                albumName: track?.album?.name,
+                durationMs: track?.durationMs,
+                playedCount: track?.playedCount,
+                spotifyId: track?.spotifyId,
+                appleMusicId: track?.appleMusicId
+              }
+            };
+          }
+
+          const user: UserStats = {
+            id: uid,
+            name: m.profile?.displayName || uid,
+            avatar: m.profile?.image,
+            streamsToday: m.stats?.today?.streams || 0,
+            totalStreams: m.stats?.lifetime?.streams || m.stats?.month?.streams || 0,
+            scrobbles: m.stats?.lifetime?.streams || 0,
+            nowPlaying
+          };
+
+          users[uid] = user;
+          members.push(user);
+        });
+      }
 
       return {
         users,
+        members, // Adicionando members array para facilitar
         lastUpdated: data.lastUpdated || new Date().toISOString()
       };
     } catch (e: any) {

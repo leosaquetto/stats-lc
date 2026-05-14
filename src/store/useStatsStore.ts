@@ -16,16 +16,10 @@ interface StatsState {
   lastFetchTime: Record<string, number>;
   
   // Actions
-  fetchGroupStats: (force?: boolean) => Promise<void>;
+  fetchGroup: (force?: boolean) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
   setOffline: (offline: boolean) => void;
 }
-
-// Parametric TTLs (in milliseconds)
-const TTL = {
-  NOW_PLAYING: 10 * 60 * 1000, // 10 mins
-  HISTORY: 24 * 60 * 60 * 1000, // 24 hours
-};
 
 export const useStatsStore = create<StatsState>()(
   persist(
@@ -38,28 +32,18 @@ export const useStatsStore = create<StatsState>()(
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
 
-      fetchGroupStats: async (force = false) => {
-        const now = Date.now();
-        const lastFetch = get().lastFetchTime['group'] || 0;
-        
-        // Se estiver offline, não tenta buscar se já tivermos dados e não for forçado
-        if (!navigator.onLine && get().groupStats) return;
-
-        // Cache logic: only fetch if forced or TTL expired
-        if (!force && (now - lastFetch < TTL.NOW_PLAYING) && get().groupStats) return;
-
+      fetchGroup: async (force = false) => {
         set({ isLoading: true, error: null });
         try {
           const data = await statsService.getGroupData(force);
           set({ 
             groupStats: data, 
             isLoading: false, 
-            lastFetchTime: { ...get().lastFetchTime, group: now } 
+            lastFetchTime: { ...get().lastFetchTime, group: Date.now() } 
           });
         } catch (err: any) {
           console.error("Store Error:", err);
           
-          // Se falhar e já tivermos dados no cache (offline), apenas avisamos mas mantemos os dados
           if (get().groupStats) {
             set({ isLoading: false, error: "Modo Offline: Exibindo últimos dados conhecidos." });
           } else {

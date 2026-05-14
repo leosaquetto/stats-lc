@@ -933,30 +933,30 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
               />
             </div>
             <div>
-              <h1 className="font-mundial text-lg font-semibold tracking-tight text-white leading-tight">{userName || "Master Leo"}</h1>
+              <h1 className="font-mundial text-lg font-semibold tracking-tight text-white leading-tight truncate max-w-[200px]">{userName || "Sincronizando..."}</h1>
               <div className="flex items-center gap-1.5">
                 <div className={cn(
-                  "h-1 w-1 rounded-full",
-                  isActuallyLive ? "bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(255,159,10,0.5)]" : "bg-white/40"
+                   "h-1 w-1 rounded-full shadow-[0_0_8px_rgba(255,159,10,0.5)]",
+                   isActuallyLive ? "bg-orange-500 animate-pulse" : "bg-white/20"
                 )} />
                 <p className={cn(
-                  "text-[8px] font-mundial font-semibold tracking-[0.2em] uppercase transition-colors duration-500",
-                  isActuallyLive ? "text-orange-500/90" : "text-white/50"
+                  "text-[8px] font-mundial font-black tracking-[0.2em] uppercase transition-colors duration-500",
+                  isActuallyLive ? "text-orange-500/90" : "text-white/30"
                 )}>
-                  {isActuallyLive ? "Live Feedback" : "Last Played"}
+                  {isActuallyLive ? "Ouvindo Agora" : "Visto por último"}
                 </p>
               </div>
             </div>
           </div>
             <div className="flex flex-col items-end">
               <div className="text-3xl font-display font-black text-white leading-none tracking-tighter drop-shadow-lg">
-                <AnimatedNumber value={streamsToday} />
+                <AnimatedNumber value={streamsToday || 0} />
               </div>
               <div className="text-[7px] uppercase tracking-[0.3em] text-white/40 font-mundial font-black mt-1.5 pr-0.5">Total Hoje</div>
             </div>
         </div>
 
-        {nowPlaying && nowPlaying.track && nowPlaying.track.name ? (
+        {nowPlaying && nowPlaying.track && nowPlaying.track.name && nowPlaying.track.name !== "Desconhecido" ? (
           <div className="flex items-center gap-3">
             <div 
               className="relative h-32 w-32 shrink-0 -ml-2 group cursor-pointer active:scale-95 transition-all"
@@ -965,13 +965,13 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                <div 
                  className={cn(
                    "absolute inset-0 rounded-[32px] blur-2xl opacity-40 transition-all duration-1000",
-                   isActuallyLive && "group-hover:opacity-60"
+                   isActuallyLive ? "opacity-40" : "opacity-0"
                  )} 
                  style={{ backgroundColor: accentColor }}
                />
                <div className={cn(
                  "relative h-full w-full rounded-[30px] bg-white/5 overflow-hidden shadow-2xl border border-white/10",
-                 !isActuallyLive && "opacity-60 grayscale-[0.5]"
+                 !isActuallyLive && "opacity-80 grayscale-[0.3]"
                )}>
                   <img src={albumImage} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
                </div>
@@ -1004,11 +1004,11 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                     text={track.name}
                     className={cn(
                       "text-xl font-display font-black leading-tight tracking-tight",
-                      isActuallyLive ? "text-white" : "text-white/80"
+                      isActuallyLive ? "text-white" : "text-white/90"
                     )}
                   />
                   <p className="text-sm text-white/60 truncate font-medium mt-0.5">
-                     {track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')}
+                     {Array.isArray(track.artists) ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') : "Artista Desconhecido"}
                   </p>
                   {track.albumName && (
                     <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mt-1.5 line-clamp-2 leading-tight text-balance">
@@ -1055,8 +1055,8 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
           </div>
         ) : (
           <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/20 rounded-[40px] bg-white/[0.04]">
-             <Activity className="h-10 w-10 text-white/20 mb-3" />
-             <p className="text-[11px] font-bold text-white/50 uppercase tracking-[0.3em]">Aguardando sinal sonoro...</p>
+             <Activity className="h-10 w-10 text-white/10 mb-3 animate-pulse" />
+             <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Sinal Sonoro Inativo</p>
           </div>
         )}
       </div>

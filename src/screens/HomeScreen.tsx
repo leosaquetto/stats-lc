@@ -7,15 +7,21 @@ import { clsx } from 'clsx';
 import { coreUtils } from '../services/statsCore';
 
 export default function HomeScreen() {
-  const { groupStats, isLoading, error, fetchGroupStats } = useStatsStore();
+  const { groupStats, isLoading, error, fetchGroup } = useStatsStore();
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
-  const LEO_ID = '000997.3647cff9cc2b42359d6ca7f79a0f2c91.0428';
-  const leoStats = groupStats?.users[LEO_ID];
   
-  const friends = Object.values(groupStats?.users || {}).filter(u => u.id !== LEO_ID);
+  const members = groupStats?.members || [];
+  const leoStats = members.find(m => m.id === "leo") || members[0];
+  const LEO_ID = leoStats?.id || "leo";
+
+  if (leoStats) {
+    console.log("MAIN MEMBER", leoStats);
+  }
+  
+  const friends = members.filter(u => u.id !== LEO_ID);
 
   useEffect(() => {
-    fetchGroupStats();
+    fetchGroup();
   }, []);
 
   return (
@@ -45,7 +51,7 @@ export default function HomeScreen() {
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => fetchGroupStats(true)}
+            onClick={() => fetchGroup(true)}
             className="h-11 w-11 glass rounded-2xl flex items-center justify-center active:scale-95 transition-all hover:bg-white/10"
           >
             <RefreshCcw className={clsx("h-5 w-5 text-white/60", isLoading && "animate-spin")} />
@@ -70,7 +76,7 @@ export default function HomeScreen() {
                  </p>
                </div>
                <button 
-                 onClick={() => fetchGroupStats(true)}
+                 onClick={() => fetchGroup(true)}
                  className="px-6 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/10"
                >
                  Tentar Sincronizar Agora
@@ -90,7 +96,7 @@ export default function HomeScreen() {
 
       {groupStats && (
         <LiveGroupOverview 
-          users={Object.values(groupStats.users)} 
+          users={members} 
           lastUpdate={groupStats.lastUpdated}
         />
       )}

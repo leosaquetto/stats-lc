@@ -16,7 +16,7 @@ import { statsService } from '../services/statsService';
 type Range = 'today' | 'weeks' | 'months' | 'lifetime';
 
 export default function RankingScreen() {
-  const { groupStats, isLoading: isGlobalLoading, error, fetchGroupStats } = useStatsStore();
+  const { groupStats, isLoading: isGlobalLoading, error, fetchGroup } = useStatsStore();
   const [activeRange, setActiveRange] = useState<Range>('months');
   const [rankingsData, setRankingsData] = useState<Record<string, any>>({});
   const [isLocalLoading, setIsLocalLoading] = useState(false);
@@ -38,8 +38,10 @@ export default function RankingScreen() {
     loadRankings();
   }, [activeRange]);
   
+  const members = groupStats?.members || Object.values(groupStats?.users || {});
+  
   // Prioriza os dados do ranking específico se disponível
-  const displayUsers = Object.values(groupStats?.users || {}).map(user => {
+  const displayUsers = members.map(user => {
     const stats = rankingsData[user.id] || {};
     return {
       ...user,
@@ -86,7 +88,7 @@ export default function RankingScreen() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Arena do Group</h1>
           <p className="text-white/60 text-sm">Disputa sonora entre os amigos</p>
         </div>
-        <button onClick={() => fetchGroupStats(true)} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
+        <button onClick={() => fetchGroup(true)} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
            <RefreshCcw className={clsx("h-4 w-4 text-white/50", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
         </button>
       </header>
