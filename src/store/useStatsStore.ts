@@ -11,12 +11,15 @@ import { statsService } from '../services/statsService';
 interface StatsState {
   groupStats: GroupStats | null;
   isLoading: boolean;
+  isRefreshing: boolean;
   isOffline: boolean;
   error: string | null;
   lastFetchTime: Record<string, number>;
+  userTrackStats: Record<string, number>;
   
   // Actions
   fetchGroup: (force?: boolean) => Promise<void>;
+  fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
   setOffline: (offline: boolean) => void;
 }
@@ -26,29 +29,47 @@ export const useStatsStore = create<StatsState>()(
     (set, get) => ({
       groupStats: null,
       isLoading: false,
+      isRefreshing: false,
       isOffline: !navigator.onLine,
       error: null,
       lastFetchTime: {},
+      userTrackStats: {},
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
 
       fetchGroup: async (force = false) => {
-        set({ isLoading: true, error: null });
+        const isInitial = !get().groupStats;
+        if (isInitial) set({ isLoading: true });
+        else set({ isRefreshing: true });
+        
+        set({ error: null });
         try {
           const data = await statsService.getGroupData(force);
           set({ 
             groupStats: data, 
             isLoading: false, 
+            isRefreshing: false,
             lastFetchTime: { ...get().lastFetchTime, group: Date.now() } 
           });
         } catch (err: any) {
           console.error("Store Error:", err);
+          set({ isLoading: false, isRefreshing: false });
           
           if (get().groupStats) {
-            set({ isLoading: false, error: "Modo Offline: Exibindo últimos dados conhecidos." });
+            set({ error: "Modo Offline: Exibindo últimos dados conhecidos." });
           } else {
-            set({ error: "Erro na conexão com a API de música.", isLoading: false });
+            set({ error: "Erro na conexão com a API de música." });
           }
+        }
+      },
+
+      fetchUserTrackStats: async (userId: string, trackId: string) => {
+        const key = `${userId}:${trackId}`;
+        try {
+          const count = await statsService.fetchEntityStats(userId, 'track', trackId);
+          set({ userTrackStats: { ...get().userTrackStats, [key]: count } });
+        } catch (e) {
+          console.error("fetchUserTrackStats error:", e);
         }
       },
 

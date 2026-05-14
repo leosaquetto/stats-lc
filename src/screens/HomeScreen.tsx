@@ -18,7 +18,22 @@ export default function HomeScreen() {
     console.log("MAIN MEMBER", leoStats);
   }
   
-  const friends = members.filter(u => u.id !== LEO_ID);
+  const friendsSelection = members.filter(u => u.id !== LEO_ID);
+  
+  // Amigos em Sintonia: Apenas quem está ouvindo AGORA (status live)
+  const friendsInSync = friendsSelection.filter(u => {
+    const status = coreUtils.getPlaybackStatus(u);
+    return status.status === "live";
+  });
+
+  // Histórico da Sessão: Todos os membros, ordenados pelo playedAt/timestamp mais recente
+  const sessionHistory = [...members]
+    .filter(u => u.nowPlaying?.track) // Só quem tem alguma info de track
+    .sort((a, b) => {
+      const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
+      const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
+      return timeB - timeA;
+    });
 
   useEffect(() => {
     // Só busca se não tiver os dados globais. O App.tsx já cuida do fetch inicial e polling.
@@ -104,18 +119,23 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Feed dos Amigos: Horizontal Scroll */}
+      {/* Amigos em Sintonia: Horizontal Scroll */}
       <SectionHeader 
         title="Amigos em Sintonia" 
-        action={<span className="text-[9px] text-orange-500 font-black uppercase tracking-tighter">Live Feed</span>}
+        action={<span className={clsx("text-[9px] font-black uppercase tracking-tighter", friendsInSync.length > 0 ? "text-orange-500" : "text-white/20")}>
+          {friendsInSync.length} ativos
+        </span>}
       />
       
-      <div className="grid grid-cols-5 gap-1 pb-4">
+      <div className={clsx(
+        "grid gap-4 pb-4 overflow-x-auto no-scrollbar -mx-2 px-2",
+        friendsInSync.length > 0 ? "grid-flow-col auto-cols-[100px]" : "grid-cols-1"
+      )}>
         <AnimatePresence mode="popLayout">
-          {isLoading && friends.length === 0 ? (
+          {isLoading && friendsSelection.length === 0 ? (
             [1, 2, 3, 4, 5].map(i => <FriendsCardSkeleton key={i} />)
-          ) : (
-            friends.slice(0, 5).map((user, idx) => {
+          ) : friendsInSync.length > 0 ? (
+            friendsInSync.map((user, idx) => {
               const track = user.nowPlaying?.track;
               const artistName = track?.artists
                 ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
@@ -130,42 +150,55 @@ export default function HomeScreen() {
                   songName={track?.name}
                   artistName={artistName}
                   imageUrl={track?.image} 
-                  isNowPlaying={!!user.nowPlaying && user.nowPlaying.isNow}
+                  isNowPlaying={true}
                   timestamp={user.nowPlaying?.timestamp}
                   playedCount={track?.playedCount}
                   onClick={() => track && setSelectedTrack(track)}
                 />
               );
             })
+          ) : !isLoading && (
+            <div className="py-8 glass-card border-dashed border-white/10 flex flex-col items-center justify-center opacity-30">
+               <span className="text-[10px] font-black uppercase tracking-widest">Ninguém ouvindo agora</span>
+            </div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Actividade Recente (Listagem Condensada) */}
+      {/* Histórico da Sessão (Listagem Condensada) */}
       <SectionHeader title="Histórico da Sessão" />
       <div className="flex flex-col gap-3">
-         {friends.slice(0, 3).map((user, idx) => {
-           const track = user.nowPlaying?.track;
-           const artistName = track?.artists
-             ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
-             : (user.nowPlaying ? "Unknown Artist" : "-");
+         {sessionHistory.length > 0 ? (
+           sessionHistory.slice(0, 8).map((user, idx) => {
+            const track = user.nowPlaying?.track;
+            const artistName = track?.artists
+              ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
+              : (user.nowPlaying ? "Unknown Artist" : "-");
+
+            const playback = coreUtils.getPlaybackStatus(user);
+            const isLive = playback.status === "live";
 
              return (
                <MusicCard
-                 key={`${user.id || idx}-session`}
+                 key={`${user.id || idx}-session-${track?.id}`}
                  userId={user.id}
                  userName={user.name}
                  songName={track?.name || "Offline"}
                  artistName={artistName}
                  track={track}
                  imageUrl={track?.image}
-                 isNowPlaying={false}
+                 isNowPlaying={isLive}
                  className="bg-transparent border-white/[0.03] p-3"
-                 footer={user.nowPlaying?.timestamp ? coreUtils.getTimeAgoSmart(new Date(user.nowPlaying.timestamp)) : undefined}
+                 footer={isLive ? "LIVE NOW" : coreUtils.formatRelativeTimeSP(user.nowPlaying?.timestamp)}
                  onClick={() => track && setSelectedTrack(track)}
                />
              );
-         })}
+           })
+         ) : !isLoading && (
+            <div className="py-12 glass-card border-dashed border-white/10 flex flex-col items-center justify-center opacity-20">
+               <span className="text-[10px] font-black uppercase tracking-widest">Nenhum registro recente</span>
+            </div>
+         )}
       </div>
 
       <p className="mt-12 text-center text-[9px] text-white/20 lowercase tracking-[0.4em] font-mundial font-semibold mb-20">

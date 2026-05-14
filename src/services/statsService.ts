@@ -136,7 +136,6 @@ export const statsService = {
     try {
       const response = await fetchFromApi<any>('/api/group');
       
-      // Se o backend enviar rankings prontos, usamos!
       const rangeMap: Record<string, string> = {
         'today': 'today',
         'weeks': 'week',
@@ -145,11 +144,10 @@ export const statsService = {
       };
       
       const backendRange = rangeMap[range];
-      if (response.rankings && response.rankings[backendRange]) {
+      if (response.rankings?.[backendRange]) {
         return response.rankings[backendRange];
       }
 
-      // Fallback: calcular do members
       const rankings: Record<string, any> = {};
       if (response.members) {
         response.members.forEach((m: any) => {

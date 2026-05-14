@@ -39,12 +39,15 @@ export const coreUtils = {
    * Retorna a URL do avatar do usuário com fallback para o Peter ou iniciais
    */
   getUserAvatar(userId: string, avatarUrl?: string): string {
-    if (userId === GROUP_USERS.PETER.id) {
-      return "https://i.imgur.com/4iOIFkx.jpeg";
-    }
+    const isPeter = userId === GROUP_USERS.PETER.id;
+    const hasValidAvatar = avatarUrl && !avatarUrl.includes("placeholders/users/private.webp") && !avatarUrl.includes("ui-avatars.com");
     
-    if (avatarUrl && !avatarUrl.includes("placeholders/users/private.webp") && !avatarUrl.includes("ui-avatars.com")) {
-      return avatarUrl;
+    if (hasValidAvatar) {
+      return avatarUrl!;
+    }
+
+    if (isPeter) {
+      return "https://i.imgur.com/4iOIFkx.jpeg";
     }
 
     return `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(this.getUserName(userId) || "U")}`;
@@ -114,6 +117,10 @@ export const coreUtils = {
     return formatRelativeTimeSP(date);
   },
 
+  formatRelativeTimeSP(dateInput: string | number | Date): string {
+    return formatRelativeTimeSP(dateInput);
+  },
+
   /**
    * Move o dono do álbum para a primeira posição do array de artistas
    * com comparação robusta (IDs ou Nomes normalizados)
@@ -149,8 +156,14 @@ export const coreUtils = {
 
   /**
    * Detecta a plataforma musical baseada em IDs e URLs de imagem
+   * Prioriza a imagem para definir a ORIGEM da reprodução
    */
-  detectMusicPlatform(track: any): { primary: "appleMusic" | "spotify" | "unknown", hasAppleMusic: boolean, hasSpotify: boolean, confidence: "high" | "medium" | "low" } {
+  detectMusicPlatform(track: any): { 
+    primary: "appleMusic" | "spotify" | "unknown", 
+    hasAppleMusic: boolean, 
+    hasSpotify: boolean, 
+    confidence: "high" | "medium" | "low" 
+  } {
     if (!track) return { primary: "unknown", hasAppleMusic: false, hasSpotify: false, confidence: "low" };
 
     const hasAppleMusicId = !!track.appleMusicId;
@@ -163,20 +176,22 @@ export const coreUtils = {
     let primary: "appleMusic" | "spotify" | "unknown" = "unknown";
     let confidence: "high" | "medium" | "low" = "low";
 
-    if (hasAppleMusicId || hasSpotifyId) {
+    // Regra de prioridade: Imagem define a ORIGEM se disponível
+    if (isAppleImage) {
+      primary = "appleMusic";
+      confidence = hasAppleMusicId ? "high" : "medium";
+    } else if (isSpotifyImage) {
+      primary = "spotify";
+      confidence = hasSpotifyId ? "high" : "medium";
+    } else if (hasAppleMusicId && !hasSpotifyId) {
+      primary = "appleMusic";
       confidence = "high";
-      if (hasAppleMusicId && hasSpotifyId) {
-        if (isAppleImage) primary = "appleMusic";
-        else if (isSpotifyImage) primary = "spotify";
-        else primary = "unknown";
-      } else if (hasAppleMusicId) {
-        primary = "appleMusic";
-      } else {
-        primary = "spotify";
-      }
-    } else if (isAppleImage || isSpotifyImage) {
-      confidence = "medium";
-      primary = isAppleImage ? "appleMusic" : "spotify";
+    } else if (hasSpotifyId && !hasAppleMusicId) {
+      primary = "spotify";
+      confidence = "high";
+    } else if (hasAppleMusicId && hasSpotifyId) {
+      primary = "unknown"; // Ambos disponíveis mas imagem não conclusiva
+      confidence = "high";
     }
 
     return {

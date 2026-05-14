@@ -589,13 +589,13 @@ export const MusicCard = ({
       whileHover={onClick ? { y: -4, backgroundColor: "rgba(255, 255, 255, 0.08)" } : {}}
       onClick={onClick}
       className={cn(
-        "glass-card group relative flex items-center gap-4 border-white/5 p-4",
+        "glass-card group relative flex items-center gap-4 border-white/5 p-4 bg-white/[0.03]",
         onClick && "cursor-pointer active:scale-[0.98] transition-all",
         className
       )}
       style={{ 
-        boxShadow: isNowPlaying ? `0 0 20px ${accentColor}08` : undefined,
-        borderColor: isNowPlaying ? `${accentColor}25` : undefined
+        boxShadow: isNowPlaying ? `0 0 20px ${accentColor}10` : undefined,
+        borderColor: isNowPlaying ? `${accentColor}30` : undefined
       }}
     >
       <div className="relative h-14 w-14 shrink-0">
@@ -610,7 +610,7 @@ export const MusicCard = ({
             <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px] z-10">
                <div className="flex items-end gap-[1.5px] h-2.5">
                   {[0,1,2].map(i => (
-                    <motion.div key={i} animate={{ height: ["20%", "100%", "40%"] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} className="w-[2px] bg-white rounded-full" />
+                    <motion.div key={i} animate={{ height: ["20%", "100%", "40%"] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} className="w-[1.5px] bg-white rounded-full" />
                   ))}
                </div>
             </div>
@@ -618,27 +618,25 @@ export const MusicCard = ({
         </div>
         
         {/* User Badge Overlay */}
-        <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-[#111] bg-black overflow-hidden shadow-lg shadow-black/80 z-20">
+        <div className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full border-2 border-[#111] bg-black overflow-hidden shadow-lg shadow-black/80 z-20">
           <img src={userAvatar} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
-        </div>
-
-        {/* Platform Badge overlay on image */}
-        <div className="absolute top-0 right-0 p-1 z-20">
-          <MusicPlatformBadge track={track || { image: imageUrl }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
         </div>
       </div>
       <div className="flex flex-1 flex-col min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">{userName}</span>
-          {footer && <span className="text-[8px] font-bold text-white/30 uppercase tracking-tighter">{footer}</span>}
+          <div className="flex items-center gap-1.5">
+            {track && <MusicPlatformBadge track={track} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-50 shrink-0" />}
+            {footer && <span className="text-[8px] font-bold text-white/30 uppercase tracking-tighter whitespace-nowrap">{footer}</span>}
+          </div>
         </div>
         <MarqueeText 
           text={songName || ""} 
-          className="font-display text-sm font-medium text-white group-hover:text-orange-500 transition-colors"
+          className="font-display text-sm font-semibold text-white group-hover:text-orange-500 transition-colors"
         />
         <MarqueeText 
           text={artistName || ""} 
-          className="text-[10px] text-white/50"
+          className="text-[10px] font-medium text-white/50"
         />
       </div>
     </motion.div>
@@ -853,248 +851,227 @@ export const FriendsHorizontalCard = ({
     </motion.div>
   );
 };
-
 export const LiveTrackProgress = ({ 
   progressMs, 
   durationMs, 
   timestamp, 
-  isNowPlaying
+  isNowPlaying,
+  platform
 }: { 
   progressMs?: number, 
   durationMs?: number, 
   timestamp: string | number,
   isNowPlaying: boolean;
+  platform: "spotify" | "appleMusic" | "unknown";
 }) => {
   const [currentProgress, setCurrentProgress] = useState(0);
 
   useEffect(() => {
-    if (!durationMs) return;
-
     if (!isNowPlaying) {
-      const progress = progressMs ? (progressMs / durationMs) * 100 : 100;
-      setCurrentProgress(Math.min(progress, 100));
+      setCurrentProgress(100);
       return;
     }
 
-    const calculateProgress = () => {
-      const startTime = new Date(timestamp).getTime();
-      const now = Date.now();
-      const elapsedSinceLog = now - startTime;
-      const totalProgressMs = (progressMs || 0) + elapsedSinceLog;
-      const percent = (totalProgressMs / durationMs) * 100;
-      setCurrentProgress(Math.min(percent, 100));
-    };
+    if (platform === 'spotify' && durationMs) {
+      const calculateProgress = () => {
+        const startTime = new Date(timestamp).getTime();
+        const now = Date.now();
+        const elapsedSinceLog = now - startTime;
+        const totalProgressMs = (progressMs || 0) + elapsedSinceLog;
+        const percent = (totalProgressMs / durationMs) * 100;
+        setCurrentProgress(Math.min(percent, 100));
+      };
 
-    calculateProgress();
-    const interval = setInterval(calculateProgress, 1000);
-    return () => clearInterval(interval);
-  }, [progressMs, durationMs, timestamp, isNowPlaying]);
+      calculateProgress();
+      const interval = setInterval(calculateProgress, 1000);
+      return () => clearInterval(interval);
+    } else if (platform === 'appleMusic') {
+      // Emulado para Apple Music já que o stats.fm não dá progresso real para ele
+      const interval = setInterval(() => {
+        setCurrentProgress(prev => (prev + 0.5) % 100);
+      }, 500);
+      return () => clearInterval(interval);
+    } else {
+      setCurrentProgress(100);
+    }
+  }, [progressMs, durationMs, timestamp, isNowPlaying, platform]);
+
+  if (!durationMs && platform !== 'appleMusic') {
+     return (
+       <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
+          <motion.div 
+            animate={{ x: ["-100%", "100%"] }} 
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="h-full w-1/2 bg-white/10" 
+          />
+       </div>
+     );
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex justify-between items-center px-0.5 min-w-0">
-        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-white/60 whitespace-nowrap truncate mr-2">
-          {isNowPlaying ? "Live Progress" : "Track Completion"}
-        </span>
-        <span className={cn(
-          "text-[8px] sm:text-[9px] font-mono font-bold shrink-0",
-          isNowPlaying ? "text-orange-500 animate-pulse" : "text-white/40"
-        )}>
-          {isNowPlaying ? "LIVE" : "FINISHED"}
-        </span>
-      </div>
       <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
         <motion.div 
           initial={false}
           animate={{ width: `${currentProgress}%` }}
-          transition={{ ease: "linear", duration: isNowPlaying ? 1 : 0.5 }}
+          transition={{ ease: "linear", duration: isNowPlaying && platform === 'spotify' ? 1 : 0.5 }}
           className={cn(
             "h-full transition-colors duration-500",
             isNowPlaying 
-              ? "bg-gradient-to-r from-orange-600 via-orange-400 to-yellow-500" 
-              : "bg-white/40"
+              ? "bg-gradient-to-r from-orange-600 via-orange-400 to-yellow-500 shadow-[0_0_8px_rgba(255,159,10,0.4)]" 
+              : "bg-white/20"
           )} 
         />
       </div>
-      {durationMs && (
-        <div className="flex justify-between">
-          <span className="text-[8px] font-mono text-white/40">
-            {coreUtils.formatDuration(Math.floor((currentProgress / 100) * durationMs))}
-          </span>
-          <span className="text-[8px] font-mono text-white/40">
-            {coreUtils.formatDuration(durationMs)}
-          </span>
-        </div>
-      )}
+      <div className="flex justify-between items-center px-0.5">
+        <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">
+           {isNowPlaying ? (platform === 'appleMusic' ? "Sincronizando Apple" : "Realtime Sync") : "Terminado"}
+        </span>
+        {durationMs && (
+           <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">
+              {platform === 'spotify' && isNowPlaying ? coreUtils.formatDuration(Math.floor((currentProgress / 100) * durationMs)) + ' / ' : ''}
+              {coreUtils.formatDuration(durationMs)}
+           </span>
+        )}
+      </div>
     </div>
   );
 };
 
 export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsToday, onTrackClick }: { userId: string, userName?: string, userAvatar?: string, nowPlaying?: any, streamsToday: number, onTrackClick?: (track: any) => void }) => {
   const accentColor = GROUP_USERS.LEO.color;
-  // Avatar do perfil (com Peter fallback logic)
-  const profileAvatar = coreUtils.withPeterFallback(userId, userAvatar);
-  // Imagem do álbum atual
-  const albumImage = nowPlaying?.track?.image;
+  const profileAvatar = coreUtils.getUserAvatar(userId, userAvatar);
   const track = nowPlaying?.track;
+  const albumImage = track?.image;
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
   const isActuallyLive = playback.status === "live";
   const platform = coreUtils.detectMusicPlatform(track);
+  
+  const fetchUserTrackStats = useStatsStore(state => state.fetchUserTrackStats);
+  const userTrackStats = useStatsStore(state => state.userTrackStats);
+  const trackStatsKey = `${userId}:${track?.id}`;
+  const playCount = userTrackStats[trackStatsKey];
+
+  useEffect(() => {
+    if (track?.id) {
+      fetchUserTrackStats(userId, track.id);
+    }
+  }, [track?.id, userId, fetchUserTrackStats]);
+
+  const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
+  const statusLabel = isActuallyLive ? "ouvindo agora" : `last played às ${formattedTime}`;
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-[42px] bg-gradient-to-br from-[#121212] to-[#050505] border border-white/10 p-5 mb-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+      className="relative overflow-hidden rounded-[42px] bg-[#0A0A0A] border border-white/5 p-6 mb-6 shadow-2xl"
     >
       {/* Background Glow */}
       <div 
         className={cn(
-          "absolute -right-10 -top-20 h-80 w-80 rounded-full blur-[110px] opacity-25 transition-all duration-1000",
-          isActuallyLive ? "animate-pulse" : "opacity-10"
+          "absolute -right-20 -top-20 h-96 w-96 rounded-full blur-[120px] opacity-20 transition-all duration-1000",
+          isActuallyLive ? "animate-pulse" : "opacity-5"
         )}
         style={{ backgroundColor: accentColor }}
       />
       
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div 
-              className="h-11 w-11 rounded-full p-[2px] shadow-lg shadow-black/40 overflow-hidden"
-              style={{ background: `linear-gradient(to tr, ${accentColor}, #ffd700)` }}
-            >
-              <SmartImage 
-                src={profileAvatar} 
-                className="h-full w-full rounded-full" 
-                fallback={userName?.charAt(0) || "L"} 
-                rounded="full"
-              />
+      <div className="relative z-10 flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 to-yellow-500">
+               <SmartImage 
+                 src={profileAvatar} 
+                 className="h-full w-full rounded-full" 
+                 fallback={userName?.charAt(0) || "L"} 
+                 rounded="full"
+               />
             </div>
-            <div>
-              <h1 className="font-mundial text-lg font-semibold tracking-tight text-white leading-tight truncate max-w-[200px]">{userName || "Sincronizando..."}</h1>
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-col">
+              <span className="text-[15px] font-mundial font-bold text-white/90 leading-tight">{userName}</span>
+              <div className="flex items-center gap-1.5 mt-0.5">
                 <div className={cn(
-                   "h-1 w-1 rounded-full shadow-[0_0_8px_rgba(255,159,10,0.5)]",
-                   isActuallyLive ? "bg-orange-500 animate-pulse" : "bg-white/20"
+                   "h-1 w-1 rounded-full",
+                   isActuallyLive ? "bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(255,159,10,0.8)]" : "bg-white/20"
                 )} />
-                <p className={cn(
-                  "text-[8px] font-mundial font-black tracking-[0.2em] uppercase transition-colors duration-500",
-                  isActuallyLive ? "text-orange-500/90" : "text-white/30"
-                )}>
-                  {playback.label}
-                </p>
+                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">
+                  {statusLabel}
+                </span>
               </div>
             </div>
           </div>
-            <div className="flex flex-col items-end">
-              <div className="text-3xl font-display font-black text-white leading-none tracking-tighter drop-shadow-lg">
-                <AnimatedNumber value={streamsToday || 0} />
-              </div>
-              <div className="text-[7px] uppercase tracking-[0.3em] text-white/40 font-mundial font-black mt-1.5 pr-0.5">Total Hoje</div>
-            </div>
+          
+          <div className="flex flex-col items-end">
+             <span className="text-3xl font-display font-black text-white tracking-tighter leading-none">
+                <AnimatedNumber value={streamsToday} />
+             </span>
+             <span className="text-[7.5px] font-black uppercase tracking-[0.25em] text-white/25 mt-1.5">Total Hoje</span>
+          </div>
         </div>
 
-        {nowPlaying && nowPlaying.track && nowPlaying.track.name && nowPlaying.track.name !== "Desconhecido" ? (
-          <div className="flex items-center gap-3">
-            <div 
-              className="relative h-32 w-32 shrink-0 -ml-2 group cursor-pointer active:scale-95 transition-all"
-              onClick={() => onTrackClick?.(track)}
-            >
-               <div 
-                 className={cn(
-                   "absolute inset-0 rounded-[32px] blur-2xl opacity-40 transition-all duration-1000",
-                   isActuallyLive ? "opacity-40" : "opacity-0"
-                 )} 
-                 style={{ backgroundColor: accentColor }}
-               />
-               <div className={cn(
-                 "relative h-full w-full rounded-[30px] bg-white/5 overflow-hidden shadow-2xl border border-white/10",
-                 !isActuallyLive && "opacity-80 grayscale-[0.3]"
-               )}>
-                  <img src={albumImage} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
-               </div>
-               
-               {/* Platform Icon Overlay */}
-               <div className="absolute -bottom-2 -right-2 z-20">
-                  <MusicPlatformBadge track={track} className="h-7 w-7 rounded-lg border-white/10 p-0" />
-                  {!platform.hasAppleMusic && !platform.hasSpotify && (
-                    <div className="h-7 w-7 rounded-lg glass border border-white/10 flex items-center justify-center shadow-2xl z-20 overflow-hidden">
-                      <Music2 className="h-3.5 w-3.5 text-white/40" />
-                    </div>
-                  )}
-               </div>
-            </div>
-
-            <div className="flex flex-1 flex-col min-w-0 justify-center">
-               <div className="flex flex-col">
-                  {/* Play Count Indicator (Badge) */}
-                  {track.playedCount && (
-                    <div className="flex justify-start mb-1.5">
-                      <div className="px-1.5 py-0.5 rounded-md bg-white/10 border border-white/10 flex items-center gap-1">
-                        <TrendingUp className="h-2 w-2 text-white/40" />
-                        <span className="text-[7px] font-mundial font-bold text-white/50 uppercase tracking-widest leading-none">#{track.playedCount}</span>
-                      </div>
-                    </div>
-                  )}
-    
-                  <ScrollingText 
-                    text={track.name}
-                    className={cn(
-                      "text-xl font-display font-black leading-tight tracking-tight",
-                      isActuallyLive ? "text-white" : "text-white/90"
+        {track ? (
+           <div className="flex flex-col gap-5">
+              <div className="flex items-center gap-4">
+                 <motion.div 
+                   onClick={() => onTrackClick?.(track)}
+                   whileTap={{ scale: 0.95 }}
+                   className="relative h-36 w-36 shrink-0 rounded-[36px] overflow-hidden shadow-2xl border border-white/5 cursor-pointer"
+                 >
+                    <SmartImage src={albumImage} className="h-full w-full" fallback="🎵" />
+                    {isActuallyLive && (
+                       <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px] flex items-center justify-center">
+                          <div className="flex items-end gap-[2px] h-4">
+                             {[1,2,3].map(i => (
+                               <motion.div 
+                                 key={i} 
+                                 animate={{ height: ["20%", "100%", "40%"] }} 
+                                 transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} 
+                                 className="w-[2.5px] bg-white/90 rounded-full" 
+                               />
+                             ))}
+                          </div>
+                       </div>
                     )}
-                  />
-                  <p className="text-sm text-white/60 truncate font-medium mt-0.5">
-                     {Array.isArray(track.artists) ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') : "Artista Desconhecido"}
-                  </p>
-                  {track.albumName && (
-                    <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mt-1.5 line-clamp-2 leading-tight text-balance">
-                      {track.albumName}
-                    </p>
-                  )}
-               </div>
-               
-               <div className="mt-4 flex flex-col gap-3">
-                  <LiveTrackProgress 
+                 </motion.div>
+
+                 <div className="flex flex-1 flex-col min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                       {playCount !== undefined && (
+                         <div className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 flex items-center gap-1.5">
+                            <Headset className="h-2 w-2 text-white/40" />
+                            <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">{playCount} reproduções</span>
+                         </div>
+                       )}
+                       {platform.primary !== 'unknown' && <MusicPlatformBadge track={track} className="p-0 border-none bg-transparent h-3 w-3 shadow-none opacity-50" />}
+                    </div>
+
+                    <ScrollingText 
+                      text={track.name} 
+                      className="text-2xl font-display font-black text-white leading-tight tracking-tight mb-1" 
+                    />
+                    <MarqueeText 
+                      text={Array.isArray(track.artists) ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') : "Artista Desconhecido"}
+                      className="text-[13px] font-medium text-white/60"
+                    />
+                    {track.albumName && <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-2 line-clamp-1">{track.albumName}</span>}
+                 </div>
+              </div>
+
+              <div className="mt-1">
+                 <LiveTrackProgress 
                     progressMs={nowPlaying.progressMs}
                     durationMs={track.durationMs}
                     timestamp={nowPlaying.timestamp}
                     isNowPlaying={isActuallyLive}
-                  />
-    
-                  {/* External Links & Time */}
-                  <div className="flex items-center gap-1.5">
-                     {(platform.hasSpotify || track?.spotifyId) && (
-                        <a 
-                           href={`https://open.spotify.com/track/${track?.spotifyId || (track as any)?.externalIds?.spotify}`}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           className="h-7 px-3 rounded-lg bg-white/[0.03] border border-white/[0.08] flex items-center gap-2 active:scale-95 transition-all hover:bg-green-500/10 hover:border-green-500/20 group"
-                        >
-                           <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" className="h-2.5 w-2.5 opacity-50 group-hover:opacity-100 transition-opacity" alt="" />
-                           <span className="text-[8px] font-black text-white/60 group-hover:text-green-500 uppercase tracking-widest">Spotify</span>
-                        </a>
-                     )}
-                     {(platform.hasAppleMusic || track?.appleMusicId) && (
-                        <a 
-                           href={`https://music.apple.com/br/song/${track?.appleMusicId || (track as any)?.externalIds?.appleMusic}`}
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           className="h-7 px-3 rounded-lg bg-white/[0.03] border border-white/[0.08] flex items-center gap-2 active:scale-95 transition-all hover:bg-pink-500/10 hover:border-pink-500/20 group"
-                        >
-                           <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" className="h-2.5 w-2.5 invert opacity-50 group-hover:opacity-100 transition-opacity" alt="" />
-                           <span className="text-[8px] font-black text-white/60 group-hover:text-pink-500 uppercase tracking-widest">Apple</span>
-                        </a>
-                     )}
-                  </div>
-               </div>
-            </div>
-          </div>
+                    platform={platform.primary}
+                 />
+              </div>
+           </div>
         ) : (
-          <div className="py-12 flex flex-col items-center justify-center border border-dashed border-white/20 rounded-[40px] bg-white/[0.04]">
-             <Activity className="h-10 w-10 text-white/10 mb-3 animate-pulse" />
-             <p className="text-[11px] font-black text-white/30 uppercase tracking-[0.3em]">Sinal Sonoro Inativo</p>
-          </div>
+           <div className="py-12 glass-card rounded-[32px] flex flex-col items-center justify-center opacity-40 border-dashed border-white/10 bg-white/[0.02]">
+              <Music2 className="h-8 w-8 mb-3" />
+              <span className="text-[10px] font-black uppercase tracking-[0.3em]">Sinal Inativo</span>
+           </div>
         )}
       </div>
     </motion.div>
@@ -1167,23 +1144,22 @@ export const Skeleton = ({ className }: { className?: string, key?: string | num
 );
 
 const AnimatedNumber = ({ value }: { value: number }) => {
-  const [displayValue, setDisplayValue] = useState(0);
+  const [displayValue, setDisplayValue] = useState(value);
+  const prevValueRef = useRef(value);
   
   useEffect(() => {
-    let start = 0;
+    if (prevValueRef.current === value) return;
+    
+    let start = prevValueRef.current;
     const end = value;
-    if (start === end) {
-      setDisplayValue(end);
-      return;
-    }
-
-    const duration = 1000;
-    const increment = end / (duration / 16);
+    const duration = 800;
+    const increment = (end - start) / (duration / 16);
     
     const timer = setInterval(() => {
       start += increment;
-      if (start >= end) {
+      if ((increment > 0 && start >= end) || (increment < 0 && start <= end)) {
         setDisplayValue(end);
+        prevValueRef.current = end;
         clearInterval(timer);
       } else {
         setDisplayValue(Math.floor(start));
