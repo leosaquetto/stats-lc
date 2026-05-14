@@ -13,6 +13,7 @@ import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
 import { UserStats, TopItem } from '../types/stats';
 import { LOGO_ORANGE, LOGO_BLACK_ORANGE } from '../constants';
+import { formatTimeSP, formatDateSP, formatRelativeTimeSP, isTodaySP } from '../lib/time';
 
 import { List } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
@@ -253,15 +254,31 @@ export const UserDetailModal = ({
               )}>
                 {initialUser.name}
               </h2>
-              <div className="flex items-center gap-2 mt-1">
-                 <div className={cn(
-                   "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]",
-                   loading ? "bg-white/20 animate-pulse" : "bg-green-500"
-                 )} />
-                 <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.25em]">
-                    {loading ? "Sincronizando..." : "Sincronizado Mês"}
-                 </span>
-              </div>
+              
+              {initialUser.nowPlaying?.track && initialUser.nowPlaying.track.name !== "Desconhecido" ? (
+                <div className="mt-4 flex flex-col items-center">
+                  <MusicPlatformBadge track={initialUser.nowPlaying.track} showLabel />
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <div className={cn(
+                       "h-1 w-1 rounded-full",
+                       coreUtils.getPlaybackStatus(initialUser).status === "live" ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-white/20"
+                    )} />
+                    <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">
+                       {coreUtils.getPlaybackStatus(initialUser).label}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-3">
+                   <div className={cn(
+                     "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]",
+                     loading ? "bg-white/20 animate-pulse" : "bg-green-500"
+                   )} />
+                   <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.25em]">
+                      {loading ? "Sincronizando..." : "Sinal Inativo"}
+                   </span>
+                </div>
+              )}
            </div>
            
            <button 
@@ -603,6 +620,11 @@ export const MusicCard = ({
         <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-[#111] bg-black overflow-hidden shadow-lg shadow-black/80 z-20">
           <img src={userAvatar} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
         </div>
+
+        {/* Platform Badge overlay on image */}
+        <div className="absolute top-0 right-0 p-1 z-20">
+          <MusicPlatformBadge track={{ image: imageUrl, spotifyId: (user as any)?.nowPlaying?.track?.spotifyId, appleMusicId: (user as any)?.nowPlaying?.track?.appleMusicId }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
+        </div>
       </div>
       <div className="flex flex-1 flex-col min-w-0">
         <div className="flex items-center justify-between mb-0.5">
@@ -729,11 +751,14 @@ export const FriendsHorizontalCard = ({
   songName, 
   artistName,
   imageUrl, 
-  isNowPlaying,
+  isNowPlaying: rawIsNowPlaying,
   timestamp,
   onClick,
   playedCount
 }: any) => {
+  const playback = coreUtils.getPlaybackStatus({ nowPlaying: { isNow: rawIsNowPlaying, timestamp, track: { name: songName } } });
+  const isActuallyLive = playback.status === "live";
+  
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
   const userAvatar = coreUtils.getUserAvatar(userId, providedAvatar);
   const firstName = (userName || "").split(' ')[0].toUpperCase();
@@ -756,12 +781,12 @@ export const FriendsHorizontalCard = ({
       <div className="relative">
         <div className={cn(
           "h-16 w-16 sm:h-20 sm:w-20 rounded-[22px] sm:rounded-[28px] p-[2px] transition-all duration-500 shadow-xl",
-          isNowPlaying ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/5"
+          isActuallyLive ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/5"
         )}>
           <div className="h-full w-full rounded-[20px] sm:rounded-[26px] bg-[#050505] overflow-hidden relative">
             <img 
               src={trackImage} 
-              className={cn("h-full w-full object-cover grayscale transition-all duration-700", isNowPlaying && "grayscale-0 scale-110")} 
+              className={cn("h-full w-full object-cover grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
               referrerPolicy="no-referrer" 
               alt=""
             />
@@ -771,6 +796,11 @@ export const FriendsHorizontalCard = ({
         {/* Overlaid User Avatar */}
         <div className="absolute -bottom-1 -right-1 h-6 w-6 sm:h-7 sm:w-7 rounded-full border-2 border-[#050505] bg-black overflow-hidden shadow-2xl z-10 transition-transform group-hover:scale-110">
           <img src={userAvatar} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
+        </div>
+
+        {/* Platform Badge overlay */}
+        <div className="absolute top-0 right-0 p-1 z-10">
+           <MusicPlatformBadge track={{ image: imageUrl }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
         </div>
       </div>
 
@@ -796,7 +826,7 @@ export const FriendsHorizontalCard = ({
         )}
 
         {/* Status Tag */}
-        {isNowPlaying ? (
+        {isActuallyLive ? (
           <motion.div 
             animate={{ opacity: [0.7, 1, 0.7] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -806,8 +836,8 @@ export const FriendsHorizontalCard = ({
           </motion.div>
         ) : (
           <div className="mt-1">
-            <span className="text-[7px] font-black text-white/10 uppercase tracking-widest">
-              {timestamp ? coreUtils.getTimeAgoSmart(new Date(timestamp)) : ""}
+            <span className="text-[7px] font-black text-white/10 uppercase tracking-widest text-center px-1">
+              {playback.status === 'inactive' ? "off" : playback.label}
             </span>
           </div>
         )}
@@ -899,9 +929,9 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
   // Imagem do álbum atual
   const albumImage = nowPlaying?.track?.image;
   const track = nowPlaying?.track;
-  const isActuallyLive = nowPlaying?.isNow || (Date.now() - new Date(nowPlaying?.timestamp).getTime() < 45000);
-  const isSpotify = !!track?.spotifyId || (track as any)?.externalIds?.spotify;
-  const isApple = !!track?.appleMusicId || (track as any)?.externalIds?.appleMusic;
+  const playback = coreUtils.getPlaybackStatus({ nowPlaying });
+  const isActuallyLive = playback.status === "live";
+  const platform = coreUtils.detectMusicPlatform(track);
 
   return (
     <motion.div 
@@ -943,7 +973,7 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                   "text-[8px] font-mundial font-black tracking-[0.2em] uppercase transition-colors duration-500",
                   isActuallyLive ? "text-orange-500/90" : "text-white/30"
                 )}>
-                  {isActuallyLive ? "Ouvindo Agora" : "Visto por último"}
+                  {playback.label}
                 </p>
               </div>
             </div>
@@ -977,13 +1007,12 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                </div>
                
                {/* Platform Icon Overlay */}
-               <div className="absolute -bottom-2 -right-2 h-7 w-7 rounded-lg glass border border-white/10 flex items-center justify-center shadow-2xl z-20 overflow-hidden">
-                  {isSpotify ? (
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" className="h-4 w-4 drop-shadow-[0_0_2px_rgba(30,215,96,0.5)]" alt="Spotify" />
-                  ) : isApple ? (
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" className="h-4 w-4 invert drop-shadow-[0_0_2px_rgba(255,45,85,0.5)]" alt="Apple Music" />
-                  ) : (
-                    <Music2 className="h-3.5 w-3.5 text-white/40" />
+               <div className="absolute -bottom-2 -right-2 z-20">
+                  <MusicPlatformBadge track={track} className="h-7 w-7 rounded-lg border-white/10 p-0" />
+                  {!platform.hasAppleMusic && !platform.hasSpotify && (
+                    <div className="h-7 w-7 rounded-lg glass border border-white/10 flex items-center justify-center shadow-2xl z-20 overflow-hidden">
+                      <Music2 className="h-3.5 w-3.5 text-white/40" />
+                    </div>
                   )}
                </div>
             </div>
@@ -1027,7 +1056,7 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
     
                   {/* External Links & Time */}
                   <div className="flex items-center gap-1.5">
-                     {(isSpotify || track?.spotifyId) && (
+                     {(platform.hasSpotify || track?.spotifyId) && (
                         <a 
                            href={`https://open.spotify.com/track/${track?.spotifyId || (track as any)?.externalIds?.spotify}`}
                            target="_blank"
@@ -1038,7 +1067,7 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                            <span className="text-[8px] font-black text-white/60 group-hover:text-green-500 uppercase tracking-widest">Spotify</span>
                         </a>
                      )}
-                     {(isApple || track?.appleMusicId) && (
+                     {(platform.hasAppleMusic || track?.appleMusicId) && (
                         <a 
                            href={`https://music.apple.com/br/song/${track?.appleMusicId || (track as any)?.externalIds?.appleMusic}`}
                            target="_blank"
@@ -1159,6 +1188,41 @@ const AnimatedNumber = ({ value }: { value: number }) => {
   return <span>{displayValue}</span>;
 };
 
+export const MusicPlatformBadge = ({ track, className, showLabel = false }: { track: any, className?: string, showLabel?: boolean }) => {
+  const platform = coreUtils.detectMusicPlatform(track);
+  if (platform.primary === "unknown") return null;
+
+  const isApple = platform.primary === "appleMusic";
+  const isSpotify = platform.primary === "spotify";
+
+  return (
+    <div className={cn(
+      "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
+      className
+    )}>
+      {isSpotify && (
+        <img 
+          src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" 
+          className="h-3 w-3 drop-shadow-[0_0_2px_rgba(30,215,96,0.3)]" 
+          alt="" 
+        />
+      )}
+      {isApple && (
+        <img 
+          src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" 
+          className="h-3 w-3 invert drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]" 
+          alt="" 
+        />
+      )}
+      {showLabel && (
+        <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
+          {isSpotify ? "Spotify" : "Apple Music"}
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const totalStreams = users.reduce((sum, u) => sum + (u.streamsToday || 0), 0);
   const sortedParticipants = [...users]
@@ -1237,12 +1301,18 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
 
 export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
   const sorted = [...users].sort((a, b) => (b.totalStreams || 0) - (a.totalStreams || 0));
-  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const currentMonth = monthNames[new Date().getMonth()];
+  
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = { 
+    timeZone: "America/Sao_Paulo", 
+    month: 'long' 
+  };
+  const currentMonth = new Intl.DateTimeFormat('pt-BR', options).format(now);
+  const currentMonthCapitalized = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
   
   return (
     <div className="flex flex-col gap-2 mb-10">
-      <SectionHeader title={`Arena Group Leaderboard (${currentMonth})`} />
+      <SectionHeader title={`Arena Group Leaderboard (${currentMonthCapitalized})`} />
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-2 px-2">
         {sorted.map((user, i) => {
           const isLeo = user.id === GROUP_USERS.LEO.id;
@@ -1374,6 +1444,9 @@ export const TrackLeaderboardModal = ({
                 className="absolute inset-2 blur-2xl opacity-40 rounded-full"
                 style={{ backgroundColor: GROUP_USERS.LEO.color }}
               />
+              <div className="absolute top-2 right-2 z-20">
+                <MusicPlatformBadge track={track} showLabel />
+              </div>
            </div>
            <h2 className="mt-5 text-lg font-display font-black text-white leading-tight truncate w-full px-4">
              {track.name}
@@ -1487,11 +1560,10 @@ export const TrackLeaderboardModal = ({
         </div>
 
           {/* Links Section */}
-          {(track.spotifyId || track.appleMusicId) && (
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
                <SectionHeader title="Ouvir Agora" icon={Headset} />
                <div className="flex items-center gap-2">
-                 {track.spotifyId && (
+                 {(track.spotifyId || coreUtils.detectMusicPlatform(track).hasSpotify) && (
                    <a 
                     href={`https://open.spotify.com/track/${track.spotifyId}`}
                     target="_blank"
@@ -1504,7 +1576,7 @@ export const TrackLeaderboardModal = ({
                      <span className="text-[9px] font-black text-[#1DB954] uppercase tracking-widest whitespace-nowrap">Spotify</span>
                    </a>
                  )}
-                 {track.appleMusicId && (
+                 {(track.appleMusicId || coreUtils.detectMusicPlatform(track).hasAppleMusic) && (
                    <a 
                     href={`https://music.apple.com/song/${track.appleMusicId}`}
                     target="_blank"
@@ -1519,7 +1591,6 @@ export const TrackLeaderboardModal = ({
                  )}
                </div>
             </div>
-          )}
         </div>
 
         <button 

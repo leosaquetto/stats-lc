@@ -4,6 +4,7 @@
  */
 
 import { Artist } from '../types/stats';
+import { formatTimeSP, formatDateSP, formatRelativeTimeSP, isTodaySP } from '../lib/time';
 
 export const GROUP_USERS = {
   LEO: {
@@ -85,26 +86,20 @@ export const coreUtils = {
   formatUpdateTime(lastUpdate?: string | number | Date): string {
     if (!lastUpdate) return "sem atualização";
     try {
-      const updateDate = new Date(lastUpdate);
-      if (isNaN(updateDate.getTime())) return "sem atualização";
+      const date = new Date(lastUpdate);
+      if (isNaN(date.getTime())) return "sem atualização";
       
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const updateDay = new Date(updateDate.getFullYear(), updateDate.getMonth(), updateDate.getDate());
+      const timeStr = formatTimeSP(date);
       
-      const hours = updateDate.getHours().toString().padStart(2, "0");
-      const minutes = updateDate.getMinutes().toString().padStart(2, "0");
-      const timeStr = `${hours}h${minutes}`;
+      if (isTodaySP(date)) return `dados de ${timeStr}`;
       
-      if (updateDay.getTime() === today.getTime()) return `dados de ${timeStr}`;
-      
-      const yesterday = new Date(today);
+      const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      if (updateDay.getTime() === yesterday.getTime()) return `dados de ontem ${timeStr}`;
+      if (formatDateSP(date) === formatDateSP(yesterday)) {
+        return `dados de ontem ${timeStr}`;
+      }
       
-      const day = updateDate.getDate().toString().padStart(2, "0");
-      const month = (updateDate.getMonth() + 1).toString().padStart(2, "0");
-      return `dados de ${day}/${month} ${timeStr}`;
+      return `dados de ${formatDateSP(date)} ${timeStr}`;
     } catch (e) {
       return "sem atualização";
     }
@@ -116,31 +111,7 @@ export const coreUtils = {
   },
 
   getTimeAgoSmart(date: Date): string {
-    if (isNaN(date.getTime())) return "Recente";
-    const now = new Date();
-    const diffMins = Math.floor((now.getTime() - date.getTime()) / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    
-    if (diffMins < 3) return "ouvindo agora";
-    
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const timeStr = `${hours}h${minutes}`;
-    
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    if (dateDay.getTime() === today.getTime()) {
-      return diffMins < 60 ? `${diffMins}min atrás, ${timeStr}` : `${diffHours}h atrás, ${timeStr}`;
-    }
-    
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    if (dateDay.getTime() === yesterday.getTime()) return `ontem ${timeStr}`;
-    
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `${day}/${month} ${timeStr}`;
+    return formatRelativeTimeSP(date);
   },
 
   /**
@@ -192,5 +163,81 @@ export const coreUtils = {
       console.warn("Falha no scraping do álbum:", albumId);
       return null;
     }
+  },
+
+  /**
+   * Detecta a plataforma musical baseada em IDs e URLs de imagem
+   */
+  detectMusicPlatform(track: any): { primary: "appleMusic" | "spotify" | "unknown", hasAppleMusic: boolean, hasSpotify: boolean, confidence: "high" | "medium" | "low" } {
+    if (!track) return { primary: "unknown", hasAppleMusic: false, hasSpotify: false, confidence: "low" };
+
+    const hasAppleMusicId = !!track.appleMusicId;
+    const hasSpotifyId = !!track.spotifyId;
+    
+    const imageUrl = track.image || track.album?.image || "";
+    const isAppleImage = imageUrl.includes("mzstatic.com") || imageUrl.includes("music.apple.com");
+    const isSpotifyImage = imageUrl.includes("scdn.co") || imageUrl.includes("spotifycdn");
+
+    let primary: "appleMusic" | "spotify" | "unknown" = "unknown";
+    let confidence: "high" | "medium" | "low" = "low";
+
+    if (hasAppleMusicId || hasSpotifyId) {
+      confidence = "high";
+      if (hasAppleMusicId && hasSpotifyId) {
+        if (isAppleImage) primary = "appleMusic";
+        else if (isSpotifyImage) primary = "spotify";
+        else primary = "unknown";
+      } else if (hasAppleMusicId) {
+        primary = "appleMusic";
+      } else {
+        primary = "spotify";
+      }
+    } else if (isAppleImage || isSpotifyImage) {
+      confidence = "medium";
+      primary = isAppleImage ? "appleMusic" : "spotify";
+    }
+
+    return {
+      primary,
+      hasAppleMusic: hasAppleMusicId || isAppleImage,
+      hasSpotify: hasSpotifyId || isSpotifyImage,
+      confidence
+    };
+  },
+
+  /**
+   * Determina o status de reprodução de um membro
+   */
+  getPlaybackStatus(member: any): { 
+    status: "live" | "lastPlayed" | "inactive", 
+    label: string, 
+    minutesAgo: number | null 
+  } {
+    const nowPlaying = member.nowPlaying;
+    
+    // Se não há objeto ou não há uma track válida
+    if (!nowPlaying || !nowPlaying.track || nowPlaying.track.name === "Desconhecido") {
+      return { status: "inactive", label: "sinal inativo", minutesAgo: null };
+    }
+
+    const timestamp = nowPlaying.timestamp;
+    const isNow = nowPlaying.isNow;
+    
+    const date = new Date(timestamp);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    // Se o backend diz explicitamente que é agora, ou se o sinal é extremamente recente (< 5 min)
+    const isActuallyLive = isNow === true || diffMins < 5;
+
+    if (isActuallyLive) {
+      return { status: "live", label: "ouvindo agora", minutesAgo: Math.max(0, diffMins) };
+    }
+
+    return { 
+      status: "lastPlayed", 
+      label: "last played", 
+      minutesAgo: diffMins 
+    };
   }
 };

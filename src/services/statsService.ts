@@ -80,9 +80,11 @@ export const statsService = {
           let nowPlaying = undefined;
           if (m.nowPlaying) {
             const track = m.nowPlaying.track;
+            const ts = m.nowPlaying.timestamp || m.nowPlaying.playedAt || new Date().toISOString();
+            
             nowPlaying = {
-              isNow: m.nowPlaying.isNow || false,
-              timestamp: m.nowPlaying.timestamp || new Date().toISOString(),
+              isNow: m.nowPlaying.isNow !== undefined ? m.nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000), // Fallback de 5 min se isNow vier undefined
+              timestamp: ts,
               progressMs: m.nowPlaying.progressMs,
               track: {
                 id: track?.id,
