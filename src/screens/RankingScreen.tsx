@@ -213,25 +213,7 @@ export default function RankingScreen() {
         })}
       </section>
 
-      {/* Collective Goal */}
-      <div className="mt-4 p-8 glass-card border-white/5 bg-gradient-to-tr from-white/[0.02] to-transparent rounded-[40px] mb-12">
-        <div className="flex items-center gap-3 mb-6">
-           <Award className="h-5 w-5 text-white/40" />
-           <h4 className="font-bold text-sm tracking-tight">Meta Coletiva</h4>
-        </div>
-        <div className="flex justify-between text-[9px] font-bold uppercase tracking-widest text-white/30 mb-3">
-           <span>Audição em Grupo</span>
-           <span className="text-white/60">84% Concluído</span>
-        </div>
-        <div className="h-2 w-full rounded-full bg-white/5 overflow-hidden">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: '84%' }}
-            transition={{ duration: 2, ease: "circOut" }}
-            className="h-full bg-white/40" 
-          />
-        </div>
-      </div>
+      {/* Meta Coletiva Oculta */}
     </div>
   );
 }

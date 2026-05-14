@@ -27,7 +27,16 @@ export default function StatsScreen() {
   const leo = groupStats?.users[LEO_ID] || members.find(m => m.id === LEO_ID);
   const accentColor = GROUP_USERS.LEO.color;
 
-  const filters: Filter[] = ['Hoje', 'Semana', 'Mês', 'Geral'];
+  const hasLifetime = !!fullUserData?.stats?.lifetime?.streams;
+  const filters: Filter[] = hasLifetime 
+    ? ['Hoje', 'Semana', 'Mês', 'Geral']
+    : ['Hoje', 'Semana', 'Mês'];
+    
+  useEffect(() => {
+    if (!hasLifetime && activeFilter === 'Geral') {
+      setActiveFilter('Mês');
+    }
+  }, [hasLifetime, activeFilter]);
 
   useEffect(() => {
     async function loadFullData() {
@@ -50,7 +59,7 @@ export default function StatsScreen() {
     if (!fullUserData) return null;
     switch (activeFilter) {
       case 'Hoje': return fullUserData.stats.today;
-      case 'Semana': // API doesn't have direct week but we estimate or use month
+      case 'Semana': return fullUserData.stats.week;
       case 'Mês': return fullUserData.stats.month;
       case 'Geral': return fullUserData.stats.lifetime;
       default: return fullUserData.stats.today;

@@ -21,8 +21,11 @@ export default function HomeScreen() {
   const friends = members.filter(u => u.id !== LEO_ID);
 
   useEffect(() => {
-    fetchGroup();
-  }, []);
+    // Só busca se não tiver os dados globais. O App.tsx já cuida do fetch inicial e polling.
+    if (!groupStats) {
+      fetchGroup();
+    }
+  }, [groupStats, fetchGroup]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -154,6 +157,7 @@ export default function HomeScreen() {
                  userName={user.name}
                  songName={track?.name || "Offline"}
                  artistName={artistName}
+                 track={track}
                  imageUrl={track?.image}
                  isNowPlaying={false}
                  className="bg-transparent border-white/[0.03] p-3"

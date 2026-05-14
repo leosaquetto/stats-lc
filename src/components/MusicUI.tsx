@@ -557,6 +557,7 @@ interface MusicCardProps {
   userName: string;
   songName: string;
   artistName: string;
+  track?: any; // Objeto track completo opcional
   imageUrl?: string;
   isNowPlaying?: boolean;
   className?: string;
@@ -569,6 +570,7 @@ export const MusicCard = ({
   userName, 
   songName, 
   artistName, 
+  track,
   imageUrl, 
   isNowPlaying, 
   className,
@@ -577,9 +579,8 @@ export const MusicCard = ({
 }: MusicCardProps) => {
   const isLeo = userId === GROUP_USERS.LEO.id;
   const accentColor = isLeo ? GROUP_USERS.LEO.color : "#FFFFFF";
-  const user = Object.values(useStatsStore.getState().groupStats?.users || {}).find(u => u.id === userId);
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
-  const userAvatar = coreUtils.getUserAvatar(userId, user?.avatar);
+  const userAvatar = coreUtils.getUserAvatar(userId);
 
   return (
     <motion.div
@@ -623,7 +624,7 @@ export const MusicCard = ({
 
         {/* Platform Badge overlay on image */}
         <div className="absolute top-0 right-0 p-1 z-20">
-          <MusicPlatformBadge track={{ image: imageUrl, spotifyId: (user as any)?.nowPlaying?.track?.spotifyId, appleMusicId: (user as any)?.nowPlaying?.track?.appleMusicId }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
+          <MusicPlatformBadge track={track || { image: imageUrl }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
         </div>
       </div>
       <div className="flex flex-1 flex-col min-w-0">
@@ -800,7 +801,14 @@ export const FriendsHorizontalCard = ({
 
         {/* Platform Badge overlay */}
         <div className="absolute top-0 right-0 p-1 z-10">
-           <MusicPlatformBadge track={{ image: imageUrl }} className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" />
+           <MusicPlatformBadge 
+             track={{ 
+               image: imageUrl, 
+               spotifyId: (rawIsNowPlaying as any)?.spotifyId || (coreUtils as any)?.track?.spotifyId, // Tentativa heurística ou passando track completo
+               appleMusicId: (rawIsNowPlaying as any)?.appleMusicId
+             }} 
+             className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" 
+           />
         </div>
       </div>
 

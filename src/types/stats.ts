@@ -45,6 +45,8 @@ export interface UserStats {
   avatar?: string;
   nowPlaying?: NowPlaying;
   streamsToday: number;
+  streamsWeek?: number;
+  streamsMonth?: number;
   totalStreams?: number;
   totalDurationMs?: number;
   scrobbles?: number;

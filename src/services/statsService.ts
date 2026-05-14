@@ -104,8 +104,11 @@ export const statsService = {
             id: uid,
             name: m.profile?.displayName || uid,
             avatar: m.profile?.image,
-            streamsToday: m.stats?.today?.streams || 0,
-            totalStreams: m.stats?.lifetime?.streams || m.stats?.month?.streams || 0,
+            streamsToday: m.stats?.today?.streams ?? 0,
+            streamsWeek: m.stats?.week?.streams ?? 0,
+            streamsMonth: m.stats?.month?.streams ?? 0,
+            totalStreams: m.stats?.month?.streams ?? 0,
+            totalDurationMs: m.stats?.month?.durationMs ?? 0,
             scrobbles: m.stats?.lifetime?.streams || 0,
             nowPlaying
           };
@@ -118,7 +121,7 @@ export const statsService = {
       return {
         users,
         members, // Adicionando members array para facilitar
-        lastUpdated: data.lastUpdated || new Date().toISOString()
+        lastUpdated: data.generatedAt || data.lastUpdated || new Date().toISOString()
       };
     } catch (e: any) {
       const errorMessage = e.response?.data?.message || e.message || "Unknown error";
@@ -130,35 +133,42 @@ export const statsService = {
    * Busca rankings baseados nos dados do grupo
    */
   async getRankings(range: 'weeks' | 'months' | 'lifetime' | 'today' = 'months'): Promise<any> {
-    const data = await this.getGroupData();
-    const rankings: Record<string, any> = {};
-    
-    Object.keys(data.users).forEach(uid => {
-      const u = data.users[uid];
-      let count = 0;
+    try {
+      const response = await fetchFromApi<any>('/api/group');
       
-      switch (range) {
-        case 'today':
-          count = u.streamsToday || 0;
-          break;
-        case 'weeks':
-          // O backend Vercel /api/group pode não ter 'week' separado, 
-          // então usamos scrobbles ou totalStreams como aproximação se necessário, 
-          // ou simplesmente streamsToday se for o único dado live.
-          count = (u as any).streamsWeek || u.streamsToday || 0;
-          break;
-        case 'months':
-          count = (u as any).totalStreams || u.streamsToday || 0;
-          break;
-        case 'lifetime':
-          count = u.scrobbles || (u as any).totalStreams || 0;
-          break;
+      // Se o backend enviar rankings prontos, usamos!
+      const rangeMap: Record<string, string> = {
+        'today': 'today',
+        'weeks': 'week',
+        'months': 'month',
+        'lifetime': 'lifetime'
+      };
+      
+      const backendRange = rangeMap[range];
+      if (response.rankings && response.rankings[backendRange]) {
+        return response.rankings[backendRange];
       }
-      
-      rankings[uid] = { count };
-    });
-    
-    return rankings;
+
+      // Fallback: calcular do members
+      const rankings: Record<string, any> = {};
+      if (response.members) {
+        response.members.forEach((m: any) => {
+          const uid = m.key || m.id;
+          let count = 0;
+          switch (range) {
+            case 'today': count = m.stats?.today?.streams || 0; break;
+            case 'weeks': count = m.stats?.week?.streams || 0; break;
+            case 'months': count = m.stats?.month?.streams || 0; break;
+            case 'lifetime': count = m.stats?.lifetime?.streams || 0; break;
+          }
+          rankings[uid] = { count };
+        });
+      }
+      return rankings;
+    } catch (e) {
+      console.error("Rankings error:", e);
+      return {};
+    }
   },
 
   /**

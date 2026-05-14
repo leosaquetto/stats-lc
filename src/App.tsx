@@ -22,8 +22,8 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    fetchStats(true);
-    const id = setInterval(() => fetchStats(true), 60000);
+    fetchStats(true); // Initial fetch forced
+    const id = setInterval(() => fetchStats(false), 60000); // Polling unforced
     
     return () => {
       window.removeEventListener('online', handleOnline);

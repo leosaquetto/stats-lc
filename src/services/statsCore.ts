@@ -148,24 +148,6 @@ export const coreUtils = {
   },
 
   /**
-   * Tenta extrair o dono do álbum via scraping (fallback extremo)
-   */
-  async extractAlbumOwnerFromStatsHtml(albumId: string): Promise<string | null> {
-    try {
-      const response = await fetch(`https://stats.fm/album/${albumId}`);
-      if (!response.ok) return null;
-      const html = await response.text();
-      
-      // Regex para encontrar o link do artista principal no HTML do stats.fm
-      const match = html.match(/href="\/artist\/([^"]+)"/);
-      return match ? match[1] : null;
-    } catch (e) {
-      console.warn("Falha no scraping do álbum:", albumId);
-      return null;
-    }
-  },
-
-  /**
    * Detecta a plataforma musical baseada em IDs e URLs de imagem
    */
   detectMusicPlatform(track: any): { primary: "appleMusic" | "spotify" | "unknown", hasAppleMusic: boolean, hasSpotify: boolean, confidence: "high" | "medium" | "low" } {
