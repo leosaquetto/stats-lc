@@ -49,16 +49,20 @@ export const useStatsStore = create<StatsState>()(
             groupStats: data, 
             isLoading: false, 
             isRefreshing: false,
+            error: null, // Clear error on success
             lastFetchTime: { ...get().lastFetchTime, group: Date.now() } 
           });
         } catch (err: any) {
           console.error("Store Error:", err);
           set({ isLoading: false, isRefreshing: false });
           
-          if (get().groupStats) {
-            set({ error: "Modo Offline: Exibindo últimos dados conhecidos." });
-          } else {
+          // Se já temos dados, não mostramos erro bloqueante, apenas logs
+          if (!get().groupStats) {
             set({ error: "Erro na conexão com a API de música." });
+          } else {
+            console.warn("Refresh failed, but keeping stale data.");
+            // Opcionalmente podemos setar um erro discreto/temporário
+            // set({ error: "Erro na atualização. Exibindo dados de cache." });
           }
         }
       },

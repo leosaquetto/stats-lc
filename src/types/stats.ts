@@ -21,6 +21,15 @@ export interface Track {
   streams?: number;
   durationMs?: number;
   playedCount?: number;
+  catalogAvailability?: {
+    appleMusic: boolean;
+    spotify: boolean;
+  };
+  externalIds?: {
+    isrc?: string;
+    spotify?: string[];
+    appleMusic?: string[];
+  };
 }
 
 export interface NowPlaying {
@@ -28,6 +37,11 @@ export interface NowPlaying {
   isNow: boolean;
   timestamp: string;
   progressMs?: number;
+  durationMs?: number;
+  playedMs?: number;
+  platformCandidate?: {
+    primary: "appleMusic" | "spotify" | "unknown";
+  };
 }
 
 export interface TopItem {
@@ -37,6 +51,15 @@ export interface TopItem {
   streams?: number;
   playcount?: number;
   artists?: { name: string; id: string }[];
+  durationMs?: number;
+  playedMs?: number;
+  endTime?: string;
+  playedAt?: string;
+  track?: {
+    durationMs?: number;
+    externalIds?: any;
+    catalogAvailability?: any;
+  };
 }
 
 export interface UserStats {
@@ -44,6 +67,11 @@ export interface UserStats {
   name: string;
   avatar?: string;
   nowPlaying?: NowPlaying;
+  platform?: {
+    primary: "appleMusic" | "spotify" | "unknown";
+    confidence: string;
+    source: string;
+  };
   streamsToday: number;
   streamsWeek?: number;
   streamsMonth?: number;

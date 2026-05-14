@@ -11,46 +11,106 @@ export const GROUP_USERS = {
     id: "leo",
     name: "Leo",
     color: "#FF9F0A",
+    platform: "appleMusic" as const,
+    fallbackAvatar: undefined, // Add here if known
   },
   GAB: {
     id: "gab",
     name: "Gab",
     color: "#FFFFFF",
+    platform: "appleMusic" as const,
+    fallbackAvatar: undefined,
   },
   SAVIO: {
     id: "savio",
     name: "Sávio",
     color: "#FFFFFF",
+    platform: "spotify" as const,
+    fallbackAvatar: undefined,
   },
   BENNY: {
     id: "benny",
     name: "Benny",
     color: "#FFFFFF",
+    platform: "spotify" as const,
+    fallbackAvatar: undefined,
   },
   PETER: {
     id: "peter",
     name: "Peter",
     color: "#FFFFFF",
+    platform: "spotify" as const,
+    fallbackAvatar: "https://i.imgur.com/4iOIFkx.jpeg",
   }
 } as const;
 
 export const coreUtils = {
   /**
-   * Retorna a URL do avatar do usuário com fallback para o Peter ou iniciais
+   * Retorna a plataforma fixa do usuário baseada na configuração manual ou API
+   */
+  getUserPlaybackPlatform(userId: string, apiPlatform?: any): { primary: "appleMusic" | "spotify" | "unknown", label: string, confidence: string } {
+    if (apiPlatform && apiPlatform.primary && apiPlatform.primary !== "unknown") {
+      const labels = {
+        appleMusic: "Apple Music",
+        spotify: "Spotify",
+        unknown: ""
+      };
+      return {
+        primary: apiPlatform.primary,
+        label: labels[apiPlatform.primary as keyof typeof labels] || "",
+        confidence: apiPlatform.confidence || "api"
+      };
+    }
+
+    const user = Object.values(GROUP_USERS).find(u => u.id === userId);
+    const platform = user?.platform || "unknown";
+    
+    const labels = {
+      appleMusic: "Apple Music",
+      spotify: "Spotify",
+      unknown: ""
+    };
+
+    return {
+      primary: platform,
+      label: labels[platform as keyof typeof labels] || "",
+      confidence: "manual"
+    };
+  },
+
+  /**
+   * Formata a contagem de reproduções com pluralização correta
+   */
+  formatPlayCount(count: number): string {
+    if (count === 0) return "0 reproduções";
+    if (count === 1) return "1 reprodução";
+    return `${count} reproduções`;
+  },
+  /**
+   * Retorna a URL do avatar do usuário com fallback para o Peter ou iniciais.
+   * Agora considera a API de forma inteligente: se a API trouxer algo que não é o placeholder default, usamos.
    */
   getUserAvatar(userId: string, avatarUrl?: string): string {
-    const isPeter = userId === GROUP_USERS.PETER.id;
-    const hasValidAvatar = avatarUrl && !avatarUrl.includes("placeholders/users/private.webp") && !avatarUrl.includes("ui-avatars.com");
+    const userConfig = Object.values(GROUP_USERS).find(u => u.id === userId);
     
-    if (hasValidAvatar) {
+    // Check if it's a "real" avatar from the API
+    // We reject explicit private placeholders and generic initials
+    const isPlaceholder = !avatarUrl || 
+                         avatarUrl.includes("placeholders/users/private.webp") || 
+                         avatarUrl.includes("ui-avatars.com");
+    
+    // If we have a non-placeholder avatarUrl from the API, use it!
+    if (!isPlaceholder) {
       return avatarUrl!;
     }
 
-    if (isPeter) {
-      return "https://i.imgur.com/4iOIFkx.jpeg";
+    // Fallback logic from our hardcoded config
+    if (userConfig?.fallbackAvatar) {
+      return userConfig.fallbackAvatar;
     }
 
-    return `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(this.getUserName(userId) || "U")}`;
+    // Siglas/Initials fallback
+    return `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(userConfig?.name || this.getUserName(userId) || "U")}`;
   },
 
   /**
@@ -84,6 +144,25 @@ export const coreUtils = {
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
     return h > 0 ? `${this.formatNumber(h)}h ${m}m` : `${m}m`;
+  },
+
+  /**
+   * Formata duração para o estilo "3:41"
+   */
+  formatDurationSmart(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  },
+
+  formatTimeSP(date: string | number | Date): string {
+    return formatTimeSP(date);
+  },
+
+  formatDateSP(date: string | number | Date): string {
+    return formatDateSP(date);
   },
 
   formatUpdateTime(lastUpdate?: string | number | Date): string {
@@ -155,10 +234,9 @@ export const coreUtils = {
   },
 
   /**
-   * Detecta a plataforma musical baseada em IDs e URLs de imagem
-   * Prioriza a imagem para definir a ORIGEM da reprodução
+   * Detecta a disponibilidade da faixa nos catálogos das plataformas
    */
-  detectMusicPlatform(track: any): { 
+  detectCatalogAvailability(track: any): { 
     primary: "appleMusic" | "spotify" | "unknown", 
     hasAppleMusic: boolean, 
     hasSpotify: boolean, 
@@ -176,21 +254,17 @@ export const coreUtils = {
     let primary: "appleMusic" | "spotify" | "unknown" = "unknown";
     let confidence: "high" | "medium" | "low" = "low";
 
-    // Regra de prioridade: Imagem define a ORIGEM se disponível
     if (isAppleImage) {
       primary = "appleMusic";
       confidence = hasAppleMusicId ? "high" : "medium";
     } else if (isSpotifyImage) {
       primary = "spotify";
       confidence = hasSpotifyId ? "high" : "medium";
-    } else if (hasAppleMusicId && !hasSpotifyId) {
+    } else if (hasAppleMusicId) {
       primary = "appleMusic";
       confidence = "high";
-    } else if (hasSpotifyId && !hasAppleMusicId) {
+    } else if (hasSpotifyId) {
       primary = "spotify";
-      confidence = "high";
-    } else if (hasAppleMusicId && hasSpotifyId) {
-      primary = "unknown"; // Ambos disponíveis mas imagem não conclusiva
       confidence = "high";
     }
 

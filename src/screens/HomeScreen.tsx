@@ -1,46 +1,72 @@
 import { useEffect, useState } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
-import { MusicCard, Skeleton, LeoHeader, SectionHeader, FriendsHorizontalCard, FriendsCardSkeleton, LiveGroupOverview, StatsLCLogo, TrackLeaderboardModal } from '../components/MusicUI';
+import { 
+  MusicCard, 
+  Skeleton, 
+  LeoHeader, 
+  SectionHeader, 
+  FriendsHorizontalCard, 
+  FriendsCardSkeleton, 
+  LiveGroupOverview, 
+  StatsLCLogo, 
+  TrackLeaderboardModal,
+  MusicPlatformBadge,
+  SmartImage
+} from '../components/MusicUI';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, Bell, AlertTriangle } from 'lucide-react';
-import { clsx } from 'clsx';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { coreUtils } from '../services/statsCore';
+import { statsService } from '../services/statsService';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 export default function HomeScreen() {
   const { groupStats, isLoading, error, fetchGroup } = useStatsStore();
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
+  const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
   
   const members = groupStats?.members || [];
   const leoStats = members.find(m => m.id === "leo") || members[0];
   const LEO_ID = leoStats?.id || "leo";
 
-  if (leoStats) {
-    console.log("MAIN MEMBER", leoStats);
-  }
-  
-  const friendsSelection = members.filter(u => u.id !== LEO_ID);
-  
-  // Amigos em Sintonia: Apenas quem está ouvindo AGORA (status live)
-  const friendsInSync = friendsSelection.filter(u => {
-    const status = coreUtils.getPlaybackStatus(u);
-    return status.status === "live";
-  });
-
-  // Histórico da Sessão: Todos os membros, ordenados pelo playedAt/timestamp mais recente
-  const sessionHistory = [...members]
-    .filter(u => u.nowPlaying?.track) // Só quem tem alguma info de track
-    .sort((a, b) => {
-      const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
-      const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
-      return timeB - timeA;
-    });
+  useEffect(() => {
+    // Escuta evento customizado para abrir histórico completo
+    const handleOpenHistory = (e: any) => {
+      setViewingFullHistoryUser(e.detail);
+    };
+    window.addEventListener('openHistory', handleOpenHistory);
+    return () => window.removeEventListener('openHistory', handleOpenHistory);
+  }, []);
 
   useEffect(() => {
-    // Só busca se não tiver os dados globais. O App.tsx já cuida do fetch inicial e polling.
+    // Só busca se não tiver os dados globais.
     if (!groupStats) {
       fetchGroup();
     }
   }, [groupStats, fetchGroup]);
+
+  if (leoStats) {
+    console.log("MAIN MEMBER", leoStats);
+  }
+  
+  const friendsSelection = members.filter(u => u && u.id && u.id !== LEO_ID);
+  
+  // Amigos em Sintonia: Todos os amigos, ordenados por LIVE primeiro, depois Recentes
+  const sortedFriends = [...friendsSelection].sort((a, b) => {
+    const statusA = coreUtils.getPlaybackStatus(a).status === "live" ? 0 : 1;
+    const statusB = coreUtils.getPlaybackStatus(b).status === "live" ? 0 : 1;
+    if (statusA !== statusB) return statusA - statusB;
+    
+    const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
+    const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
+    return timeB - timeA;
+  });
+
+  const liveCount = friendsSelection.filter(u => coreUtils.getPlaybackStatus(u).status === "live").length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -100,16 +126,13 @@ export default function HomeScreen() {
                  Tentar Sincronizar Agora
                </button>
             </motion.div>
-        ) : (
+        ) : leoStats ? (
           <LeoHeader 
-            userId={LEO_ID}
-            userName={leoStats?.name}
-            userAvatar={leoStats?.avatar}
-            nowPlaying={leoStats?.nowPlaying} 
-            streamsToday={leoStats?.streamsToday || 0} 
+            user={leoStats}
+            streamsToday={leoStats.streamsToday || 0} 
             onTrackClick={(track) => setSelectedTrack(track)}
           />
-        )}
+        ) : null}
       </AnimatePresence>
 
       {groupStats && (
@@ -119,91 +142,333 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Amigos em Sintonia: Horizontal Scroll */}
+      {/* Amigos em Sintonia: Grid layout with 4 items visible */}
       <SectionHeader 
         title="Amigos em Sintonia" 
-        action={<span className={clsx("text-[9px] font-black uppercase tracking-tighter", friendsInSync.length > 0 ? "text-orange-500" : "text-white/20")}>
-          {friendsInSync.length} ativos
+        action={<span className={clsx("text-[9px] font-black uppercase tracking-tighter", liveCount > 0 ? "text-orange-500" : "text-white/20")}>
+          {liveCount} ativos
         </span>}
       />
       
-      <div className={clsx(
-        "grid gap-4 pb-4 overflow-x-auto no-scrollbar -mx-2 px-2",
-        friendsInSync.length > 0 ? "grid-flow-col auto-cols-[100px]" : "grid-cols-1"
-      )}>
+      <div className="grid grid-cols-4 gap-3 pb-6 -mx-1 px-1">
         <AnimatePresence mode="popLayout">
           {isLoading && friendsSelection.length === 0 ? (
-            [1, 2, 3, 4, 5].map(i => <FriendsCardSkeleton key={i} />)
-          ) : friendsInSync.length > 0 ? (
-            friendsInSync.map((user, idx) => {
+            [1, 2, 3, 4].map(i => <FriendsCardSkeleton key={i} />)
+          ) : (
+            sortedFriends.slice(0, 4).map((user, idx) => {
               const track = user.nowPlaying?.track;
               const artistName = track?.artists
                 ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
                 : (user.nowPlaying ? "Unknown Artist" : "-");
+              
+              const playback = coreUtils.getPlaybackStatus(user);
 
               return (
                 <FriendsHorizontalCard
-                  key={user.id || `friend-${idx}`}
+                  key={user.id}
                   userId={user.id}
                   userName={user.name}
                   userAvatar={user.avatar}
                   songName={track?.name}
                   artistName={artistName}
                   imageUrl={track?.image} 
-                  isNowPlaying={true}
+                  isNowPlaying={playback.status === "live"}
                   timestamp={user.nowPlaying?.timestamp}
                   playedCount={track?.playedCount}
                   onClick={() => track && setSelectedTrack(track)}
                 />
               );
             })
-          ) : !isLoading && (
-            <div className="py-8 glass-card border-dashed border-white/10 flex flex-col items-center justify-center opacity-30">
-               <span className="text-[10px] font-black uppercase tracking-widest">Ninguém ouvindo agora</span>
-            </div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* Histórico da Sessão (Listagem Condensada) */}
       <SectionHeader title="Histórico da Sessão" />
-      <div className="flex flex-col gap-3">
-         {sessionHistory.length > 0 ? (
-           sessionHistory.slice(0, 8).map((user, idx) => {
-            const track = user.nowPlaying?.track;
-            const artistName = track?.artists
-              ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
-              : (user.nowPlaying ? "Unknown Artist" : "-");
-
-            const playback = coreUtils.getPlaybackStatus(user);
-            const isLive = playback.status === "live";
-
-             return (
-               <MusicCard
-                 key={`${user.id || idx}-session-${track?.id}`}
-                 userId={user.id}
-                 userName={user.name}
-                 songName={track?.name || "Offline"}
-                 artistName={artistName}
-                 track={track}
-                 imageUrl={track?.image}
-                 isNowPlaying={isLive}
-                 className="bg-transparent border-white/[0.03] p-3"
-                 footer={isLive ? "LIVE NOW" : coreUtils.formatRelativeTimeSP(user.nowPlaying?.timestamp)}
-                 onClick={() => track && setSelectedTrack(track)}
-               />
-             );
-           })
-         ) : !isLoading && (
-            <div className="py-12 glass-card border-dashed border-white/10 flex flex-col items-center justify-center opacity-20">
-               <span className="text-[10px] font-black uppercase tracking-widest">Nenhum registro recente</span>
-            </div>
-         )}
+      <div className="flex flex-col gap-3 pb-32">
+         {members
+          .filter(u => u && u.id && u.id !== LEO_ID)
+          .map((user, idx) => (
+            <FriendHistoryCard 
+              key={user.id || `hist-${idx}`} 
+              user={user} 
+              onTrackClick={setSelectedTrack}
+            />
+         ))}
       </div>
 
       <p className="mt-12 text-center text-[9px] text-white/20 lowercase tracking-[0.4em] font-mundial font-semibold mb-20">
         stats.lc • Leo's Circle Exclusive v1.0
       </p>
+
+      <AnimatePresence>
+         {viewingFullHistoryUser && (
+            <UserHistoryModal 
+              user={viewingFullHistoryUser} 
+              onClose={() => setViewingFullHistoryUser(null)} 
+              onTrackClick={setSelectedTrack}
+            />
+         )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function FriendHistoryCard({ user, onTrackClick }: { user: any, onTrackClick: (track: any) => void }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [recents, setRecents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const playback = coreUtils.getPlaybackStatus(user);
+  const isLive = playback.status === "live";
+
+  const toggleExpand = async () => {
+    const nextState = !isExpanded;
+    setIsExpanded(nextState);
+    
+    if (nextState && recents.length === 0) {
+      setLoading(true);
+      try {
+        const data = await statsService.fetchRecent(user.id, 5);
+        setRecents(data);
+      } catch (e) {
+        console.error("Failed to load recents for card", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div 
+        onClick={toggleExpand}
+        className={cn(
+          "glass-card p-3 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all",
+          isExpanded ? "bg-white/[0.08] rounded-b-none border-b-0" : "bg-white/[0.02] border-white/5"
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 shrink-0 relative">
+            <SmartImage 
+              src={coreUtils.getUserAvatar(user.id, user.avatar)} 
+              className="h-full w-full rounded-full border border-white/10" 
+              fallback={user.name?.charAt(0)}
+              rounded="full"
+            />
+            {isLive && (
+              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-orange-500 rounded-full border-2 border-[#0a0a0a] animate-pulse" />
+            )}
+          </div>
+          <div className="flex flex-col min-w-0">
+             <span className="text-[12px] font-bold text-white/90 leading-tight truncate">{user.name}</span>
+             <span className="text-[9px] font-black text-white/30 uppercase tracking-widest truncate line-clamp-1">
+               {isLive ? user.nowPlaying?.track?.name : "Histórico da Sessão"}
+             </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+           {isLive && (
+             <div className="flex items-end gap-[1.5px] h-3">
+                {[0,1,2].map(i => (
+                  <motion.div key={i} animate={{ height: ["20%", "100%", "40%"] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} className="w-[1.5px] bg-orange-500 rounded-full shadow-[0_0_4px_rgba(255,159,10,0.5)]" />
+                ))}
+             </div>
+           )}
+           <motion.div 
+             animate={{ rotate: isExpanded ? 180 : 0 }}
+             className="h-6 w-6 rounded-lg bg-white/5 flex items-center justify-center"
+           >
+              <RefreshCcw className={cn("h-3 w-3 text-white/30", loading && "animate-spin")} />
+           </motion.div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden bg-white/[0.04] rounded-b-[24px] border border-t-0 border-white/5 -mt-2 mx-px"
+          >
+            <div className="p-3 flex flex-col gap-2">
+              {loading ? (
+                [1,2,3].map(i => <div key={i} className="h-10 w-full bg-white/5 rounded-xl animate-pulse" />)
+              ) : recents.length > 0 ? (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    {recents
+                       .filter(item => {
+                         const currentTrackId = user.nowPlaying?.track?.id;
+                         const currentTrackName = user.nowPlaying?.track?.name;
+                         const itemTrackId = item.track?.id;
+                         const itemTrackName = item.track?.name;
+                         
+                         // Se for Live, removemos o que já está tocando
+                         if (isLive) {
+                           if (currentTrackId && itemTrackId === currentTrackId) return false;
+                           if (currentTrackName && itemTrackName === currentTrackName) return false;
+                         }
+                         return true;
+                       })
+                       .slice(0, 5)
+                       .map((item, idx) => {
+                       const track = item.track;
+                       const artistName = track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "-";
+                       const playedAt = item.playedAt || item.timestamp || item.endTime;
+                       
+                       return (
+                         <motion.div 
+                           key={`${item.id}-${idx}`}
+                           initial={{ x: -10, opacity: 0 }}
+                           animate={{ x: 0, opacity: 1 }}
+                           transition={{ delay: idx * 0.05 }}
+                           onClick={() => onTrackClick(track)}
+                           className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group"
+                         >
+                            <img src={track.image} className="h-9 w-9 rounded-lg shadow-lg border border-white/5" alt="" />
+                            <div className="flex flex-col min-w-0 flex-1">
+                               <span className="text-[10px] font-bold text-white/90 truncate group-hover:text-orange-500 transition-colors">{track.name}</span>
+                               <span className="text-[8px] font-medium text-white/40 truncate">{artistName}</span>
+                            </div>
+                            <div className="text-right flex flex-col items-end shrink-0">
+                               <span className="text-[7.5px] font-mono text-white/30 uppercase">
+                                 {playedAt ? coreUtils.formatTimeSP(new Date(playedAt)) : ""}
+                               </span>
+                               <div className="mt-1">
+                                 <MusicPlatformBadge platform={item.platformCandidate || user.platform} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-20 shadow-none grayscale" />
+                               </div>
+                            </div>
+                         </motion.div>
+                       );
+                    })}
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const event = new CustomEvent('openHistory', { detail: user });
+                      window.dispatchEvent(event);
+                    }}
+                    className="w-full py-2.5 mt-2 rounded-xl bg-white/5 border border-white/5 text-[8px] font-black uppercase tracking-[0.2em] text-white/30 active:scale-95 transition-all text-center"
+                  >
+                    Ver Histórico Completo
+                  </button>
+                </>
+              ) : (
+                <div className="py-4 text-center">
+                   <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Vazio</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose: () => void, onTrackClick: (track: any) => void }) {
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const LIMIT = 50;
+
+  const loadData = async (newOffset = 0) => {
+    if (newOffset === 0) setLoading(true);
+    else setLoadingMore(true);
+
+    try {
+      const data = await statsService.fetchRecent(user.id, LIMIT, newOffset);
+      if (newOffset === 0) {
+        setItems(data);
+      } else {
+        setItems(prev => [...prev, ...data]);
+      }
+      setOffset(newOffset);
+    } catch (e) {
+      console.error("Failed to load full history", e);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData(0);
+  }, [user.id]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-xl"
+      onClick={onClose}
+    >
+      <motion.div 
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: 'spring', damping: 30, stiffness: 250 }}
+        className="bg-[#050505] w-full h-[95vh] rounded-t-[48px] overflow-hidden border-t border-white/5 shadow-2xl flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-8 pb-4 flex items-center justify-between shrink-0">
+           <div className="flex items-center gap-4">
+              <SmartImage 
+                 src={coreUtils.getUserAvatar(user.id, user.avatar)} 
+                 className="h-12 w-12 rounded-full border-2 border-white/10" 
+                 fallback={user.name?.charAt(0) || "U"} 
+                 rounded="full"
+               />
+              <div className="flex flex-col">
+                 <h2 className="text-xl font-mundial font-bold text-white">{user.name}</h2>
+                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico Completo</span>
+              </div>
+           </div>
+           <button onClick={onClose} className="h-10 w-10 glass rounded-full flex items-center justify-center text-xl">×</button>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto no-scrollbar px-6 pb-32">
+           {loading ? (
+             <div className="flex flex-col gap-3 py-4">
+                {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)}
+             </div>
+           ) : items.length > 0 ? (
+             <div className="flex flex-col gap-3 py-4">
+                {items
+                  .filter(item => item.track?.id !== user.nowPlaying?.track?.id)
+                  .map((item, idx) => (
+                  <MusicCard 
+                    key={`${item.id}-${idx}`}
+                    userId={user.id}
+                    userName={user.name}
+                    songName={item.track?.name}
+                    artistName={item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')}
+                    track={item.track}
+                    imageUrl={item.track?.image}
+                    isNowPlaying={false}
+                    className="bg-white/[0.02] border-white/[0.04] p-3"
+                    onClick={() => onTrackClick(item.track)}
+                    footer={coreUtils.formatTimeSP(new Date(item.playedAt || item.timestamp))}
+                  />
+                ))}
+                
+                <button 
+                  onClick={() => loadData(offset + LIMIT)}
+                  disabled={loadingMore}
+                  className="w-full py-5 rounded-3xl bg-white/5 border border-white/5 text-[11px] font-black uppercase tracking-[0.3em] text-orange-500/80 active:scale-95 transition-all mt-4 mb-10 disabled:opacity-50"
+                >
+                  {loadingMore ? "Carregando..." : "Buscar mais"}
+                </button>
+             </div>
+           ) : (
+             <div className="py-20 text-center opacity-30 italic uppercase tracking-widest text-xs">Sem dados</div>
+           )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

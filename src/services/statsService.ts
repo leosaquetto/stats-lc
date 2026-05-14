@@ -11,13 +11,13 @@ const API_BASE_URL = "https://statslc.leosaquetto.com";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000,
+  timeout: 30000,
 });
 
 /**
  * Utilitário para chamadas à nossa API Backend na Vercel
  */
-const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {}, forceRefresh = false): Promise<T> => {
+const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {}, forceRefresh = false, retries = 2): Promise<T> => {
   try {
     const finalParams = { ...params };
     if (forceRefresh) finalParams.force = '1';
@@ -25,6 +25,15 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
     const response = await api.get(endpoint, { params: finalParams });
     return response.data;
   } catch (error: any) {
+    const isRetryable = error.response?.status === 504 || error.response?.status === 503 || error.code === 'ECONNABORTED';
+    
+    if (isRetryable && retries > 0) {
+      console.warn(`Retryable error [${error.response?.status || error.code}] on ${endpoint}. Retrying... (${retries} left)`);
+      // Pequeno delay antes de tentar de novo
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchFromApi(endpoint, params, forceRefresh, retries - 1);
+    }
+
     console.error(`Vercel API Fetch Error [${endpoint}]:`, error.response?.data || error.message);
     throw error;
   }
@@ -36,11 +45,10 @@ export const statsService = {
   /**
    * Busca streams recentes de um amigo via backend Vercel
    */
-  async fetchFriendRecents(userId: string, limit = 50): Promise<any[]> {
+  async fetchRecent(userId: string, limit = 50, offset = 0): Promise<any[]> {
     try {
-      // Mapeamento de ID para o "slug" esperado no backend se necessário
       const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId; 
-      const res = await fetchFromApi<any>('/api/recent', { user: userParam, limit });
+      const res = await fetchFromApi<any>('/api/recent', { user: userParam, limit, offset });
       return res?.items || [];
     } catch (e) {
       console.error(`Failed to fetch recents for ${userId}`);
@@ -86,6 +94,9 @@ export const statsService = {
               isNow: m.nowPlaying.isNow !== undefined ? m.nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000), // Fallback de 5 min se isNow vier undefined
               timestamp: ts,
               progressMs: m.nowPlaying.progressMs,
+              durationMs: m.nowPlaying.durationMs,
+              playedMs: m.nowPlaying.playedMs,
+              platformCandidate: m.nowPlaying.platformCandidate,
               track: {
                 id: track?.id,
                 name: track?.name || "Desconhecido",
@@ -95,7 +106,9 @@ export const statsService = {
                 durationMs: track?.durationMs,
                 playedCount: track?.playedCount,
                 spotifyId: track?.spotifyId,
-                appleMusicId: track?.appleMusicId
+                appleMusicId: track?.appleMusicId,
+                catalogAvailability: track?.catalogAvailability,
+                externalIds: track?.externalIds
               }
             };
           }
@@ -103,7 +116,8 @@ export const statsService = {
           const user: UserStats = {
             id: uid,
             name: m.profile?.displayName || uid,
-            avatar: m.profile?.image,
+            avatar: coreUtils.getUserAvatar(uid, m.profile?.image),
+            platform: m.platform,
             streamsToday: m.stats?.today?.streams ?? 0,
             streamsWeek: m.stats?.week?.streams ?? 0,
             streamsMonth: m.stats?.month?.streams ?? 0,

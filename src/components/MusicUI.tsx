@@ -411,7 +411,12 @@ export const StatsBattleModal = ({
         <div className="flex items-center justify-between mb-12 px-4">
           <div className="flex flex-col items-center gap-3">
              <div className="h-20 w-20 rounded-full p-1 bg-gradient-to-tr from-orange-500 to-orange-300">
-                <img src={userA.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
+                <SmartImage 
+                  src={coreUtils.getUserAvatar(userA.id, userA.avatar)} 
+                  className="h-full w-full rounded-full" 
+                  fallback={userA.name.charAt(0)} 
+                  rounded="full" 
+                />
              </div>
              <span className="text-xs font-mundial font-semibold tracking-widest text-white/60">{userA.name}</span>
           </div>
@@ -423,7 +428,12 @@ export const StatsBattleModal = ({
  
           <div className="flex flex-col items-center gap-3">
              <div className="h-20 w-20 rounded-full p-1 bg-white/20">
-                <img src={userB.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
+                <SmartImage 
+                  src={coreUtils.getUserAvatar(userB.id, userB.avatar)} 
+                  className="h-full w-full rounded-full" 
+                  fallback={userB.name.charAt(0)} 
+                  rounded="full" 
+                />
              </div>
              <span className="text-xs font-mundial font-semibold tracking-widest text-white/60">{userB.name}</span>
           </div>
@@ -626,7 +636,7 @@ export const MusicCard = ({
         <div className="flex items-center justify-between mb-0.5">
           <span className="text-[9px] font-bold uppercase tracking-widest text-white/40">{userName}</span>
           <div className="flex items-center gap-1.5">
-            {track && <MusicPlatformBadge track={track} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-50 shrink-0" />}
+            {userId && <MusicPlatformBadge userId={userId} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-50 shrink-0" />}
             {footer && <span className="text-[8px] font-bold text-white/30 uppercase tracking-tighter whitespace-nowrap">{footer}</span>}
           </div>
         </div>
@@ -764,30 +774,33 @@ export const FriendsHorizontalCard = ({
   
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 group w-full min-w-0",
-        onClick && "cursor-pointer active:scale-95 transition-all text-center"
+        "flex flex-col items-center gap-2 group w-full min-w-0 transition-opacity duration-500",
+        !isActuallyLive && "opacity-60",
+        onClick && "cursor-pointer active:scale-95 text-center"
       )}
     >
       {/* User Name ABOVE the photo */}
-      <span className="text-[9px] font-mundial font-black text-white/60 tracking-widest uppercase truncate w-full text-center px-1">
+      <span className={cn(
+        "text-[9px] font-mundial font-black tracking-widest uppercase truncate w-full text-center px-1",
+        isActuallyLive ? "text-orange-500" : "text-white/40"
+      )}>
         {firstName}
       </span>
 
       <div className="relative">
         <div className={cn(
-          "h-16 w-16 sm:h-20 sm:w-20 rounded-[22px] sm:rounded-[28px] p-[2px] transition-all duration-500 shadow-xl",
-          isActuallyLive ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/5"
+          "h-14 w-14 sm:h-20 sm:w-20 rounded-[20px] sm:rounded-[28px] p-[1.5px] transition-all duration-500 shadow-xl",
+          isActuallyLive ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/10"
         )}>
-          <div className="h-full w-full rounded-[20px] sm:rounded-[26px] bg-[#050505] overflow-hidden relative">
-            <img 
+          <div className="h-full w-full rounded-[18px] sm:rounded-[26px] bg-[#050505] overflow-hidden relative">
+            <SmartImage 
               src={trackImage} 
-              className={cn("h-full w-full object-cover grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
-              referrerPolicy="no-referrer" 
-              alt=""
+              className={cn("h-full w-full grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
+              fallback={firstName.charAt(0)}
             />
           </div>
         </div>
@@ -796,21 +809,11 @@ export const FriendsHorizontalCard = ({
         <div className="absolute -bottom-1 -right-1 h-6 w-6 sm:h-7 sm:w-7 rounded-full border-2 border-[#050505] bg-black overflow-hidden shadow-2xl z-10 transition-transform group-hover:scale-110">
           <img src={userAvatar} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
         </div>
-
-        {/* Platform Badge overlay */}
-        <div className="absolute top-0 right-0 p-1 z-10">
-           <MusicPlatformBadge 
-             track={{ 
-               image: imageUrl, 
-               spotifyId: (rawIsNowPlaying as any)?.spotifyId || (coreUtils as any)?.track?.spotifyId, // Tentativa heurística ou passando track completo
-               appleMusicId: (rawIsNowPlaying as any)?.appleMusicId
-             }} 
-             className="p-0.5 px-0.5 rounded-md min-w-[14px] h-[14px] flex items-center justify-center border-none bg-black/40 backdrop-blur-sm" 
-           />
-        </div>
       </div>
 
       <div className="flex flex-col items-center min-w-0 w-full gap-0.5">
+        <MusicPlatformBadge userId={userId} className="p-0 border-none bg-transparent h-2 opacity-30 shadow-none mb-0.5" />
+        
         {/* Artist Name: Uppercase, smaller font, 2 lines */}
         <TruncatedTooltipText 
           text={artistName || "-"}
@@ -826,8 +829,10 @@ export const FriendsHorizontalCard = ({
         />
 
         {playedCount && (
-           <div className="mt-0.5 px-1 py-0.5 rounded-md bg-white/5 border border-white/5 flex items-center gap-1">
-              <span className="text-[6px] font-black text-white/40 uppercase tracking-widest">#{playedCount}</span>
+           <div className="mt-0.5 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 flex items-center">
+              <span className="text-[6.5px] font-black text-white/40 uppercase tracking-widest leading-none">
+                {coreUtils.formatPlayCount(playedCount)}
+              </span>
            </div>
         )}
 
@@ -842,8 +847,8 @@ export const FriendsHorizontalCard = ({
           </motion.div>
         ) : (
           <div className="mt-1">
-            <span className="text-[7px] font-black text-white/10 uppercase tracking-widest text-center px-1">
-              {playback.status === 'inactive' ? "off" : playback.label}
+            <span className="text-[7px] font-black text-white/20 uppercase tracking-widest text-center px-1">
+              {timestamp ? coreUtils.formatRelativeTimeSP(timestamp) : "off"}
             </span>
           </div>
         )}
@@ -852,13 +857,15 @@ export const FriendsHorizontalCard = ({
   );
 };
 export const LiveTrackProgress = ({ 
-  progressMs, 
+  progressMs,
+  playedMs, 
   durationMs, 
   timestamp, 
   isNowPlaying,
   platform
 }: { 
-  progressMs?: number, 
+  progressMs?: number,
+  playedMs?: number, 
   durationMs?: number, 
   timestamp: string | number,
   isNowPlaying: boolean;
@@ -872,12 +879,13 @@ export const LiveTrackProgress = ({
       return;
     }
 
-    if (platform === 'spotify' && durationMs) {
+    // Se temos playedMs e durationMs REAIS da API
+    if (playedMs !== undefined && durationMs) {
       const calculateProgress = () => {
         const startTime = new Date(timestamp).getTime();
         const now = Date.now();
         const elapsedSinceLog = now - startTime;
-        const totalProgressMs = (progressMs || 0) + elapsedSinceLog;
+        const totalProgressMs = playedMs + elapsedSinceLog;
         const percent = (totalProgressMs / durationMs) * 100;
         setCurrentProgress(Math.min(percent, 100));
       };
@@ -885,8 +893,23 @@ export const LiveTrackProgress = ({
       calculateProgress();
       const interval = setInterval(calculateProgress, 1000);
       return () => clearInterval(interval);
-    } else if (platform === 'appleMusic') {
-      // Emulado para Apple Music já que o stats.fm não dá progresso real para ele
+    } 
+    // Fallback: Progresso estimado
+    else if (durationMs && isNowPlaying) {
+      const calculateProgress = () => {
+        const startTime = new Date(timestamp).getTime();
+        const now = Date.now();
+        const elapsedMs = now - startTime;
+        const percent = (elapsedMs / durationMs) * 100;
+        setCurrentProgress(Math.min(percent, 100));
+      };
+
+      calculateProgress();
+      const interval = setInterval(calculateProgress, 1000);
+      return () => clearInterval(interval);
+    }
+    // Apple Music ou outros sem duration: shimmer maroto apenas se live
+    else if (isNowPlaying) {
       const interval = setInterval(() => {
         setCurrentProgress(prev => (prev + 0.5) % 100);
       }, 500);
@@ -894,72 +917,88 @@ export const LiveTrackProgress = ({
     } else {
       setCurrentProgress(100);
     }
-  }, [progressMs, durationMs, timestamp, isNowPlaying, platform]);
+  }, [progressMs, playedMs, durationMs, timestamp, isNowPlaying, platform]);
 
-  if (!durationMs && platform !== 'appleMusic') {
+  // Se não for LIVE, mostramos apenas uma barra estática fina e discreta
+  if (!isNowPlaying) {
+    return (
+      <div className="flex flex-col gap-1.5 opacity-20">
+        <div className="h-[2px] w-full rounded-full bg-white/10 overflow-hidden">
+           <div className="h-full w-full bg-white/30" />
+        </div>
+        <div className="flex justify-between items-center px-0.5">
+           <span className="text-[7px] font-black uppercase tracking-widest text-white/30">Concluído</span>
+           {durationMs && (
+              <span className="text-[7.5px] font-mono text-white/30">{coreUtils.formatDurationSmart(durationMs)}</span>
+           )}
+        </div>
+      </div>
+    );
+  }
+
+  // Se não tem duration e não é estimável (raro agora com o novo backend)
+  if (!durationMs) {
      return (
        <div className="h-1 w-full rounded-full bg-white/5 overflow-hidden">
           <motion.div 
             animate={{ x: ["-100%", "100%"] }} 
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="h-full w-1/2 bg-white/10" 
+            transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            className="h-full w-1/3 bg-orange-500/20" 
           />
        </div>
      );
   }
 
+  const elapsedMs = (currentProgress / 100) * durationMs;
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+    <div className="flex flex-col gap-2">
+      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden relative">
         <motion.div 
           initial={false}
           animate={{ width: `${currentProgress}%` }}
-          transition={{ ease: "linear", duration: isNowPlaying && platform === 'spotify' ? 1 : 0.5 }}
-          className={cn(
-            "h-full transition-colors duration-500",
-            isNowPlaying 
-              ? "bg-gradient-to-r from-orange-600 via-orange-400 to-yellow-500 shadow-[0_0_8px_rgba(255,159,10,0.4)]" 
-              : "bg-white/20"
-          )} 
+          transition={{ ease: "linear", duration: 1 }}
+          className="h-full bg-gradient-to-r from-orange-600 via-orange-400 to-yellow-500 shadow-[0_0_8px_rgba(255,159,10,0.4)]" 
         />
       </div>
       <div className="flex justify-between items-center px-0.5">
-        <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">
-           {isNowPlaying ? (platform === 'appleMusic' ? "Sincronizando Apple" : "Realtime Sync") : "Terminado"}
+        <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] leading-none">
+           AO VIVO
         </span>
-        {durationMs && (
-           <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">
-              {platform === 'spotify' && isNowPlaying ? coreUtils.formatDuration(Math.floor((currentProgress / 100) * durationMs)) + ' / ' : ''}
-              {coreUtils.formatDuration(durationMs)}
-           </span>
-        )}
+        <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest leading-none">
+           {coreUtils.formatDurationSmart(elapsedMs)} / {coreUtils.formatDurationSmart(durationMs)}
+        </span>
       </div>
     </div>
   );
 };
 
-export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsToday, onTrackClick }: { userId: string, userName?: string, userAvatar?: string, nowPlaying?: any, streamsToday: number, onTrackClick?: (track: any) => void }) => {
+export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void }) => {
+  if (!user) return null;
   const accentColor = GROUP_USERS.LEO.color;
-  const profileAvatar = coreUtils.getUserAvatar(userId, userAvatar);
+  const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+  const nowPlaying = user.nowPlaying;
   const track = nowPlaying?.track;
   const albumImage = track?.image;
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
   const isActuallyLive = playback.status === "live";
-  const platform = coreUtils.detectMusicPlatform(track);
+  const platform = user.platform || coreUtils.getUserPlaybackPlatform(user.id);
   
   const fetchUserTrackStats = useStatsStore(state => state.fetchUserTrackStats);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
-  const trackStatsKey = `${userId}:${track?.id}`;
+  const trackStatsKey = `${user.id}:${track?.id}`;
   const playCount = userTrackStats[trackStatsKey];
 
   useEffect(() => {
     if (track?.id) {
-      fetchUserTrackStats(userId, track.id);
+      fetchUserTrackStats(user.id, track.id);
     }
-  }, [track?.id, userId, fetchUserTrackStats]);
+  }, [track?.id, user.id, fetchUserTrackStats]);
 
   const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
-  const statusLabel = isActuallyLive ? "ouvindo agora" : `last played às ${formattedTime}`;
+  const statusLabel = isActuallyLive ? "AO VIVO" : "REPRODUZIDO ÀS " + formattedTime;
+
+  const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
 
   return (
     <motion.div 
@@ -967,28 +1006,31 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
       animate={{ opacity: 1, y: 0 }}
       className="relative overflow-hidden rounded-[42px] bg-[#0A0A0A] border border-white/5 p-6 mb-6 shadow-2xl"
     >
-      {/* Background Glow */}
-      <div 
-        className={cn(
-          "absolute -right-20 -top-20 h-96 w-96 rounded-full blur-[120px] opacity-20 transition-all duration-1000",
-          isActuallyLive ? "animate-pulse" : "opacity-5"
+      <AnimatePresence>
+        {isActuallyLive && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.15 }}
+            exit={{ opacity: 0 }}
+            className="absolute -right-20 -top-20 h-96 w-96 rounded-full blur-[120px] transition-all duration-1000"
+            style={{ backgroundColor: accentColor }}
+          />
         )}
-        style={{ backgroundColor: accentColor }}
-      />
+      </AnimatePresence>
       
       <div className="relative z-10 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 to-yellow-500">
+            <div className="h-12 w-12 rounded-full p-[1.5px] bg-gradient-to-tr from-orange-500 to-yellow-500 shadow-lg">
                <SmartImage 
                  src={profileAvatar} 
                  className="h-full w-full rounded-full" 
-                 fallback={userName?.charAt(0) || "L"} 
+                 fallback={user.name?.charAt(0) || "L"} 
                  rounded="full"
                />
             </div>
             <div className="flex flex-col">
-              <span className="text-[15px] font-mundial font-bold text-white/90 leading-tight">{userName}</span>
+              <span className="text-[15px] font-mundial font-bold text-white/90 leading-tight">{user.name}</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <div className={cn(
                    "h-1 w-1 rounded-full",
@@ -997,6 +1039,11 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                 <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">
                   {statusLabel}
                 </span>
+                {durationMs && (
+                  <span className="text-[9px] font-black text-white/20 uppercase tracking-widest ml-1">
+                    • {coreUtils.formatDurationSmart(durationMs)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -1015,18 +1062,24 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                  <motion.div 
                    onClick={() => onTrackClick?.(track)}
                    whileTap={{ scale: 0.95 }}
-                   className="relative h-36 w-36 shrink-0 rounded-[36px] overflow-hidden shadow-2xl border border-white/5 cursor-pointer"
+                   className="relative h-36 w-36 shrink-0 rounded-[36px] overflow-hidden shadow-2xl border border-white/10 cursor-pointer group"
                  >
-                    <SmartImage src={albumImage} className="h-full w-full" fallback="🎵" />
+                    <SmartImage src={albumImage} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" fallback="🎵" />
+                    
+                    {/* Platform Badge - Bottom Right Overlay */}
+                    <div className="absolute bottom-3 right-3 z-20">
+                      <MusicPlatformBadge platform={platform} className="p-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-xl" />
+                    </div>
+
                     {isActuallyLive && (
-                       <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px] flex items-center justify-center">
-                          <div className="flex items-end gap-[2px] h-4">
+                       <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
+                          <div className="flex items-end gap-[2.5px] h-5 mb-2">
                              {[1,2,3].map(i => (
                                <motion.div 
                                  key={i} 
                                  animate={{ height: ["20%", "100%", "40%"] }} 
                                  transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} 
-                                 className="w-[2.5px] bg-white/90 rounded-full" 
+                                 className="w-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" 
                                />
                              ))}
                           </div>
@@ -1037,12 +1090,11 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
                  <div className="flex flex-1 flex-col min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                        {playCount !== undefined && (
-                         <div className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10 flex items-center gap-1.5">
-                            <Headset className="h-2 w-2 text-white/40" />
-                            <span className="text-[8px] font-black text-white/60 uppercase tracking-widest">{playCount} reproduções</span>
+                         <div className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
+                            <Headset className="h-2.5 w-2.5 text-white/40" />
+                            <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">{coreUtils.formatPlayCount(playCount)}</span>
                          </div>
                        )}
-                       {platform.primary !== 'unknown' && <MusicPlatformBadge track={track} className="p-0 border-none bg-transparent h-3 w-3 shadow-none opacity-50" />}
                     </div>
 
                     <ScrollingText 
@@ -1059,8 +1111,8 @@ export const LeoHeader = ({ userId, userName, userAvatar, nowPlaying, streamsTod
 
               <div className="mt-1">
                  <LiveTrackProgress 
-                    progressMs={nowPlaying.progressMs}
-                    durationMs={track.durationMs}
+                    playedMs={nowPlaying.playedMs}
+                    durationMs={durationMs || undefined}
                     timestamp={nowPlaying.timestamp}
                     isNowPlaying={isActuallyLive}
                     platform={platform.primary}
@@ -1172,39 +1224,68 @@ const AnimatedNumber = ({ value }: { value: number }) => {
   return <span>{displayValue}</span>;
 };
 
-export const MusicPlatformBadge = ({ track, className, showLabel = false }: { track: any, className?: string, showLabel?: boolean }) => {
-  const platform = coreUtils.detectMusicPlatform(track);
-  if (platform.primary === "unknown") return null;
+export const MusicPlatformBadge = ({ userId, platform, track, className, showLabel = false }: { userId?: string, platform?: any, track?: any, className?: string, showLabel?: boolean }) => {
+  // Preferência 1: Objeto platform da API
+  const platformData = platform || (userId ? coreUtils.getUserPlaybackPlatform(userId) : null);
+  
+  if (platformData && platformData.primary && platformData.primary !== "unknown") {
+    const isApple = platformData.primary === "appleMusic";
+    const isSpotify = platformData.primary === "spotify";
+    const label = isApple ? "Apple Music" : "Spotify";
 
-  const isApple = platform.primary === "appleMusic";
-  const isSpotify = platform.primary === "spotify";
+    return (
+      <div className={cn(
+        "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
+        className
+      )}>
+        <img 
+          src={isSpotify 
+            ? "https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg"
+            : "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+          } 
+          className={cn("h-3 w-3", isApple && "invert")} 
+          alt={label} 
+        />
+        {showLabel && (
+          <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
+            {label}
+          </span>
+        )}
+      </div>
+    );
+  }
 
-  return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
-      className
-    )}>
-      {isSpotify && (
-        <img 
-          src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" 
-          className="h-3 w-3 drop-shadow-[0_0_2px_rgba(30,215,96,0.3)]" 
-          alt="" 
-        />
-      )}
-      {isApple && (
-        <img 
-          src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" 
-          className="h-3 w-3 invert drop-shadow-[0_0_2px_rgba(255,255,255,0.3)]" 
-          alt="" 
-        />
-      )}
-      {showLabel && (
-        <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
-          {isSpotify ? "Spotify" : "Apple Music"}
-        </span>
-      )}
-    </div>
-  );
+  // Senão, tentamos detectar a disponibilidade no catálogo para o modal de música
+  if (track) {
+    const availability = coreUtils.detectCatalogAvailability(track);
+    if (availability.primary !== "unknown") {
+      const isApple = availability.primary === "appleMusic";
+      const isSpotify = availability.primary === "spotify";
+
+      return (
+        <div className={cn(
+          "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
+          className
+        )}>
+          <img 
+            src={isSpotify 
+              ? "https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg"
+              : "https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+            } 
+            className={cn("h-3 w-3", isApple && "invert")} 
+            alt="" 
+          />
+          {showLabel && (
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
+              {isSpotify ? "Spotify" : "Apple Music"}
+            </span>
+          )}
+        </div>
+      );
+    }
+  }
+
+  return null;
 };
 
 export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
@@ -1216,10 +1297,10 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="glass-card overflow-hidden rounded-[40px] p-5 mb-6 premium-gradient border-white/5 shadow-2xl flex flex-col gap-6"
+      className="glass-card overflow-hidden rounded-[40px] p-6 mb-6 premium-gradient border-white/5 shadow-2xl flex flex-col gap-6"
     >
       <div className="flex justify-between items-start gap-4">
-        <div className="flex flex-col min-w-0 shrink-0">
+        <div className="flex flex-col min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1.5">
              <motion.div 
                animate={{ 
@@ -1236,7 +1317,7 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 whitespace-nowrap">Arena Group Live</span>
           </div>
           <div className="flex items-end gap-3 pt-6 pb-2">
-            <span className="text-8xl font-display font-black tracking-tighter leading-[0.6] text-white drop-shadow-2xl">
+            <span className="text-7xl sm:text-8xl font-display font-black tracking-tighter leading-[0.6] text-white drop-shadow-2xl">
               <AnimatedNumber value={totalStreams} />
             </span>
             <div className="flex flex-col shrink-0 mb-[4px]">
@@ -1245,7 +1326,7 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
             </div>
           </div>
         </div>
-        <div className="shrink-0 pt-2">
+        <div className="shrink-0 pt-2 pr-1">
           <StatsLCLogo size={40} variant="black" className="rounded-xl shadow-inner border border-white/10" />
         </div>
       </div>
@@ -1261,7 +1342,12 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
               className="relative group shrink-0"
             >
               <div className="h-12 w-12 rounded-full ring-4 ring-[#0a0a0a] bg-[#1a1a1a] p-0.5 overflow-hidden transition-all group-hover:-translate-y-2 group-hover:scale-110 z-0 group-hover:z-10">
-                <img src={user.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt={user.name} title={user.name} />
+                <SmartImage 
+                  src={coreUtils.getUserAvatar(user.id, user.avatar)} 
+                  className="h-full w-full rounded-full" 
+                  fallback={user.name?.charAt(0)} 
+                  rounded="full" 
+                />
               </div>
               <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-orange-500/90 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg z-20">
                  <span className="text-[9px] font-bold text-white leading-none">{user.streamsToday}</span>
@@ -1270,7 +1356,7 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
           ))}
         </div>
         
-        <div className="flex flex-col items-end shrink-0 mb-1">
+        <div className="flex flex-col items-end shrink-0 mb-1 pr-1">
           <span className="text-[7.5px] font-black text-white/15 uppercase tracking-[0.2em] mb-1 whitespace-nowrap">Sync Status</span>
           <div className="h-5 px-3 glass rounded-full border-white/5 flex items-center justify-center">
             <span className="text-[8.5px] font-black text-white/40 uppercase tracking-wider whitespace-nowrap leading-none">
@@ -1318,8 +1404,13 @@ export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
                   isLeo ? "bg-gradient-to-tr from-orange-500 to-orange-300" : "bg-white/10"
                 )}>
                    <div className="h-full w-full rounded-full bg-[#050505] p-0.5 overflow-hidden">
-                      <img src={user.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
-                   </div>
+                     <SmartImage 
+                       src={coreUtils.getUserAvatar(user.id, user.avatar)} 
+                       className="h-full w-full rounded-full" 
+                       fallback={user.name?.charAt(0)} 
+                       rounded="full" 
+                     />
+                  </div>
                 </div>
                 {i < 3 && (
                    <div className="absolute -top-1 -right-1 h-7 w-7 glass rounded-full flex items-center justify-center text-xs shadow-xl border border-white/10">
@@ -1547,7 +1638,7 @@ export const TrackLeaderboardModal = ({
           <div className="flex flex-col gap-2">
                <SectionHeader title="Ouvir Agora" icon={Headset} />
                <div className="flex items-center gap-2">
-                 {(track.spotifyId || coreUtils.detectMusicPlatform(track).hasSpotify) && (
+                 {(track.spotifyId || coreUtils.detectCatalogAvailability(track).hasSpotify) && (
                    <a 
                     href={`https://open.spotify.com/track/${track.spotifyId}`}
                     target="_blank"
@@ -1560,7 +1651,7 @@ export const TrackLeaderboardModal = ({
                      <span className="text-[9px] font-black text-[#1DB954] uppercase tracking-widest whitespace-nowrap">Spotify</span>
                    </a>
                  )}
-                 {(track.appleMusicId || coreUtils.detectMusicPlatform(track).hasAppleMusic) && (
+                 {(track.appleMusicId || coreUtils.detectCatalogAvailability(track).hasAppleMusic) && (
                    <a 
                     href={`https://music.apple.com/song/${track.appleMusicId}`}
                     target="_blank"
