@@ -22,7 +22,7 @@ export default function RankingScreen() {
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
-  const LEO_ID = GROUP_USERS.LEO.id;
+  const LEO_ID = "leo";
   const { setFeaturedUserId, featuredUserId } = useStatsStore();
 
   useEffect(() => {
@@ -191,13 +191,13 @@ export default function RankingScreen() {
         >
           <div 
             className="absolute -top-10 -left-10 h-32 w-32 blur-[60px] opacity-20" 
-            style={{ backgroundColor: sortedUsers[0].id === LEO_ID ? GROUP_USERS.LEO.color : '#ffd700' }}
+            style={{ backgroundColor: sortedUsers[0].id === LEO_ID ? ({id: "leo", name: "Leo", color: "#FF9F0A"}).color : '#ffd700' }}
           />
           
           <div className="relative mb-4">
              <div 
                 className="h-24 w-24 rounded-full border border-white/10 overflow-hidden p-1 shadow-2xl"
-                style={{ borderColor: sortedUsers[0].id === LEO_ID ? GROUP_USERS.LEO.color : '#ffd700' }}
+                style={{ borderColor: sortedUsers[0].id === LEO_ID ? ({id: "leo", name: "Leo", color: "#FF9F0A"}).color : '#ffd700' }}
              >
                 <img src={sortedUsers[0].avatar} className="h-full w-full object-cover rounded-full" alt="" />
              </div>
@@ -209,7 +209,7 @@ export default function RankingScreen() {
           </div>
           
           <h2 className="text-2xl font-bold font-display text-white/90">{sortedUsers[0].name}</h2>
-          <p className="text-[10px] uppercase font-bold tracking-[0.4em] mb-4" style={{ color: sortedUsers[0].id === LEO_ID ? GROUP_USERS.LEO.color : '#ffd700' }}>
+          <p className="text-[10px] uppercase font-bold tracking-[0.4em] mb-4" style={{ color: sortedUsers[0].id === LEO_ID ? ({id: "leo", name: "Leo", color: "#FF9F0A"}).color : '#ffd700' }}>
             Líder Absoluto
           </p>
           

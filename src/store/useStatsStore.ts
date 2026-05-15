@@ -83,7 +83,7 @@ export const useStatsStore = create<StatsState>()(
       },
 
       fetchTrackStatsForAll: async (trackId: string) => {
-        const users = statsService.getUsers();
+        const users = get().groupStats?.members || [];
         try {
           const results = await Promise.all(users.map(async (u) => {
             const count = await statsService.fetchEntityStats(u.id, 'track', trackId);

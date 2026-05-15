@@ -40,14 +40,14 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
 };
 
 export const statsService = {
-  getUsers: () => Object.values(GROUP_USERS),
+  getUsers: () => ([] as any[]),
 
   /**
    * Busca streams recentes de um amigo via backend Vercel
    */
   async fetchRecent(userId: string, limit = 50, offset = 0): Promise<any[]> {
     try {
-      const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId; 
+      const userParam = userId; 
       const res = await fetchFromApi<any>('/api/recent', { user: userParam, limit, offset });
       return res?.items || [];
     } catch (e) {
@@ -61,7 +61,7 @@ export const statsService = {
    */
   async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string): Promise<number> {
     try {
-      const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId;
+      const userParam = userId;
       const data = await fetchFromApi<any>('/api/entity-stats', { user: userParam, type, id });
       return data?.count || 0;
     } catch (e) {
@@ -99,7 +99,7 @@ export const statsService = {
               platformCandidate: m.nowPlaying.platformCandidate,
               track: {
                 id: track?.id,
-                name: track?.name || "Desconhecido",
+                name: track?.name ,
                 artists: track?.artists || [],
                 image: track?.image,
                 albumName: track?.album?.name,
@@ -187,7 +187,7 @@ export const statsService = {
    * Busca dados completos de um usuário específico via backend Vercel
    */
   async getUserFullStats(userId: string): Promise<any> {
-    const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId;
+    const userParam = userId;
     return fetchFromApi<any>('/api/user', { user: userParam });
   },
 
@@ -195,7 +195,7 @@ export const statsService = {
    * Busca top itens via backend Vercel
    */
   async getTopItems(userId: string, type: 'tracks' | 'artists' | 'albums', period: 'week' | 'month' | 'year' | 'lifetime' = 'month'): Promise<any[]> {
-    const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId;
+    const userParam = userId;
     const res = await fetchFromApi<any>('/api/top', { user: userParam, type, period });
     return res?.items || [];
   },
@@ -204,7 +204,7 @@ export const statsService = {
    * Busca estatísticas avançadas por período
    */
   async fetchTimeRangeStats(userId: string, after: number): Promise<any> {
-    const userParam = GROUP_USERS.LEO.id === userId ? 'leo' : userId;
+    const userParam = userId;
     return fetchFromApi<any>('/api/stats', { user: userParam, after });
   }
 };

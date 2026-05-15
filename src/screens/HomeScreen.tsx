@@ -14,7 +14,7 @@ import {
   SmartImage
 } from '../components/MusicUI';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, Bell, AlertTriangle, Users, ChevronRight, ChevronLeft } from 'lucide-react';
+import { RefreshCcw, Bell, AlertTriangle, Users, ChevronRight, ChevronLeft, History } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { coreUtils } from '../services/statsCore';
@@ -40,8 +40,8 @@ export default function HomeScreen() {
   const [showUserSelector, setShowUserSelector] = useState(false);
   
   const members = groupStats?.members || [];
-  const primaryUser = members.find(m => m.id === featuredUserId) || members.find(m => m.id === "leo") || members[0];
-  const FEATURED_ID = primaryUser?.id || "leo";
+  const primaryUser = members.find(m => m.id === featuredUserId) || members[0];
+  const FEATURED_ID = primaryUser?.id;
 
   const cycleUser = () => {
     if (members.length <= 1) return;
@@ -110,7 +110,7 @@ export default function HomeScreen() {
             <div className="flex items-center gap-1.5 mt-1">
                <div className={clsx("h-1.5 w-1.5 rounded-full", (isLoading || isRefreshing) ? "bg-orange-500 animate-pulse" : "bg-green-500")} />
                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                 {primaryUser?.name || "Leo"}'s Circle Live
+                 {primaryUser?.name ? `${primaryUser.name}'s Circle Live` : 'Circle Live'}
                </span>
             </div>
           </div>
@@ -170,7 +170,7 @@ export default function HomeScreen() {
                            <SmartImage 
                              src={coreUtils.getUserAvatar(u.id, u.avatar)} 
                              className="h-full w-full object-cover" 
-                             fallback={u.name.charAt(0)}
+                             fallback=""
                              rounded="full"
                            />
                            {featuredUserId === u.id && (
@@ -185,7 +185,7 @@ export default function HomeScreen() {
                             {u.name}
                           </span>
                           <span className="text-[9px] text-white/30 uppercase tracking-widest font-black">
-                            {u.id === "leo" ? "Admin" : "Membro"}
+                            {"Membro"}
                           </span>
                         </div>
                         {featuredUserId === u.id && (
@@ -301,8 +301,7 @@ export default function HomeScreen() {
              </div>
            ))
          ) : (
-           members
-            .filter(u => u && u.id && u.id !== FEATURED_ID)
+           [primaryUser, ...members.filter(u => u && u.id && u.id !== FEATURED_ID)]
             .map((user, idx) => (
               <FriendHistoryCard 
                 key={user.id || `hist-${idx}`} 
@@ -368,7 +367,7 @@ const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTra
             <SmartImage 
               src={coreUtils.getUserAvatar(user.id, user.avatar)} 
               className="h-full w-full rounded-full border border-white/10" 
-              fallback={user.name?.charAt(0)}
+              fallback=""
               rounded="full"
             />
             {isLive && (
@@ -378,7 +377,7 @@ const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTra
           <div className="flex flex-col min-w-0">
              <span className="text-[12px] font-bold text-white/90 leading-tight truncate">{user.name}</span>
              <span className="text-[9px] font-black text-white/30 uppercase tracking-widest truncate line-clamp-1">
-               {isLive ? user.nowPlaying?.track?.name : "Histórico da Sessão"}
+               {isLive ? "OUVINDO AGORA" : "VER HISTÓRICO"}
              </span>
           </div>
         </div>
@@ -394,7 +393,7 @@ const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTra
              animate={{ rotate: isExpanded ? 180 : 0 }}
              className="h-6 w-6 rounded-lg bg-white/5 flex items-center justify-center"
            >
-              <RefreshCcw className={cn("h-3 w-3 text-white/30", loading && "animate-spin")} />
+              <History className={cn("h-3 w-3 text-white/30", loading && "animate-spin")} />
            </motion.div>
         </div>
       </div>
@@ -410,53 +409,66 @@ const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTra
             <div className="p-3 flex flex-col gap-2">
               {loading ? (
                 [1,2,3].map(i => <div key={i} className="h-10 w-full bg-white/5 rounded-xl animate-pulse" />)
-              ) : recents.length > 0 ? (
+              ) : recents.length > 0 || (isLive && user.nowPlaying?.track) ? (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    {recents
-                       .filter(item => {
-                         const currentTrackId = user.nowPlaying?.track?.id;
-                         const currentTrackName = user.nowPlaying?.track?.name;
-                         const itemTrackId = item.track?.id;
-                         const itemTrackName = item.track?.name;
-                         
-                         // Se for Live, removemos o que já está tocando
-                         if (isLive) {
-                           if (currentTrackId && itemTrackId === currentTrackId) return false;
-                           if (currentTrackName && itemTrackName === currentTrackName) return false;
-                         }
-                         return true;
-                       })
-                       .slice(0, 5)
-                       .map((item, idx) => {
-                       const track = item.track;
-                       const artistName = track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "-";
-                       const playedAt = item.playedAt || item.timestamp || item.endTime;
-                       
-                       return (
-                         <motion.div 
-                           key={`${item.id}-${idx}`}
-                           initial={{ x: -10, opacity: 0 }}
-                           animate={{ x: 0, opacity: 1 }}
-                           transition={{ delay: idx * 0.05 }}
-                           onClick={() => onTrackClick(track)}
-                           className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group"
-                         >
-                            <img src={track.image} className="h-9 w-9 rounded-lg shadow-lg border border-white/5" alt="" />
-                            <div className="flex flex-col min-w-0 flex-1">
-                               <span className="text-[10px] font-bold text-white/90 truncate group-hover:text-orange-500 transition-colors">{track.name}</span>
-                               <span className="text-[8px] font-medium text-white/40 truncate">{artistName}</span>
-                            </div>
-                            <div className="text-right flex flex-col items-end shrink-0">
-                               <span className="text-[7.5px] font-mono text-white/30 uppercase">
-                                 {playedAt ? coreUtils.formatTimeSP(new Date(playedAt)) : ""}
-                               </span>
-                               <div className="mt-1">
-                                 <MusicPlatformBadge platform={item.platformCandidate || user.platform} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-20 shadow-none grayscale" />
-                               </div>
-                            </div>
-                         </motion.div>
-                       );
+                    {(() => {
+                      let displayItems = [...recents];
+                      if (isLive && user.nowPlaying?.track) {
+                        const liveTrackItem = {
+                          id: 'live-' + user.nowPlaying.track.id,
+                          track: user.nowPlaying.track,
+                          platformCandidate: user.platform,
+                          playedAt: user.nowPlaying.timestamp
+                        };
+                        if (!recents.some(r => r.track?.id === user.nowPlaying.track.id)) {
+                          displayItems = [liveTrackItem, ...recents];
+                        }
+                      }
+                      return displayItems.slice(0, 5);
+                    })().map((item, idx) => {
+                      const track = item.track;
+                      const artistName = track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "-";
+                      const playedAt = item.playedAt || item.timestamp || item.endTime;
+                      const isNowPlayingTrack = isLive && track?.id === user.nowPlaying?.track?.id;
+                      
+                      return (
+                        <motion.div 
+                          key={`${item.id}-${idx}`}
+                          initial={{ x: -10, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: idx * 0.05 }}
+                          onClick={() => onTrackClick(track)}
+                          className={cn(
+                            "flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer group",
+                            isNowPlayingTrack && "bg-orange-500/10 border border-orange-500/20"
+                          )}
+                        >
+                           <img src={track.image} className="h-9 w-9 rounded-lg shadow-lg border border-white/5" alt="" />
+                           <div className="flex flex-col min-w-0 flex-1">
+                              <span className={cn("text-[10px] font-bold truncate group-hover:text-orange-500 transition-colors", isNowPlayingTrack ? "text-orange-500" : "text-white/90")}>{track.name}</span>
+                              <span className="text-[8px] font-medium text-white/40 truncate">{artistName}</span>
+                           </div>
+                           <div className="text-right flex flex-col items-end shrink-0">
+                              {isNowPlayingTrack ? (
+                                <motion.span 
+                                  className="text-[7.5px] font-black text-orange-500 uppercase"
+                                  animate={{ opacity: [1, 0, 1] }} 
+                                  transition={{ duration: 1.5, repeat: Infinity }}
+                                >
+                                  OUVINDO
+                                </motion.span>
+                              ) : (
+                                <span className="text-[7.5px] font-mono text-white/30 uppercase">
+                                  {playedAt ? coreUtils.formatTimeSP(new Date(playedAt)) : ""}
+                                </span>
+                              )}
+                              <div className="mt-1">
+                                <MusicPlatformBadge platform={item.platformCandidate || user.platform} className="p-0 border-none bg-transparent h-2.5 w-2.5 opacity-20 shadow-none grayscale" />
+                              </div>
+                           </div>
+                        </motion.div>
+                      );
                     })}
                   </div>
                   <button 
@@ -536,7 +548,7 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
               <SmartImage 
                  src={coreUtils.getUserAvatar(user.id, user.avatar)} 
                  className="h-12 w-12 rounded-full border-2 border-white/10" 
-                 fallback={user.name?.charAt(0) || "U"} 
+                 fallback="" 
                  rounded="full"
                />
               <div className="flex flex-col">

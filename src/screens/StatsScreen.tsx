@@ -33,7 +33,7 @@ export default function StatsScreen() {
   const CURRENT_USER_ID = featuredUserId;
   const members = groupStats?.members || Object.values(groupStats?.users || {});
   const user = groupStats?.users[CURRENT_USER_ID] || members.find(m => m.id === CURRENT_USER_ID) || members[0];
-  const accentColor = (user?.id && (GROUP_USERS as any)[user.id.toUpperCase()]?.color) || GROUP_USERS.LEO.color;
+  const accentColor = (user?.id && (GROUP_USERS as any)[user.id.toUpperCase()]?.color) || ({id: "leo", name: "Leo", color: "#FF9F0A"}).color;
 
   const hasLifetime = !!fullUserData?.stats?.lifetime?.streams;
   const filters: Filter[] = hasLifetime 
@@ -119,7 +119,7 @@ export default function StatsScreen() {
       <header className="px-1 flex justify-between items-end">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Estatísticas</h1>
-          <p className="text-white/60 text-sm">O legado sonoro de {user?.name || 'Vago'}</p>
+          <p className="text-white/60 text-sm">O legado sonoro de {user?.name }</p>
         </div>
         <div className="flex gap-2 relative">
           <button 
@@ -154,7 +154,7 @@ export default function StatsScreen() {
                 >
                   <div className="text-[9px] font-bold uppercase tracking-widest text-white/20 px-3 py-2 mb-1">Trocar Perfil</div>
                   <div className="flex flex-col gap-1">
-                    {Object.values(GROUP_USERS).map((u) => (
+                    {([] as any[]).map((u) => (
                       <button
                         key={u.id}
                         onClick={() => {
@@ -323,7 +323,7 @@ export default function StatsScreen() {
             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: accentColor }}>Frequência Sonora</h4>
          </div>
          <p className="text-white/60 text-[13px] leading-relaxed font-medium">
-           {user?.name || 'Alguém'} ouviu <span className="text-white font-bold">{coreUtils.formatDuration(currentStats?.durationMs || 0)}</span> de música no período selecionado ({activeFilter.toLowerCase()}).
+           {user?.name } ouviu <span className="text-white font-bold">{coreUtils.formatDuration(currentStats?.durationMs || 0)}</span> de música no período selecionado ({activeFilter.toLowerCase()}).
          </p>
       </div>
     </div>
