@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { 
   MusicCard, 
@@ -14,7 +14,7 @@ import {
   SmartImage
 } from '../components/MusicUI';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, Bell, AlertTriangle } from 'lucide-react';
+import { RefreshCcw, Bell, AlertTriangle, Users, ChevronRight, ChevronLeft } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { coreUtils } from '../services/statsCore';
@@ -25,13 +25,30 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function HomeScreen() {
-  const { groupStats, isLoading, error, fetchGroup } = useStatsStore();
+  const { 
+    groupStats, 
+    isLoading, 
+    isRefreshing, 
+    error, 
+    fetchGroup, 
+    featuredUserId, 
+    setFeaturedUserId 
+  } = useStatsStore();
+  
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
+  const [showUserSelector, setShowUserSelector] = useState(false);
   
   const members = groupStats?.members || [];
-  const leoStats = members.find(m => m.id === "leo") || members[0];
-  const LEO_ID = leoStats?.id || "leo";
+  const primaryUser = members.find(m => m.id === featuredUserId) || members.find(m => m.id === "leo") || members[0];
+  const FEATURED_ID = primaryUser?.id || "leo";
+
+  const cycleUser = () => {
+    if (members.length <= 1) return;
+    const currentIndex = members.findIndex(m => m.id === FEATURED_ID);
+    const nextIndex = (currentIndex + 1) % members.length;
+    setFeaturedUserId(members[nextIndex].id);
+  };
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -49,11 +66,11 @@ export default function HomeScreen() {
     }
   }, [groupStats, fetchGroup]);
 
-  if (leoStats) {
-    console.log("MAIN MEMBER", leoStats);
+  if (primaryUser) {
+    console.log("MAIN MEMBER", primaryUser);
   }
   
-  const friendsSelection = members.filter(u => u && u.id && u.id !== LEO_ID);
+  const friendsSelection = members.filter(u => u && u.id && u.id !== FEATURED_ID);
   
   // Amigos em Sintonia: Todos os amigos, ordenados por LIVE primeiro, depois Recentes
   const sortedFriends = [...friendsSelection].sort((a, b) => {
@@ -81,34 +98,116 @@ export default function HomeScreen() {
 
       {/* Top Bar Navigation */}
       <header className="flex items-center justify-between mb-6 px-1 pt-2">
-        <div className="flex items-center gap-3">
+        <div 
+          onClick={cycleUser}
+          className="flex items-center gap-3 cursor-pointer group active:scale-95 transition-all"
+        >
           <StatsLCLogo size={36} />
           <div className="flex flex-col">
-            <h1 className="font-mundial text-xl font-semibold tracking-wider leading-none lowercase">
+            <h1 className="font-mundial text-xl font-semibold tracking-wider leading-none lowercase group-hover:text-orange-500 transition-colors">
               stats.lc
             </h1>
             <div className="flex items-center gap-1.5 mt-1">
-               <div className={clsx("h-1.5 w-1.5 rounded-full", isLoading ? "bg-orange-500 animate-pulse" : "bg-green-500")} />
-               <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Leo's Circle Live</span>
+               <div className={clsx("h-1.5 w-1.5 rounded-full", (isLoading || isRefreshing) ? "bg-orange-500 animate-pulse" : "bg-green-500")} />
+               <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
+                 {primaryUser?.name || "Leo"}'s Circle Live
+               </span>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 relative">
+          <button 
+            onClick={() => setShowUserSelector(!showUserSelector)} 
+            className={clsx(
+              "h-11 w-11 glass rounded-2xl flex items-center justify-center transition-all",
+              showUserSelector && "bg-white/20 border-white/20"
+            )}
+          >
+             <Users className="h-5 w-5 text-white/60" />
+          </button>
+
           <button 
             onClick={() => fetchGroup(true)}
+            aria-label="Atualizar dados"
             className="h-11 w-11 glass rounded-2xl flex items-center justify-center active:scale-95 transition-all hover:bg-white/10"
           >
-            <RefreshCcw className={clsx("h-5 w-5 text-white/60", isLoading && "animate-spin")} />
+            <RefreshCcw className={clsx("h-5 w-5 text-white/60", (isLoading || isRefreshing) && "animate-spin")} />
           </button>
+
+          <AnimatePresence>
+            {showUserSelector && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowUserSelector(false)}
+                  className="fixed inset-0 z-40"
+                />
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-3 w-56 glass-card border-white/10 p-2 z-50 shadow-2xl backdrop-blur-3xl overflow-hidden"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/20 px-3 py-2.5 mb-1 border-b border-white/5">Trocar Perfil Principal</div>
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    {members.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => {
+                          setFeaturedUserId(u.id);
+                          setShowUserSelector(false);
+                        }}
+                        className={clsx(
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
+                          featuredUserId === u.id 
+                            ? "bg-white/10 border border-white/10 shadow-lg" 
+                            : "hover:bg-white/5"
+                        )}
+                      >
+                        <div className="h-8 w-8 rounded-full border border-white/10 overflow-hidden relative grayscale shrink-0">
+                           <SmartImage 
+                             src={coreUtils.getUserAvatar(u.id, u.avatar)} 
+                             className="h-full w-full object-cover" 
+                             fallback={u.name.charAt(0)}
+                             rounded="full"
+                           />
+                           {featuredUserId === u.id && (
+                             <div className="absolute inset-0 bg-orange-500/10" />
+                           )}
+                        </div>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className={clsx(
+                            "text-sm font-bold transition-colors truncate w-full",
+                            featuredUserId === u.id ? "text-white" : "text-white/60"
+                          )}>
+                            {u.name}
+                          </span>
+                          <span className="text-[9px] text-white/30 uppercase tracking-widest font-black">
+                            {u.id === "leo" ? "Admin" : "Membro"}
+                          </span>
+                        </div>
+                        {featuredUserId === u.id && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
-      {/* Primary Highlight: Leo (Destaque Máximo) */}
+      {/* Primary Highlight: Dynamic User */}
       <AnimatePresence mode="wait">
-        {isLoading && !leoStats ? (
+        {isLoading && !primaryUser ? (
           <Skeleton className="h-[340px] w-full rounded-[42px]" />
         ) : error ? (
             <motion.div 
+             key="error"
              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
              className="glass-card flex flex-col items-center justify-center gap-4 py-12 border-red-500/10 bg-red-500/5 px-6"
             >
@@ -121,15 +220,18 @@ export default function HomeScreen() {
                </div>
                <button 
                  onClick={() => fetchGroup(true)}
-                 className="px-6 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/10"
+                 disabled={isLoading || isRefreshing}
+                 className="flex items-center gap-2 px-6 py-2 glass rounded-full text-[10px] font-bold uppercase tracking-widest text-white/60 hover:bg-white/10 disabled:opacity-50"
                >
-                 Tentar Sincronizar Agora
+                 {(isLoading || isRefreshing) && <RefreshCcw className="h-3 w-3 animate-spin" />}
+                 {isLoading || isRefreshing ? "Sincronizando..." : "Tentar Sincronizar Agora"}
                </button>
             </motion.div>
-        ) : leoStats ? (
+        ) : primaryUser ? (
           <LeoHeader 
-            user={leoStats}
-            streamsToday={leoStats.streamsToday || 0} 
+            key={primaryUser.id}
+            user={primaryUser}
+            streamsToday={primaryUser.streamsToday || 0} 
             onTrackClick={(track) => setSelectedTrack(track)}
           />
         ) : null}
@@ -185,15 +287,30 @@ export default function HomeScreen() {
 
       <SectionHeader title="Histórico da Sessão" />
       <div className="flex flex-col gap-3 pb-32">
-         {members
-          .filter(u => u && u.id && u.id !== LEO_ID)
-          .map((user, idx) => (
-            <FriendHistoryCard 
-              key={user.id || `hist-${idx}`} 
-              user={user} 
-              onTrackClick={setSelectedTrack}
-            />
-         ))}
+         {isLoading && members.length === 0 ? (
+           [1, 2, 3].map(i => (
+             <div key={i} className="glass-card p-3 flex items-center justify-between bg-white/[0.01] border-white/5 animate-pulse">
+                <div className="flex items-center gap-3">
+                   <div className="h-10 w-10 shrink-0 rounded-full bg-white/5" />
+                   <div className="flex flex-col gap-1.5">
+                      <div className="h-2 w-16 bg-white/5 rounded-full" />
+                      <div className="h-1.5 w-24 bg-white/5 rounded-full opacity-50" />
+                   </div>
+                </div>
+                <div className="h-6 w-6 rounded-lg bg-white/5" />
+             </div>
+           ))
+         ) : (
+           members
+            .filter(u => u && u.id && u.id !== FEATURED_ID)
+            .map((user, idx) => (
+              <FriendHistoryCard 
+                key={user.id || `hist-${idx}`} 
+                user={user} 
+                onTrackClick={setSelectedTrack}
+              />
+            ))
+         )}
       </div>
 
       <p className="mt-12 text-center text-[9px] text-white/20 lowercase tracking-[0.4em] font-mundial font-semibold mb-20">
@@ -213,7 +330,7 @@ export default function HomeScreen() {
   );
 }
 
-function FriendHistoryCard({ user, onTrackClick }: { user: any, onTrackClick: (track: any) => void }) {
+const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTrackClick: (track: any) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [recents, setRecents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -364,7 +481,7 @@ function FriendHistoryCard({ user, onTrackClick }: { user: any, onTrackClick: (t
       </AnimatePresence>
     </div>
   );
-}
+});
 
 function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose: () => void, onTrackClick: (track: any) => void }) {
   const [items, setItems] = useState<any[]>([]);

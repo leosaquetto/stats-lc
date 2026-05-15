@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Headset, Music2, Activity, TrendingUp } from 'lucide-react';
+import { Headset, Music2, Activity, TrendingUp, Trophy, Medal, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
@@ -112,6 +112,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
         src={finalSrc}
         className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100")}
         referrerPolicy="no-referrer"
+        loading="lazy"
         onLoad={() => setLoading(false)}
         onError={() => {
           setError(true);
@@ -229,6 +230,12 @@ export const UserDetailModal = ({
       >
         {/* Banner Area */}
         <div className="relative h-64 overflow-hidden">
+           <button 
+             onClick={onClose}
+             className="absolute top-8 right-8 z-50 h-11 w-11 glass rounded-2xl flex items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all border border-white/5 shadow-2xl"
+           >
+             <X className="h-5 w-5" />
+           </button>
            <img 
               src={avatar} 
               className="w-full h-full object-cover blur-2xl opacity-20 scale-150" 
@@ -575,7 +582,7 @@ interface MusicCardProps {
   onClick?: () => void;
 }
 
-export const MusicCard = ({ 
+export const MusicCard = React.memo(({ 
   userId,
   userName, 
   songName, 
@@ -651,7 +658,13 @@ export const MusicCard = ({
       </div>
     </motion.div>
   );
-};
+}, (prev, next) => (
+  prev.userId === next.userId &&
+  prev.songName === next.songName &&
+  prev.isNowPlaying === next.isNowPlaying &&
+  prev.footer === next.footer &&
+  prev.imageUrl === next.imageUrl
+));
 
 export const TruncatedTooltipText = ({ text, className, lineClamp = 2 }: { text: string; className?: string; lineClamp?: number }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -753,7 +766,7 @@ export const ScrollingText = ({ text, className, speed = 30 }: { text: string; c
   );
 };
 
-export const FriendsHorizontalCard = ({ 
+export const FriendsHorizontalCard = React.memo(({ 
   userId,
   userName, 
   userAvatar: providedAvatar,
@@ -855,7 +868,13 @@ export const FriendsHorizontalCard = ({
       </div>
     </motion.div>
   );
-};
+}, (prev, next) => (
+  prev.userId === next.userId &&
+  prev.songName === next.songName &&
+  prev.rawIsNowPlaying === next.rawIsNowPlaying &&
+  prev.timestamp === next.timestamp &&
+  prev.imageUrl === next.imageUrl
+));
 export const LiveTrackProgress = ({ 
   progressMs,
   playedMs, 
@@ -879,13 +898,15 @@ export const LiveTrackProgress = ({
       return;
     }
 
-    // Se temos playedMs e durationMs REAIS da API
-    if (playedMs !== undefined && durationMs) {
+    // Base progress estimation: start from progressMs/playedMs and add time elapsed since the record's timestamp
+    const baseProgress = progressMs ?? playedMs ?? 0;
+    
+    if (durationMs) {
       const calculateProgress = () => {
         const startTime = new Date(timestamp).getTime();
         const now = Date.now();
-        const elapsedSinceLog = now - startTime;
-        const totalProgressMs = playedMs + elapsedSinceLog;
+        const elapsedSinceLog = Math.max(0, now - startTime);
+        const totalProgressMs = baseProgress + elapsedSinceLog;
         const percent = (totalProgressMs / durationMs) * 100;
         setCurrentProgress(Math.min(percent, 100));
       };
@@ -984,19 +1005,39 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
   const isActuallyLive = playback.status === "live";
   const platform = user.platform || coreUtils.getUserPlaybackPlatform(user.id);
   
-  const fetchUserTrackStats = useStatsStore(state => state.fetchUserTrackStats);
+  const [arenaExpanded, setArenaExpanded] = useState(false);
+  
+  const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const groupStats = useStatsStore(state => state.groupStats);
+  const membersData = groupStats?.users || {};
+
   const trackStatsKey = `${user.id}:${track?.id}`;
   const playCount = userTrackStats[trackStatsKey];
 
   useEffect(() => {
     if (track?.id) {
-      fetchUserTrackStats(user.id, track.id);
+      fetchTrackStatsForAll(track.id);
     }
-  }, [track?.id, user.id, fetchUserTrackStats]);
+  }, [track?.id, fetchTrackStatsForAll]);
+
+  const allTrackArenaUsers = Object.values(membersData)
+    .map(u => ({
+      id: u.id,
+      name: u.name,
+      plays: userTrackStats[`${u.id}:${track?.id}`] || 0,
+      avatar: coreUtils.getUserAvatar(u.id, u.avatar)
+    }))
+    .filter(u => u.plays > 0)
+    .sort((a, b) => b.plays - a.plays);
+
+  const trackArenaUsers = arenaExpanded ? allTrackArenaUsers : allTrackArenaUsers.slice(0, 3);
+  const hasMoreArena = allTrackArenaUsers.length > 3;
 
   const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
   const statusLabel = isActuallyLive ? "AO VIVO" : "REPRODUZIDO ÀS " + formattedTime;
+  const showRankingSummary = allTrackArenaUsers.filter(u => u.id !== featuredUserId).length > 0;
 
   const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
 
@@ -1008,13 +1049,37 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
     >
       <AnimatePresence>
         {isActuallyLive && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.15 }}
-            exit={{ opacity: 0 }}
-            className="absolute -right-20 -top-20 h-96 w-96 rounded-full blur-[120px] transition-all duration-1000"
-            style={{ backgroundColor: accentColor }}
-          />
+          <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-90">
+            {/* High Performance Mesh Gradient - Increased Speed and Intensity */}
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.3, 1],
+                rotate: [0, 120, 0],
+                x: ['-20%', '20%', '-20%'],
+                y: ['-15%', '10%', '-15%'],
+              }}
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -inset-[50%] bg-[radial-gradient(circle_at_center,rgba(255,159,10,0.25)_0%,transparent_50%)] pointer-events-none"
+            />
+            <motion.div 
+              animate={{ 
+                scale: [1.3, 1, 1.3],
+                rotate: [360, 240, 360],
+                x: ['20%', '-20%', '20%'],
+                y: ['10%', '-15%', '10%'],
+              }}
+              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -inset-[50%] bg-[radial-gradient(circle_at_center,rgba(255,80,0,0.18)_0%,transparent_45%)] pointer-events-none"
+            />
+            <motion.div 
+              animate={{ 
+                opacity: [0.5, 0.8, 0.5],
+                scale: [1, 1.05, 1],
+              }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 bg-gradient-to-t from-orange-500/[0.12] to-transparent pointer-events-none"
+            />
+          </div>
         )}
       </AnimatePresence>
       
@@ -1030,17 +1095,20 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                />
             </div>
             <div className="flex flex-col">
-              <span className="text-[15px] font-mundial font-bold text-white/90 leading-tight">{user.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[15px] font-mundial font-bold text-white/90 leading-tight truncate">{user.name}</span>
+                <MusicPlatformBadge platform={platform} className="bg-white/[0.03] border-white/5 opacity-50" />
+              </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <div className={cn(
                    "h-1 w-1 rounded-full",
                    isActuallyLive ? "bg-orange-500 animate-pulse shadow-[0_0_8px_rgba(255,159,10,0.8)]" : "bg-white/20"
                 )} />
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">
+                <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white/20">
                   {statusLabel}
                 </span>
                 {durationMs && (
-                  <span className="text-[9px] font-black text-white/20 uppercase tracking-widest ml-1">
+                  <span className="text-[7px] font-black text-white/10 uppercase tracking-widest ml-1">
                     • {coreUtils.formatDurationSmart(durationMs)}
                   </span>
                 )}
@@ -1059,58 +1127,104 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
         {track ? (
            <div className="flex flex-col gap-5">
               <div className="flex items-center gap-4">
-                 <motion.div 
-                   onClick={() => onTrackClick?.(track)}
-                   whileTap={{ scale: 0.95 }}
-                   className="relative h-36 w-36 shrink-0 rounded-[36px] overflow-hidden shadow-2xl border border-white/10 cursor-pointer group"
-                 >
-                    <SmartImage src={albumImage} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" fallback="🎵" />
-                    
-                    {/* Platform Badge - Bottom Right Overlay */}
-                    <div className="absolute bottom-3 right-3 z-20">
-                      <MusicPlatformBadge platform={platform} className="p-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 shadow-xl" />
-                    </div>
-
-                    {isActuallyLive && (
-                       <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
-                          <div className="flex items-end gap-[2.5px] h-5 mb-2">
-                             {[1,2,3].map(i => (
-                               <motion.div 
-                                 key={i} 
-                                 animate={{ height: ["20%", "100%", "40%"] }} 
-                                 transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} 
-                                 className="w-[3px] bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.4)]" 
-                               />
-                             ))}
-                          </div>
-                       </div>
-                    )}
-                 </motion.div>
+                 <div className="relative shrink-0">
+                    <motion.div 
+                      onClick={() => onTrackClick?.(track)}
+                      whileTap={{ scale: 0.95 }}
+                      className="relative h-36 w-36 rounded-[36px] overflow-hidden shadow-2xl border border-white/10 cursor-pointer group z-10"
+                    >
+                       <SmartImage src={albumImage} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" fallback="🎵" />
+                    </motion.div>
+                 </div>
 
                  <div className="flex flex-1 flex-col min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                       {playCount !== undefined && (
-                         <div className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
-                            <Headset className="h-2.5 w-2.5 text-white/40" />
-                            <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">{coreUtils.formatPlayCount(playCount)}</span>
-                         </div>
-                       )}
-                    </div>
-
                     <ScrollingText 
                       text={track.name} 
-                      className="text-2xl font-display font-black text-white leading-tight tracking-tight mb-1" 
+                      className="text-[20px] font-display font-black text-white leading-tight tracking-tight" 
                     />
-                    <MarqueeText 
-                      text={Array.isArray(track.artists) ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') : "Artista Desconhecido"}
-                      className="text-[13px] font-medium text-white/60"
-                    />
-                    {track.albumName && <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-2 line-clamp-1">{track.albumName}</span>}
+                    <div className="text-[13px] font-medium text-white/60 line-clamp-1 mt-0.5">
+                       {Array.isArray(track.artists) ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') : "Artista Desconhecido"}
+                    </div>
+                    {track.albumName && (
+                      <div className="text-[9px] font-bold text-white/20 uppercase tracking-widest mt-1 line-clamp-1 opacity-40">
+                        {track.albumName}
+                      </div>
+                    )}
+
+                    {/* Ranking/Stats Logic - Using overlapping avatar style from Arena Group Live */}
+                    <div className="flex items-center gap-2 mt-4">
+                       {!showRankingSummary ? (
+                          playCount !== undefined && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10 flex items-center gap-2 shrink-0 shadow-lg"
+                            >
+                               <div className="h-4 w-4 rounded-full bg-orange-500/20 flex items-center justify-center">
+                                  <Headset className="h-2.5 w-2.5 text-orange-500" />
+                               </div>
+                               <span className="text-[9px] font-black text-white/70 uppercase tracking-[0.1em] whitespace-nowrap">{coreUtils.formatPlayCount(playCount)}</span>
+                            </motion.div>
+                          )
+                       ) : (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex items-center gap-3"
+                          >
+                             <div className={cn(
+                                "flex items-center gap-2 px-2.5 py-1.5 rounded-[22px] glass border border-white/5 shadow-2xl transition-all",
+                                arenaExpanded && "flex-wrap max-w-[200px] justify-center"
+                             )}>
+                                <div className="flex -space-x-2.5 overflow-visible px-0.5">
+                                   {trackArenaUsers.map((u, i) => (
+                                     <motion.div 
+                                       key={u.id}
+                                       layout
+                                       className="relative group/arena shrink-0"
+                                       style={{ zIndex: trackArenaUsers.length - i }}
+                                     >
+                                        <div className={cn(
+                                           "h-7 w-7 rounded-full ring-2 transition-all duration-300",
+                                           u.id === featuredUserId ? "ring-orange-500/40 bg-orange-500/10" : "ring-[#0A0A0A] bg-[#1A1A1A]"
+                                        )}>
+                                           <div className="h-full w-full rounded-full p-[1.5px] overflow-hidden">
+                                              <SmartImage src={u.avatar} className="h-full w-full rounded-full" fallback={u.name.charAt(0)} rounded="full" />
+                                           </div>
+                                        </div>
+                                        <div className={cn(
+                                           "absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border border-white/10 flex items-center justify-center shadow-lg z-10",
+                                           u.id === featuredUserId ? "bg-orange-500" : "bg-white/30 backdrop-blur-md"
+                                        )}>
+                                           <span className="text-[7px] font-black text-white leading-none tracking-tighter">{u.plays}</span>
+                                        </div>
+                                     </motion.div>
+                                   ))}
+                                </div>
+                                
+                                {hasMoreArena && (
+                                   <button 
+                                     onClick={(e) => {
+                                       e.stopPropagation();
+                                       setArenaExpanded(!arenaExpanded);
+                                     }}
+                                     className="h-6 w-6 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/80 transition-all shrink-0 ml-1 origin-center active:scale-90"
+                                   >
+                                     {arenaExpanded ? <ChevronLeft className="h-3.5 w-3.5" /> : (
+                                       <span className="text-[7px] font-black">+{allTrackArenaUsers.length - 3}</span>
+                                     )}
+                                   </button>
+                                )}
+                             </div>
+                          </motion.div>
+                       )}
+                    </div>
                  </div>
               </div>
 
               <div className="mt-1">
                  <LiveTrackProgress 
+                    progressMs={nowPlaying.progressMs}
                     playedMs={nowPlaying.playedMs}
                     durationMs={durationMs || undefined}
                     timestamp={nowPlaying.timestamp}
@@ -1235,7 +1349,7 @@ export const MusicPlatformBadge = ({ userId, platform, track, className, showLab
 
     return (
       <div className={cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
+        "flex items-center gap-1 px-1.5 py-0.5 rounded-lg glass border border-white/10 shadow-lg",
         className
       )}>
         <img 
@@ -1247,7 +1361,7 @@ export const MusicPlatformBadge = ({ userId, platform, track, className, showLab
           alt={label} 
         />
         {showLabel && (
-          <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
+          <span className="text-[8px] font-black uppercase tracking-widest text-white/70 pr-0.5">
             {label}
           </span>
         )}
@@ -1264,7 +1378,7 @@ export const MusicPlatformBadge = ({ userId, platform, track, className, showLab
 
       return (
         <div className={cn(
-          "flex items-center gap-1.5 px-2 py-1 rounded-lg glass border border-white/10 shadow-lg",
+          "flex items-center gap-1 px-1.5 py-0.5 rounded-lg glass border border-white/10 shadow-lg",
           className
         )}>
           <img 
@@ -1276,7 +1390,7 @@ export const MusicPlatformBadge = ({ userId, platform, track, className, showLab
             alt="" 
           />
           {showLabel && (
-            <span className="text-[8px] font-black uppercase tracking-widest text-white/70">
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/70 pr-0.5">
               {isSpotify ? "Spotify" : "Apple Music"}
             </span>
           )}
@@ -1369,8 +1483,11 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
   );
 };
 
-export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
-  const sorted = [...users].sort((a, b) => (b.totalStreams || 0) - (a.totalStreams || 0));
+export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: UserStats[], type?: 'month' | 'lifetime' }) => {
+  const isLifetime = type === 'lifetime';
+  const sortField = isLifetime ? 'scrobbles' : 'totalStreams';
+  const sorted = [...users].sort((a, b) => ((b as any)[sortField] || 0) - ((a as any)[sortField] || 0));
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
   
   const now = new Date();
   const options: Intl.DateTimeFormatOptions = { 
@@ -1380,12 +1497,14 @@ export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
   const currentMonth = new Intl.DateTimeFormat('pt-BR', options).format(now);
   const currentMonthCapitalized = currentMonth.charAt(0).toUpperCase() + currentMonth.slice(1);
   
+  const title = isLifetime ? "Arena Global Leaderboard" : `Arena Group Leaderboard (${currentMonthCapitalized})`;
+
   return (
     <div className="flex flex-col gap-2 mb-10">
-      <SectionHeader title={`Arena Group Leaderboard (${currentMonthCapitalized})`} />
+      <SectionHeader title={title} />
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-4 -mx-2 px-2">
         {sorted.map((user, i) => {
-          const isLeo = user.id === GROUP_USERS.LEO.id;
+          const isFeatured = user.id === featuredUserId;
           return (
             <motion.div 
               key={user.id}
@@ -1394,14 +1513,14 @@ export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
               transition={{ delay: i * 0.1 }}
               className={cn(
                 "glass-card min-w-[140px] p-6 flex flex-col items-center gap-4 border-white/5",
-                isLeo ? "border-orange-500/20 bg-orange-500/10 shadow-[0_15px_35px_rgba(255,159,10,0.1)]" : "bg-white/[0.02]"
+                isFeatured ? "border-orange-500/20 bg-orange-500/10 shadow-[0_15px_35px_rgba(255,159,10,0.1)]" : "bg-white/[0.02]"
               )}
             >
               <div className="relative">
                 <div className={cn(
                   "h-16 w-16 rounded-full p-1",
                   i === 0 ? "bg-gradient-to-tr from-yellow-500 via-yellow-200 to-yellow-600" : 
-                  isLeo ? "bg-gradient-to-tr from-orange-500 to-orange-300" : "bg-white/10"
+                  isFeatured ? "bg-gradient-to-tr from-orange-500 to-orange-300" : "bg-white/10"
                 )}>
                    <div className="h-full w-full rounded-full bg-[#050505] p-0.5 overflow-hidden">
                      <SmartImage 
@@ -1419,19 +1538,21 @@ export const MonthlyGroupLeaderboard = ({ users }: { users: UserStats[] }) => {
                 )}
               </div>
               <div className="text-center w-full">
-                 <span className={cn("block text-[11px] font-black uppercase tracking-[0.1em] truncate", isLeo ? "text-orange-400" : "text-white/60")}>
+                 <span className={cn("block text-[11px] font-black uppercase tracking-[0.1em] truncate", isFeatured ? "text-orange-400" : "text-white/60")}>
                     {user.name.toUpperCase()}
                  </span>
                  <div className="mt-3 flex flex-col items-center gap-0.5">
                     <span className="text-xl font-display font-black text-white/95 leading-none tracking-tighter">
-                       {coreUtils.formatNumber(user.totalStreams || 0)}
+                       {coreUtils.formatNumber((user as any)[sortField] || 0)}
                     </span>
-                    <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em]">Total Streams</span>
+                    <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em]">
+                      {isLifetime ? "Lifetime Scrobbles" : "Total Streams"}
+                    </span>
                  </div>
                  
                  <div className="mt-4 pt-4 border-t border-white/5 w-full flex flex-col gap-1 items-center">
                     <span className="text-[7px] font-black text-white/10 uppercase tracking-widest">Hoje</span>
-                    <span className={cn("text-[10px] font-black", isLeo ? "text-orange-500/80" : "text-white/40")}>
+                    <span className={cn("text-[10px] font-black", isFeatured ? "text-orange-500/80" : "text-white/40")}>
                       +{user.streamsToday}
                     </span>
                  </div>
@@ -1481,8 +1602,19 @@ export const TrackLeaderboardModal = ({
     loadStats();
   }, [track?.id]);
 
+  const { groupStats } = useStatsStore();
+  const membersData = groupStats?.users || {};
+
   const sortedUsers = Object.values(GROUP_USERS)
-    .map(u => ({ ...u, data: stats[u.id] || { track: 0, album: 0, artist: 0 } }))
+    .map(u => {
+      const apiUser = membersData[u.id];
+      return { 
+        ...u, 
+        avatar: apiUser?.avatar,
+        data: stats[u.id] || { track: 0, album: 0, artist: 0 } 
+      };
+    })
+    .filter(u => u.data[view] > 0)
     .sort((a, b) => b.data[view] - a.data[view]);
 
   const albumId = track.albums?.[0]?.id || track.album?.id;
@@ -1497,158 +1629,164 @@ export const TrackLeaderboardModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
       onClick={onClose}
     >
       <motion.div 
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="bg-[#111111] w-full max-w-sm max-h-[90vh] rounded-[40px] border border-white/10 px-6 py-8 sm:py-10 shadow-2xl flex flex-col gap-6 overflow-hidden"
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        className="bg-[#0c0c0c] w-full max-w-sm max-h-[85vh] rounded-[48px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-col items-center text-center shrink-0">
-           <div className="relative">
+        {/* Abstract Background Glow */}
+        <div 
+          className="absolute top-0 left-0 w-full h-40 opacity-20 blur-[80px] pointer-events-none"
+          style={{ backgroundColor: GROUP_USERS.LEO.color }}
+        />
+
+        {/* Sticky Header Section */}
+        <button 
+          onClick={onClose}
+          className="absolute top-6 right-6 z-50 h-10 w-10 glass rounded-2xl flex items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all border border-white/5"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="pt-8 px-6 pb-4 flex flex-col items-center text-center shrink-0 border-b border-white/5 relative z-10">
+           <div className="relative group">
               <SmartImage 
                 src={track.image} 
-                className="h-28 w-28 shadow-2xl border border-white/10 relative z-10" 
+                className="h-24 w-24 shadow-[0_12px_32px_rgba(0,0,0,0.6)] border border-white/10" 
                 rounded="2xl"
                 fallback="🎵"
               />
-              <div 
-                className="absolute inset-2 blur-2xl opacity-40 rounded-full"
-                style={{ backgroundColor: GROUP_USERS.LEO.color }}
-              />
-              <div className="absolute top-2 right-2 z-20">
-                <MusicPlatformBadge track={track} showLabel />
+              <div className="absolute -bottom-2 -right-2 z-20">
+                <MusicPlatformBadge platform={coreUtils.detectCatalogAvailability(track).hasSpotify ? 'spotify' : 'apple'} />
               </div>
            </div>
-           <h2 className="mt-5 text-lg font-display font-black text-white leading-tight truncate w-full px-4">
-             {track.name}
-           </h2>
-           <p className="text-[8px] font-black text-white/40 uppercase tracking-[0.4em] mt-2">Arena Rankings</p>
+           
+           <div className="mt-4 w-full px-2">
+             <h2 className="text-lg font-display font-black text-white leading-tight truncate">
+               {track.name}
+             </h2>
+             <div className="flex items-center justify-center gap-2 mt-1">
+               <span className="text-[10px] font-bold text-white/40 truncate max-w-[120px]">{artistName}</span>
+               <span className="h-1 w-1 rounded-full bg-white/10" />
+               <span className="text-[10px] font-bold text-white/20 truncate max-w-[120px]">{albumName}</span>
+             </div>
+           </div>
+           
+           <div className="flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full bg-white/5 border border-white/5">
+             <Trophy className="h-2.5 w-2.5 text-orange-500" />
+             <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">Arena Rankings</span>
+           </div>
         </div>
 
-        <div className="flex flex-col gap-6 overflow-y-auto pr-1 custom-scrollbar">
-          {/* Navigation Section */}
-          <div className="flex flex-col gap-2">
-            <SectionHeader title="Informações" icon={Activity} />
-            {artistName && (
-              <div className="flex items-center gap-3 glass p-4 rounded-[24px] border-white/5">
-                <div className="h-10 w-10 shrink-0 rounded-xl overflow-hidden bg-white/5 border border-white/10">
-                  {artistImage ? (
-                    <img src={artistImage} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-white/20">
-                      <Music2 className="h-4 w-4" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">Artista</span>
-                  <span 
-                    className="text-[13px] font-bold text-white truncate cursor-pointer hover:text-orange-500 transition-colors"
-                    onClick={artistId ? () => window.open(`https://stats.fm/artist/${artistId}`, '_blank') : undefined}
-                  >
-                    {artistName}
-                  </span>
-                </div>
-              </div>
-            )}
-            {albumName && (
-              <InfoRow 
-                icon={TrendingUp} 
-                label="Álbum" 
-                value={albumName} 
-                onClick={albumId ? () => window.open(`https://stats.fm/album/${albumId}`, '_blank') : undefined} 
-              />
-            )}
-          </div>
-
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar flex flex-col gap-6">
           <div className="flex flex-col gap-4">
-            <SectionHeader title="Competição" icon={Activity} />
-            
             {/* Tabs Selector */}
             <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/5 shrink-0">
-           {[
-             { id: 'track', label: 'Track' },
-             { id: 'artist', label: 'Artist' },
-             { id: 'album', label: 'Album' }
-           ].map((tab) => (
-             <button
-               key={tab.id}
-               onClick={() => setView(tab.id as any)}
-               className={cn(
-                 "flex-1 h-8 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                 view === tab.id ? "bg-orange-500 text-white shadow-lg" : "text-white/30 hover:text-white/50"
-               )}
-             >
-               {tab.label}
-             </button>
-           ))}
-        </div>
+               {[
+                 { id: 'track', label: 'Faixa' },
+                 { id: 'artist', label: 'Artista' },
+                 { id: 'album', label: 'Álbum' }
+               ].map((tab) => (
+                 <button
+                   key={tab.id}
+                   onClick={() => setView(tab.id as any)}
+                   className={cn(
+                     "flex-1 h-8 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
+                     view === tab.id ? "bg-orange-500 text-white shadow-lg shadow-orange-500/20" : "text-white/30 hover:text-white/50"
+                   )}
+                 >
+                   {tab.label}
+                 </button>
+               ))}
+            </div>
 
-        <div className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
-          {loading ? (
-            [1,2,3].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)
-          ) : (
-            <>
-              {/* Context Header */}
-              <div className="px-2 mb-1 flex items-center justify-between">
-                <span className="text-[9px] font-black text-orange-500/80 uppercase tracking-widest italic">
-                  Competidores
-                </span>
-                <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">
-                  {view === 'track' ? 'Plays na Faixa' : view === 'artist' ? `Plays em ${artistName || 'Artista'}` : `Plays em ${albumName || 'Álbum'}`}
-                </span>
-              </div>
-
-              {sortedUsers.map((user, i) => (
-                <div 
-                  key={user.id} 
-                  className={cn(
-                    "flex items-center justify-between p-4 rounded-2xl border transition-all",
-                    i === 0 ? "bg-orange-500/10 border-orange-500/20" : "bg-white/[0.02] border-white/5"
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                     <div className="h-4 w-4 flex items-center justify-center text-[10px] font-black text-white/40 italic">
-                       #{i + 1}
-                     </div>
-                     <SmartImage 
-                       src={coreUtils.getAvatarUrl(user.id)} 
-                       className="h-8 w-8 rounded-full border border-white/20" 
-                       rounded="full"
-                     />
-                     <span className="text-[13px] font-bold text-white leading-tight">{user.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                     <span className={cn("text-lg font-display font-black", i === 0 ? "text-orange-500" : "text-white")}>
-                        {coreUtils.formatNumber(user.data[view])}
-                     </span>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+            <div className="flex flex-col gap-2">
+              {loading ? (
+                [1,2,3,4].map(i => <div key={i} className="h-14 w-full bg-white/5 rounded-2xl animate-pulse" />)
+              ) : (
+                <>
+                  {sortedUsers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 opacity-40">
+                      <Music2 className="h-8 w-8 mb-3" />
+                      <p className="text-[10px] font-black uppercase tracking-widest text-center">Nenhum competidor nesta categoria</p>
+                    </div>
+                  ) : sortedUsers.map((user, i) => {
+                    const isLeo = user.id === GROUP_USERS.LEO.id;
+                    const isWinner = i === 0;
+                    
+                    return (
+                      <div 
+                        key={user.id} 
+                        className={cn(
+                          "flex items-center justify-between p-3.5 rounded-[22px] border transition-all",
+                          isWinner ? "bg-orange-500/10 border-orange-500/20 shadow-[0_8px_16px_rgba(255,159,10,0.05)]" : "bg-white/[0.02] border-white/5",
+                          isLeo && !isWinner && "border-white/20 bg-white/5"
+                        )}
+                      >
+                        <div className="flex items-center gap-3">
+                           <div className="h-5 w-5 flex items-center justify-center shrink-0">
+                             {i === 0 ? <Medal className="h-4 w-4 text-yellow-500" /> : 
+                              i === 1 ? <Medal className="h-4 w-4 text-slate-400" /> :
+                              i === 2 ? <Medal className="h-4 w-4 text-orange-700" /> :
+                              <span className="text-[10px] font-black text-white/20 italic">#{i + 1}</span>}
+                           </div>
+                           <div className="relative">
+                             <SmartImage 
+                               src={coreUtils.getUserAvatar(user.id, (user as any).avatar)} 
+                               className={cn("h-8 w-8 rounded-full border", isWinner ? "border-orange-500/40" : "border-white/10")} 
+                               rounded="full"
+                             />
+                             {isLeo && (
+                               <div className="absolute -top-1 -right-1 h-3 w-3 bg-blue-500 rounded-full border-2 border-[#111] flex items-center justify-center">
+                                 <div className="h-1 w-1 bg-white rounded-full" />
+                               </div>
+                             )}
+                           </div>
+                           <div className="flex flex-col">
+                             <span className={cn("text-[12px] font-bold", isLeo ? "text-white" : "text-white/80")}>
+                               {user.name}
+                             </span>
+                             {isWinner && <span className="text-[8px] font-black text-orange-500/80 uppercase tracking-widest">Líder Arena</span>}
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <span className={cn(
+                             "text-[15px] font-display font-black", 
+                             isWinner ? "text-orange-500" : isLeo ? "text-white" : "text-white/60"
+                           )}>
+                              {coreUtils.formatNumber(user.data[view])}
+                           </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-          {/* Links Section */}
-          <div className="flex flex-col gap-2">
-               <SectionHeader title="Ouvir Agora" icon={Headset} />
+          {/* Player Links Section */}
+          <div className="mt-2">
+               <div className="flex items-center justify-between px-1 mb-3">
+                  <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Ouvir na Íntegra</span>
+                  <Headset className="h-3 w-3 text-white/10" />
+               </div>
                <div className="flex items-center gap-2">
                  {(track.spotifyId || coreUtils.detectCatalogAvailability(track).hasSpotify) && (
                    <a 
                     href={`https://open.spotify.com/track/${track.spotifyId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 h-12 rounded-2xl bg-[#1DB954]/10 border border-[#1DB954]/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0"
+                    className="flex-1 h-11 rounded-xl bg-white/5 hover:bg-[#1DB954]/10 border border-white/5 hover:border-[#1DB954]/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
                    >
-                     <div className="h-5 w-5 flex items-center justify-center shrink-0">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" className="h-3.5 w-3.5" alt="" />
-                     </div>
-                     <span className="text-[9px] font-black text-[#1DB954] uppercase tracking-widest whitespace-nowrap">Spotify</span>
+                     <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100 transition-opacity" alt="" />
+                     <span className="text-[9px] font-black text-white/30 group-hover:text-[#1DB954] uppercase tracking-widest transition-colors">Spotify</span>
                    </a>
                  )}
                  {(track.appleMusicId || coreUtils.detectCatalogAvailability(track).hasAppleMusic) && (
@@ -1656,24 +1794,25 @@ export const TrackLeaderboardModal = ({
                     href={`https://music.apple.com/song/${track.appleMusicId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 h-12 rounded-2xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0"
+                    className="flex-1 h-11 rounded-xl bg-white/5 hover:bg-pink-500/10 border border-white/5 hover:border-pink-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
                    >
-                     <div className="h-5 w-5 flex items-center justify-center shrink-0">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" className="h-3.5 w-3.5 invert" alt="" />
-                     </div>
-                     <span className="text-[9px] font-black text-pink-500 uppercase tracking-widest whitespace-nowrap">Apple</span>
+                     <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" className="h-3.5 w-3.5 invert opacity-30 group-hover:opacity-100 transition-opacity" alt="" />
+                     <span className="text-[9px] font-black text-white/30 group-hover:text-pink-500 uppercase tracking-widest transition-colors">Apple</span>
                    </a>
                  )}
                </div>
             </div>
         </div>
 
-        <button 
-          onClick={onClose}
-          className="w-full h-14 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 active:scale-95 transition-all"
-        >
-          Fechar Arena
-        </button>
+        {/* Footer Action */}
+        <div className="p-6 pt-2 pb-8 bg-gradient-to-t from-[#0c0c0c] via-[#0c0c0c] to-transparent shrink-0">
+          <button 
+            onClick={onClose}
+            className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 active:scale-95 transition-all hover:bg-white/10"
+          >
+            Sair da Arena
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

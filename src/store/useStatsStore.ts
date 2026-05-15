@@ -16,12 +16,15 @@ interface StatsState {
   error: string | null;
   lastFetchTime: Record<string, number>;
   userTrackStats: Record<string, number>;
+  featuredUserId: string;
   
   // Actions
   fetchGroup: (force?: boolean) => Promise<void>;
   fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
+  fetchTrackStatsForAll: (trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
   setOffline: (offline: boolean) => void;
+  setFeaturedUserId: (userId: string) => void;
 }
 
 export const useStatsStore = create<StatsState>()(
@@ -34,8 +37,10 @@ export const useStatsStore = create<StatsState>()(
       error: null,
       lastFetchTime: {},
       userTrackStats: {},
+      featuredUserId: "leo",
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
+      setFeaturedUserId: (userId: string) => set({ featuredUserId: userId }),
 
       fetchGroup: async (force = false) => {
         const isInitial = !get().groupStats;
@@ -74,6 +79,25 @@ export const useStatsStore = create<StatsState>()(
           set({ userTrackStats: { ...get().userTrackStats, [key]: count } });
         } catch (e) {
           console.error("fetchUserTrackStats error:", e);
+        }
+      },
+
+      fetchTrackStatsForAll: async (trackId: string) => {
+        const users = statsService.getUsers();
+        try {
+          const results = await Promise.all(users.map(async (u) => {
+            const count = await statsService.fetchEntityStats(u.id, 'track', trackId);
+            return { userId: u.id, count };
+          }));
+          
+          const newStats = { ...get().userTrackStats };
+          results.forEach(({ userId, count }) => {
+            newStats[`${userId}:${trackId}`] = count;
+          });
+          
+          set({ userTrackStats: newStats });
+        } catch (e) {
+          console.error("fetchTrackStatsForAll error:", e);
         }
       },
 
