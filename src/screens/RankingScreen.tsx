@@ -21,7 +21,9 @@ export default function RankingScreen() {
   const [rankingsData, setRankingsData] = useState<Record<string, any>>({});
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
+  const [showUserSelector, setShowUserSelector] = useState(false);
   const LEO_ID = GROUP_USERS.LEO.id;
+  const { setFeaturedUserId, featuredUserId } = useStatsStore();
 
   useEffect(() => {
     async function loadRankings() {
@@ -88,9 +90,76 @@ export default function RankingScreen() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Arena do Group</h1>
           <p className="text-white/60 text-sm">Disputa sonora entre os amigos</p>
         </div>
-        <button onClick={() => fetchGroup(true)} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
-           <RefreshCcw className={clsx("h-4 w-4 text-white/50", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
-        </button>
+        <div className="flex gap-2 relative">
+          <button 
+                onClick={() => setShowUserSelector(!showUserSelector)} 
+                className={clsx(
+                  "h-10 w-10 glass rounded-2xl flex items-center justify-center transition-all",
+                  showUserSelector && "bg-white/20 border-white/20"
+                )}
+              >
+                 <Users className="h-4 w-4 text-white/40" />
+          </button>
+          <button onClick={() => fetchGroup(true)} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
+             <RefreshCcw className={clsx("h-4 w-4 text-white/50", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
+          </button>
+
+          <AnimatePresence>
+            {showUserSelector && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowUserSelector(false)}
+                  className="fixed inset-0 z-40"
+                />
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 w-48 glass-card border-white/10 p-2 z-50 shadow-2xl backdrop-blur-3xl overflow-hidden"
+                >
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white/20 px-3 py-2 mb-1">Focar Perfil</div>
+                  <div className="flex flex-col gap-1">
+                    {members.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => {
+                          setFeaturedUserId(u.id);
+                          setShowUserSelector(false);
+                        }}
+                        className={clsx(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
+                          featuredUserId === u.id 
+                            ? "bg-white/10 border border-white/10" 
+                            : "hover:bg-white/5"
+                        )}
+                      >
+                        <div className="h-6 w-6 rounded-full border border-white/10 overflow-hidden relative grayscale shrink-0">
+                           <img 
+                             src={coreUtils.getUserAvatar(u.id)} 
+                             className="h-full w-full object-cover" 
+                             alt={u.name} 
+                           />
+                           {featuredUserId === u.id && (
+                             <div className="absolute inset-0 bg-orange-500/20" />
+                           )}
+                        </div>
+                        <span className={clsx(
+                          "text-xs font-medium transition-colors",
+                          featuredUserId === u.id ? "text-white" : "text-white/60"
+                        )}>
+                          {u.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
       </header>
 
       {/* Range Selector */}

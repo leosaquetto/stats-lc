@@ -22,12 +22,28 @@ export default function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    fetchStats(true); // Initial fetch forced
-    const id = setInterval(() => fetchStats(false), 60000); // Polling unforced
+    // Sync across tabs
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'stats-lc-storage' && e.newValue) {
+        // Zustand handles hydration automatically
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    // Initial fetch: Always force on mount to get current status
+    fetchStats(true);
+    
+    // Polling: Every 30s for live updates
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchStats(true); // Force true to bypass server cache for live info
+      }
+    }, 30000); 
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('storage', handleStorage);
       clearInterval(id);
     };
   }, [fetchStats, setOffline]);
