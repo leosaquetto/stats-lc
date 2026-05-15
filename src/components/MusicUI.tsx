@@ -47,7 +47,7 @@ const TopRankRow = React.memo(({
             <SmartImage 
               src={item.image} 
               className="h-11 w-11 shadow-xl border border-white/20" 
-              fallback={item.name.charAt(0)}
+              fallback=""
             />
             <div className="flex flex-col min-w-0">
                <span className="text-[14px] font-black text-white tracking-tight truncate w-40">{item.name}</span>
@@ -164,7 +164,7 @@ export const UserDetailModal = ({
 }) => {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const isLeo = initialUser.id === GROUP_USERS.LEO.id;
+  const isLeo = initialUser.id === "leo";
   const [activeTab, setActiveTab] = useState<'artists' | 'tracks' | 'albums'>('artists');
   
   useEffect(() => {
@@ -421,7 +421,7 @@ export const StatsBattleModal = ({
                 <SmartImage 
                   src={coreUtils.getUserAvatar(userA.id, userA.avatar)} 
                   className="h-full w-full rounded-full" 
-                  fallback={userA.name.charAt(0)} 
+                  fallback="" 
                   rounded="full" 
                 />
              </div>
@@ -438,7 +438,7 @@ export const StatsBattleModal = ({
                 <SmartImage 
                   src={coreUtils.getUserAvatar(userB.id, userB.avatar)} 
                   className="h-full w-full rounded-full" 
-                  fallback={userB.name.charAt(0)} 
+                  fallback="" 
                   rounded="full" 
                 />
              </div>
@@ -511,7 +511,7 @@ const ComparisonSection = ({ title, itemsA, itemsB }: { title: string, itemsA: T
                  <SmartImage 
                     src={itemsA[i].image} 
                     className="min-w-[36px] h-[36px] border border-white/10" 
-                    fallback={itemsA[i].name.charAt(0)}
+                    fallback=""
                     rounded="lg"
                  />
                  <div className="flex flex-col min-w-0">
@@ -537,7 +537,7 @@ const ComparisonSection = ({ title, itemsA, itemsB }: { title: string, itemsA: T
                  <SmartImage 
                     src={itemsB[i].image} 
                     className="min-w-[36px] h-[36px] border border-white/10" 
-                    fallback={itemsB[i].name.charAt(0)}
+                    fallback=""
                     rounded="lg"
                  />
                </>
@@ -594,8 +594,8 @@ export const MusicCard = React.memo(({
   footer,
   onClick
 }: MusicCardProps) => {
-  const isLeo = userId === GROUP_USERS.LEO.id;
-  const accentColor = isLeo ? GROUP_USERS.LEO.color : "#FFFFFF";
+  const isLeo = userId === "leo";
+  const accentColor = isLeo ? ({id: "leo", name: "Leo", color: "#FF9F0A"}).color : "#FFFFFF";
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
   const userAvatar = coreUtils.getUserAvatar(userId);
 
@@ -620,7 +620,7 @@ export const MusicCard = React.memo(({
           <SmartImage 
             src={trackImage} 
             className="h-full w-full" 
-            fallback={songName?.charAt(0) || "🎵"}
+            fallback=""
             rounded="[14px]"
           />
           {isNowPlaying && (
@@ -813,7 +813,7 @@ export const FriendsHorizontalCard = React.memo(({
             <SmartImage 
               src={trackImage} 
               className={cn("h-full w-full grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
-              fallback={firstName.charAt(0)}
+              fallback=""
             />
           </div>
         </div>
@@ -836,7 +836,7 @@ export const FriendsHorizontalCard = React.memo(({
 
         {/* Track Name: 2 lines */}
         <TruncatedTooltipText 
-          text={songName || "Offline"}
+          text={songName }
           className="text-[10px] font-black text-white/80 leading-tight min-h-[24px] text-center px-0.5"
           lineClamp={2}
         />
@@ -983,11 +983,11 @@ export const LiveTrackProgress = ({
         />
       </div>
       <div className="flex justify-between items-center px-0.5">
-        <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] leading-none">
-           AO VIVO
+        <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest leading-none">
+           {coreUtils.formatDurationSmart(elapsedMs)}
         </span>
         <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest leading-none">
-           {coreUtils.formatDurationSmart(elapsedMs)} / {coreUtils.formatDurationSmart(durationMs)}
+           {coreUtils.formatDurationSmart(durationMs)}
         </span>
       </div>
     </div>
@@ -996,7 +996,7 @@ export const LiveTrackProgress = ({
 
 export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void }) => {
   if (!user) return null;
-  const accentColor = GROUP_USERS.LEO.color;
+  const accentColor = ({id: "leo", name: "Leo", color: "#FF9F0A"}).color;
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
   const nowPlaying = user.nowPlaying;
   const track = nowPlaying?.track;
@@ -1032,11 +1032,11 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
     .filter(u => u.plays > 0)
     .sort((a, b) => b.plays - a.plays);
 
-  const trackArenaUsers = arenaExpanded ? allTrackArenaUsers : allTrackArenaUsers.slice(0, 3);
-  const hasMoreArena = allTrackArenaUsers.length > 3;
+  const trackArenaUsers = arenaExpanded ? allTrackArenaUsers : allTrackArenaUsers.slice(0, 5);
+  const hasMoreArena = allTrackArenaUsers.length > 5;
 
   const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
-  const statusLabel = isActuallyLive ? "AO VIVO" : "REPRODUZIDO ÀS " + formattedTime;
+  const statusLabel = isActuallyLive ? "OUVINDO AGORA" : "REPRODUZIDO ÀS " + formattedTime;
   const showRankingSummary = allTrackArenaUsers.filter(u => u.id !== featuredUserId).length > 0;
 
   const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
@@ -1090,7 +1090,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                <SmartImage 
                  src={profileAvatar} 
                  className="h-full w-full rounded-full" 
-                 fallback={user.name?.charAt(0) || "L"} 
+                 fallback="" 
                  rounded="full"
                />
             </div>
@@ -1107,11 +1107,6 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                 <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white/20">
                   {statusLabel}
                 </span>
-                {durationMs && (
-                  <span className="text-[7px] font-black text-white/10 uppercase tracking-widest ml-1">
-                    • {coreUtils.formatDurationSmart(durationMs)}
-                  </span>
-                )}
               </div>
             </div>
           </div>
@@ -1133,7 +1128,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                       whileTap={{ scale: 0.95 }}
                       className="relative h-36 w-36 rounded-[36px] overflow-hidden shadow-2xl border border-white/10 cursor-pointer group z-10"
                     >
-                       <SmartImage src={albumImage} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" fallback="🎵" />
+                       <SmartImage src={albumImage} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" fallback="" />
                     </motion.div>
                  </div>
 
@@ -1152,7 +1147,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                     )}
 
                     {/* Ranking/Stats Logic - Using overlapping avatar style from Arena Group Live */}
-                    <div className="flex items-center gap-2 mt-4">
+                    <div className="flex justify-start items-center gap-2 mt-4">
                        {!showRankingSummary ? (
                           playCount !== undefined && (
                             <motion.div 
@@ -1170,10 +1165,10 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                           <motion.div 
                             initial={{ opacity: 0, y: 5 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center gap-3"
+                            className="flex justify-start items-center gap-3"
                           >
                              <div className={cn(
-                                "flex items-center gap-2 px-2.5 py-1.5 rounded-[22px] glass border border-white/5 shadow-2xl transition-all",
+                                "flex items-center gap-2 !pl-0 px-2.5 py-1.5 rounded-[22px] !border-none shadow-2xl transition-all",
                                 arenaExpanded && "flex-wrap max-w-[200px] justify-center"
                              )}>
                                 <div className="flex -space-x-2.5 overflow-visible px-0.5">
@@ -1185,11 +1180,11 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                                        style={{ zIndex: trackArenaUsers.length - i }}
                                      >
                                         <div className={cn(
-                                           "h-7 w-7 rounded-full ring-2 transition-all duration-300",
-                                           u.id === featuredUserId ? "ring-orange-500/40 bg-orange-500/10" : "ring-[#0A0A0A] bg-[#1A1A1A]"
+                                           "h-7 w-7 rounded-full transition-all duration-300",
+                                           u.id === featuredUserId ? "ring-2 ring-orange-500/40 bg-orange-500/10" : ""
                                         )}>
                                            <div className="h-full w-full rounded-full p-[1.5px] overflow-hidden">
-                                              <SmartImage src={u.avatar} className="h-full w-full rounded-full" fallback={u.name.charAt(0)} rounded="full" />
+                                              <SmartImage src={u.avatar} className="h-full w-full rounded-full" fallback="" rounded="full" />
                                            </div>
                                         </div>
                                         <div className={cn(
@@ -1211,7 +1206,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                                      className="h-6 w-6 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/80 transition-all shrink-0 ml-1 origin-center active:scale-90"
                                    >
                                      {arenaExpanded ? <ChevronLeft className="h-3.5 w-3.5" /> : (
-                                       <span className="text-[7px] font-black">+{allTrackArenaUsers.length - 3}</span>
+                                       <span className="text-[7px] font-black">+{allTrackArenaUsers.length - 5}</span>
                                      )}
                                    </button>
                                 )}
@@ -1459,7 +1454,7 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
                 <SmartImage 
                   src={coreUtils.getUserAvatar(user.id, user.avatar)} 
                   className="h-full w-full rounded-full" 
-                  fallback={user.name?.charAt(0)} 
+                  fallback="" 
                   rounded="full" 
                 />
               </div>
@@ -1526,7 +1521,7 @@ export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: User
                      <SmartImage 
                        src={coreUtils.getUserAvatar(user.id, user.avatar)} 
                        className="h-full w-full rounded-full" 
-                       fallback={user.name?.charAt(0)} 
+                       fallback="" 
                        rounded="full" 
                      />
                   </div>
@@ -1605,7 +1600,7 @@ export const TrackLeaderboardModal = ({
   const { groupStats } = useStatsStore();
   const membersData = groupStats?.users || {};
 
-  const sortedUsers = Object.values(GROUP_USERS)
+  const sortedUsers = ([] as any[])
     .map(u => {
       const apiUser = membersData[u.id];
       return { 
@@ -1642,7 +1637,7 @@ export const TrackLeaderboardModal = ({
         {/* Abstract Background Glow */}
         <div 
           className="absolute top-0 left-0 w-full h-40 opacity-20 blur-[80px] pointer-events-none"
-          style={{ backgroundColor: GROUP_USERS.LEO.color }}
+          style={{ backgroundColor: ({id: "leo", name: "Leo", color: "#FF9F0A"}).color }}
         />
 
         {/* Sticky Header Section */}
@@ -1659,7 +1654,7 @@ export const TrackLeaderboardModal = ({
                 src={track.image} 
                 className="h-24 w-24 shadow-[0_12px_32px_rgba(0,0,0,0.6)] border border-white/10" 
                 rounded="2xl"
-                fallback="🎵"
+                fallback=""
               />
               <div className="absolute -bottom-2 -right-2 z-20">
                 <MusicPlatformBadge platform={coreUtils.detectCatalogAvailability(track).hasSpotify ? 'spotify' : 'apple'} />
@@ -1717,7 +1712,7 @@ export const TrackLeaderboardModal = ({
                       <p className="text-[10px] font-black uppercase tracking-widest text-center">Nenhum competidor nesta categoria</p>
                     </div>
                   ) : sortedUsers.map((user, i) => {
-                    const isLeo = user.id === GROUP_USERS.LEO.id;
+                    const isLeo = user.id === "leo";
                     const isWinner = i === 0;
                     
                     return (

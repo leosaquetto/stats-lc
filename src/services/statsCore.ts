@@ -6,43 +6,7 @@
 import { Artist } from '../types/stats';
 import { formatTimeSP, formatDateSP, formatRelativeTimeSP, isTodaySP } from '../lib/time';
 
-export const GROUP_USERS = {
-  LEO: {
-    id: "leo",
-    name: "Leo",
-    color: "#FF9F0A",
-    platform: "appleMusic" as const,
-    fallbackAvatar: undefined, // Add here if known
-  },
-  GAB: {
-    id: "gab",
-    name: "Gab",
-    color: "#FFFFFF",
-    platform: "appleMusic" as const,
-    fallbackAvatar: undefined,
-  },
-  SAVIO: {
-    id: "savio",
-    name: "Sávio",
-    color: "#FFFFFF",
-    platform: "spotify" as const,
-    fallbackAvatar: undefined,
-  },
-  BENNY: {
-    id: "benny",
-    name: "Benny",
-    color: "#FFFFFF",
-    platform: "spotify" as const,
-    fallbackAvatar: undefined,
-  },
-  PETER: {
-    id: "peter",
-    name: "Peter",
-    color: "#FFFFFF",
-    platform: "spotify" as const,
-    fallbackAvatar: "https://i.imgur.com/4iOIFkx.jpeg",
-  }
-} as const;
+export const GROUP_USERS = {} as const;
 
 export const coreUtils = {
   /**
@@ -62,19 +26,10 @@ export const coreUtils = {
       };
     }
 
-    const user = Object.values(GROUP_USERS).find(u => u.id === userId);
-    const platform = user?.platform || "unknown";
-    
-    const labels = {
-      appleMusic: "Apple Music",
-      spotify: "Spotify",
-      unknown: ""
-    };
-
     return {
-      primary: platform,
-      label: labels[platform as keyof typeof labels] || "",
-      confidence: "manual"
+      primary: "unknown",
+      label: "",
+      confidence: "api"
     };
   },
 
@@ -87,30 +42,13 @@ export const coreUtils = {
     return `${count} reproduções`;
   },
   /**
-   * Retorna a URL do avatar do usuário com fallback para o Peter ou iniciais.
-   * Agora considera a API de forma inteligente: se a API trouxer algo que não é o placeholder default, usamos.
+   * Retorna a URL do avatar do usuário diretamente da API.
    */
   getUserAvatar(userId: string, avatarUrl?: string): string {
-    const userConfig = Object.values(GROUP_USERS).find(u => u.id === userId);
-    
-    // Check if it's a "real" avatar from the API
-    // We reject explicit private placeholders and generic initials
-    const isPlaceholder = !avatarUrl || 
-                         avatarUrl.includes("placeholders/users/private.webp") || 
-                         avatarUrl.includes("ui-avatars.com");
-    
-    // If we have a non-placeholder avatarUrl from the API, use it!
-    if (!isPlaceholder) {
-      return avatarUrl!;
+    if (avatarUrl && !avatarUrl.includes("placeholders/users/private.webp")) {
+      return avatarUrl;
     }
-
-    // Fallback logic from our hardcoded config
-    if (userConfig?.fallbackAvatar) {
-      return userConfig.fallbackAvatar;
-    }
-
-    // Siglas/Initials fallback
-    return `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(userConfig?.name || this.getUserName(userId) || "U")}`;
+    return "";
   },
 
   /**
@@ -120,20 +58,18 @@ export const coreUtils = {
     if (originalUrl && !originalUrl.includes("placeholders/users/private.webp")) {
       return originalUrl;
     }
-    // Se não tem imagem da track, tenta o avatar do usuário (que pode ser Peter)
-    return this.getUserAvatar(userId);
+    return "";
   },
 
   /**
-   * Alias sugerido pelo usuário para garantir a imagem correta
+   * Retorna avatar
    */
   withPeterFallback(userId: string, originalUrl?: string): string {
     return this.getAvatarUrl(userId, originalUrl);
   },
 
   getUserName(userId: string): string {
-    const user = Object.values(GROUP_USERS).find(u => u.id === userId);
-    return user?.name || "User";
+    return "";
   },
 
   formatNumber(num: number): string {
