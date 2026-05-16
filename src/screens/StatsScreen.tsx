@@ -96,7 +96,8 @@ export default function StatsScreen() {
       label: 'Tempo de Audição', 
       value: coreUtils.formatDuration(
         currentStats?.durationMs || 
-        (activeFilter === 'Hoje' ? (user as any)?.totalDurationMs : 0) || 0
+        currentStats?.playedMs ||
+        0
       ), 
       icon: TrendingUp, 
       color: accentColor 
@@ -166,7 +167,7 @@ export default function StatsScreen() {
                 >
                   <div className="text-[9px] font-bold uppercase tracking-widest text-white/20 px-3 py-2 mb-1">Trocar Perfil</div>
                   <div className="flex flex-col gap-1">
-                    {([] as any[]).map((u) => (
+                    {members.map((u) => (
                       <button
                         key={u.id}
                         onClick={() => {
@@ -310,7 +311,7 @@ export default function StatsScreen() {
             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: accentColor }}>Frequência Sonora</h4>
          </div>
          <p className="text-white/60 text-[13px] leading-relaxed font-medium">
-           {user?.name } ouviu <span className="text-white font-bold">{coreUtils.formatDuration(currentStats?.durationMs || 0)}</span> de música no período selecionado ({activeFilter.toLowerCase()}).
+           {user?.name } ouviu <span className="text-white font-bold">{coreUtils.formatDuration(currentStats?.durationMs || currentStats?.playedMs || 0)}</span> de música no período selecionado ({activeFilter.toLowerCase()}).
          </p>
       </div>
     </div>
