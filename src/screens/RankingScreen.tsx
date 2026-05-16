@@ -6,33 +6,37 @@
 import { useState, useEffect } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Award, Trophy, Users, Flame, TrendingUp, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { Award, Trophy, Users, Flame, TrendingUp, RefreshCcw, AlertTriangle, Swords } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, Skeleton, UserDetailModal } from '../components/MusicUI';
+import { SectionHeader, Skeleton, UserDetailModal, StatsBattleModal } from '../components/MusicUI';
 import { GROUP_USERS, coreUtils } from '../services/statsCore';
 import { UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 
-type Range = 'today' | 'weeks' | 'months' | 'lifetime';
+type Range = 'today' | 'weeks' | 'months' | 'years' | 'lifetime';
 
 export default function RankingScreen() {
   const { groupStats, isLoading: isGlobalLoading, error, fetchGroup } = useStatsStore();
   const [activeRange, setActiveRange] = useState<Range>('months');
   const [rankingsData, setRankingsData] = useState<Record<string, any>>({});
   const [isLocalLoading, setIsLocalLoading] = useState(false);
+  const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
+  const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const LEO_ID = "leo";
   const { setFeaturedUserId, featuredUserId } = useStatsStore();
 
   useEffect(() => {
     async function loadRankings() {
       setIsLocalLoading(true);
+      setErrorLocal(null);
       try {
         const data = await statsService.getRankings(activeRange);
         setRankingsData(data);
       } catch (e) {
-        console.error("Failed to load rankings");
+        console.error("Failed to load rankings", e);
+        setErrorLocal("Não foi possível carregar o ranking. Tente novamente mais tarde.");
       } finally {
         setIsLocalLoading(false);
       }
@@ -40,18 +44,37 @@ export default function RankingScreen() {
     loadRankings();
   }, [activeRange]);
   
-  const members = groupStats?.members || Object.values(groupStats?.users || {});
+  const hiddenUsers = useStatsStore(s => s.hiddenUsers);
+  const members = (groupStats?.members || Object.values(groupStats?.users || {})).filter((m: any) => !hiddenUsers.includes(m.id));
   
   // Prioriza os dados do ranking específico se disponível
   const displayUsers = members.map(user => {
     const stats = rankingsData[user.id] || {};
     return {
       ...user,
-      displayCount: stats.count || (activeRange === 'today' ? user.streamsToday : 0)
+      displayCount: stats.count || 
+        (activeRange === 'today' ? user.streamsToday : 
+         activeRange === 'weeks' ? (user as any).streamsWeek : 
+         activeRange === 'months' ? (user as any).streamsMonth : 0) || 0
     };
   });
 
   const sortedUsers = displayUsers.sort((a, b) => b.displayCount - a.displayCount);
+
+  if (errorLocal) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4 px-4 text-center">
+        <AlertTriangle className="h-12 w-12 text-orange-500" />
+        <p className="text-white/60">{errorLocal}</p>
+        <button 
+          onClick={() => setActiveRange(activeRange)}
+          className="px-4 py-2 bg-white/10 rounded-xl text-white text-sm"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
 
   if ((isGlobalLoading || isLocalLoading) && sortedUsers.length === 0) {
     return (
@@ -71,7 +94,7 @@ export default function RankingScreen() {
     { id: 'today', label: 'Hoje' },
     { id: 'weeks', label: 'Semana' },
     { id: 'months', label: 'Mês' },
-    { id: 'lifetime', label: 'Geral' }
+    { id: 'years', label: 'Ano' }
   ];
 
   return (
@@ -81,6 +104,13 @@ export default function RankingScreen() {
           <UserDetailModal 
             user={selectedUser}
             onClose={() => setSelectedUser(null)}
+          />
+        )}
+        {battleOpponent && (
+          <StatsBattleModal 
+            userA={members.find(m => m.id === featuredUserId)!}
+            userB={battleOpponent}
+            onClose={() => setBattleOpponent(null)}
           />
         )}
       </AnimatePresence>
@@ -281,6 +311,40 @@ export default function RankingScreen() {
           );
         })}
       </section>
+
+      {groupStats && (
+        <div className="mt-8 text-center">
+          <SectionHeader title="Arena Battle" />
+          <div className="relative overflow-hidden">
+            <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-2 px-2 pb-2 scroll-fade-h">
+              {members
+                .filter(u => u.id !== featuredUserId)
+                .map(opp => (
+                  <button
+                    key={opp.id}
+                    onClick={() => setBattleOpponent(opp)}
+                    className="glass-card min-w-[110px] p-5 flex flex-col items-center gap-4 active:scale-95 transition-all border-white/5 hover:bg-white/[0.05]"
+                  >
+                    <div className="relative">
+                      <div className="h-14 w-14 rounded-full p-0.5 bg-white/10">
+                        <img src={opp.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 h-6 w-6 bg-orange-500 rounded-full flex items-center justify-center border-2 border-[#050505] shadow-lg">
+                        <Swords className="h-3 w-3 text-white" />
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <span className="block text-[10px] font-black uppercase tracking-widest text-white/60 truncate w-20">
+                        {opp.name.split(' ')[0]}
+                      </span>
+                      <span className="text-[8px] font-black text-orange-500/60 uppercase tracking-tighter mt-1 block">VS {members.find(m => m.id === featuredUserId)?.name.split(' ')[0].toUpperCase()}</span>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Meta Coletiva Oculta */}
     </div>

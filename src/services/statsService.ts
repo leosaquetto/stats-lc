@@ -146,7 +146,7 @@ export const statsService = {
   /**
    * Busca rankings baseados nos dados do grupo
    */
-  async getRankings(range: 'weeks' | 'months' | 'lifetime' | 'today' = 'months'): Promise<any> {
+  async getRankings(range: 'weeks' | 'months' | 'years' | 'lifetime' | 'today' = 'months'): Promise<any> {
     try {
       const response = await fetchFromApi<any>('/api/group');
       
@@ -154,15 +154,21 @@ export const statsService = {
         'today': 'today',
         'weeks': 'week',
         'months': 'month',
+        'years': 'year',
         'lifetime': 'lifetime'
       };
       
       const backendRange = rangeMap[range];
-      if (response.rankings?.[backendRange]) {
-        return response.rankings[backendRange];
+      const rankingsResult: Record<string, any> = {};
+
+      if (response.rankings?.[backendRange] && Array.isArray(response.rankings[backendRange])) {
+        // Backend returns an array of { key: string, streams: number }
+        response.rankings[backendRange].forEach((item: any) => {
+          rankingsResult[item.key || item.id] = { count: item.streams || 0 };
+        });
+        return rankingsResult;
       }
 
-      const rankings: Record<string, any> = {};
       if (response.members) {
         response.members.forEach((m: any) => {
           const uid = m.key || m.id;
@@ -171,12 +177,13 @@ export const statsService = {
             case 'today': count = m.stats?.today?.streams || 0; break;
             case 'weeks': count = m.stats?.week?.streams || 0; break;
             case 'months': count = m.stats?.month?.streams || 0; break;
+            case 'years': count = m.stats?.year?.streams || 0; break;
             case 'lifetime': count = m.stats?.lifetime?.streams || 0; break;
           }
-          rankings[uid] = { count };
+          rankingsResult[uid] = { count };
         });
       }
-      return rankings;
+      return rankingsResult;
     } catch (e) {
       console.error("Rankings error:", e);
       return {};

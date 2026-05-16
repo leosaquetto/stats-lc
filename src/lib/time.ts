@@ -152,6 +152,16 @@ export function getStartOfMonthSP(): Date {
   return startOfMonth;
 }
 
+/**
+ * Retorna o início do ano atual em São Paulo
+ */
+export function getStartOfYearSP(): Date {
+  const today = getStartOfTodaySP();
+  const startOfYear = new Date(today);
+  startOfYear.setMonth(0, 1);
+  return startOfYear;
+}
+
 // Log de debug para desenvolvimento
 console.log("[time] America/Sao_Paulo bridge initialized", {
   nowLocal: new Date().toISOString(),

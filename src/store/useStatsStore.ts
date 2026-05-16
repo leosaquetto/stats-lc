@@ -17,6 +17,8 @@ interface StatsState {
   lastFetchTime: Record<string, number>;
   userTrackStats: Record<string, number>;
   featuredUserId: string;
+  hiddenUsers: string[];
+  hideRankingBadge: boolean;
   
   // Actions
   fetchGroup: (force?: boolean) => Promise<void>;
@@ -25,6 +27,8 @@ interface StatsState {
   getUserById: (id: string) => UserStats | undefined;
   setOffline: (offline: boolean) => void;
   setFeaturedUserId: (userId: string) => void;
+  setHiddenUsers: (users: string[]) => void;
+  setHideRankingBadge: (hide: boolean) => void;
 }
 
 export const useStatsStore = create<StatsState>()(
@@ -38,9 +42,13 @@ export const useStatsStore = create<StatsState>()(
       lastFetchTime: {},
       userTrackStats: {},
       featuredUserId: "leo",
+      hiddenUsers: [],
+      hideRankingBadge: false,
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
       setFeaturedUserId: (userId: string) => set({ featuredUserId: userId }),
+      setHiddenUsers: (users: string[]) => set({ hiddenUsers: users }),
+      setHideRankingBadge: (hide: boolean) => set({ hideRankingBadge: hide }),
 
       fetchGroup: async (force = false) => {
         const isInitial = !get().groupStats;

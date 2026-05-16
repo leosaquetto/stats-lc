@@ -13,7 +13,9 @@ import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
 
-type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Geral';
+import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP } from '../lib/time';
+
+type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 
 export default function StatsScreen() {
   const [activeFilter, setActiveFilter] = useState<Filter>('Hoje');
@@ -27,22 +29,23 @@ export default function StatsScreen() {
     isLoading: isGlobalLoading, 
     error: globalError, 
     fetchGroup,
-    featuredUserId
+    featuredUserId,
+    hiddenUsers
   } = useStatsStore();
   
   const CURRENT_USER_ID = featuredUserId;
-  const members = groupStats?.members || Object.values(groupStats?.users || {});
+  const members = (groupStats?.members || Object.values(groupStats?.users || {})).filter((m: any) => !hiddenUsers.includes(m.id));
   const user = groupStats?.users[CURRENT_USER_ID] || members.find(m => m.id === CURRENT_USER_ID) || members[0];
   const accentColor = (user?.id && (GROUP_USERS as any)[user.id.toUpperCase()]?.color) || ({id: "leo", name: "Leo", color: "#FF9F0A"}).color;
 
   const hasLifetime = !!fullUserData?.stats?.lifetime?.streams;
   const filters: Filter[] = hasLifetime 
-    ? ['Hoje', 'Semana', 'Mês', 'Geral']
-    : ['Hoje', 'Semana', 'Mês'];
+    ? ['Hoje', 'Semana', 'Mês', 'Ano', 'Total']
+    : ['Hoje', 'Semana', 'Mês', 'Ano'];
     
   useEffect(() => {
-    if (!hasLifetime && activeFilter === 'Geral') {
-      setActiveFilter('Mês');
+    if (!hasLifetime && activeFilter === 'Total') {
+      setActiveFilter('Ano');
     }
   }, [hasLifetime, activeFilter]);
 
@@ -50,7 +53,6 @@ export default function StatsScreen() {
     async function loadFullData() {
       setIsLocalLoading(true);
       try {
-        // Busca detalhes do usuário em destaque
         const fullData = await statsService.getUserFullStats(CURRENT_USER_ID);
         setFullUserData(fullData);
       } catch (e) {
@@ -69,7 +71,8 @@ export default function StatsScreen() {
       case 'Hoje': return fullUserData.stats.today;
       case 'Semana': return fullUserData.stats.week;
       case 'Mês': return fullUserData.stats.month;
-      case 'Geral': return fullUserData.stats.lifetime;
+      case 'Ano': return fullUserData.stats.year;
+      case 'Total': return fullUserData.stats.lifetime;
       default: return fullUserData.stats.today;
     }
   };
@@ -79,13 +82,22 @@ export default function StatsScreen() {
   const statsCards = [
     { 
       label: `Streams ${activeFilter}`, 
-      value: coreUtils.formatNumber(currentStats?.streams || currentStats?.count || (activeFilter === 'Hoje' ? user?.streamsToday : 0) || 0), 
+      value: coreUtils.formatNumber(
+        currentStats?.streams || 
+        currentStats?.count || 
+        (activeFilter === 'Hoje' ? user?.streamsToday : 
+         activeFilter === 'Semana' ? (user as any)?.streamsWeek : 
+         activeFilter === 'Mês' ? (user as any)?.streamsMonth : 0) || 0
+      ), 
       icon: Music2, 
       color: accentColor 
     },
     { 
       label: 'Tempo de Audição', 
-      value: coreUtils.formatDuration(currentStats?.durationMs || (activeFilter === 'Hoje' ? (user as any)?.totalDurationMs : 0) || 0), 
+      value: coreUtils.formatDuration(
+        currentStats?.durationMs || 
+        (activeFilter === 'Hoje' ? (user as any)?.totalDurationMs : 0) || 0
+      ), 
       icon: TrendingUp, 
       color: accentColor 
     },
@@ -238,51 +250,26 @@ export default function StatsScreen() {
             >
               <card.icon className="h-4 w-4" style={{ color: card.color }} />
               <div className="flex flex-col">
-                <span className="text-2xl font-display font-medium tracking-tight text-white">{card.value}</span>
+                <span className="text-2xl font-display font-medium tracking-tight text-white relative">
+                   <AnimatePresence mode="popLayout">
+                     <motion.span
+                       key={card.value}
+                       initial={{ y: 15, opacity: 0 }}
+                       animate={{ y: 0, opacity: 1 }}
+                       exit={{ y: -15, opacity: 0 }}
+                       transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
+                       className="inline-block"
+                     >
+                       {card.value}
+                     </motion.span>
+                   </AnimatePresence>
+                </span>
                 <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/40">{card.label}</span>
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
-
-      {groupStats && (
-        <div className="mt-2 text-center">
-          <SectionHeader title="Arena Battle" />
-          <div className="relative overflow-hidden">
-            <div className="flex gap-4 overflow-x-auto no-scrollbar -mx-2 px-2 pb-2 scroll-fade-h">
-              {members
-                .filter(u => u.id !== CURRENT_USER_ID)
-                .map(opp => (
-                  <button
-                    key={opp.id}
-                    onClick={() => setBattleOpponent(opp)}
-                    className="glass-card min-w-[110px] p-5 flex flex-col items-center gap-4 active:scale-95 transition-all border-white/5 hover:bg-white/[0.05]"
-                  >
-                    <div className="relative">
-                      <div className="h-14 w-14 rounded-full p-0.5 bg-white/10">
-                        <img src={opp.avatar} className="h-full w-full object-cover rounded-full" referrerPolicy="no-referrer" alt="" />
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 h-6 w-6 bg-orange-500 rounded-full flex items-center justify-center border-2 border-[#050505] shadow-lg">
-                        <Swords className="h-3 w-3 text-white" />
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <span className="block text-[10px] font-black uppercase tracking-widest text-white/60 truncate w-20">
-                        {opp.name.split(' ')[0]}
-                      </span>
-                      <span className="text-[8px] font-black text-orange-500/60 uppercase tracking-tighter mt-1 block">VS {user?.name.split(' ')[0].toUpperCase()}</span>
-                    </div>
-                  </button>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {groupStats && (activeFilter === 'Mês' || activeFilter === 'Geral') && (
-        <MonthlyGroupLeaderboard users={members} type={activeFilter === 'Geral' ? 'lifetime' : 'month'} />
-      )}
 
       <SectionHeader title={`Top Artistas (${activeFilter})`} />
       

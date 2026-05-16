@@ -9,6 +9,7 @@ import { Layout } from './components/Layout';
 import HomeScreen from './screens/HomeScreen';
 import StatsScreen from './screens/StatsScreen';
 import RankingScreen from './screens/RankingScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import { useStatsStore } from './store/useStatsStore';
 
 export default function App() {
@@ -55,6 +56,8 @@ export default function App() {
           <Route path="/" element={<HomeScreen />} />
           <Route path="/stats" element={<StatsScreen />} />
           <Route path="/ranking" element={<RankingScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="*" element={<HomeScreen />} />
         </Routes>
       </Layout>
     </BrowserRouter>
