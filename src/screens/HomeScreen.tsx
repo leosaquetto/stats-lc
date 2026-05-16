@@ -11,8 +11,10 @@ import {
   StatsLCLogo, 
   TrackLeaderboardModal,
   MusicPlatformBadge,
-  SmartImage
+  SmartImage,
+  MonthlyGroupLeaderboard
 } from '../components/MusicUI';
+import { HomeHighlights } from '../components/HomeHighlights';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, Bell, AlertTriangle, Users, ChevronRight, ChevronLeft, History } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -32,14 +34,16 @@ export default function HomeScreen() {
     error, 
     fetchGroup, 
     featuredUserId, 
-    setFeaturedUserId 
+    setFeaturedUserId,
+    hiddenUsers 
   } = useStatsStore();
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   
-  const members = groupStats?.members || [];
+  const allMembers = groupStats?.members || [];
+  const members = allMembers.filter(m => !hiddenUsers.includes(m.id));
   const primaryUser = members.find(m => m.id === featuredUserId) || members[0];
   const FEATURED_ID = primaryUser?.id;
 
@@ -72,15 +76,9 @@ export default function HomeScreen() {
   
   const friendsSelection = members.filter(u => u && u.id && u.id !== FEATURED_ID);
   
-  // Amigos em Sintonia: Todos os amigos, ordenados por LIVE primeiro, depois Recentes
+  // Amigos em Sintonia: Todos os amigos, ordenados por Nome
   const sortedFriends = [...friendsSelection].sort((a, b) => {
-    const statusA = coreUtils.getPlaybackStatus(a).status === "live" ? 0 : 1;
-    const statusB = coreUtils.getPlaybackStatus(b).status === "live" ? 0 : 1;
-    if (statusA !== statusB) return statusA - statusB;
-    
-    const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
-    const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
-    return timeB - timeA;
+    return a.name.localeCompare(b.name);
   });
 
   const liveCount = friendsSelection.filter(u => coreUtils.getPlaybackStatus(u).status === "live").length;
@@ -88,6 +86,13 @@ export default function HomeScreen() {
   return (
     <div className="flex flex-col gap-4">
       <AnimatePresence>
+        {viewingFullHistoryUser && (
+          <UserHistoryModal 
+            user={viewingFullHistoryUser} 
+            onClose={() => setViewingFullHistoryUser(null)}
+            onTrackClick={(track) => setSelectedTrack(track)}
+          />
+        )}
         {selectedTrack && (
           <TrackLeaderboardModal 
             track={selectedTrack} 
@@ -110,7 +115,7 @@ export default function HomeScreen() {
             <div className="flex items-center gap-1.5 mt-1">
                <div className={clsx("h-1.5 w-1.5 rounded-full", (isLoading || isRefreshing) ? "bg-orange-500 animate-pulse" : "bg-green-500")} />
                <span className="text-[9px] font-black uppercase tracking-widest text-white/50">
-                 {primaryUser?.name ? `${primaryUser.name}'s Circle Live` : 'Circle Live'}
+                 {primaryUser?.name ? `${primaryUser.name.split(' ')[0]}'s Circle Live` : 'Circle Live'}
                </span>
             </div>
           </div>
@@ -119,11 +124,15 @@ export default function HomeScreen() {
           <button 
             onClick={() => setShowUserSelector(!showUserSelector)} 
             className={clsx(
-              "h-11 w-11 glass rounded-2xl flex items-center justify-center transition-all",
-              showUserSelector && "bg-white/20 border-white/20"
+              "h-11 w-11 glass rounded-2xl flex items-center justify-center transition-all overflow-hidden p-0",
+              showUserSelector && "bg-white/20 border-white/20 opacity-80"
             )}
           >
-             <Users className="h-5 w-5 text-white/60" />
+             {primaryUser?.avatar ? (
+                <SmartImage src={coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar)} rounded="2xl" className="h-full w-full object-cover" />
+             ) : (
+                <Users className="h-5 w-5 text-white/60" />
+             )}
           </button>
 
           <button 
@@ -166,7 +175,7 @@ export default function HomeScreen() {
                             : "hover:bg-white/5"
                         )}
                       >
-                        <div className="h-8 w-8 rounded-full border border-white/10 overflow-hidden relative grayscale shrink-0">
+                        <div className={clsx("h-8 w-8 rounded-full border overflow-hidden relative shrink-0", featuredUserId === u.id ? "border-orange-500" : "border-white/10")}>
                            <SmartImage 
                              src={coreUtils.getUserAvatar(u.id, u.avatar)} 
                              className="h-full w-full object-cover" 
@@ -237,6 +246,8 @@ export default function HomeScreen() {
         ) : null}
       </AnimatePresence>
 
+      {primaryUser && <HomeHighlights userId={primaryUser.id} onItemClick={(item) => setSelectedTrack(item)} />}
+
       {groupStats && (
         <LiveGroupOverview 
           users={members} 
@@ -244,20 +255,24 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Amigos em Sintonia: Grid layout with 4 items visible */}
+      {/* Amigos em Sintonia: Horizontal Scroll */}
       <SectionHeader 
         title="Amigos em Sintonia" 
-        action={<span className={clsx("text-[9px] font-black uppercase tracking-tighter", liveCount > 0 ? "text-orange-500" : "text-white/20")}>
-          {liveCount} ativos
-        </span>}
+        action={
+          <div className="flex items-center gap-2">
+            <span className={clsx("text-[9px] font-black uppercase tracking-tighter", liveCount > 0 ? "text-orange-500" : "text-white/20")}>
+              {liveCount} ativos
+            </span>
+          </div>
+        }
       />
       
-      <div className="grid grid-cols-4 gap-3 pb-6 -mx-1 px-1">
+      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 -mx-1 px-1 scroll-fade-h">
         <AnimatePresence mode="popLayout">
           {isLoading && friendsSelection.length === 0 ? (
             [1, 2, 3, 4].map(i => <FriendsCardSkeleton key={i} />)
           ) : (
-            sortedFriends.slice(0, 4).map((user, idx) => {
+            sortedFriends.map((user) => {
               const track = user.nowPlaying?.track;
               const artistName = track?.artists
                 ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
@@ -266,19 +281,20 @@ export default function HomeScreen() {
               const playback = coreUtils.getPlaybackStatus(user);
 
               return (
-                <FriendsHorizontalCard
-                  key={user.id}
-                  userId={user.id}
-                  userName={user.name}
-                  userAvatar={user.avatar}
-                  songName={track?.name}
-                  artistName={artistName}
-                  imageUrl={track?.image} 
-                  isNowPlaying={playback.status === "live"}
-                  timestamp={user.nowPlaying?.timestamp}
-                  playedCount={track?.playedCount}
-                  onClick={() => track && setSelectedTrack(track)}
-                />
+                <div key={user.id} className="min-w-[100px] w-[100px] shrink-0">
+                  <FriendsHorizontalCard
+                    userId={user.id}
+                    userName={user.name}
+                    userAvatar={user.avatar}
+                    songName={track?.name}
+                    artistName={artistName}
+                    imageUrl={track?.image} 
+                    isNowPlaying={playback.status === "live"}
+                    timestamp={user.nowPlaying?.timestamp}
+                    playedCount={track?.playedCount}
+                    onClick={() => track && setSelectedTrack(track)}
+                  />
+                </div>
               );
             })
           )}
@@ -286,7 +302,7 @@ export default function HomeScreen() {
       </div>
 
       <SectionHeader title="Histórico da Sessão" />
-      <div className="flex flex-col gap-3 pb-32">
+      <div className="flex flex-col gap-3">
          {isLoading && members.length === 0 ? (
            [1, 2, 3].map(i => (
              <div key={i} className="glass-card p-3 flex items-center justify-between bg-white/[0.01] border-white/5 animate-pulse">
@@ -312,19 +328,15 @@ export default function HomeScreen() {
          )}
       </div>
 
+      {groupStats && members && (
+        <div className="mt-8">
+          <MonthlyGroupLeaderboard users={members} type="month" />
+        </div>
+      )}
+
       <p className="mt-12 text-center text-[9px] text-white/20 lowercase tracking-[0.4em] font-mundial font-semibold mb-20">
         stats.lc • Leo's Circle Exclusive v1.0
       </p>
-
-      <AnimatePresence>
-         {viewingFullHistoryUser && (
-            <UserHistoryModal 
-              user={viewingFullHistoryUser} 
-              onClose={() => setViewingFullHistoryUser(null)} 
-              onTrackClick={setSelectedTrack}
-            />
-         )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -332,25 +344,28 @@ export default function HomeScreen() {
 const FriendHistoryCard = React.memo(({ user, onTrackClick }: { user: any, onTrackClick: (track: any) => void }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [recents, setRecents] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const playback = coreUtils.getPlaybackStatus(user);
   const isLive = playback.status === "live";
 
-  const toggleExpand = async () => {
-    const nextState = !isExpanded;
-    setIsExpanded(nextState);
-    
-    if (nextState && recents.length === 0) {
-      setLoading(true);
+  useEffect(() => {
+    let mounted = true;
+    const fetchRecents = async () => {
       try {
         const data = await statsService.fetchRecent(user.id, 5);
-        setRecents(data);
+        if (mounted) setRecents(data);
       } catch (e) {
         console.error("Failed to load recents for card", e);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    }
+    };
+    fetchRecents();
+    return () => { mounted = false; };
+  }, [user.id]);
+
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
   };
 
   return (
@@ -500,6 +515,7 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [search, setSearch] = useState(user.initialSearch || "");
   const LIMIT = 50;
 
   const loadData = async (newOffset = 0) => {
@@ -508,8 +524,28 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
 
     try {
       const data = await statsService.fetchRecent(user.id, LIMIT, newOffset);
+      let newItems = data;
+      
+      if (newOffset === 0 && user.nowPlaying?.track) {
+        // If it's the first page and there is a playing track, inject it if not already first
+        const liveTrackItem = {
+           id: 'live-' + user.nowPlaying.track.id + '-' + Date.now(),
+           track: user.nowPlaying.track,
+           platformCandidate: user.platform,
+           playedAt: user.nowPlaying.timestamp || Date.now(),
+           isLive: true
+        };
+        if (newItems.length > 0 && newItems[0].track?.id !== user.nowPlaying.track.id) {
+           newItems = [liveTrackItem, ...newItems];
+        } else if (newItems.length === 0) {
+           newItems = [liveTrackItem];
+        } else if (newItems.length > 0 && newItems[0].track?.id === user.nowPlaying.track.id) {
+           newItems[0] = { ...newItems[0], isLive: true };
+        }
+      }
+
       if (newOffset === 0) {
-        setItems(data);
+        setItems(newItems);
       } else {
         setItems(prev => [...prev, ...data]);
       }
@@ -525,6 +561,15 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
   useEffect(() => {
     loadData(0);
   }, [user.id]);
+  
+  const filteredItems = items.filter(item => {
+     if (!search) return true;
+     const query = search.toLowerCase();
+     const title = (item.track?.name || "").toLowerCase();
+     const artist = (item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "").toLowerCase();
+     const dateStr = coreUtils.formatTimeSP(new Date(item.playedAt || item.timestamp)).toLowerCase();
+     return title.includes(query) || artist.includes(query) || dateStr.includes(query);
+  });
 
   return (
     <motion.div 
@@ -543,20 +588,36 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-8 pb-4 flex items-center justify-between shrink-0">
-           <div className="flex items-center gap-4">
-              <SmartImage 
-                 src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                 className="h-12 w-12 rounded-full border-2 border-white/10" 
-                 fallback="" 
-                 rounded="full"
-               />
-              <div className="flex flex-col">
-                 <h2 className="text-xl font-mundial font-bold text-white">{user.name}</h2>
-                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico Completo</span>
-              </div>
+        <div className="p-8 pb-4 flex flex-col shrink-0">
+           <div className="flex items-center justify-between w-full">
+             <div className="flex items-center gap-4">
+                <SmartImage 
+                   src={coreUtils.getUserAvatar(user.id, user.avatar)} 
+                   className="h-12 w-12 rounded-full border-2 border-white/10" 
+                   fallback="" 
+                   rounded="full"
+                 />
+                <div className="flex flex-col">
+                   <h2 className="text-xl font-mundial font-bold text-white">{user.name}</h2>
+                   <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico Completo</span>
+                </div>
+             </div>
+             <button onClick={onClose} className="h-10 w-10 glass rounded-full flex items-center justify-center text-xl">×</button>
            </div>
-           <button onClick={onClose} className="h-10 w-10 glass rounded-full flex items-center justify-center text-xl">×</button>
+           <div className="pt-6">
+             <div className="relative">
+                <input 
+                  type="text" 
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Pesquisar título, artista ou data..."
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 transition-all"
+                />
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                </div>
+             </div>
+           </div>
         </div>
 
         {/* List */}
@@ -565,25 +626,29 @@ function UserHistoryModal({ user, onClose, onTrackClick }: { user: any, onClose:
              <div className="flex flex-col gap-3 py-4">
                 {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)}
              </div>
-           ) : items.length > 0 ? (
+           ) : filteredItems.length > 0 ? (
              <div className="flex flex-col gap-3 py-4">
-                {items
-                  .filter(item => item.track?.id !== user.nowPlaying?.track?.id)
-                  .map((item, idx) => (
-                  <MusicCard 
-                    key={`${item.id}-${idx}`}
-                    userId={user.id}
-                    userName={user.name}
-                    songName={item.track?.name}
-                    artistName={item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')}
-                    track={item.track}
-                    imageUrl={item.track?.image}
-                    isNowPlaying={false}
-                    className="bg-white/[0.02] border-white/[0.04] p-3"
-                    onClick={() => onTrackClick(item.track)}
-                    footer={coreUtils.formatTimeSP(new Date(item.playedAt || item.timestamp))}
-                  />
-                ))}
+                {filteredItems
+                  .map((item, idx) => {
+                    const isActuallyLive = idx === 0 && (item.isLive || (user.nowPlaying?.track && item.track?.id === user.nowPlaying.track.id));
+                    return (
+                      <MusicCard 
+                        key={`${item.id}-${idx}`}
+                        userId={user.id}
+                        userName={user.name}
+                        songName={item.track?.name}
+                        artistName={item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')}
+                        track={item.track}
+                        imageUrl={item.track?.image}
+                        isNowPlaying={isActuallyLive}
+                        className={clsx("bg-white/[0.02] border-white/[0.04] p-3 transition-colors", isActuallyLive && "border-orange-500/30 bg-orange-500/5")}
+                        onClick={() => onTrackClick(item.track)}
+                        footer={isActuallyLive ? (
+                           <span className="text-orange-500 animate-pulse font-black uppercase">Ouvindo</span>
+                        ) : coreUtils.formatTimeSP(new Date(item.playedAt || item.timestamp))}
+                      />
+                    );
+                  })}
                 
                 <button 
                   onClick={() => loadData(offset + LIMIT)}

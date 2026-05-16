@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, Trophy, WifiOff, Clock } from 'lucide-react';
+import { Home, BarChart3, Trophy, Settings, WifiOff, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -19,6 +19,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     { label: 'Home', icon: Home, path: '/' },
     { label: 'Estatísticas', icon: BarChart3, path: '/stats' },
     { label: 'Ranking', icon: Trophy, path: '/ranking' },
+    { label: 'Ajustes', icon: Settings, path: '/settings' },
   ];
 
   const lastUpdate = groupStats?.lastUpdated;
@@ -26,25 +27,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="relative flex h-screen w-full flex-col bg-[#050505] overflow-hidden max-w-md mx-auto border-x border-white/5 font-sans">
-      {/* Scroll Fade Gradients */}
-      <AnimatePresence>
-        {isStatsOrRanking && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute top-0 left-0 right-0 z-20 h-16 bg-gradient-to-b from-[#050505] to-transparent" 
-            />
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute bottom-[104px] left-0 right-0 z-20 h-24 bg-gradient-to-t from-[#050505] to-transparent" 
-            />
-          </>
-        )}
-      </AnimatePresence>
+      {/* Scroll Fade Gradients removed to prevent overlaying headers */}
 
       {/* Offline Status */}
       <AnimatePresence>
@@ -107,8 +90,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       strokeWidth={isActive ? 2.5 : 2}
                     />
                     <span className={clsx(
-                      "text-[10px] font-bold uppercase tracking-[0.05em] transition-all duration-300 mt-1",
-                      isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+                      "text-[9px] font-black uppercase tracking-[0.1em] transition-all duration-300 mt-1.5",
+                      isActive ? "text-orange-500 opacity-100" : "text-white/40 opacity-70"
                     )}>
                       {item.label}
                     </span>

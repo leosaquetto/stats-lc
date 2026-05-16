@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Headset, Music2, Activity, TrendingUp, Trophy, Medal, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Headphones, Music2, Activity, TrendingUp, Trophy, Medal, X, ChevronDown, ChevronUp, ChevronRight, ChevronLeft, History } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
@@ -36,30 +36,33 @@ const TopRankRow = React.memo(({
   if (!item) return null;
   
   return (
-    <div style={style} className="px-1 py-1.5">
+    <div style={style} className="px-1 py-1">
       <motion.div 
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
-        className="glass flex items-center justify-between p-4 rounded-[28px] border-white/10 group hover:bg-white/[0.08] transition-all h-full"
+        className="glass flex items-center justify-between px-3 py-2 rounded-[20px] border-white/5 group hover:bg-white/[0.08] transition-all h-full"
       >
-         <div className="flex items-center gap-4">
-            <span className="text-[11px] font-black text-white/30 w-4">#{index + 1}</span>
+         <div className="flex items-center gap-3 min-w-0">
+            <span className="text-[10px] font-black text-white/30 w-4 pl-1">#{index + 1}</span>
             <SmartImage 
               src={item.image} 
-              className="h-11 w-11 shadow-xl border border-white/20" 
+              className="h-8 w-8 shadow-md border border-white/10" 
+              rounded="xl"
               fallback=""
             />
-            <div className="flex flex-col min-w-0">
-               <span className="text-[14px] font-black text-white tracking-tight truncate w-40">{item.name}</span>
-               <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest truncate">
-                  {item.artists ? item.artists.map(a => a.name).join(', ') : coreUtils.formatNumber(item.streams || 0) + ' Streams'}
+            <div className="flex flex-col min-w-0 pr-2">
+               <span className="text-[12px] font-black text-white tracking-tight truncate max-w-[150px]">{item.name}</span>
+               <span className="text-[8px] font-bold text-white/50 uppercase tracking-widest truncate max-w-[150px]">
+                  {item.artists ? item.artists.map(a => a.name).join(', ') : 'Mais ouvidos'}
                </span>
             </div>
          </div>
          <div className="text-right shrink-0">
-            <span className="text-[11px] font-black text-orange-500/80 uppercase">
-               {item.artists ? coreUtils.formatNumber(item.streams || 0) : ''}
-            </span>
+            <div className="bg-orange-500/20 border border-orange-500/30 px-2 py-0.5 rounded-full flex items-center justify-center">
+               <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
+                  {coreUtils.formatNumber(item.streams || 0)}
+               </span>
+            </div>
          </div>
       </motion.div>
     </div>
@@ -366,10 +369,10 @@ export const UserDetailModal = ({
                         renderProp={({ height, width }) => (
                           <List
                             style={{ height: height || 400, width: width || 320 }}
-                            rowCount={topItems.length}
-                            rowHeight={76}
+                            rowCount={topItems.slice(0, 20).length}
+                            rowHeight={56}
                             rowComponent={TopRankRow as any}
-                            rowProps={{ topItems } as any}
+                            rowProps={{ topItems: topItems.slice(0, 20) } as any}
                             className="no-scrollbar"
                           />
                         )}
@@ -1010,6 +1013,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const hideRankingBadge = useStatsStore(state => state.hideRankingBadge);
   const groupStats = useStatsStore(state => state.groupStats);
   const membersData = groupStats?.users || {};
 
@@ -1037,7 +1041,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
 
   const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
   const statusLabel = isActuallyLive ? "OUVINDO AGORA" : "REPRODUZIDO ÀS " + formattedTime;
-  const showRankingSummary = allTrackArenaUsers.filter(u => u.id !== featuredUserId).length > 0;
+  const showRankingSummary = !hideRankingBadge && allTrackArenaUsers.filter(u => u.id !== featuredUserId).length > 0;
 
   const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
 
@@ -1156,7 +1160,7 @@ export const LeoHeader = ({ user, streamsToday, onTrackClick }: { user: UserStat
                               className="px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/10 flex items-center gap-2 shrink-0 shadow-lg"
                             >
                                <div className="h-4 w-4 rounded-full bg-orange-500/20 flex items-center justify-center">
-                                  <Headset className="h-2.5 w-2.5 text-orange-500" />
+                                  <Headphones className="h-2.5 w-2.5 text-orange-500" />
                                </div>
                                <span className="text-[9px] font-black text-white/70 uppercase tracking-[0.1em] whitespace-nowrap">{coreUtils.formatPlayCount(playCount)}</span>
                             </motion.div>
@@ -1267,7 +1271,7 @@ export const InfoRow = ({ icon: Icon, label, value, onClick }: { icon: any, labe
         <span className="text-[13px] font-bold text-white line-clamp-1">{value}</span>
       </div>
     </div>
-    {onClick && <Headset className="h-3 w-3 text-white/40 rotate-[-45deg]" />}
+    {onClick && <Headphones className="h-3 w-3 text-white/40 rotate-[-45deg]" />}
   </button>
 );
 
@@ -1464,15 +1468,6 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
             </motion.div>
           ))}
         </div>
-        
-        <div className="flex flex-col items-end shrink-0 mb-1 pr-1">
-          <span className="text-[7.5px] font-black text-white/15 uppercase tracking-[0.2em] mb-1 whitespace-nowrap">Sync Status</span>
-          <div className="h-5 px-3 glass rounded-full border-white/5 flex items-center justify-center">
-            <span className="text-[8.5px] font-black text-white/40 uppercase tracking-wider whitespace-nowrap leading-none">
-              {coreUtils.formatUpdateTime(lastUpdate)}
-            </span>
-          </div>
-        </div>
       </div>
     </motion.div>
   );
@@ -1576,19 +1571,33 @@ export const TrackLeaderboardModal = ({
       if (!track?.id) return;
       setLoading(true);
       
-      const users = statsService.getUsers();
-      const albumId = track.albums?.[0]?.id || track.album?.id;
-      const artistId = track.artists?.[0]?.id;
+      const isArtist = !!track.artist || (track.id && !track.name && !track.album);
+      const isAlbum = !!track.album && !track.artists;
+      
+      // Attempt to determine the type and set initial view
+      if (track.type === 'artist' || isArtist) setView('artist');
+      else if (track.type === 'album' || isAlbum) setView('album');
+      else setView('track');
+
+      const users = Object.values(useStatsStore.getState().groupStats?.users || {});
+      
+      const artistId = track.artists?.[0]?.id || (track.type === 'artist' ? track.id : null) || track.artistId;
+      const albumId = track.albums?.[0]?.id || track.album?.id || (track.type === 'album' ? track.id : null) || track.albumId;
+      const trackId = track.type === 'track' || (!artistId && !albumId) ? track.id : (track.type === 'track' ? track.id : null);
       
       const results: Record<string, { track: number, album: number, artist: number }> = {};
       
       await Promise.all(users.map(async (u) => {
-        const [tCount, alCount, arCount] = await Promise.all([
-          statsService.fetchEntityStats(u.id, 'track', track.id),
-          statsService.fetchEntityStats(u.id, 'album', albumId),
-          statsService.fetchEntityStats(u.id, 'artist', artistId)
-        ]);
-        results[u.id] = { track: tCount, album: alCount, artist: arCount };
+        try {
+          const [tCount, alCount, arCount] = await Promise.all([
+            trackId ? statsService.fetchEntityStats(u.id, 'track', trackId) : Promise.resolve(0),
+            albumId ? statsService.fetchEntityStats(u.id, 'album', albumId) : Promise.resolve(0),
+            artistId ? statsService.fetchEntityStats(u.id, 'artist', artistId) : Promise.resolve(0)
+          ]);
+          results[u.id] = { track: tCount, album: alCount, artist: arCount };
+        } catch (e) {
+          results[u.id] = { track: 0, album: 0, artist: 0 };
+        }
       }));
 
       setStats(results);
@@ -1600,12 +1609,10 @@ export const TrackLeaderboardModal = ({
   const { groupStats } = useStatsStore();
   const membersData = groupStats?.users || {};
 
-  const sortedUsers = ([] as any[])
+  const sortedUsers = Object.values(membersData)
     .map(u => {
-      const apiUser = membersData[u.id];
       return { 
         ...u, 
-        avatar: apiUser?.avatar,
         data: stats[u.id] || { track: 0, album: 0, artist: 0 } 
       };
     })
@@ -1624,7 +1631,7 @@ export const TrackLeaderboardModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
       onClick={onClose}
     >
       <motion.div 
@@ -1663,12 +1670,18 @@ export const TrackLeaderboardModal = ({
            
            <div className="mt-4 w-full px-2">
              <h2 className="text-lg font-display font-black text-white leading-tight truncate">
-               {track.name}
+               {track.name || track.artist?.name || track.album?.name}
              </h2>
              <div className="flex items-center justify-center gap-2 mt-1">
-               <span className="text-[10px] font-bold text-white/40 truncate max-w-[120px]">{artistName}</span>
-               <span className="h-1 w-1 rounded-full bg-white/10" />
-               <span className="text-[10px] font-bold text-white/20 truncate max-w-[120px]">{albumName}</span>
+               {artistName && (
+                 <>
+                   <span className="text-[10px] font-bold text-white/40 truncate max-w-[120px]">{artistName}</span>
+                   {albumName && <span className="h-1 w-1 rounded-full bg-white/10" />}
+                 </>
+               )}
+               {albumName && (
+                 <span className="text-[10px] font-bold text-white/20 truncate max-w-[120px]">{albumName}</span>
+               )}
              </div>
            </div>
            
@@ -1750,7 +1763,24 @@ export const TrackLeaderboardModal = ({
                              {isWinner && <span className="text-[8px] font-black text-orange-500/80 uppercase tracking-widest">Líder Arena</span>}
                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
+                           <button 
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               const event = new CustomEvent('openHistory', { 
+                                 detail: { 
+                                   id: user.id, 
+                                   name: user.name, 
+                                   avatar: user.avatar,
+                                   initialSearch: view === 'track' ? track.name : view === 'artist' ? artistName : albumName 
+                                 } 
+                               });
+                               window.dispatchEvent(event);
+                             }}
+                             className="text-white/20 hover:text-white/80 transition-colors active:scale-95"
+                           >
+                             <History className="h-3.5 w-3.5" />
+                           </button>
                            <span className={cn(
                              "text-[15px] font-display font-black", 
                              isWinner ? "text-orange-500" : isLeo ? "text-white" : "text-white/60"
@@ -1770,7 +1800,7 @@ export const TrackLeaderboardModal = ({
           <div className="mt-2">
                <div className="flex items-center justify-between px-1 mb-3">
                   <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.2em]">Ouvir na Íntegra</span>
-                  <Headset className="h-3 w-3 text-white/10" />
+                  <Headphones className="h-3 w-3 text-white/10" />
                </div>
                <div className="flex items-center gap-2">
                  {(track.spotifyId || coreUtils.detectCatalogAvailability(track).hasSpotify) && (
