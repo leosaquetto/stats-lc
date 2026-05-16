@@ -179,6 +179,7 @@ export const coreUtils = {
     confidence: "high" | "medium" | "low" 
   } {
     if (!track) return { primary: "unknown", hasAppleMusic: false, hasSpotify: false, confidence: "low" };
+    console.log("[coreUtils] detectCatalogAvailability for track:", track.name || track.id);
 
     const hasAppleMusicId = !!track.appleMusicId;
     const hasSpotifyId = !!track.spotifyId;
@@ -220,10 +221,11 @@ export const coreUtils = {
     label: string, 
     minutesAgo: number | null 
   } {
-    const nowPlaying = member.nowPlaying;
+    const nowPlaying = member?.nowPlaying;
+    console.log("[coreUtils] getPlaybackStatus for member:", member?.name || member?.id, nowPlaying);
     
     // Se não há objeto ou não há uma track válida
-    if (!nowPlaying || !nowPlaying.track || nowPlaying.track.name === "Desconhecido") {
+    if (!member || !nowPlaying || !nowPlaying.track || nowPlaying.track.name === "Desconhecido") {
       return { status: "inactive", label: "sinal inativo", minutesAgo: null };
     }
 

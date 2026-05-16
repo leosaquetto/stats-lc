@@ -16,9 +16,10 @@ import { statsService } from '../services/statsService';
 type Range = 'today' | 'weeks' | 'months' | 'years' | 'lifetime';
 
 export default function RankingScreen() {
-  const { groupStats, isLoading: isGlobalLoading, error, fetchGroup } = useStatsStore();
+  const { groupStats, isLoading: isGlobalLoading, fetchGroup } = useStatsStore();
   const [activeRange, setActiveRange] = useState<Range>('months');
-  const [rankingsData, setRankingsData] = useState<Record<string, any>>({});
+  const [rankingType, setRankingType] = useState<'streams' | 'duration'>('streams');
+  const [rankingsData, setRankingsData] = useState<Record<string, { count: number, durationMs: number }>>({});
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
@@ -26,7 +27,7 @@ export default function RankingScreen() {
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const LEO_ID = "leo";
   const { setFeaturedUserId, featuredUserId } = useStatsStore();
-
+  
   useEffect(() => {
     async function loadRankings() {
       setIsLocalLoading(true);
@@ -52,14 +53,16 @@ export default function RankingScreen() {
     const stats = rankingsData[user.id] || {};
     return {
       ...user,
-      displayCount: stats.count || 
-        (activeRange === 'today' ? user.streamsToday : 
-         activeRange === 'weeks' ? (user as any).streamsWeek : 
-         activeRange === 'months' ? (user as any).streamsMonth : 0) || 0
+      displayCount: stats.count || 0,
+      displayDuration: stats.durationMs || 0
     };
   });
 
-  const sortedUsers = displayUsers.sort((a, b) => b.displayCount - a.displayCount);
+  const sortedUsers = [...displayUsers].sort((a, b) => {
+    if (rankingType === 'streams') return b.displayCount - a.displayCount;
+    return b.displayDuration - a.displayDuration;
+  });
+  console.log("[RankingScreen] sortedUsers:", sortedUsers);
 
   if (errorLocal) {
     return (
@@ -209,6 +212,32 @@ export default function RankingScreen() {
           </button>
         ))}
       </div>
+      
+      {/* Ranking Type Selector */}
+      <div className="flex gap-2 p-1 bg-white/[0.03] rounded-3xl self-start">
+        <button
+          onClick={() => setRankingType('streams')}
+          className={clsx(
+            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all duration-300",
+            rankingType === 'streams' 
+              ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
+              : "text-white/30 hover:text-white/60"
+          )}
+        >
+          Mais Tocadas
+        </button>
+        <button
+          onClick={() => setRankingType('duration')}
+          className={clsx(
+            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all duration-300",
+            rankingType === 'duration' 
+              ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
+              : "text-white/30 hover:text-white/60"
+          )}
+        >
+          Tempo de Audição
+        </button>
+      </div>
 
       {/* Podium Effect (First Place Spotlight) */}
       {sortedUsers.length > 0 && (
@@ -246,7 +275,12 @@ export default function RankingScreen() {
           <div className="flex gap-8">
             <div className="flex flex-col">
               <span className="text-[10px] text-white/40 uppercase tracking-widest font-bold">{ranges.find(r => r.id === activeRange)?.label}</span>
-              <span className="text-lg font-bold text-white/90">{coreUtils.formatNumber(sortedUsers[0].displayCount)}</span>
+              <span className="text-lg font-bold text-white/90">
+                {rankingType === 'streams' 
+                  ? coreUtils.formatNumber(sortedUsers[0].displayCount)
+                  : coreUtils.formatDuration(sortedUsers[0].displayDuration)
+                }
+              </span>
             </div>
             <div className="w-[1px] h-8 bg-white/10" />
             <div className="flex flex-col">
@@ -303,9 +337,14 @@ export default function RankingScreen() {
               
               <div className="flex flex-col items-end gap-0.5">
                  <span className={clsx("font-display text-lg font-black tracking-tighter leading-none", isLeo ? "text-orange-400" : "text-white/80")}>
-                    {coreUtils.formatNumber(user.displayCount)}
+                    {rankingType === 'streams' 
+                      ? coreUtils.formatNumber(user.displayCount)
+                      : coreUtils.formatDuration(user.displayDuration)
+                    }
                  </span>
-                 <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">Streams</span>
+                 <span className="text-[8px] font-black text-white/20 uppercase tracking-widest">
+                    {rankingType === 'streams' ? 'Streams' : 'Tempo'}
+                 </span>
               </div>
             </motion.div>
           );

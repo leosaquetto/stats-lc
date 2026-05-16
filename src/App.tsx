@@ -34,12 +34,12 @@ export default function App() {
     // Initial fetch: Always force on mount to get current status
     fetchStats(true);
     
-    // Polling: Every 30s for live updates
+    // Polling: Every 60s for live updates
     const id = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        fetchStats(true); // Force true to bypass server cache for live info
+        fetchStats(false); // Force false para não estourar o backend em polling
       }
-    }, 30000); 
+    }, 60000); 
     
     return () => {
       window.removeEventListener('online', handleOnline);
