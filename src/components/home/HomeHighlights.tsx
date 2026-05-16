@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -174,7 +179,6 @@ export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: User
 export const HomeHighlights = ({ userId, onItemClick }: { userId: string, onItemClick?: (item: any) => void }) => {
   const [tops, setTops] = useState<{ tracks: any[], artists: any[], albums: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const { fetchTopItems } = useStatsStore(); // Assuming it might be in store now, or use statsService
 
   useEffect(() => {
     async function load() {

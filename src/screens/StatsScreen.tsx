@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,7 +9,9 @@ import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart3, TrendingUp, Music2, Calendar, RefreshCcw, AlertTriangle, Swords, Users } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, Skeleton, MonthlyGroupLeaderboard, StatsBattleModal } from '../components/MusicUI';
+import { SectionHeader, Skeleton } from '../components/MusicUI';
+import { MonthlyGroupLeaderboard } from '../components/MusicUI';
+import { StatsBattleModal } from '../components/MusicUI';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';

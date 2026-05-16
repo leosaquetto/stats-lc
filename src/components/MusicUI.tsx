@@ -1,4 +1,9 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * This file is now an export aggregator for modularized components.
  * Please import from specific directories for better performance and maintainability.
  */

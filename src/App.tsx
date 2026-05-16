@@ -25,27 +25,27 @@ export default function App() {
 
     // Sync across tabs
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'stats-lc-storage' && e.newValue) {
-        // Zustand handles hydration automatically
+      if (e.key === 'stats-storage') {
+        fetchStats();
       }
     };
     window.addEventListener('storage', handleStorage);
 
-    // Initial fetch: Always force on mount to get current status
-    fetchStats(true);
-    
-    // Polling: Every 60s for live updates
-    const id = setInterval(() => {
+    // Initial fetch
+    fetchStats();
+
+    // Auto refresh every 5 minutes (only if tab is visible)
+    const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        fetchStats(false); // Force false para não estourar o backend em polling
+        fetchStats();
       }
-    }, 60000); 
-    
+    }, 5 * 60 * 1000); 
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('storage', handleStorage);
-      clearInterval(id);
+      clearInterval(interval);
     };
   }, [fetchStats, setOffline]);
 
@@ -63,4 +63,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -73,6 +74,13 @@ export const statsService = {
     } catch (e) {
       return 0;
     }
+  },
+
+  /**
+   * Alias para fetchEntityStats para compatibilidade
+   */
+  async getItemPlaysForUser(userId: string, type: 'track' | 'artist' | 'album', id: string): Promise<number> {
+    return this.fetchEntityStats(userId, type, id);
   },
 
   /**

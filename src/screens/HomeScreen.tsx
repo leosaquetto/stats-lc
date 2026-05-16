@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -8,21 +9,25 @@ import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 
 // Novos componentes modulares
-import { LeoHeader } from '../components/home/LeoHeader';
-import { HomeHighlights, LiveGroupOverview, MonthlyGroupLeaderboard } from '../components/home/HomeHighlights';
-import { FriendsHorizontalCard, FriendsCardSkeleton } from '../components/home/FriendsSection';
-import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
-import { UserHistoryModal } from '../components/modals/UserHistoryModal';
-import { TrackLeaderboardModal } from '../components/modals/TrackLeaderboardModal';
-import { UserDetailModal, StatsBattleModal } from '../components/modals/UserModals';
 import { 
+  LeoHeader,
+  HomeHighlights, 
+  LiveGroupOverview, 
+  MonthlyGroupLeaderboard,
+  FriendsHorizontalCard, 
+  FriendsCardSkeleton,
+  FriendHistoryCard,
+  UserHistoryModal,
+  TrackLeaderboardModal,
+  UserDetailModal, 
+  StatsBattleModal,
   MusicCard, 
   Skeleton, 
   SectionHeader, 
   StatsLCLogo, 
   MusicPlatformBadge, 
   SmartImage 
-} from '../components/shared/CommonUI';
+} from '../components/MusicUI';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -269,8 +274,12 @@ export default function HomeScreen() {
       
       <div className="flex gap-4 overflow-x-auto no-scrollbar pb-6 -mx-1 px-1 scroll-fade-h">
         <AnimatePresence mode="popLayout">
-          {isLoading && friendsSelection.length === 0 ? (
-            [1, 2, 3, 4].map(i => <FriendsCardSkeleton key={i} />)
+          {isLoading ? (
+            [1, 2, 3, 4, 5, 6].map(i => (
+              <div key={`skeleton-${i}`} className="min-w-[100px] w-[100px] shrink-0">
+                <FriendsCardSkeleton />
+              </div>
+            ))
           ) : (
             sortedFriends.map((user) => {
               const track = user.nowPlaying?.track;
@@ -281,7 +290,12 @@ export default function HomeScreen() {
               const playback = coreUtils.getPlaybackStatus(user);
 
               return (
-                <div key={user.id} className="min-w-[100px] w-[100px] shrink-0">
+                <motion.div 
+                  key={user.id} 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="min-w-[100px] w-[100px] shrink-0"
+                >
                   <FriendsHorizontalCard
                     userId={user.id}
                     userName={user.name}
@@ -294,7 +308,7 @@ export default function HomeScreen() {
                     playedCount={track?.playedCount}
                     onClick={() => track && setSelectedTrack(track)}
                   />
-                </div>
+                </motion.div>
               );
             })
           )}
@@ -303,9 +317,9 @@ export default function HomeScreen() {
 
       <SectionHeader title="Histórico da Sessão" />
       <div className="flex flex-col gap-3">
-          {isLoading && members.length === 0 ? (
-            [1, 2, 3].map(i => (
-              <div key={i} className="glass-card p-3 flex items-center justify-between bg-white/[0.01] border-white/5 animate-pulse">
+          {isLoading ? (
+            [1, 2, 3, 4, 5].map(i => (
+              <div key={`hist-skeleton-${i}`} className="glass-card p-3 flex items-center justify-between bg-white/[0.01] border-white/5 animate-pulse">
                  <div className="flex items-center gap-3">
                     <div className="h-10 w-10 shrink-0 rounded-full bg-white/5" />
                     <div className="flex flex-col gap-1.5">
@@ -342,4 +356,3 @@ export default function HomeScreen() {
     </div>
   );
 }
-
