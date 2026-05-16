@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,7 +9,9 @@ import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { BarChart3, TrendingUp, Music2, Calendar, RefreshCcw, AlertTriangle, Swords, Users } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, Skeleton, MonthlyGroupLeaderboard, StatsBattleModal } from '../components/MusicUI';
+import { SectionHeader, Skeleton } from '../components/MusicUI';
+import { MonthlyGroupLeaderboard } from '../components/MusicUI';
+import { StatsBattleModal } from '../components/MusicUI';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -172,7 +175,7 @@ export default function StatsScreen() {
                         key={u.id}
                         onClick={() => {
                           useStatsStore.getState().setFeaturedUserId(u.id);
-                          setShowUserSelector(false);
+                          // setShowUserSelector(false);
                         }}
                         className={clsx(
                           "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
@@ -270,6 +273,18 @@ export default function StatsScreen() {
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
+
+      {/* Card de Tempo de Audição Total */}
+      <div className="glass-card p-4 flex flex-col gap-1 rounded-[24px]">
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+          Tempo de Audição
+        </span>
+        <div className="flex items-baseline gap-1 mt-1">
+          <span className="text-2xl font-display font-black text-white tracking-tight">
+            {coreUtils.formatDuration(currentStats?.durationMs || currentStats?.playedMs || 0)}
+          </span>
+        </div>
       </div>
 
       <SectionHeader title={`Top Artistas (${activeFilter})`} />

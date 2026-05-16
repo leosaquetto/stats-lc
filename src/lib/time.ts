@@ -1,4 +1,9 @@
 /**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * Utilidades de Tempo centralizadas para o fuso horário America/Sao_Paulo
  */
 

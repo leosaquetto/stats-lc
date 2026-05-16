@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,7 +9,8 @@ import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Award, Trophy, Users, Flame, TrendingUp, RefreshCcw, AlertTriangle, Swords } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, Skeleton, UserDetailModal, StatsBattleModal } from '../components/MusicUI';
+import { SectionHeader, Skeleton } from '../components/MusicUI';
+import { UserDetailModal, StatsBattleModal } from '../components/MusicUI';
 import { GROUP_USERS, coreUtils } from '../services/statsCore';
 import { UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -50,7 +52,7 @@ export default function RankingScreen() {
   
   // Prioriza os dados do ranking específico se disponível
   const displayUsers = members.map(user => {
-    const stats = rankingsData[user.id] || {};
+    const stats: any = rankingsData[user.id] || {};
     return {
       ...user,
       displayCount: stats.count || 0,
@@ -160,7 +162,7 @@ export default function RankingScreen() {
                         key={u.id}
                         onClick={() => {
                           setFeaturedUserId(u.id);
-                          setShowUserSelector(false);
+                          // setShowUserSelector(false);
                         }}
                         className={clsx(
                           "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
@@ -389,3 +391,4 @@ export default function RankingScreen() {
     </div>
   );
 }
+

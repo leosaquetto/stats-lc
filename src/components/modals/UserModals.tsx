@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, TrendingUp, Music2, Headphones, Swords } from 'lucide-react';
@@ -9,11 +10,13 @@ import {
   MusicPlatformBadge, 
   SectionHeader, 
   Skeleton, 
-  AnimatedNumber,
-  TopRankRow // This might need moving too, but let's see
+  AnimatedNumber
 } from '../shared/CommonUI';
 import { List } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
+
+const ListAny = List as any;
+const AutoSizerAny = AutoSizer as any;
 import { UserStats, TopItem } from '../../types/stats';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -224,16 +227,15 @@ export const UserDetailModal = ({
                          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 w-full rounded-[28px]" />)}
                       </div>
                     ) : topItems.length > 0 ? (
-                       <AutoSizer
-                        children={({ height, width }) => (
-                          <List
-                            style={{ height: height || 400, width: width || 320 }}
+                       <AutoSizerAny>
+                        {({ height, width }: { height: number; width: number }) => (
+                          <ListAny
                             rowCount={topItems.slice(0, 20).length}
                             rowHeight={56}
-                            width={width}
-                            height={height}
-                          >
-                            {({ index, style }) => (
+                            width={width || 320}
+                            height={height || 400}
+                            rowProps={{}}
+                            rowComponent={({ index, style }: { index: number, style: any }) => (
                               <div style={style} className="px-1 py-1">
                                 <motion.div 
                                   initial={{ opacity: 0, x: -10 }}
@@ -265,9 +267,9 @@ export const UserDetailModal = ({
                                 </motion.div>
                               </div>
                             )}
-                          </List>
+                          />
                         )}
-                      />
+                       </AutoSizerAny>
                     ) : (
                        <div className="py-12 text-center glass rounded-[24px] border-dashed border-white/20">
                           <span className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Sem dados para este período</span>
