@@ -217,8 +217,12 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const { scrollY } = useScroll();
-  const rawY = useTransform(scrollY, [0, 800], [0, -60]);
-  const yOffset = shouldReduceMotion ? 0 : rawY;
+  const rawY       = useTransform(scrollY, [0, 300], [0, -90]);
+  const rawScale   = useTransform(scrollY, [0, 300], [1, 0.52]);
+  const rawOpacity = useTransform(scrollY, [0, 200], [1, 0]);
+  const yOffset    = shouldReduceMotion ? 0 : rawY;
+  const sScale     = shouldReduceMotion ? 1 : rawScale;
+  const sOpacity   = shouldReduceMotion ? 1 : rawOpacity;
 
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
   const storeUser = useStatsStore(s => s.groupStats?.members?.find(u => u.id === user.id));
@@ -494,7 +498,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         </div>
         {track && (
           <div className="absolute right-[-146px] top-[-70px] h-[330px] w-[330px] sm:right-[-188px] sm:top-[-92px] sm:h-[470px] sm:w-[470px] shrink-0 z-20 pointer-events-auto">
-            <motion.div style={{ y: yOffset }} className="w-full h-full overflow-visible">
+            <motion.div style={{ y: yOffset, scale: sScale, opacity: sOpacity }} className="w-full h-full overflow-visible">
               <VinylRecord
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
@@ -557,7 +561,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                   {/* Nome */}
                   <h2 className={cn(
-                    "text-base sm:text-xl font-display font-black tracking-[0.17em] leading-none uppercase truncate w-full transition-colors duration-500",
+                    "text-[15px] sm:text-[17px] font-display font-bold tracking-[0.06em] leading-none truncate w-full transition-colors duration-500",
                     isActuallyLive ? "text-white" : "text-white/70"
                   )}>
                     {user.name}
@@ -570,13 +574,12 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       isActuallyLive ? "text-orange-400" : "text-white/30"
                     )} />
                     <div className="flex items-baseline gap-1">
-                      <AnimatedNumber
-                        value={streamsToday}
-                        className={cn(
-                          "text-[13px] sm:text-[15px] font-black tabular-nums leading-none transition-colors duration-500",
-                          isActuallyLive ? "text-white" : "text-white/60"
-                        )}
-                      />
+                      <span className={cn(
+                        "text-[13px] sm:text-[15px] font-black tabular-nums leading-none transition-colors duration-500",
+                        isActuallyLive ? "text-white" : "text-white/60"
+                      )}>
+                        <AnimatedNumber value={streamsToday} />
+                      </span>
                       <span className="text-[7px] sm:text-[8px] font-bold uppercase tracking-[0.22em] text-white/30 leading-none pb-[1px]">
                         streams hoje
                       </span>

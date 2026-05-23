@@ -238,6 +238,14 @@ export const VinylRecord = ({
               />
             )}
           </AnimatePresence>
+
+          {/* Sombra interna — profundidade no miolo */}
+          <div
+            className="absolute inset-0 rounded-full pointer-events-none z-30"
+            style={{
+              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
+            }}
+          />
         </div>
 
         {/* Partículas de poeira — só idle */}
@@ -284,13 +292,14 @@ export const VinylRecord = ({
       <motion.div
         className="absolute z-40 pointer-events-none"
         style={{
-          right:           '-4%',
-          top:             '2%',
-          width:           '54%',
-          height:          '7%',
-          transformOrigin: '96% 50%',
+          right:           '0%',
+          top:             '6%',
+          width:           '50%',
+          height:          '8%',
+          transformOrigin: '92% 50%',
           willChange:      'transform',
-          filter:          'drop-shadow(0 6px 12px rgba(0,0,0,0.8))',
+          filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
+          zIndex:          50,
         }}
         animate={{
           rotate: tonearmRotate,
