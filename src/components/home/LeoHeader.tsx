@@ -600,7 +600,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
                               className={cn(
-                                "flex items-center gap-2 sm:gap-4 pl-3 sm:pl-4 pr-6 sm:pr-8 py-1.5 sm:py-2 rounded-full bg-gradient-to-b from-white/[0.1] to-white/[0.04] border border-white/15 backdrop-blur-xl shadow-xl hover:bg-white/[0.12] hover:border-white/25 transition-all cursor-pointer group/arena max-w-full",
+                                "flex items-center gap-2 sm:gap-4 pl-3 sm:pl-4 pr-6 sm:pr-8 py-2.5 sm:py-2 rounded-full bg-gradient-to-b from-white/[0.1] to-white/[0.04] border border-white/15 backdrop-blur-xl shadow-xl hover:bg-white/[0.12] hover:border-white/25 transition-all cursor-pointer group/arena max-w-full",
                                 arenaExpanded ? "max-w-full flex-wrap justify-center py-2" : "shrink-0"
                               )}
                             >

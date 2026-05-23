@@ -163,9 +163,7 @@ export const VinylRecord = ({
         )}
 
         {/* Album Cover — maior */}
-        <div
-          className="absolute inset-[24%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900"
-        >
+        <div className="absolute inset-[22%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={albumImage || 'placeholder'}
@@ -212,7 +210,7 @@ export const VinylRecord = ({
       <motion.div
         className="absolute right-[-14%] top-[4%] w-[48%] h-[6%] pointer-events-none z-30"
         style={{ transformOrigin: '90% 50%', willChange: 'transform' }}
-        animate={{ rotate: isPlaying ? 20 : -32 }}
+        animate={{ rotate: isPlaying ? -45 : 20 }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="relative w-full h-full">

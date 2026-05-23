@@ -508,7 +508,7 @@ export default function HomeScreen() {
                 : "-translate-y-4 opacity-0 pointer-events-none"
             )}
           >
-            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#050505]/75 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-md">
               <button
                 onClick={handleRefresh}
                 disabled={isLiveFetching || isRefreshing}
