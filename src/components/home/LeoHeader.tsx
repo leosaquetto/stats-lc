@@ -586,7 +586,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 type: 'album' 
                               });
                             }}
-                            className="text-[9px] sm:text-[10px] font-semibold text-white/35 line-clamp-1 hover:underline hover:text-white/50 cursor-pointer text-left pointer-events-auto"
+                            className="text-[10px] sm:text-[12px] font-semibold text-white/50 line-clamp-2 hover:underline hover:text-white/80 cursor-pointer text-left pointer-events-auto"
                           >
                             {track.albumName}
                           </div>
@@ -600,7 +600,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
                               className={cn(
-                                "flex items-center gap-1.5 sm:gap-3 pl-2 sm:pl-2.5 pr-4 sm:pr-6 py-1 sm:py-1.5 rounded-full bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/10 backdrop-blur-xl shadow-xl hover:bg-white/[0.08] hover:border-white/20 transition-all cursor-pointer group/arena max-w-full",
+                                "flex items-center gap-2 sm:gap-4 pl-3 sm:pl-4 pr-6 sm:pr-8 py-1.5 sm:py-2 rounded-full bg-gradient-to-b from-white/[0.1] to-white/[0.04] border border-white/15 backdrop-blur-xl shadow-xl hover:bg-white/[0.12] hover:border-white/25 transition-all cursor-pointer group/arena max-w-full",
                                 arenaExpanded ? "max-w-full flex-wrap justify-center py-2" : "shrink-0"
                               )}
                             >
@@ -618,8 +618,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     style={{ zIndex: trackArenaUsers.length - i }}
                                   >
                                     <div className={cn(
-                                      "relative h-6 w-6 sm:h-8 sm:w-8 rounded-full overflow-hidden transition-all duration-300 ring-1 ring-black/60",
-                                      u.id === user.id ? "ring-orange-500/60" : "group-hover/avatar:ring-white/30"
+                                      "relative h-7 w-7 sm:h-9 sm:w-9 rounded-full overflow-hidden transition-all duration-300 ring-2 ring-black/80",
+                                      u.id === user.id ? "ring-orange-500/80" : "group-hover/avatar:ring-white/40"
                                     )}>
                                       <div className="relative h-full w-full rounded-full overflow-hidden">
                                         <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
@@ -639,7 +639,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               {!arenaExpanded && (
                                 <div className="flex flex-col justify-center shrink-0 pr-1">
                                   <span className="text-[5.5px] sm:text-[6.5px] font-black text-white/50 uppercase tracking-[0.2em] leading-none mb-0.5 whitespace-nowrap">ARENA</span>
-                                  <span className="text-[7.5px] sm:text-[10px] font-bold text-white uppercase tracking-tight leading-none whitespace-nowrap">RANKING</span>
+                                  <span className="text-[7.5px] sm:text-[11px] font-bold text-white uppercase tracking-tight leading-none whitespace-nowrap">RANKING</span>
                                 </div>
                               )}
     

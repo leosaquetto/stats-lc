@@ -87,23 +87,23 @@ export const VinylRecord = ({
         className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.5) 20%, transparent 21%),
-            radial-gradient(circle at 25% 20%, ${withAlpha(lightColor, 0.35)} 0%, transparent 50%),
-            radial-gradient(circle at 75% 80%, ${withAlpha(darkColor, 0.25)} 0%, transparent 45%),
-            radial-gradient(circle at 60% 15%, rgba(255,255,255,0.08) 0%, transparent 35%),
+            radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.55) 19%, transparent 20%),
+            radial-gradient(circle at 25% 20%, ${withAlpha(lightColor, 0.50)} 0%, transparent 55%),
+            radial-gradient(circle at 75% 80%, ${withAlpha(darkColor, 0.35)} 0%, transparent 50%),
+            radial-gradient(circle at 60% 10%, rgba(255,255,255,0.12) 0%, transparent 40%),
             conic-gradient(
               from 0deg,
-              ${withAlpha(safeDominantColor, 0.45)} 0deg,
-              ${withAlpha(darkColor, 0.30)} 60deg,
-              ${withAlpha(safeDominantColor, 0.40)} 120deg,
-              ${withAlpha(lightColor, 0.55)} 180deg,
-              ${withAlpha(safeDominantColor, 0.40)} 240deg,
-              ${withAlpha(darkColor, 0.28)} 300deg,
-              ${withAlpha(safeDominantColor, 0.45)} 360deg
+              ${withAlpha(safeDominantColor, 0.55)} 0deg,
+              ${withAlpha(darkColor, 0.38)} 60deg,
+              ${withAlpha(safeDominantColor, 0.50)} 120deg,
+              ${withAlpha(lightColor, 0.65)} 180deg,
+              ${withAlpha(safeDominantColor, 0.50)} 240deg,
+              ${withAlpha(darkColor, 0.35)} 300deg,
+              ${withAlpha(safeDominantColor, 0.55)} 360deg
             )
           `,
-          backdropFilter: 'blur(0.5px)',
-          WebkitBackdropFilter: 'blur(0.5px)',
+          backdropFilter: 'blur(0px)',
+          WebkitBackdropFilter: 'blur(0px)',
           maskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
           backfaceVisibility: 'hidden',
@@ -113,6 +113,141 @@ export const VinylRecord = ({
         }}
         animate={
           isPlaying && !prefersReducedMotion
+            ? { rotate: 360 }
+            : { rotate: [-1.5, 1.5, -1.5] }
+        }
+        transition={
+          isPlaying && !prefersReducedMotion
+            ? { duration: 2.5, repeat: Infinity, ease: 'linear' }
+            : { duration: 10, repeat: Infinity, ease: 'easeInOut' }
+        }
+      >
+        {/* Grooves — menos sulcos, mais espaçados */}
+        <svg
+          viewBox="0 0 100 100"
+          className="absolute inset-0 w-full h-full mix-blend-overlay pointer-events-none"
+          style={{ opacity: isPlaying ? 0.5 : 0.2 }}
+        >
+          {Array.from({ length: 18 }, (_, i) => (
+            <circle
+              key={`${uniqueId}-groove-${i}`}
+              cx="50" cy="50"
+              r={46 - i * 2.0}
+              fill="none"
+              stroke="#fff"
+              strokeWidth={i % 4 === 0 ? 0.28 : 0.14}
+              opacity={0.85 - i * 0.03}
+            />
+          ))}
+          {/* Anel separador label */}
+          <circle cx="50" cy="50" r="27" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="0.4" />
+        </svg>
+
+        {/* Glow pulsing effect wrapping the album cover */}
+        {isPlaying && (
+          <motion.div
+            className="absolute inset-[24%] rounded-full z-15 pointer-events-none filter blur-md"
+            style={{
+              background: withAlpha(safeDominantColor, 0.5),
+            }}
+            animate={{
+              scale: [0.98, pulseScale, 0.98],
+              opacity: [0.3, pulseOpacity, 0.3],
+            }}
+            transition={{
+              duration: beatDuration,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        )}
+
+        {/* Album Cover — maior */}
+        <div
+          className="absolute inset-[24%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={albumImage || 'placeholder'}
+              className="w-full h-full absolute inset-0 flex items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              {albumImage ? (
+                <div className="w-full h-full relative">
+                  <SmartImage
+                    src={albumImage}
+                    className="w-full h-full object-cover"
+                    fallback="💿"
+                    rounded="full"
+                  />
+                  <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-900 z-10">
+                   <div className="w-2/3 h-2/3 rounded-full border border-white/5 bg-stone-800 flex items-center justify-center shadow-lg">
+                      <Disc className="w-1/2 h-1/2 text-white/20 animate-pulse-slow" />
+                   </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+          {isPlaying && (
+            <motion.div
+              className="absolute inset-0 pointer-events-none rounded-full"
+              style={{
+                background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.35) 25%, transparent 50%, rgba(255,255,255,0.15) 75%, transparent 100%)',
+                mixBlendMode: 'overlay',
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: shimmerSpeed, repeat: Infinity, ease: 'linear' }}
+            />
+          )}
+        </div>
+      </motion.div>
+
+      {/* Tonearm — ângulos corretos */}
+      <motion.div
+        className="absolute right-[-14%] top-[4%] w-[48%] h-[6%] pointer-events-none z-30"
+        style={{ transformOrigin: '90% 50%', willChange: 'transform' }}
+        animate={{ rotate: isPlaying ? 20 : -32 }}
+        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <div className="relative w-full h-full">
+          <div
+            className="absolute rounded-full"
+            style={{
+              background: 'linear-gradient(90deg, #3f3f46 0%, #a1a1aa 40%, #d4d4d8 60%, #71717a 100%)',
+              height: '35%',
+              top: '32%',
+              left: '5%',
+              right: '10%',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
+            }}
+          />
+          <div
+            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              width: '9%',
+              height: '210%',
+              background: 'radial-gradient(circle at 40% 35%, #d4d4d8, #52525b)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+            }}
+          />
+          <div
+            className="absolute left-[4%] top-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              width: '4%',
+              height: '150%',
+              background: 'linear-gradient(180deg, #fb7185 0%, #f43f5e 100%)',
+              boxShadow: '0 0 5px rgba(244,63,94,0.7)',
+            }}
+          />
+        </div>
+      </motion.div>
+
             ? { rotate: 360 }
             : { rotate: [-1.5, 1.5, -1.5] }
         }
