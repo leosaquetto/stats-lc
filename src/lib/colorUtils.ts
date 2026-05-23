@@ -6,11 +6,11 @@
 import * as ColorThiefModule from 'colorthief';
 
 type ColorThiefApi = {
-  getColor?: (image: HTMLImageElement) => Promise<number[]> | number[];
-  getColorSync?: (image: HTMLImageElement) => number[];
+  getColor?: (image: HTMLImageElement) => Promise<any>;
+  getColorSync?: (image: HTMLImageElement) => any;
 };
 
-const colorThiefApi = ColorThiefModule as ColorThiefApi;
+const colorThiefApi = ColorThiefModule as unknown as ColorThiefApi;
 
 /**
  * Normalize color input to #rrggbb format
@@ -97,12 +97,21 @@ export function getDominantColor(imageSrc: string): Promise<string> {
     img.onload = async () => {
       try {
         // Try ColorThief first
-        const rgb = typeof colorThiefApi.getColorSync === 'function'
+        const color = typeof colorThiefApi.getColorSync === 'function'
           ? colorThiefApi.getColorSync(img)
           : await colorThiefApi.getColor?.(img);
-        if (rgb && Array.isArray(rgb) && rgb.length === 3) {
-          resolve(normalizeColor(rgb));
-          return;
+        
+        if (color) {
+          // New versions return an object with .hex() and .array()
+          if (typeof color.hex === 'function') {
+            resolve(color.hex());
+            return;
+          }
+          // Fallback for older versions that might return [r, g, b]
+          if (Array.isArray(color) && color.length >= 3) {
+            resolve(normalizeColor(color));
+            return;
+          }
         }
       } catch (e) {
         // ColorThief failed, fall through to canvas sampling

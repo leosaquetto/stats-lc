@@ -69,7 +69,7 @@ export default function HomeScreen() {
   const [viewingAlbumHistoryUser, setViewingAlbumHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [showCircleActivity, setShowCircleActivity] = useState(false);
-  const [visibleHistory, setVisibleHistory] = useState(20);
+  const [visibleHistory, setVisibleHistory] = useState(5);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
   const [toasts, setToasts] = useState<any[]>([]);
@@ -1036,7 +1036,7 @@ export default function HomeScreen() {
       >
         <SectionHeader title="Timeline da Sessão" />
       </motion.div>
-      <div className="flex flex-col gap-2 custom-scrollbar scroll-fade-v h-[550px] overflow-y-auto px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-2 custom-scrollbar scroll-fade-v h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
           {isLoading ? (
             [1, 2, 3, 4, 5].map(i => (
               <motion.div 
@@ -1087,25 +1087,11 @@ export default function HomeScreen() {
           
           {!isLoading && recentTracks.length > visibleHistory && (
             <button
-              onClick={() => {
-                if (isLoadingMore) return;
-                setIsLoadingMore(true);
-                setTimeout(() => {
-                  setVisibleHistory(prev => prev + 20);
-                  setIsLoadingMore(false);
-                }, 600);
-              }}
-              disabled={isLoadingMore}
-              className="w-full mt-4 py-3 text-xs font-bold text-white/80 hover:text-white glass rounded-2xl border border-white/5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+              onClick={() => setShowCircleActivity(true)}
+              className="w-full mt-2 mb-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
             >
-              {isLoadingMore ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 text-orange-500 animate-spin" />
-                  <span className="animate-pulse">Buscando scrobbling...</span>
-                </>
-              ) : (
-                <span>Carregar mais músicas</span>
-              )}
+              <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
+              <span>Ver Atividade Completa</span>
             </button>
           )}
       </div>
@@ -1163,5 +1149,6 @@ export default function HomeScreen() {
 
       </div>
     </PullToRefresh>
+    </>
   );
 }
