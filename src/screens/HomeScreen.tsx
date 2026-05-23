@@ -1087,10 +1087,11 @@ export default function HomeScreen() {
                     layout: { type: "spring", stiffness: 350, damping: 35 }
                   }}
                 >
-                  <FriendHistoryCard 
-                    user={user} 
+                  <FriendHistoryCard
+                    user={user}
                     index={idx}
                     onTrackClick={setSelectedTrackHistory}
+                    onFullHistoryClick={(u) => setViewingFullHistoryUser(u)}
                   />
                 </motion.div>
               ))}

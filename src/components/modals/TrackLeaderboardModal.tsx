@@ -37,13 +37,18 @@ export const TrackLeaderboardModal = ({
     async function loadStats() {
       if (!track?.id) return;
       setLoading(true);
-      
-      const isArtist = !!track.artist || track.type === 'artist' || (track.id && !track.name && !track.albumId);
-      const isAlbum = !!track.album || track.type === 'album' || (track.albumId && !track.name);
-      
-      if (isArtist) setView('artist');
-      else if (isAlbum) setView('album');
-      else setView('track');
+
+      // Honour explicit type first (vinil/arena badge always pass type:'track',
+      // StatsScreen passes 'artist'/'album' when appropriate)
+      if (track.type === 'artist' || track.type === 'album' || track.type === 'track') {
+        setView(track.type);
+      } else {
+        const isArtist = !!track.artist || (track.id && !track.name && !track.albumId);
+        const isAlbum  = !!track.album  || (track.albumId && !track.name);
+        if (isArtist) setView('artist');
+        else if (isAlbum) setView('album');
+        else setView('track');
+      }
 
 
       // Identificação ultra-robusta dos IDs
@@ -111,26 +116,34 @@ export const TrackLeaderboardModal = ({
     .sort((a, b) => b.data[view] - a.data[view]);
 
   const mainArtist = getMainArtist(track);
-  const mainArtistName = getMainArtistName(track);
+  // When the track IS an artist entity, use track.name as the artist name
+  const mainArtistName = (track.type === 'artist' && track.name)
+    ? track.name
+    : getMainArtistName(track);
   const secondaryArtists = getSecondaryArtists(track);
-  const albumName = track.albumName || track.album?.name || (Array.isArray(track.albums) ? track.albums[0]?.name : null);
+  // When the track IS an album entity, use track.name as the album name
+  const albumName = (track.type === 'album' && track.name)
+    ? track.name
+    : (track.albumName || track.album?.name || (Array.isArray(track.albums) ? track.albums[0]?.name : null));
 
-  // Auto-detect view type:
-  const isArtist = track.type === 'artist' || 
-                   (!track.name && !track.albumId && track.id && track.artist?.id === track.id);
-  const isAlbum = track.type === 'album' || 
-                  (track.albumId && !track.artistId) ||
-                  (track.id && !track.name && track.album?.id === track.id);
+  // Auto-detect view type (only used as fallback when track.type is not set):
+  const isArtist = track.type === 'artist' ||
+                   (!track.type && !track.name && !track.albumId && track.id && track.artist?.id === track.id);
+  const isAlbum  = track.type === 'album'  ||
+                   (!track.type && track.albumId && !track.artistId) ||
+                   (!track.type && !track.name && track.album?.id === track.id);
 
   useEffect(() => {
-    if (isArtist) {
+    if (track.type === 'artist' || track.type === 'album' || track.type === 'track') {
+      setView(track.type);
+    } else if (isArtist) {
       setView('artist');
     } else if (isAlbum) {
       setView('album');
     } else {
       setView('track');
     }
-  }, [track?.id, isArtist, isAlbum]);
+  }, [track?.id, track?.type, isArtist, isAlbum]);
 
   return (
     <motion.div 
