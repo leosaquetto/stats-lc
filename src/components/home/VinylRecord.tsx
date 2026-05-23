@@ -114,13 +114,13 @@ export const VinylRecord = ({
         }}
         animate={
           isPlaying && !prefersReducedMotion
-            ? { rotate: 360,                       opacity: 1 }
-            : { rotate: [-1.5, 1.5, -1.5],         opacity: [0.7, 0.85, 0.7] }
+            ? { rotate: 360, opacity: 1, scale: 1 }
+            : { rotate: [-3, 3, -3], opacity: [0.65, 0.82, 0.65], scale: [0.99, 1.01, 0.99] }
         }
         transition={
           isPlaying && !prefersReducedMotion
-            ? { duration: 2.5, repeat: Infinity, ease: 'linear' }
-            : { duration: 8,   repeat: Infinity, ease: 'easeInOut' }
+            ? { duration: 3, repeat: Infinity, ease: 'linear' }
+            : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
         }
       >
         {/* Sulcos realistas + grain */}
