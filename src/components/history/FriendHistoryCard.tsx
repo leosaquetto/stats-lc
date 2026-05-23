@@ -7,6 +7,7 @@ import { statsService } from '../../services/statsService';
 import { getArtistListString } from '../../lib/artistUtils';
 import { statsCacheService } from '../../services/statsCacheService';
 import { useStatsStore } from '../../store/useStatsStore';
+import { Headphones, Loader2 } from 'lucide-react';
 
 interface FriendHistoryCardProps {
   user: any;
@@ -36,6 +37,7 @@ export const FriendHistoryCard = memo(({
   const [recents, setRecents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<any>(null);
+  const [visibleTracks, setVisibleTracks] = useState(5);
   
   const storeUser = useStatsStore(state => state.groupStats?.members?.find(m => m.id === user.id)) || user;
   const animationDuration = useStatsStore(state => state.animationDuration) || 0.5;
@@ -44,6 +46,7 @@ export const FriendHistoryCard = memo(({
   const isLive = storeUser.nowPlaying?.isNow === true;
 
   const getHistoryList = (): any[] => {
+    const limit = Math.max(5, visibleTracks);
     if (isLive && user.nowPlaying?.track) {
       const liveTrack = {
         track: user.nowPlaying.track,
@@ -55,15 +58,16 @@ export const FriendHistoryCard = memo(({
         item => item.track?.id !== user.nowPlaying?.track?.id
       );
 
-      return [liveTrack, ...otherRecents.slice(0, 4)];
+      return [liveTrack, ...otherRecents].slice(0, limit);
     }
 
-    return recents.slice(0, 5);
+    return recents.slice(0, limit);
   };
 
   useEffect(() => {
     let mounted = true;
     const store = useStatsStore.getState();
+    setVisibleTracks(5);
 
     const fetchData = async () => {
       try {
@@ -271,7 +275,7 @@ export const FriendHistoryCard = memo(({
                     className="relative flex flex-col py-2 gap-2 overflow-hidden"
                   >
                     <ShimmerOverlay duration={2.6} />
-                    {[0, 1, 2].map((row) => (
+                    {[0, 1, 2, 3, 4].map((row) => (
                       <motion.div
                         key={row}
                         initial={{ opacity: 0, x: -8 }}
@@ -293,97 +297,120 @@ export const FriendHistoryCard = memo(({
                     <span className="text-[11px] font-medium text-white/40">Nenhum histórico</span>
                   </div>
                 ) : (
-                  historyList.map((item, idx) => (
-                    <motion.div
-                      key={`${item.track?.id}-${idx}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      style={{ willChange: "transform, opacity" }}
-                      transition={{ delay: Math.min(idx * 0.04, 0.2), duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                      onClick={() => onTrackClick?.(item.track)}
-                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
-                    >
+                  <>
+                    {historyList.map((item, idx) => (
                       <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
-                        className="shrink-0 relative"
+                        key={`${item.track?.id}-${idx}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{ willChange: "transform, opacity" }}
+                        transition={{ delay: Math.min(idx * 0.04, 0.2), duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={() => onTrackClick?.(item.track)}
+                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
                       >
-                        <SmartImage
-                          src={item.track?.image}
-                          className="h-10 w-10 rounded-lg shrink-0"
-                          fallback=""
-                          rounded="lg"
-                        />
-                        {item.playCount > 1 && !item.isLive && (
-                          <div className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-600 border border-[#111] flex items-center justify-center shadow-lg z-20">
-                            <span className="text-[8px] font-black text-white leading-none">{item.playCount > 99 ? '99+' : item.playCount}</span>
-                          </div>
-                        )}
-                      </motion.div>
-
-                      <motion.div 
-                        initial={{ opacity: 0, x: -3 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
-                        className="flex flex-col min-w-0 flex-1"
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11px] font-bold text-white/90 truncate leading-tight group-hover:text-orange-400 transition-colors">
-                            {item.track?.name}
-                          </span>
-                          {item.playCount === 1 && (
-                            <motion.div 
-                               initial={{ opacity: 0, scale: 0.8 }}
-                               animate={{ opacity: 1, scale: 1 }}
-                               className="flex items-center gap-1 bg-gradient-to-r from-orange-500/20 to-orange-600/20 px-2 py-0.5 rounded-full border border-orange-500/30 shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.15)]"
-                             >
-                               <div className="relative h-1 w-1 shrink-0">
-                                 <div className="absolute inset-0 rounded-full bg-orange-400 animate-ping opacity-75" />
-                                 <div className="relative h-1 w-1 rounded-full bg-orange-500" />
-                               </div>
-                               <span className="text-[6.5px] font-black text-white uppercase tracking-widest leading-none">Inédito</span>
-                            </motion.div>
-                          )}
-                          {item.track && (
-                            <div className="flex items-center gap-1 shrink-0">
-                              {coreUtils.detectCatalogAvailability(item.track).hasSpotify && (
-                                <img 
-                                  src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg"
-                                  className="h-2.5 w-2.5 object-contain opacity-60"
-                                  alt="Spotify"
-                                />
-                              )}
-                              {coreUtils.detectCatalogAvailability(item.track).hasAppleMusic && (
-                                <img 
-                                  src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
-                                  className="h-2.5 w-2.5 object-contain opacity-60 invert"
-                                  alt="Apple Music"
-                                />
-                              )}
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                          style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
+                          className="shrink-0 relative"
+                        >
+                          <SmartImage
+                            src={item.track?.image}
+                            className="h-10 w-10 rounded-lg shrink-0"
+                            fallback=""
+                            rounded="lg"
+                          />
+                          {item.playCount > 1 && !item.isLive && (
+                            <div className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-600 border border-[#111] flex items-center justify-center shadow-lg z-20">
+                              <span className="text-[8px] font-black text-white leading-none">{item.playCount > 99 ? '99+' : item.playCount}</span>
                             </div>
                           )}
-                        </div>
-                        <span className="text-[8px] font-medium text-white/50 truncate">
-                          {getArtistListString(item.track)}
-                        </span>
-                      </motion.div>
+                        </motion.div>
 
-                      <motion.div 
-                        initial={{ opacity: 0, x: 3 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.12, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                        style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
-                        className="flex flex-col items-end gap-0.5 shrink-0"
-                      >
-                        <span className="text-[7px] font-mono text-white/40">
-                          {item.isLive ? '🔴' : coreUtils.formatTimeSP(new Date(item.playedAt))}
-                        </span>
+                        <motion.div 
+                          initial={{ opacity: 0, x: -3 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.1, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                          style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
+                          className="flex flex-col min-w-0 flex-1"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-[11px] font-bold text-white/90 truncate leading-tight group-hover:text-orange-400 transition-colors">
+                              {item.track?.name}
+                            </span>
+                            {item.playCount === 1 && (
+                              <motion.div 
+                                 initial={{ opacity: 0, scale: 0.8 }}
+                                 animate={{ opacity: 1, scale: 1 }}
+                                 className="flex items-center gap-1 bg-gradient-to-r from-orange-500/20 to-orange-600/20 px-2 py-0.5 rounded-full border border-orange-500/30 shrink-0 shadow-[0_0_8px_rgba(249,115,22,0.15)]"
+                               >
+                                 <div className="relative h-1 w-1 shrink-0">
+                                   <div className="absolute inset-0 rounded-full bg-orange-400 animate-ping opacity-75" />
+                                   <div className="relative h-1 w-1 rounded-full bg-orange-500" />
+                                 </div>
+                                 <span className="text-[6.5px] font-black text-white uppercase tracking-widest leading-none">Inédito</span>
+                              </motion.div>
+                            )}
+                            {item.track && (
+                              <div className="flex items-center gap-1 shrink-0">
+                                {coreUtils.detectCatalogAvailability(item.track).hasSpotify && (
+                                  <img 
+                                    src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg"
+                                    className="h-2.5 w-2.5 object-contain opacity-60"
+                                    alt="Spotify"
+                                  />
+                                )}
+                                {coreUtils.detectCatalogAvailability(item.track).hasAppleMusic && (
+                                  <img 
+                                    src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg"
+                                    className="h-2.5 w-2.5 object-contain opacity-60 invert"
+                                    alt="Apple Music"
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-[8px] font-medium text-white/50 truncate">
+                            {getArtistListString(item.track)}
+                          </span>
+                        </motion.div>
+
+                        <motion.div 
+                          initial={{ opacity: 0, x: 3 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: Math.min(idx * 0.04, 0.2) + 0.12, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                          style={{ willChange: "transform, opacity", transform: "translateZ(0)" }}
+                          className="flex flex-col items-end gap-0.5 shrink-0"
+                        >
+                          {item.isLive ? (
+                            <div
+                              className="h-7 w-7 rounded-full bg-orange-500/10 border border-orange-500/25 flex items-center justify-center text-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.18)]"
+                              title="Ouvindo agora"
+                              aria-label="Ouvindo agora"
+                            >
+                              <Headphones className="h-3.5 w-3.5" />
+                            </div>
+                          ) : (
+                            <span className="text-[7px] font-mono text-white/40">
+                              {coreUtils.formatTimeSP(new Date(item.playedAt))}
+                            </span>
+                          )}
+                        </motion.div>
                       </motion.div>
-                    </motion.div>
-                  ))
+                    ))}
+                    {!loading && recents.length > visibleTracks && (
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setVisibleTracks((prev) => prev + 5);
+                        }}
+                        className="mt-1 w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[9px] font-black uppercase tracking-[0.22em] text-white/55 hover:text-white hover:bg-white/[0.07] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+                      >
+                        Ver mais
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

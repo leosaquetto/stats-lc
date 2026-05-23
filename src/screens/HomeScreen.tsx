@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -372,7 +373,162 @@ export default function HomeScreen() {
         }
       });
   }, [members, featuredUserId, historyOrder, historyCustomOrder]);
-    return (
+  return (
+    <>
+      {createPortal(
+        <>
+          <AnimatePresence>
+            <CircleActivityModal
+              isOpen={showCircleActivity}
+              onClose={() => setShowCircleActivity(false)}
+              onTrackClick={(track) => setSelectedTrack(track)}
+              onFriendClick={(friend) => {
+                setShowCircleActivity(false);
+                setViewingFullHistoryUser(friend);
+              }}
+            />
+
+            {viewingFullHistoryUser && (
+              <UserHistoryModal 
+                user={viewingFullHistoryUser} 
+                onClose={() => setViewingFullHistoryUser(null)}
+                onTrackClick={(track) => setSelectedTrack(track)}
+                groupStats={groupStats}
+              />
+            )}
+            {selectedTrack && (
+              <TrackLeaderboardModal 
+                track={selectedTrack} 
+                onClose={() => setSelectedTrack(null)} 
+              />
+            )}
+            {selectedTrackHistory && (
+              <TrackHistoryModal 
+                track={selectedTrackHistory}
+                onClose={() => setSelectedTrackHistory(null)}
+              />
+            )}
+            {selectedAlbum && (
+               <AlbumDetailModal 
+                 user={primaryUser}
+                 album={selectedAlbum}
+                 onClose={() => setSelectedAlbum(null)}
+               />
+            )}
+            {viewingAlbumHistoryUser && (
+              <UserAlbumHistoryModal 
+                user={viewingAlbumHistoryUser}
+                onClose={() => setViewingAlbumHistoryUser(null)}
+              />
+            )}
+            
+            {showUserSelector && (
+              <>
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowUserSelector(false)}
+                  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+                />
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: -20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
+                  className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
+                >
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
+                  <div className="flex flex-col gap-1.5 mt-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                    {members.map((u) => (
+                      <button
+                        key={u.id}
+                        onClick={() => {
+                          setFeaturedUserId(u.id);
+                          setShowUserSelector(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
+                          featuredUserId === u.id 
+                            ? "bg-white/10 border border-white/10 shadow-lg" 
+                            : "hover:bg-white/5 opacity-70 hover:opacity-100"
+                        )}
+                      >
+                        <div className={cn(
+                          "rounded-full border overflow-hidden relative shrink-0 transition-all duration-300",
+                          featuredUserId === u.id 
+                            ? "h-11 w-11 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" 
+                            : "h-9 w-9 border-white/10"
+                        )}>
+                            <SmartImage 
+                              src={coreUtils.getUserAvatar(u.id, u.avatar)} 
+                              className="h-full w-full object-cover" 
+                              fallback=""
+                              rounded="full"
+                            />
+                        </div>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className={cn(
+                            "text-sm font-bold transition-colors truncate w-full",
+                            featuredUserId === u.id ? "text-white" : "text-white/80"
+                          )}>
+                            {u.name}
+                          </span>
+                        </div>
+                        {featuredUserId === u.id && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Top Bar Navigation - Floating */}
+          <header
+            style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
+            className={cn(
+              "fixed top-0 left-0 right-0 z-[150] flex justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
+              isHeaderScrolled
+                ? "translate-y-0 opacity-100 pointer-events-auto"
+                : "-translate-y-4 opacity-0 pointer-events-none"
+            )}
+          >
+            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#050505]/75 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+              <button
+                onClick={fetchGroupLive}
+                disabled={isLiveFetching || isRefreshing}
+                title="Sincronizar Live"
+                aria-label="Sincronizar Live"
+                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
+              >
+                <RefreshCcw
+                  className={cn(
+                    "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
+                    isLiveFetching && "animate-spin text-orange-500"
+                  )}
+                />
+              </button>
+              <button
+                onClick={() => setShowUserSelector(true)}
+                title="Selecionar Usuário"
+                aria-label="Selecionar Usuário"
+                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
+              >
+                <SmartImage
+                  src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
+                  className="h-full w-full object-cover"
+                  fallback=""
+                  rounded="full"
+                />
+              </button>
+            </div>
+          </header>
+        </>,
+        document.body
+      )}
+
       <PullToRefresh 
       onRefresh={fetchGroupLive}
       pullingContent={
@@ -573,154 +729,6 @@ export default function HomeScreen() {
       }
     >
       <div className="flex flex-col gap-3 pt-24">
-        <AnimatePresence>
-          <CircleActivityModal
-            isOpen={showCircleActivity}
-            onClose={() => setShowCircleActivity(false)}
-            onTrackClick={(track) => setSelectedTrack(track)}
-            onFriendClick={(friend) => {
-              setShowCircleActivity(false);
-              setViewingFullHistoryUser(friend);
-            }}
-          />
-
-          {viewingFullHistoryUser && (
-            <UserHistoryModal 
-              user={viewingFullHistoryUser} 
-              onClose={() => setViewingFullHistoryUser(null)}
-              onTrackClick={(track) => setSelectedTrack(track)}
-              groupStats={groupStats}
-            />
-          )}
-        {selectedTrack && (
-          <TrackLeaderboardModal 
-            track={selectedTrack} 
-            onClose={() => setSelectedTrack(null)} 
-          />
-        )}
-        {selectedTrackHistory && (
-          <TrackHistoryModal 
-            track={selectedTrackHistory}
-            onClose={() => setSelectedTrackHistory(null)}
-          />
-        )}
-        {selectedAlbum && (
-           <AlbumDetailModal 
-             user={primaryUser}
-             album={selectedAlbum}
-             onClose={() => setSelectedAlbum(null)}
-           />
-        )}
-        {viewingAlbumHistoryUser && (
-          <UserAlbumHistoryModal 
-            user={viewingAlbumHistoryUser}
-            onClose={() => setViewingAlbumHistoryUser(null)}
-          />
-        )}
-        
-        {showUserSelector && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowUserSelector(false)}
-              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
-            >
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
-              <div className="flex flex-col gap-1.5 mt-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                {members.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      setFeaturedUserId(u.id);
-                      setShowUserSelector(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
-                      featuredUserId === u.id 
-                        ? "bg-white/10 border border-white/10 shadow-lg" 
-                        : "hover:bg-white/5 opacity-70 hover:opacity-100"
-                    )}
-                  >
-                    <div className={cn(
-                      "rounded-full border overflow-hidden relative shrink-0 transition-all duration-300",
-                      featuredUserId === u.id 
-                        ? "h-11 w-11 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" 
-                        : "h-9 w-9 border-white/10"
-                    )}>
-                        <SmartImage 
-                          src={coreUtils.getUserAvatar(u.id, u.avatar)} 
-                          className="h-full w-full object-cover" 
-                          fallback=""
-                          rounded="full"
-                        />
-                    </div>
-                    <div className="flex flex-col items-start min-w-0">
-                      <span className={cn(
-                        "text-sm font-bold transition-colors truncate w-full",
-                        featuredUserId === u.id ? "text-white" : "text-white/80"
-                      )}>
-                        {u.name}
-                      </span>
-                    </div>
-                    {featuredUserId === u.id && (
-                      <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Top Bar Navigation - Floating */}
-      <header
-        style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
-        className={cn(
-          "fixed top-0 left-0 right-0 z-[80] flex justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
-          isHeaderScrolled
-            ? "translate-y-0 opacity-100 pointer-events-auto"
-            : "-translate-y-4 opacity-0 pointer-events-none"
-        )}
-      >
-        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#050505]/75 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
-          <button
-            onClick={fetchGroupLive}
-            disabled={isLiveFetching || isRefreshing}
-            title="Sincronizar Live"
-            aria-label="Sincronizar Live"
-            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
-          >
-            <RefreshCcw
-              className={cn(
-                "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                isLiveFetching && "animate-spin text-orange-500"
-              )}
-            />
-          </button>
-          <button
-            onClick={() => setShowUserSelector(true)}
-            title="Selecionar Usuário"
-            aria-label="Selecionar Usuário"
-            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
-          >
-            <SmartImage
-              src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
-              className="h-full w-full object-cover"
-              fallback=""
-              rounded="full"
-            />
-          </button>
-        </div>
-      </header>
 
       {/* Custom Background Sync Bar */}
       <AnimatePresence>
