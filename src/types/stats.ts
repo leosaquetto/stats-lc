@@ -13,8 +13,14 @@ export interface Track {
   id?: string;
   name: string;
   artists: (string | { name: string; id?: string })[];
+  primaryArtist?: string | { name: string; id?: string };
+  primaryArtistId?: string;
+  primaryArtistName?: string;
+  secondaryArtists?: (string | { name: string; id?: string })[];
   albumName?: string;
   albumArtist?: string;
+  albumId?: string;
+  albumImage?: string;
   image?: string;
   spotifyId?: string;
   appleMusicId?: string;

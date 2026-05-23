@@ -9,13 +9,13 @@ import { UserStats, GroupStats } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
 
 const getBaseUrl = () => {
+  const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
+  if (envBaseUrl) return String(envBaseUrl).replace(/\/$/, "");
+
   if (typeof window !== 'undefined') {
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.')) {
-      return "https://statslc.leosaquetto.com";
-    }
-    // Em browsers, usamos o origin atual para que requisições /api/ sejam capturadas pelo server.ts/Vercel
     return window.location.origin;
   }
+
   return "";
 };
 
@@ -25,10 +25,102 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
-    'Accept': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
+    'Accept': 'application/json'
   }
 });
+
+const getPrimaryArtistName = (artists: any[] | undefined) => {
+  if (!Array.isArray(artists) || artists.length === 0) return undefined;
+  const first = artists[0];
+  return typeof first === 'string' ? first : first?.name;
+};
+
+const normalizeTrack = (track: any) => {
+  if (!track) return undefined;
+
+  return {
+    id: track.id,
+    name: track.name,
+    artists: track.artists || [],
+    primaryArtist: track.primaryArtist,
+    primaryArtistId: track.primaryArtistId,
+    primaryArtistName: track.primaryArtistName || getPrimaryArtistName(track.artists),
+    secondaryArtists: track.secondaryArtists,
+    image: track.image,
+    albumId: track.albumId || track.album?.id,
+    albumName: track.albumName || track.album?.name,
+    albumImage: track.albumImage || track.album?.image,
+    durationMs: track.durationMs,
+    playedCount: track.playedCount,
+    spotifyId: track.spotifyId,
+    appleMusicId: track.appleMusicId,
+    catalogAvailability: track.catalogAvailability,
+    externalIds: track.externalIds
+  };
+};
+
+const normalizeNowPlaying = (nowPlaying: any) => {
+  if (!nowPlaying) return undefined;
+
+  const track = normalizeTrack(nowPlaying.track);
+  if (!track) return undefined;
+  const ts = nowPlaying.timestamp || nowPlaying.playedAt || nowPlaying.endTime || new Date().toISOString();
+  const platformCandidate = nowPlaying.platformCandidate || nowPlaying.serviceCandidate;
+
+  return {
+    isNow: nowPlaying.isNow !== undefined ? nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000),
+    timestamp: ts,
+    progressMs: nowPlaying.progressMs ?? nowPlaying.playedMs ?? 0,
+    durationMs: nowPlaying.durationMs || track?.durationMs,
+    playedMs: nowPlaying.playedMs ?? nowPlaying.progressMs ?? 0,
+    platformCandidate: platformCandidate?.primary
+      ? platformCandidate
+      : platformCandidate?.platform
+        ? { ...platformCandidate, primary: platformCandidate.platform }
+        : platformCandidate,
+    track
+  };
+};
+
+const normalizeMember = (member: any): UserStats => {
+  const uid = member.key || member.id;
+  const yearStats = member.stats?.year || member.stats?.current_year;
+
+  return {
+    id: uid,
+    name: member.profile?.displayName || member.name || uid,
+    avatar: coreUtils.getUserAvatar(uid, member.profile?.image || member.avatar),
+    platform: member.platform,
+    streamsToday: member.stats?.today?.streams ?? member.streamsToday ?? 0,
+    streamsWeek: member.stats?.week?.streams ?? member.streamsWeek ?? 0,
+    streamsMonth: member.stats?.month?.streams ?? member.streamsMonth ?? 0,
+    streamsYear: yearStats?.streams ?? member.streamsYear ?? 0,
+    totalStreams: member.stats?.lifetime?.streams ?? member.stats?.total?.streams ?? member.totalStreams ?? 0,
+    totalDurationMs: member.stats?.lifetime?.durationMs || member.stats?.lifetime?.playedMs || member.totalDurationMs || 0,
+    scrobbles: member.stats?.lifetime?.streams || member.scrobbles || 0,
+    nowPlaying: normalizeNowPlaying(member.nowPlaying),
+    topItems: member.tops || member.topItems || undefined
+  };
+};
+
+const normalizeGroupStats = (data: any): GroupStats => {
+  const users: Record<string, UserStats> = {};
+  const members: UserStats[] = [];
+
+  if (data?.members && Array.isArray(data.members)) {
+    data.members.forEach((member: any) => {
+      const user = normalizeMember(member);
+      users[user.id] = user;
+      members.push(user);
+    });
+  }
+
+  return {
+    users,
+    members,
+    lastUpdated: data?.generatedAt || data?.lastUpdated || new Date().toISOString()
+  };
+};
 
 /**
  * Utilitário para chamadas à nossa API Backend na Vercel
@@ -99,7 +191,7 @@ export const statsService = {
   async fetchRecent(userId: string, limit = 20, offset = 0): Promise<any[]> {
     try {
       const userParam = userId; 
-      const res = await fetchFromApi<any>('/api/recent', { user: userParam, limit, offset });
+      const res = await fetchFromApi<any>('/api/user-streams', { user: userParam, limit, offset });
       if ((import.meta as any).env?.DEV) console.log(`[statsService] fetchRecent for ${userId}:`, res);
       return res?.items || [];
     } catch (e) {
@@ -112,7 +204,15 @@ export const statsService = {
    * Busca estatísticas de uma entidade para todo o grupo de uma vez
    */
   async fetchEntityGroupStats(type: 'track' | 'artist' | 'album', id: string): Promise<Record<string, number>> {
-    return fetchFromApi<Record<string, number>>('/api/entity-group-stats', { type, id });
+    const res = await fetchFromApi<any>('/api/entity-group-stats', { type, id });
+    if (!Array.isArray(res?.members)) return res || {};
+
+    return res.members.reduce((acc: Record<string, number>, member: any) => {
+      const count = member.count ?? member.streams ?? 0;
+      if (member.key) acc[member.key] = count;
+      if (member.id) acc[member.id] = count;
+      return acc;
+    }, {});
   },
 
   /**
@@ -121,11 +221,16 @@ export const statsService = {
   async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string, range?: string): Promise<number> {
     try {
       const userParam = userId;
-      const params: any = { user: userParam, type, id };
+      const params: any = { user: userParam, type, id, limit: 1 };
       if (range) params.range = range;
       
-      const data = await fetchFromApi<any>('/api/entity-stats', params);
-      return data?.count || 0;
+      let data: any;
+      try {
+        data = await fetchFromApi<any>('/api/entity-stats', params);
+      } catch {
+        data = await fetchFromApi<any>('/api/entity-streams', params);
+      }
+      return data?.count || data?.streams || data?.total || data?.items?.length || 0;
     } catch (e) {
       return 0;
     }
@@ -150,75 +255,8 @@ export const statsService = {
       try {
         const data = await fetchFromApi<any>('/api/group-live', {}, forceRefresh);
         if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupLiveData raw response:", data);
-        
-        const users: Record<string, UserStats> = {};
-        const members: UserStats[] = [];
-      
-        if (data.members && Array.isArray(data.members)) {
-          data.members.forEach((m: any) => {
-            const uid = m.key || m.id;
-            
-            // Map NowPlaying
-            let nowPlaying = undefined;
-            if (m.nowPlaying) {
-              const track = m.nowPlaying.track;
-              const ts = m.nowPlaying.timestamp || m.nowPlaying.playedAt || new Date().toISOString();
-              
-              nowPlaying = {
-                isNow: m.nowPlaying.isNow !== undefined ? m.nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000), // Fallback de 5 min se isNow vier undefined
-                timestamp: ts,
-                progressMs: m.nowPlaying.progressMs ?? m.nowPlaying.playedMs ?? 0,
-                durationMs: m.nowPlaying.durationMs || track?.durationMs,
-                playedMs: m.nowPlaying.playedMs ?? m.nowPlaying.progressMs ?? 0,
-                platformCandidate: m.nowPlaying.platformCandidate,
-                track: {
-                  id: track?.id,
-                  name: track?.name,
-                  artists: track?.artists || [],
-                  primaryArtist: track?.primaryArtist,
-                  primaryArtistId: track?.primaryArtistId,
-                  primaryArtistName: track?.primaryArtistName,
-                  secondaryArtists: track?.secondaryArtists,
-                  image: track?.image,
-                  albumId: track?.albumId || track?.album?.id,
-                  albumName: track?.albumName || track?.album?.name,
-                  albumImage: track?.albumImage || track?.album?.image,
-                  durationMs: track?.durationMs,
-                  playedCount: track?.playedCount,
-                  spotifyId: track?.spotifyId,
-                  appleMusicId: track?.appleMusicId,
-                  catalogAvailability: track?.catalogAvailability,
-                  externalIds: track?.externalIds
-                }
-              };
-            }
 
-            const user: UserStats = {
-              id: uid,
-              name: m.profile?.displayName || uid,
-              avatar: coreUtils.getUserAvatar(uid, m.profile?.image),
-              platform: m.platform,
-              streamsToday: m.stats?.today?.streams ?? 0,
-              streamsWeek: m.stats?.week?.streams ?? 0,
-              streamsMonth: m.stats?.month?.streams ?? 0,
-              streamsYear: (m.stats?.year?.streams ?? m.stats?.current_year?.streams) ?? 0,
-              totalStreams: m.stats?.lifetime?.streams ?? m.stats?.total?.streams ?? 0,
-              totalDurationMs: m.stats?.lifetime?.durationMs || m.stats?.lifetime?.playedMs || 0,
-              scrobbles: m.stats?.lifetime?.streams || 0,
-              nowPlaying,
-              topItems: m.tops || undefined
-            };
-
-            users[uid] = user;
-            members.push(user);
-          });
-        }
-
-        return {
-          users,
-          members,
-          lastUpdated: data.generatedAt || data.lastUpdated || new Date().toISOString()
-        };
+        return normalizeGroupStats(data);
       } catch (e: any) {
         if (e.message?.includes("Network Error")) {
           throw new Error("Timeout ou Falha de Conexão com o servidor. A API pode estar indisponível.");
@@ -249,71 +287,8 @@ export const statsService = {
       try {
         const data = await fetchFromApi<any>('/api/group', {}, forceRefresh);
         if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupData raw response:", data);
-        
-        const users: Record<string, UserStats> = {};
-        const members: UserStats[] = [];
-      
-      if (data.members && Array.isArray(data.members)) {
-        data.members.forEach((m: any) => {
-          const uid = m.key || m.id;
-          
-          // Map NowPlaying
-          let nowPlaying = undefined;
-          if (m.nowPlaying) {
-            const track = m.nowPlaying.track;
-            const ts = m.nowPlaying.timestamp || m.nowPlaying.playedAt || new Date().toISOString();
-            
-            nowPlaying = {
-              isNow: m.nowPlaying.isNow !== undefined ? m.nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000), // Fallback de 5 min se isNow vier undefined
-              timestamp: ts,
-              progressMs: m.nowPlaying.progressMs ?? m.nowPlaying.playedMs ?? 0,
-              durationMs: m.nowPlaying.durationMs || track?.durationMs,
-              playedMs: m.nowPlaying.playedMs ?? m.nowPlaying.progressMs ?? 0,
-              platformCandidate: m.nowPlaying.platformCandidate,
-              track: {
-                id: track?.id,
-                name: track?.name ,
-                artists: track?.artists || [],
-                image: track?.image,
-                albumId: track?.albumId || track?.album?.id,
-                albumName: track?.albumName || track?.album?.name,
-                albumImage: track?.albumImage || track?.album?.image,
-                durationMs: track?.durationMs,
-                playedCount: track?.playedCount,
-                spotifyId: track?.spotifyId,
-                appleMusicId: track?.appleMusicId,
-                catalogAvailability: track?.catalogAvailability,
-                externalIds: track?.externalIds
-              }
-            };
-          }
 
-          const user: UserStats = {
-            id: uid,
-            name: m.profile?.displayName || uid,
-            avatar: coreUtils.getUserAvatar(uid, m.profile?.image),
-            platform: m.platform,
-            streamsToday: m.stats?.today?.streams ?? 0,
-            streamsWeek: m.stats?.week?.streams ?? 0,
-            streamsMonth: m.stats?.month?.streams ?? 0,
-            streamsYear: (m.stats?.year?.streams ?? m.stats?.current_year?.streams) ?? 0,
-            totalStreams: m.stats?.lifetime?.streams ?? m.stats?.total?.streams ?? 0,
-            totalDurationMs: m.stats?.lifetime?.durationMs || m.stats?.lifetime?.playedMs || 0,
-            scrobbles: m.stats?.lifetime?.streams || 0,
-            nowPlaying,
-            topItems: m.tops || undefined
-          };
-
-          users[uid] = user;
-          members.push(user);
-        });
-      }
-
-      return {
-        users,
-        members, // Adicionando members array para facilitar
-        lastUpdated: data.generatedAt || data.lastUpdated || new Date().toISOString()
-      };
+      return normalizeGroupStats(data);
     } catch (e: any) {
       if (e.message?.includes("Network Error")) {
         throw new Error("Timeout ou Falha de Conexão com o servidor. A API pode estar indisponível.");
