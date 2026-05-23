@@ -90,22 +90,22 @@ export const VinylRecord = ({
         className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.45) 25%, transparent 26%),
-            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.35)} 0%, transparent 55%),
-            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.25)} 0%, transparent 50%),
+            radial-gradient(circle at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.65) 25%, transparent 26%),
+            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.45)} 0%, transparent 55%),
+            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.35)} 0%, transparent 50%),
             conic-gradient(
               from 0deg,
-              ${withAlpha(safeDominantColor, 0.45)} 0deg,
-              ${withAlpha(darkColor, 0.35)} 60deg,
-              ${withAlpha(safeDominantColor, 0.4)} 120deg,
-              ${withAlpha(lightColor, 0.5)} 180deg,
-              ${withAlpha(safeDominantColor, 0.4)} 240deg,
-              ${withAlpha(darkColor, 0.3)} 300deg,
-              ${withAlpha(safeDominantColor, 0.45)} 360deg
+              ${withAlpha(safeDominantColor, 0.65)} 0deg,
+              ${withAlpha(darkColor, 0.55)} 60deg,
+              ${withAlpha(safeDominantColor, 0.6)} 120deg,
+              ${withAlpha(lightColor, 0.7)} 180deg,
+              ${withAlpha(safeDominantColor, 0.6)} 240deg,
+              ${withAlpha(darkColor, 0.5)} 300deg,
+              ${withAlpha(safeDominantColor, 0.65)} 360deg
             )
           `,
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           maskImage: 'radial-gradient(circle at center, transparent 3.5%, black 3.8%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 3.5%, black 3.8%)',
           backfaceVisibility: 'hidden',
@@ -127,11 +127,11 @@ export const VinylRecord = ({
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 w-full h-full mix-blend-overlay pointer-events-none"
-          style={{ opacity: groovesOpacity }}
+          style={{ opacity: groovesOpacity + 0.1 }}
         >
-          {Array.from({ length: 20 }, (_, i) => {
-            const radius = 46 - i * 1.8;
-            const strokeWidth = i % 3 === 0 ? 0.25 : 0.15;
+          {Array.from({ length: 24 }, (_, i) => {
+            const radius = 47 - i * 1.6;
+            const strokeWidth = i % 3 === 0 ? 0.3 : 0.2;
             return (
               <circle
                 key={`${uniqueId}-groove-${i}`}
@@ -141,13 +141,13 @@ export const VinylRecord = ({
                 fill="none"
                 stroke="#fff"
                 strokeWidth={strokeWidth}
-                opacity={0.8 - i * 0.03}
+                opacity={0.9 - i * 0.03}
               />
             );
           })}
 
           {/* Buraco central - apenas um detalhe de borda já que a máscara corta o meio */}
-          <circle cx="50" cy="50" r="3.7" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.3" />
+          <circle cx="50" cy="50" r="3.7" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.3" />
         </svg>
 
         {/* Glow pulsing effect wrapping the album cover */}
@@ -155,7 +155,7 @@ export const VinylRecord = ({
           <motion.div
             className="absolute inset-[22%] rounded-full z-15 pointer-events-none filter blur-md"
             style={{
-              background: withAlpha(safeDominantColor, 0.4),
+              background: withAlpha(safeDominantColor, 0.5),
             }}
             animate={{
               scale: [0.98, pulseScale, 0.98],
@@ -171,7 +171,7 @@ export const VinylRecord = ({
 
         {/* Album Cover */}
         <div
-          className="absolute inset-[24%] rounded-full overflow-hidden z-20 shadow-xl flex items-center justify-center bg-stone-900"
+          className="absolute inset-[24%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
