@@ -127,6 +127,19 @@ interface StatsState {
   animationDuration: number;
   animationDelay: number;
   shimmerDuration: number;
+
+  // Actions
+  setPushNotificationsEnabled: (enabled: boolean) => void;
+  setNotifyOnNewStreams: (enabled: boolean) => void;
+  setNotifyOnGroupHighlights: (enabled: boolean) => void;
+  setNotifyOnArenaBattle: (enabled: boolean) => void;
+  setArenaName: (name: string) => void;
+  setPollingFrequency: (frequency: number) => void;
+  setHistoryOrder: (order: 'lastPlayed' | 'alphabetical' | 'custom') => void;
+  setHistoryCustomOrder: (order: string[]) => void;
+  setAnimationDuration: (duration: number) => void;
+  setAnimationDelay: (delay: number) => void;
+  setShimmerDuration: (duration: number) => void;
 }
 
 /**
@@ -162,20 +175,6 @@ const migrateStateToCanonicalIds = (state: StatsState, groupStats: GroupStats | 
 
   return updates;
 };
-  
-  // Actions
-  setPushNotificationsEnabled: (enabled: boolean) => void;
-  setNotifyOnNewStreams: (enabled: boolean) => void;
-  setNotifyOnGroupHighlights: (enabled: boolean) => void;
-  setNotifyOnArenaBattle: (enabled: boolean) => void;
-  setArenaName: (name: string) => void;
-  setPollingFrequency: (frequency: number) => void;
-  setHistoryOrder: (order: 'lastPlayed' | 'alphabetical' | 'custom') => void;
-  setHistoryCustomOrder: (order: string[]) => void;
-  setAnimationDuration: (duration: number) => void;
-  setAnimationDelay: (delay: number) => void;
-  setShimmerDuration: (duration: number) => void;
-}
 
 export const useStatsStore = create<StatsState>()(
   persist(

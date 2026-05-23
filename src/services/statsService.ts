@@ -256,7 +256,7 @@ export const statsService = {
    */
   async fetchRecent(userId: string, limit = 20, offset = 0): Promise<any[]> {
     try {
-      const userParam = userId; 
+      const userParam = coreUtils.getUserApiParam(userId);
       const res = await fetchFromApi<any>('/api/user-streams', { user: userParam, limit, offset });
       if ((import.meta as any).env?.DEV) console.log(`[statsService] fetchRecent for ${userId}:`, res);
       return res?.items || [];
@@ -291,7 +291,7 @@ export const statsService = {
    */
   async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string, range?: string): Promise<number> {
     try {
-      const userParam = userId;
+      const userParam = coreUtils.getUserApiParam(userId);
       const params: any = { user: userParam, type, id, limit: 1 };
       if (range) params.range = range;
       
@@ -473,7 +473,7 @@ export const statsService = {
    * Busca dados completos de um usuário específico via backend Vercel
    */
   async getUserFullStats(userId: string): Promise<any> {
-    const userParam = userId;
+    const userParam = coreUtils.getUserApiParam(userId);
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
@@ -538,8 +538,8 @@ export const statsService = {
    * Busca top itens via backend Vercel
    */
   async getTopItems(userId: string, type: 'tracks' | 'artists' | 'albums', period: string = 'month'): Promise<any[]> {
-    const userParam = userId;
-    const cacheKey = `${userId}:${type}:${period}`;
+    const userParam = coreUtils.getUserApiParam(userId);
+    const cacheKey = `${coreUtils.getUserCacheKey(userId)}:${type}:${period}`;
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
@@ -609,8 +609,8 @@ export const statsService = {
    * Busca estatísticas avançadas por período
    */
   async fetchTimeRangeStats(userId: string, after: number): Promise<any> {
-    const userParam = userId;
-    const cacheKey = `${userId}:${after}`;
+    const userParam = coreUtils.getUserApiParam(userId);
+    const cacheKey = `${coreUtils.getUserCacheKey(userId)}:${after}`;
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
@@ -659,8 +659,8 @@ export const statsService = {
    * Busca resumo de período com cardinalidade
    */
   async fetchTimeRangeCardinality(userId: string, after: number): Promise<any> {
-    const userParam = userId;
-    const cacheKey = `cardinality:${userId}:${after}`;
+    const userParam = coreUtils.getUserApiParam(userId);
+    const cacheKey = `cardinality:${coreUtils.getUserCacheKey(userId)}:${after}`;
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
@@ -686,8 +686,8 @@ export const statsService = {
    * Busca distribuição temporal do período (heatmap, etc)
    */
   async fetchTimeRangeDates(userId: string, after: number): Promise<any> {
-    const userParam = userId;
-    const cacheKey = `dates:${userId}:${after}`;
+    const userParam = coreUtils.getUserApiParam(userId);
+    const cacheKey = `dates:${coreUtils.getUserCacheKey(userId)}:${after}`;
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();

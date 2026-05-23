@@ -64,10 +64,9 @@ import {
 } from 'recharts';
 
 import { FixedSizeList as List } from 'react-window';
-// @ts-ignore
-import * as AutoSizerModule from 'react-virtualized-auto-sizer';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 
-const AutoSizer = ((AutoSizerModule as any).AutoSizer || (AutoSizerModule as any).default || AutoSizerModule) as any;
+const AutoSizerAny = AutoSizer as any;
 
 import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP, getHourSP, formatDateSP } from '../lib/time';
 
@@ -1633,8 +1632,8 @@ export default function StatsScreen() {
               ) : filteredTopItems.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
                   <div className="h-[520px] w-full min-h-[350px]">
-                    <AutoSizer>
-                      {({ height, width }: { height: number; width: number }) => (
+                    <AutoSizerAny>
+                      {({ height, width }) => (
                         <List
                           height={height}
                           itemCount={Math.min(filteredTopItems.length, visibleItemsCount)}
@@ -1657,7 +1656,7 @@ export default function StatsScreen() {
                           {VirtualRow}
                         </List>
                       )}
-                    </AutoSizer>
+                    </AutoSizerAny>
                   </div>
 
                   {filteredTopItems.length > 15 && (

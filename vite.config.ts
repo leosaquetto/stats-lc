@@ -14,6 +14,19 @@ export default defineConfig(({mode}) => {
         'react-native-mmkv': path.resolve(__dirname, 'src/lib/mmkv.ts'),
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'chart-vendor': ['recharts'],
+            'ui-vendor': ['framer-motion', 'lucide-react'],
+            'virtual-vendor': ['react-window', 'react-virtualized-auto-sizer'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 600,
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
