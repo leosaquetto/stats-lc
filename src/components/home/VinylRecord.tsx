@@ -161,6 +161,17 @@ export const VinylRecord = ({
           transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
         />
 
+        {/* Furo central com sombra — profundidade no miolo */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-15"
+          style={{
+            width: '9%',
+            height: '9%',
+            background: 'radial-gradient(circle at center, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%)',
+            boxShadow: 'inset 0 0 12px rgba(0,0,0,0.9), inset 0 0 4px rgba(0,0,0,0.6)',
+          }}
+        />
+
         {/* Glow pulsante atrás da capa — só playing */}
         {isPlaying && (
           <motion.div
@@ -238,14 +249,6 @@ export const VinylRecord = ({
               />
             )}
           </AnimatePresence>
-
-          {/* Sombra interna — profundidade no miolo */}
-          <div
-            className="absolute inset-0 rounded-full pointer-events-none z-30"
-            style={{
-              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
-            }}
-          />
         </div>
 
         {/* Partículas de poeira — só idle */}

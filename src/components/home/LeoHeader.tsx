@@ -224,6 +224,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const sScale     = shouldReduceMotion ? 1 : rawScale;
   const sOpacity   = shouldReduceMotion ? 1 : rawOpacity;
 
+  const handleVinylClick = () => {
+    const scrolled = window.scrollY > 200;
+    if (scrolled) {
+      // Se estiver scrollado, volta para o topo
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Se estiver no topo, abre o modal da track
+      onTrackClick?.({ ...track, type: 'track' });
+    }
+  };
+
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
   const storeUser = useStatsStore(s => s.groupStats?.members?.find(u => u.id === user.id));
   const activeUser = storeUser || user;
@@ -505,7 +516,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 isPlaying={isActuallyLive}
                 progressMs={nowPlaying?.progressMs || nowPlaying?.playedMs || 0}
                 durationMs={durationMs || undefined}
-                onClick={() => onTrackClick?.({ ...track, type: 'track' })}
+                onClick={handleVinylClick}
               />
             </motion.div>
           </div>
@@ -750,7 +761,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               "text-[9px] font-bold uppercase tracking-wider",
                               playCount === undefined ? "text-white/30 animate-pulse" : "text-white/90"
                             )}>
-                              {playCount === undefined ? "..." : (playCount === 1 ? "INÉDITO" : coreUtils.formatPlayCount(playCount))}
+                              {playCount === undefined ? "..." : (playCount === 1 ? "FIRST LISTEN" : coreUtils.formatPlayCount(playCount))}
                             </span>
                           </motion.div>
                         )}
