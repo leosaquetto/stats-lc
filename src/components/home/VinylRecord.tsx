@@ -167,8 +167,8 @@ export const VinylRecord = ({
           style={{
             width: '9%',
             height: '9%',
-            background: 'radial-gradient(circle at center, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%)',
-            boxShadow: 'inset 0 0 12px rgba(0,0,0,0.9), inset 0 0 4px rgba(0,0,0,0.6)',
+            background: 'radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 100%)',
+            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 8px rgba(0,0,0,0.7)',
           }}
         />
 
