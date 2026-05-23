@@ -612,7 +612,7 @@ export default function HomeScreen() {
           "fixed top-0 left-0 right-0 z-[80] flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b transition-all duration-300 backdrop-blur-md will-change-transform",
           isHeaderScrolled 
             ? "translate-y-0 opacity-100 bg-[#050505]/85 border-white/10 pointer-events-auto shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
-            : "-translate-y-full opacity-0 pointer-events-none border-transparent bg-transparent"
+            : "translate-y-0 opacity-100 bg-[#050505]/35 border-transparent pointer-events-auto"
         )}
       >
         <div 

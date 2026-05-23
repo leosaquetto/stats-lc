@@ -347,9 +347,10 @@ export default function StatsScreen() {
     setFeaturedUserId
   } = useStatsStore();
   
-  const CURRENT_USER_ID = featuredUserId;
   const members = (groupStats?.members || Object.values(groupStats?.users || {})).filter((m: any) => !hiddenUsers.includes(m.id));
-  const user = groupStats?.users[CURRENT_USER_ID] || members.find(m => m.id === CURRENT_USER_ID) || members[0];
+  const selectedUserId = featuredUserId || members[0]?.id || '';
+  const user = groupStats?.users[selectedUserId] || members.find(m => m.id === selectedUserId) || members[0];
+  const CURRENT_USER_ID = user?.id || selectedUserId;
   const accentColor = (user?.id && (GROUP_USERS as any)[user.id.toUpperCase()]?.color) || "#FF9F0A";
 
   const filters: Filter[] = ['Hoje', 'Semana', 'Mês', 'Ano', 'Total'];
@@ -402,6 +403,12 @@ export default function StatsScreen() {
 
   useEffect(() => {
     async function loadFullData() {
+      if (!CURRENT_USER_ID) {
+        setFullUserData(null);
+        setIsLocalLoading(false);
+        return;
+      }
+
       setIsLocalLoading(true);
       try {
         const fullData = await statsService.getUserFullStats(CURRENT_USER_ID);
@@ -420,6 +427,15 @@ export default function StatsScreen() {
 
   useEffect(() => {
     async function loadChartData() {
+      if (!CURRENT_USER_ID) {
+        setDatesData(null);
+        setCardinalityData(null);
+        setHistoryData([]);
+        setActiveRangeStats(null);
+        setIsChartLoading(false);
+        return;
+      }
+
       setIsChartLoading(true);
       try {
         const today = getStartOfTodaySP();
