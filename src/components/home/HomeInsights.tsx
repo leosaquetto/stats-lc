@@ -175,4 +175,4 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       </div>
     </div>
   );
-};
+});

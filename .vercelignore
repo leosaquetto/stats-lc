@@ -1,0 +1,7 @@
+.antigravitycli
+.claude
+.gemini
+node_modules
+dist
+build
+.git

@@ -227,8 +227,8 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
 export const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = useState(value);
   const prevValueRef = useRef(value);
-  const requestRef = useRef<number>();
-  const startTimeRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
+  const startTimeRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     if (prevValueRef.current === value) return;

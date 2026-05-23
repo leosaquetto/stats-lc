@@ -103,7 +103,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       </div>
     </motion.div>
   );
-};
+});
 
 export const LiveGroupOverviewSkeleton = () => (
   <motion.div
@@ -231,7 +231,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
       </div>
     </div>
   );
-};
+});
 
 export const FriendsLiveCarousel = React.memo(() => {
   const { groupStats, hiddenUsers, featuredUserId } = useStatsStore();
@@ -325,7 +325,7 @@ export const FriendsLiveCarousel = React.memo(() => {
       </div>
     </div>
   );
-};
+});
 
 export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: string, onItemClick?: (item: any, type: 'track' | 'artist' | 'album') => void }) => {
   const [tops, setTops] = useState<{ tracks: any[], artists: any[], albums: any[] } | null>(null);
@@ -577,4 +577,4 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
       </motion.button>
     </motion.div>
   );
-};
+});

@@ -45,6 +45,7 @@ export const LiveTrackProgress = memo(({
   platform,
   onComplete
 }: LiveTrackProgressProps) => {
+  const heartbeat = useStatsStore(state => state.heartbeat);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [minPlayTime, setMinPlayTime] = useState(false);
 

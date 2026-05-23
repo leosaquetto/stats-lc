@@ -95,7 +95,7 @@ export const FriendsMonthlyHighlights = React.memo(() => {
       </motion.div>
     </div>
   );
-};
+});
 
 const FriendHighlightRow = React.memo(({ 
   friend, 
@@ -178,7 +178,7 @@ const FriendHighlightRow = React.memo(({
       </AnimatePresence>
     </div>
   );
-};
+});
 
 const CompactCover = ({ 
   item, 

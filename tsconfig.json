@@ -28,6 +28,12 @@
     "noEmit": true
   },
   "exclude": [
-    "new-version"
+    "node_modules",
+    "dist",
+    "build",
+    "new-version",
+    ".antigravitycli",
+    ".claude",
+    ".gemini"
   ]
 }
