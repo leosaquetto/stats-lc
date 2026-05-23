@@ -12,11 +12,16 @@ const getBaseUrl = () => {
   const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
   if (envBaseUrl) return String(envBaseUrl).replace(/\/$/, "");
 
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
+  // Em desenvolvimento, usa proxy local
+  if ((import.meta as any).env?.DEV) {
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return "";
   }
 
-  return "";
+  // Em produção, usa API real
+  return "https://statslc.leosaquetto.com";
 };
 
 const API_BASE_URL = getBaseUrl();

@@ -125,6 +125,13 @@ export const LiveTrackProgress = memo(({
       ? `ONTEM ÀS ${timeStr}`
       : `${formatDateSP(dateObj)} ÀS ${timeStr}`;
 
+  const formatTime = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <AnimatePresence mode="wait">
       {(!isNowPlaying || (isNowPlaying && !durationMs && !minPlayTime)) ? (
@@ -132,27 +139,22 @@ export const LiveTrackProgress = memo(({
           <motion.div
             key="idle"
             initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} exit={{ opacity: 0 }}
-            className="flex flex-col gap-2.5"
+            className="flex flex-col gap-1 w-full"
           >
-            <div className="h-[2px] w-full rounded-full bg-white/5 overflow-hidden">
+            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full w-full bg-white/20" />
             </div>
-            <div className={cn(
-              "flex items-center relative px-0.5 overflow-visible",
-              compact ? "justify-start" : "justify-center"
-            )}>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-white/40 font-mono">{timeLabel}</span>
               <motion.div
-                 className="flex items-center gap-1 text-white/40 overflow-visible"
-                 animate={{ opacity: [0.6, 1, 0.6] }}
-                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="flex items-center gap-1 text-white/40"
+                animate={{ opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                <span className="text-[6.5px] font-black uppercase tracking-[0.15em]">Ouviu no</span>
+                <span className="text-[10px] text-white/30">OUVIU NO</span>
                 <div className="flex items-center overflow-visible">
                   {PlatformLogo}
                 </div>
-                <span className="text-[6.5px] font-black uppercase tracking-[0.15em] whitespace-nowrap ml-0.5">
-                  {timeLabel}
-                </span>
               </motion.div>
             </div>
           </motion.div>
@@ -173,38 +175,36 @@ export const LiveTrackProgress = memo(({
         <motion.div
           key="playing"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="flex flex-col gap-2.5"
+          className="flex flex-col gap-1 w-full"
         >
-          <div className="flex items-center gap-3">
-            <span className="text-[9px] sm:text-[10px] font-mono font-medium text-orange-400/90 tabular-nums tracking-tight">
-              {coreUtils.formatDurationSmart(elapsedMs)}
-            </span>
-            <div className="h-1.5 flex-1 rounded-full bg-white/[0.06] overflow-hidden relative shadow-inner">
-              <motion.div
-                initial={false}
-                animate={{ width: `${currentProgress}%` }}
-                transition={{ ease: "linear", duration: 1 }}
-                className="h-full bg-gradient-to-r from-orange-600/90 via-orange-500 to-orange-300 relative rounded-r-full"
-              />
+          <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
+            <div
+              className="h-full rounded-full transition-all duration-1000 relative"
+              style={{
+                width: `${currentProgress}%`,
+                background: 'linear-gradient(90deg, #f97316, #fb923c)'
+              }}
+            >
+              {/* Thumb */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(249,115,22,0.8)] translate-x-1/2" />
             </div>
-            {!compact && (
-              <span className="text-[9px] sm:text-[10px] font-mono font-medium text-white/40 tabular-nums tracking-tight">
-                {coreUtils.formatDurationSmart(durationMs)}
-              </span>
-            )}
           </div>
-
-          {/* Platform Badge com Pulsação */}
-          <motion.div
-            className="flex items-center gap-1 text-orange-400 overflow-visible pl-0.5"
-            animate={{ opacity: [0.65, 1, 0.65] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <span className="text-[6.5px] font-black uppercase tracking-[0.22em] shrink-0">Ouvindo no</span>
-            <div className="flex items-center justify-center overflow-visible h-[9px]">
-              {PlatformLogo}
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-white/40 font-mono">{formatTime(elapsedMs)}</span>
+            <div className="flex items-center gap-1">
+              <motion.span
+                className="text-[10px] text-orange-400"
+                animate={{ opacity: [0.65, 1, 0.65] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              >
+                OUVINDO NO
+              </motion.span>
+              <div className="flex items-center overflow-visible">
+                {PlatformLogo}
+              </div>
+              <span className="text-[10px] text-white/30 font-mono">{formatTime(durationMs)}</span>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -372,18 +372,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [groupStats, hiddenUsers]);
 
   const containerVariants = {
-    initial: {},
+    initial: { opacity: 0, scale: 1.02, filter: 'blur(4px)' },
     animate: {
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.05
-      }
+      opacity: 1, scale: 1, filter: 'blur(0px)',
+      transition: { staggerChildren: 0.1, delayChildren: 0.05 }
     },
     exit: {
-      transition: {
-        staggerChildren: 0.08,
-        staggerDirection: -1
-      }
+      opacity: 0, scale: 0.96, filter: 'blur(4px)',
+      transition: { duration: 0.3, staggerChildren: 0.08, staggerDirection: -1 }
     }
   };
 
@@ -457,20 +453,41 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                  exit={{ opacity: 0 }}
                  className="absolute inset-0 overflow-hidden"
               >
+                 {/* Névoa lenta com cor do álbum anterior */}
                  <motion.div
                    animate={{
-                     x: ["-10%", "10%", "-10%"],
-                     y: ["-5%", "15%", "-5%"],
-                     scale: [1, 1.2, 1],
-                     opacity: [0.2, 0.6, 0.2]
+                     x:       ['-8%', '8%', '-8%'],
+                     y:       ['-4%', '12%', '-4%'],
+                     opacity: [0.15, 0.4, 0.15],
                    }}
-                   transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-                   className="absolute -inset-[50%] pointer-events-none mix-blend-screen"
+                   transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+                   className="absolute -inset-[40%] pointer-events-none"
                    style={{
-                     background: "radial-gradient(circle at 40% 40%, rgba(200,200,200,0.15) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(180,180,180,0.12) 0%, transparent 60%)"
+                     background: dominantColor
+                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.12)} 0%, transparent 55%)`
+                       : 'radial-gradient(circle at 40% 40%, rgba(180,180,180,0.10) 0%, transparent 55%)',
+                     filter: 'blur(30px)',
                    }}
                  />
-                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/20 to-black/70" />
+                 {/* Segunda névoa deslocada — profundidade */}
+                 <motion.div
+                   animate={{
+                     x:       ['10%', '-6%', '10%'],
+                     y:       ['8%', '-6%', '8%'],
+                     opacity: [0.08, 0.22, 0.08],
+                   }}
+                   transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+                   className="absolute -inset-[40%] pointer-events-none"
+                   style={{
+                     background: dominantColor
+                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(dominantColor, 0.08)} 0%, transparent 50%)`
+                       : 'radial-gradient(circle at 65% 60%, rgba(160,160,160,0.07) 0%, transparent 50%)',
+                     filter: 'blur(40px)',
+                   }}
+                 />
+                 {/* Vinheta escura nas bordas */}
+                 <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60" />
+                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/40" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -502,35 +519,70 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               transition={{ duration: 0.4 }}
             >
               {/* TOP HEADER: User Layout Flex-row */}
-              <div className="flex flex-row items-center gap-3 sm:gap-3.5 relative z-40 pt-1">
+              <div className="flex flex-row items-center gap-3 sm:gap-4 relative z-40 pt-1">
+
+                {/* Avatar com ring animado quando tocando */}
                 <motion.div
                   onClick={onAvatarClick}
-                  className="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-full cursor-pointer hover:scale-105 transition-transform"
+                  className="relative shrink-0 cursor-pointer"
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <div className="absolute inset-0 rounded-full border-2 border-white/20" />
-                  <SmartImage
-                    src={profileAvatar}
-                    className="h-full w-full"
-                    fallback=""
-                    rounded="full"
-                  />
+                  {isActuallyLive && (
+                    <motion.div
+                      className="absolute inset-[-3px] rounded-full"
+                      style={{
+                        background: `conic-gradient(${dominantColor || '#f97316'}, transparent, ${dominantColor || '#f97316'})`,
+                      }}
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                    />
+                  )}
+                  <div className={cn(
+                    "relative rounded-full overflow-hidden border-2 transition-all duration-500",
+                    isActuallyLive
+                      ? "w-14 h-14 sm:w-16 sm:h-16 border-black/80"
+                      : "w-12 h-12 sm:w-14 sm:h-14 border-white/20"
+                  )}>
+                    <SmartImage
+                      src={profileAvatar}
+                      className="h-full w-full"
+                      fallback=""
+                      rounded="full"
+                    />
+                  </div>
                 </motion.div>
 
-                <div className="flex flex-col items-start min-w-0">
+                {/* Nome + Streams */}
+                <div className="flex flex-col items-start min-w-0 gap-1">
+
+                  {/* Nome */}
                   <h2 className={cn(
-                    "text-base sm:text-xl font-display font-black tracking-[0.17em] leading-none uppercase truncate w-full",
-                    isActuallyLive ? "text-white" : "text-white/80"
+                    "text-base sm:text-xl font-display font-black tracking-[0.17em] leading-none uppercase truncate w-full transition-colors duration-500",
+                    isActuallyLive ? "text-white" : "text-white/70"
                   )}>
                     {user.name}
                   </h2>
-                  <div className="flex flex-row items-center gap-1.5 mt-1 flex-wrap">
-                    <div className="flex items-center gap-1 text-white/40">
-                      <TrendingUp className="h-2.5 w-2.5" />
-                      <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.18em] leading-none pt-[1px]">
-                        <strong className="text-white/80">{streamsToday}</strong> Streams
+
+                  {/* Streams hoje — número animado */}
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp className={cn(
+                      "h-2.5 w-2.5 transition-colors duration-500",
+                      isActuallyLive ? "text-orange-400" : "text-white/30"
+                    )} />
+                    <div className="flex items-baseline gap-1">
+                      <AnimatedNumber
+                        value={streamsToday}
+                        className={cn(
+                          "text-[13px] sm:text-[15px] font-black tabular-nums leading-none transition-colors duration-500",
+                          isActuallyLive ? "text-white" : "text-white/60"
+                        )}
+                      />
+                      <span className="text-[7px] sm:text-[8px] font-bold uppercase tracking-[0.22em] text-white/30 leading-none pb-[1px]">
+                        streams hoje
                       </span>
                     </div>
                   </div>
+
                 </div>
               </div>
 
