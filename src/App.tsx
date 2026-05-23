@@ -39,7 +39,7 @@ export default function App() {
 
     // Sync across tabs
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'stats-storage') {
+      if (e.key === 'stats-lc-storage') {
         fetchStats();
       }
     };

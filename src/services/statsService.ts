@@ -125,38 +125,91 @@ const normalizeGroupStats = (data: any): GroupStats => {
 /**
  * Utilitário para chamadas à nossa API Backend na Vercel
  */
-const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {}, forceRefresh = false, retries = 1): Promise<T> => {
-  try {
-    const finalParams = { ...params };
-    if (forceRefresh) finalParams.force = '1';
+const API_RESPONSE_CACHE_TTL = 30 * 1000;
+const apiResponseCache = new Map<string, { expiresAt: number; data: any }>();
+const apiRequestInFlight = new Map<string, Promise<any>>();
 
-    const response = await api.get(endpoint, { params: finalParams });
-    return response.data;
-  } catch (error: any) {
-    const status = error.response?.status;
-    const isNetworkError = !error.response && error.request;
-    
-    if ((import.meta as any).env?.DEV) console.error(`Vercel API Fetch Error [${endpoint}]:`, {
-      message: error.message,
-      code: error.code,
-      status: status,
-      isNetworkError,
-      data: error.response?.data
-    });
+const stableStringify = (value: any): string => {
+  if (typeof value === 'undefined') return '"__undefined__"';
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? String(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
 
-    if (status === 429) throw error; // Sem retry para Rate Limit
-    
-    // Sem retry automático em requests forçadas, e apenas 1 retry normal para 503/504
-    const isRetryable = !forceRefresh && (status === 504 || status === 503 || error.code === 'ECONNABORTED');
-    
-    if (isRetryable && retries > 0) {
-      if ((import.meta as any).env?.DEV) console.warn(`Retryable error [${status || error.code}] on ${endpoint}. Retrying...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return fetchFromApi(endpoint, params, forceRefresh, retries - 1);
+  return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(',')}}`;
+};
+
+const getApiCacheKey = (endpoint: string, params: Record<string, any>, forceRefresh: boolean) => {
+  return `${endpoint}|force=${forceRefresh ? '1' : '0'}|${stableStringify(params)}`;
+};
+
+const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {}, forceRefresh = false, retries = 1, useDedupe = true): Promise<T> => {
+  const finalParams = { ...params };
+  if (forceRefresh) finalParams.force = '1';
+
+  const cacheKey = getApiCacheKey(endpoint, finalParams, forceRefresh);
+  const now = Date.now();
+
+  if (!forceRefresh && useDedupe) {
+    const cached = apiResponseCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.data as T;
     }
 
-    throw error;
+    const running = apiRequestInFlight.get(cacheKey);
+    if (running) {
+      return running as Promise<T>;
+    }
   }
+
+  const request = (async (): Promise<T> => {
+    try {
+      const response = await api.get(endpoint, { params: finalParams });
+      if (!forceRefresh) {
+        apiResponseCache.set(cacheKey, {
+          data: response.data,
+          expiresAt: Date.now() + API_RESPONSE_CACHE_TTL,
+        });
+      }
+      return response.data;
+    } catch (error: any) {
+      const status = error.response?.status;
+      const isNetworkError = !error.response && error.request;
+
+      if ((import.meta as any).env?.DEV) console.error(`Vercel API Fetch Error [${endpoint}]:`, {
+        message: error.message,
+        code: error.code,
+        status: status,
+        isNetworkError,
+        data: error.response?.data
+      });
+
+      if (status === 429) throw error; // Sem retry para Rate Limit
+
+      // Sem retry automático em requests forçadas; retry normal só para falhas temporárias.
+      const isRetryable = !forceRefresh && (
+        [500, 502, 503, 504].includes(status) ||
+        error.code === 'ECONNABORTED' ||
+        isNetworkError
+      );
+
+      if (isRetryable && retries > 0) {
+        if ((import.meta as any).env?.DEV) console.warn(`Retryable error [${status || error.code}] on ${endpoint}. Retrying...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchFromApi(endpoint, params, forceRefresh, retries - 1, false);
+      }
+
+      throw error;
+    } finally {
+      if (!forceRefresh && useDedupe) {
+        apiRequestInFlight.delete(cacheKey);
+      }
+    }
+  })();
+
+  if (!forceRefresh && useDedupe) {
+    apiRequestInFlight.set(cacheKey, request);
+  }
+
+  return request;
 };
 
 let groupRequestInFlight: Promise<GroupStats> | null = null;
@@ -464,6 +517,11 @@ export const statsService = {
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
+      const cachedTopItems = store.getTopItemsFromCache?.(cacheKey);
+      if (cachedTopItems) {
+        if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached top items for ${cacheKey}`);
+        return cachedTopItems;
+      }
       
       // Se estiver offline, retorna do cache imediatamente
       if (store.isOffline) {
@@ -576,10 +634,24 @@ export const statsService = {
    */
   async fetchTimeRangeCardinality(userId: string, after: number): Promise<any> {
     const userParam = userId;
+    const cacheKey = `cardinality:${userId}:${after}`;
     try {
-      return await fetchFromApi<any>('/api/stats-cardinality', { user: userParam, after });
+      const { useStatsStore } = await import('../store/useStatsStore');
+      const store = useStatsStore.getState();
+      const cached = store.getTimeRangeStatsFromCache?.(cacheKey);
+      if (cached) return cached;
+
+      const res = await fetchFromApi<any>('/api/stats-cardinality', { user: userParam, after });
+      store.setTimeRangeStatsCache?.(cacheKey, res);
+      return res;
     } catch (e) {
       console.error(`Failed to load time-range cardinality for ${userId}`, e);
+      try {
+        const { useStatsStore } = await import('../store/useStatsStore');
+        const store = useStatsStore.getState();
+        const cached = store.getTimeRangeStatsFromCache?.(cacheKey, true) ?? store.timeRangeStatsCache?.[cacheKey];
+        if (cached) return cached;
+      } catch {}
       return {};
     }
   },
@@ -589,12 +661,26 @@ export const statsService = {
    */
   async fetchTimeRangeDates(userId: string, after: number): Promise<any> {
     const userParam = userId;
+    const cacheKey = `dates:${userId}:${after}`;
     try {
-      return await fetchFromApi<any>('/api/stats-dates', { user: userParam, after });
+      const { useStatsStore } = await import('../store/useStatsStore');
+      const store = useStatsStore.getState();
+      const cached = store.getTimeRangeStatsFromCache?.(cacheKey);
+      if (cached) return cached;
+
+      const res = await fetchFromApi<any>('/api/stats-dates', { user: userParam, after });
+      store.setTimeRangeStatsCache?.(cacheKey, res);
+      return res;
     } catch (e: any) {
       if (e.response?.status !== 404) {
         console.error(`Failed to load time-range dates for ${userId}`, e);
       }
+      try {
+        const { useStatsStore } = await import('../store/useStatsStore');
+        const store = useStatsStore.getState();
+        const cached = store.getTimeRangeStatsFromCache?.(cacheKey, true) ?? store.timeRangeStatsCache?.[cacheKey];
+        if (cached) return cached;
+      } catch {}
       return {};
     }
   }

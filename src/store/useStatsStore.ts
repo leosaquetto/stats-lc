@@ -575,6 +575,8 @@ export const useStatsStore = create<StatsState>()(
             newGroupStats.members = newMembers;
             newGroupStats.lastUpdated = liveData.lastUpdated;
 
+            saveToMMKV('groupStats', newGroupStats);
+            mmkv.set('groupStats_timestamp', Date.now());
             set({ groupStats: newGroupStats });
           }
         } catch (e) {
@@ -597,19 +599,30 @@ export const useStatsStore = create<StatsState>()(
       fetchTrackStatsForAll: async (trackId: string) => {
         const users = get().groupStats?.members || [];
         try {
-          const results = await Promise.all(users.map(async (u) => {
-            const count = await statsService.fetchEntityStats(u.id, 'track', trackId);
-            return { userId: u.id, count };
-          }));
-          
           const newStats = { ...get().userTrackStats };
-          results.forEach(({ userId, count }) => {
-            newStats[`${userId}:${trackId}`] = count;
+          const groupStats = await statsService.fetchEntityGroupStats('track', trackId);
+
+          users.forEach((u) => {
+            newStats[`${u.id}:${trackId}`] = groupStats[u.id] || 0;
           });
-          
+
           set({ userTrackStats: newStats });
         } catch (e) {
-          console.error("fetchTrackStatsForAll error:", e);
+          try {
+            const results = await Promise.all(users.map(async (u) => {
+              const count = await statsService.fetchEntityStats(u.id, 'track', trackId);
+              return { userId: u.id, count };
+            }));
+
+            const newStats = { ...get().userTrackStats };
+            results.forEach(({ userId, count }) => {
+              newStats[`${userId}:${trackId}`] = count;
+            });
+
+            set({ userTrackStats: newStats });
+          } catch (fallbackError) {
+            console.error("fetchTrackStatsForAll error:", fallbackError);
+          }
         }
       },
 

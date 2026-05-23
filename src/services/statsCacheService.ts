@@ -126,22 +126,10 @@ export const statsCacheService = {
 
     try {
       const recentsData = await statsService.fetchRecent(userId, limit, offset);
-      
-      // Deduplicar promises baseadas no trackId para essa rodada específica
-      const trackPlayCountPromises = new Map<string, Promise<number>>();
-      
-      const enrichedData = await Promise.all(
-        recentsData.map(async (item: any) => {
-          const trackId = item.track?.id;
-          if (!trackId) return { ...item, playCount: 0 };
-          
-          if (!trackPlayCountPromises.has(trackId)) {
-            trackPlayCountPromises.set(trackId, this.fetchEntityStats(userId, 'track', trackId).catch(() => 0));
-          }
-          const playCount = await trackPlayCountPromises.get(trackId);
-          return { ...item, playCount: playCount || 0 };
-        })
-      );
+      const enrichedData = recentsData.map((item: any) => ({
+        ...item,
+        playCount: item.playCount ?? item.playcount ?? item.streams ?? item.count ?? 0,
+      }));
 
       // Se offset for 0, substituímos o cache para ser a base fresca do histórico 
       if (offset === 0) {

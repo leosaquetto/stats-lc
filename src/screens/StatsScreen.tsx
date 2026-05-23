@@ -311,7 +311,6 @@ export default function StatsScreen() {
   const [visibleItemsCount, setVisibleItemsCount] = useState(15);
   const [activeRangeStats, setActiveRangeStats] = useState<{ count: number; durationMs: number } | null>(null);
   const [currentInsightIndex, setCurrentInsightIndex] = useState(0);
-  const cardinalityCache = useRef<Record<string, any>>({});
 
   useEffect(() => {
     const handleScroll = () => {
@@ -437,21 +436,11 @@ export default function StatsScreen() {
           after = 0;
         }
         
-        // Parallel requests for optimal loading
-        const cacheKey = `${CURRENT_USER_ID}_${activeFilter}`;
-        const cachedCard = cardinalityCache.current[cacheKey];
-
         const [statsRes, datesRes, cardRes] = await Promise.all([
           statsService.fetchTimeRangeStats(CURRENT_USER_ID, after),
           statsService.fetchTimeRangeDates(CURRENT_USER_ID, after),
-          cachedCard 
-            ? Promise.resolve(cachedCard) 
-            : statsService.fetchTimeRangeCardinality(CURRENT_USER_ID, after)
+          statsService.fetchTimeRangeCardinality(CURRENT_USER_ID, after)
         ]);
-
-        if (!cachedCard && cardRes) {
-          cardinalityCache.current[cacheKey] = cardRes;
-        }
 
         const data = statsRes;
         setDatesData(datesRes);
