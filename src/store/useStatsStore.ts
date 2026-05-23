@@ -621,10 +621,18 @@ export const useStatsStore = create<StatsState>()(
 
       fetchGroupLive: async () => {
         if (get().isLiveFetching) return;
+
+        if ((import.meta as any).env?.DEV) {
+          console.log('[fetchGroupLive] Starting live fetch...');
+        }
+
         set({ isLiveFetching: true });
 
         // Safety timeout: 35s
         const safetyTimer = setTimeout(() => {
+          if ((import.meta as any).env?.DEV) {
+            console.warn('[fetchGroupLive] Safety timeout triggered after 35s');
+          }
           set({ isLiveFetching: false });
         }, 35000);
 
@@ -685,8 +693,14 @@ export const useStatsStore = create<StatsState>()(
             set({ groupStats: newGroupStats });
           }
         } catch (e) {
+          if ((import.meta as any).env?.DEV) {
+            console.error('[fetchGroupLive] Error:', e);
+          }
           console.warn('Silent live fetch failed:', e);
         } finally {
+          if ((import.meta as any).env?.DEV) {
+            console.log('[fetchGroupLive] Completed, resetting isLiveFetching to false');
+          }
           set({ isLiveFetching: false });
           clearTimeout(safetyTimer);
         }

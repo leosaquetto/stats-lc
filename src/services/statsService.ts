@@ -26,6 +26,10 @@ const getBaseUrl = () => {
 
 const API_BASE_URL = getBaseUrl();
 
+if ((import.meta as any).env?.DEV) {
+  console.log('[statsService] API_BASE_URL:', API_BASE_URL);
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
