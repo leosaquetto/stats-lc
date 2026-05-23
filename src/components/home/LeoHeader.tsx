@@ -739,30 +739,33 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           <motion.div
                             onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
                             whileTap={{ scale: 0.96 }}
-                            className={cn(
-                              "h-7 px-2.5 rounded-lg bg-white/[0.05] border border-white/10 flex items-center gap-1.5 hover:bg-white/[0.1] hover:shadow-lg transition-all cursor-pointer group/plays shrink-0",
-                              (playCount === 1 || (isActuallyLive && playCount === undefined)) && "bg-orange-500/20 text-orange-200 border-orange-500/30"
-                            )}
+                            className="flex items-center gap-2 cursor-pointer shrink-0"
                           >
-                            <div className="relative">
-                              <Headphones className={cn(
-                                "h-3 w-3 text-white/50 group-hover/plays:text-white transition-colors",
-                                playCount === 1 && "text-orange-300 group-hover/plays:text-white"
-                              )} />
-                              {isActuallyLive && (
+                            {playCount === undefined ? (
+                              <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
+                            ) : playCount === 1 ? (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                                style={{ background: 'rgba(251,146,60,0.10)', border: '1px solid rgba(251,146,60,0.20)' }}
+                              >
                                 <motion.div
-                                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                                  transition={{ duration: 2, repeat: Infinity }}
-                                  className={cn("absolute inset-0 rounded-full", playCount === 1 ? "bg-orange-400/40" : "bg-orange-400/20")}
+                                  className="w-1.5 h-1.5 rounded-full bg-orange-400"
+                                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
+                                  transition={{ duration: 1.8, repeat: Infinity }}
                                 />
-                              )}
-                            </div>
-                            <span className={cn(
-                              "text-[9px] font-bold uppercase tracking-wider",
-                              playCount === undefined ? "text-white/30 animate-pulse" : "text-white/90"
-                            )}>
-                              {playCount === undefined ? "..." : (playCount === 1 ? "FIRST LISTEN" : coreUtils.formatPlayCount(playCount))}
-                            </span>
+                                <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300">
+                                  First Listen
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                              >
+                                <Headphones className="h-3 w-3 text-white/40" />
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
+                                  {coreUtils.formatPlayCount(playCount)}
+                                </span>
+                              </div>
+                            )}
                           </motion.div>
                         )}
                       </div>
