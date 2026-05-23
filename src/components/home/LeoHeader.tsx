@@ -19,7 +19,7 @@ import {
 import { VinylRecord } from './VinylRecord';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getDominantColor } from '../../lib/colorUtils';
+import { getDominantColor, withAlpha } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 
 function cn(...inputs: ClassValue[]) {
@@ -452,20 +452,20 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
-                    background: dominantColor 
-                      ? `radial-gradient(circle at 20% 20%, ${dominantColor.replace('0.8', '0.2')} 0%, transparent 60%)`
+                    background: dominantColor
+                      ? `radial-gradient(circle at 20% 20%, ${withAlpha(dominantColor, 0.2)} 0%, transparent 60%)`
                       : "radial-gradient(circle at 20% 20%, rgba(234,88,12,0.2) 0%, transparent 60%)"
                   }}
                 />
-                <motion.div 
-                  animate={{ 
+                <motion.div
+                  animate={{
                     opacity: [0.2, 0.5, 0.2]
                   }}
                   transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
-                    background: dominantColor 
-                      ? `radial-gradient(circle at 80% 80%, ${dominantColor.replace('0.8', '0.15')} 0%, transparent 60%)`
+                    background: dominantColor
+                      ? `radial-gradient(circle at 80% 80%, ${withAlpha(dominantColor, 0.15)} 0%, transparent 60%)`
                       : "radial-gradient(circle at 80% 80%, rgba(234,179,8,0.15) 0%, transparent 60%)"
                   }}
                 />

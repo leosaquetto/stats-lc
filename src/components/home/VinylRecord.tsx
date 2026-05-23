@@ -1,8 +1,9 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { SmartImage } from '../shared/CommonUI';
+import { adjustBrightness, withAlpha } from '../../lib/colorUtils';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -13,14 +14,16 @@ interface VinylRecordProps {
   onClick?: () => void;
 }
 
-export const VinylRecord = ({ 
-  albumImage, 
-  dominantColor, 
-  isPlaying, 
+export const VinylRecord = ({
+  albumImage,
+  dominantColor,
+  isPlaying,
   progressMs,
   durationMs,
-  onClick 
+  onClick
 }: VinylRecordProps) => {
+  const uniqueId = useId();
+
   // Estado para progresso em tempo real
   const [realTimeProgress, setRealTimeProgress] = useState(progressMs || 0);
 
@@ -45,7 +48,6 @@ export const VinylRecord = ({
   }, [realTimeProgress, durationMs]);
 
   // Tempo do batimento cardíaco da música (BPM)
-  // No início, a música pulsa mais suave (ex: 1.4s período), e próximo do fim pulsa mais rápido (ex: 0.7s período)
   const beatDuration = useMemo(() => {
     return 1.4 - currentRatio * 0.7; // de 1.4s até 0.7s
   }, [currentRatio]);
@@ -59,35 +61,84 @@ export const VinylRecord = ({
     return 0.45 + currentRatio * 0.25; // 0.45 a 0.70
   }, [currentRatio]);
 
-  // O brilho/shimmer corre na diagonal, cruzando a arte do álbum mais rápido no final da faixa
+  // O brilho/shimmer corre na diagonal
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) ?? 2.8;
   const shimmerSpeed = useMemo(() => {
-    return shimmerDuration - currentRatio * (shimmerDuration / 2); // de shimmerDuration até shimmerDuration/2
+    return shimmerDuration - currentRatio * (shimmerDuration / 2);
   }, [currentRatio, shimmerDuration]);
 
+  // Check for reduced motion preference
+  const prefersReducedMotion = typeof window !== 'undefined'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+  // Derive color variations
+  const darkColor = useMemo(() => adjustBrightness(dominantColor, -0.4), [dominantColor]);
+  const lightColor = useMemo(() => adjustBrightness(dominantColor, 0.3), [dominantColor]);
+
+  // Grooves opacity based on playing state
+  const groovesOpacity = isPlaying ? 0.6 : 0.3;
+
   return (
-    <div 
+    <div
       className="relative w-full aspect-square flex items-center justify-center rounded-full cursor-pointer"
       onClick={onClick}
     >
-      {/* O CORPO NEGRO DO VINIL - Usando wrapper para rotação isolada */}
-      <div
-        className={`absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10 bg-[#050505] animate-spin-vinyl`}
+      {/* Vinyl Disc Body */}
+      <motion.div
+        className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
-          background: `radial-gradient(circle at center, transparent 0%, transparent 30%, rgba(5, 5, 5, 0.6) 31%),
-          conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.05) 45deg, transparent 90deg, rgba(255,255,255,0.05) 135deg, transparent 180deg, rgba(255,255,255,0.05) 225deg, transparent 270deg, rgba(255,255,255,0.05) 315deg, transparent 360deg)`,
-          animationPlayState: isPlaying ? 'running' : 'paused',
+          background: `
+            radial-gradient(circle at center, #000 0%, #000 28%, transparent 29%),
+            conic-gradient(
+              from 0deg,
+              ${dominantColor} 0deg,
+              ${darkColor} 60deg,
+              ${dominantColor} 120deg,
+              ${lightColor} 180deg,
+              ${dominantColor} 240deg,
+              ${darkColor} 300deg,
+              ${dominantColor} 360deg
+            ),
+            radial-gradient(circle at center, #0a0a0a 0%, #050505 100%)
+          `,
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center'
         }}
+        animate={
+          isPlaying && !prefersReducedMotion
+            ? { rotate: 360 }
+            : { scale: [0.985, 1.015, 0.985] }
+        }
+        transition={
+          isPlaying && !prefersReducedMotion
+            ? { duration: 2.5, repeat: Infinity, ease: 'linear' }
+            : { duration: 8, repeat: Infinity, ease: 'easeInOut' }
+        }
       >
-        {/* Grooves / Sulcos */}
-        <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-40 mix-blend-overlay pointer-events-none">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="#fff" strokeWidth="0.2" />
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#fff" strokeWidth="0.3" />
-          <circle cx="50" cy="50" r="35" fill="none" stroke="#fff" strokeWidth="0.2" />
-          <circle cx="50" cy="50" r="25" fill="none" stroke="#fff" strokeWidth="0.4" />
+        {/* Grooves / Sulcos concêntricos */}
+        <svg
+          viewBox="0 0 100 100"
+          className="absolute inset-0 w-full h-full mix-blend-overlay pointer-events-none"
+          style={{ opacity: groovesOpacity }}
+        >
+          {Array.from({ length: 20 }, (_, i) => {
+            const radius = 46 - i * 1.8;
+            const strokeWidth = i % 3 === 0 ? 0.25 : 0.15;
+            return (
+              <circle
+                key={`${uniqueId}-groove-${i}`}
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke="#fff"
+                strokeWidth={strokeWidth}
+                opacity={0.8 - i * 0.03}
+              />
+            );
+          })}
         </svg>
 
         {/* Glow pulsing effect wrapping the album cover */}
@@ -95,7 +146,7 @@ export const VinylRecord = ({
           <motion.div
             className="absolute inset-[28%] rounded-full z-15 pointer-events-none filter blur-md"
             style={{
-              background: dominantColor ? dominantColor : 'rgba(234, 88, 12, 0.5)',
+              background: withAlpha(dominantColor, 0.5),
             }}
             animate={{
               scale: [0.98, pulseScale, 0.98],
@@ -109,8 +160,8 @@ export const VinylRecord = ({
           />
         )}
 
-        {/* Capa do Álbum */}
-        <div 
+        {/* Album Cover */}
+        <div
           className="absolute inset-[30%] rounded-full overflow-hidden z-20 border-[3px] border-black/80 shadow-inner flex items-center justify-center bg-stone-900"
         >
           <AnimatePresence mode="wait" initial={false}>
@@ -124,13 +175,12 @@ export const VinylRecord = ({
             >
               {albumImage ? (
                 <div className="w-full h-full relative">
-                  <SmartImage 
+                  <SmartImage
                     src={albumImage}
                     className="w-full h-full object-cover"
                     fallback="💿"
                     rounded="full"
                   />
-                  {/* Subtle Overlay to blend with vinyl */}
                   <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
                 </div>
               ) : (
@@ -164,9 +214,40 @@ export const VinylRecord = ({
             />
           )}
         </div>
-      </div>
-      
+      </motion.div>
+
+      {/* Tonearm */}
+      <motion.div
+        className="absolute right-[-18%] top-[8%] w-[46%] h-[8%] pointer-events-none z-30 opacity-90 sm:opacity-100"
+        style={{
+          transformOrigin: '85% 50%',
+        }}
+        animate={{
+          rotate: isPlaying ? 18 : -28
+        }}
+        transition={{
+          duration: 1.2,
+          ease: [0.16, 1, 0.3, 1]
+        }}
+      >
+        {/* Tonearm body */}
+        <div className="relative w-full h-full">
+          <div
+            className="absolute inset-0 rounded-full shadow-lg"
+            style={{
+              background: 'linear-gradient(90deg, #52525b 0%, #71717a 50%, #52525b 100%)',
+            }}
+          />
+          {/* Stylus */}
+          <div
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-[8%] h-[140%] rounded-full shadow-md"
+            style={{
+              background: 'linear-gradient(180deg, #fb7185 0%, #f43f5e 100%)',
+            }}
+          />
+        </div>
+      </motion.div>
+
     </div>
   );
 };
-
