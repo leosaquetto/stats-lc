@@ -82,12 +82,20 @@ const normalizeNowPlaying = (nowPlaying: any) => {
   };
 };
 
-const normalizeMember = (member: any): UserStats => {
-  const uid = member.key || member.id;
+const normalizeMember = (member: any): UserStats | null => {
+  const uid = member.id;
+  if (!uid) {
+    if ((import.meta as any).env?.DEV) {
+      console.warn('[normalizeMember] Skipping member without id:', member);
+    }
+    return null;
+  }
+
   const yearStats = member.stats?.year || member.stats?.current_year;
 
   return {
     id: uid,
+    key: member.key,
     name: member.profile?.displayName || member.name || uid,
     avatar: coreUtils.getUserAvatar(uid, member.profile?.image || member.avatar),
     platform: member.platform,
@@ -99,7 +107,10 @@ const normalizeMember = (member: any): UserStats => {
     totalDurationMs: member.stats?.lifetime?.durationMs || member.stats?.lifetime?.playedMs || member.totalDurationMs || 0,
     scrobbles: member.stats?.lifetime?.streams || member.scrobbles || 0,
     nowPlaying: normalizeNowPlaying(member.nowPlaying),
-    topItems: member.tops || member.topItems || undefined
+    topItems: member.tops || member.topItems || undefined,
+    catalogSummary: member.catalogSummary,
+    errors: member.errors,
+    recent: member.recent
   };
 };
 
@@ -110,6 +121,7 @@ const normalizeGroupStats = (data: any): GroupStats => {
   if (data?.members && Array.isArray(data.members)) {
     data.members.forEach((member: any) => {
       const user = normalizeMember(member);
+      if (!user) return; // Skip members without id
       users[user.id] = user;
       members.push(user);
     });
@@ -216,6 +228,7 @@ let groupRequestInFlight: Promise<GroupStats> | null = null;
 let liveRequestInFlight: Promise<GroupStats> | null = null;
 
 export const statsService = {
+  normalizeMember,
   getUsers: () => ([] as any[]),
 
   /**
@@ -262,8 +275,13 @@ export const statsService = {
 
     return res.members.reduce((acc: Record<string, number>, member: any) => {
       const count = member.count ?? member.streams ?? 0;
-      if (member.key) acc[member.key] = count;
-      if (member.id) acc[member.id] = count;
+      // Use id as primary key, key as fallback for backward compatibility
+      if (member.id) {
+        acc[member.id] = count;
+      }
+      if (member.key && member.key !== member.id) {
+        acc[member.key] = count; // Alias mapping
+      }
       return acc;
     }, {});
   },
@@ -399,43 +417,51 @@ export const statsService = {
 
       const backendRange = this.mapPeriod(range, 'rankings');
       const response = await fetchFromApi<any>('/api/group', { range: backendRange });
-      
+
+      // Prioritize pre-calculated rankings from API
+      if (response.rankings && typeof response.rankings === 'object') {
+        return response.rankings;
+      }
+
+      // Fallback: calculate from members
       const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
 
       if (response.members) {
         response.members.forEach((m: any) => {
-          const uid = m.key || m.id;
+          const uid = m.id;
+          if (!uid) return;
+
           let count = 0;
           let durationMs = 0;
-          
+
           switch (range) {
-            case 'today': 
-              count = m.stats?.today?.streams || 0; 
+            case 'today':
+              count = m.stats?.today?.streams || 0;
               durationMs = m.stats?.today?.durationMs || m.stats?.today?.playedMs || 0;
               break;
-            case 'weeks': 
-              count = m.stats?.week?.streams || 0; 
+            case 'weeks':
+              count = m.stats?.week?.streams || 0;
               durationMs = m.stats?.week?.durationMs || m.stats?.week?.playedMs || 0;
               break;
-            case 'months': 
-              count = m.stats?.month?.streams || 0; 
+            case 'months':
+              count = m.stats?.month?.streams || 0;
               durationMs = m.stats?.month?.durationMs || m.stats?.month?.playedMs || 0;
               break;
-            case 'years': 
+            case 'years':
               // Tentamos 'year' ou 'current_year' no objeto de stats retornado
               const yearStats = m.stats?.year || m.stats?.current_year;
-              count = yearStats?.streams || 0; 
+              count = yearStats?.streams || 0;
               durationMs = yearStats?.durationMs || yearStats?.playedMs || 0;
               break;
-            case 'lifetime': 
-              count = m.stats?.lifetime?.streams || 0; 
+            case 'lifetime':
+              count = m.stats?.lifetime?.streams || 0;
               durationMs = m.stats?.lifetime?.durationMs || m.stats?.lifetime?.playedMs || 0;
               break;
           }
           rankingsResult[uid] = { count, durationMs };
         });
       }
-      
+
       return rankingsResult;
     } catch (e) {
       console.error("Rankings error:", e);

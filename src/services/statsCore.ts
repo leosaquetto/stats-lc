@@ -242,10 +242,39 @@ export const coreUtils = {
       return { status: "live", label: "ouvindo agora", minutesAgo: Math.max(0, diffMins) };
     }
 
-    return { 
-      status: "lastPlayed", 
-      label: "last played", 
-      minutesAgo: diffMins 
+    return {
+      status: "lastPlayed",
+      label: "last played",
+      minutesAgo: diffMins
     };
+  },
+
+  /**
+   * Get API parameter for user identification
+   * Prefers stats.fm ID, falls back to alias for backward compatibility
+   */
+  getUserApiParam(userOrId: string | { id: string; key?: string }): string {
+    if (typeof userOrId === 'string') return userOrId;
+    return userOrId.id || userOrId.key || '';
+  },
+
+  /**
+   * Get cache key for user
+   * Always uses canonical ID for consistency
+   */
+  getUserCacheKey(userOrId: string | { id: string; key?: string }): string {
+    if (typeof userOrId === 'string') return userOrId;
+    return userOrId.id || '';
+  },
+
+  /**
+   * Safely check if browser is online
+   * Returns true in non-browser environments
+   */
+  isBrowserOnline(): boolean {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return true; // Assume online in SSR/Node
+    }
+    return navigator.onLine;
   }
 };

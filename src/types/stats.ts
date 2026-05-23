@@ -71,6 +71,7 @@ export interface TopItem {
 
 export interface UserStats {
   id: string;
+  key?: string;
   name: string;
   avatar?: string;
   nowPlaying?: NowPlaying;
@@ -91,6 +92,9 @@ export interface UserStats {
     tracks: TopItem[];
     albums: TopItem[];
   };
+  catalogSummary?: any;
+  errors?: Record<string, any>;
+  recent?: any[];
 }
 
 export interface GroupStats {

@@ -110,7 +110,7 @@ interface StatsState {
   setUserFullStatsCache: (userId: string, data: any) => void;
   setTimeRangeStatsCache: (key: string, data: any) => void;
   setTopItemsCache: (key: string, data: any) => void;
-  
+
   // Push Notification settings
   pushNotificationsEnabled: boolean;
   notifyOnNewStreams: boolean;
@@ -127,6 +127,41 @@ interface StatsState {
   animationDuration: number;
   animationDelay: number;
   shimmerDuration: number;
+}
+
+/**
+ * Migrate old state that used aliases/keys to canonical IDs
+ */
+const migrateStateToCanonicalIds = (state: StatsState, groupStats: GroupStats | null): Partial<StatsState> => {
+  if (!groupStats) return {};
+
+  const updates: Partial<StatsState> = {};
+  const idMap = new Map<string, string>();
+
+  // Build alias -> id mapping
+  Object.values(groupStats.users).forEach(user => {
+    if (user.key && user.key !== user.id) {
+      idMap.set(user.key, user.id);
+    }
+  });
+
+  // Migrate featuredUserId
+  if (state.featuredUserId && idMap.has(state.featuredUserId)) {
+    updates.featuredUserId = idMap.get(state.featuredUserId)!;
+  }
+
+  // Migrate hiddenUsers
+  if (state.hiddenUsers.length > 0) {
+    updates.hiddenUsers = state.hiddenUsers.map(id => idMap.get(id) || id);
+  }
+
+  // Migrate historyCustomOrder
+  if (state.historyCustomOrder.length > 0) {
+    updates.historyCustomOrder = state.historyCustomOrder.map(id => idMap.get(id) || id);
+  }
+
+  return updates;
+};
   
   // Actions
   setPushNotificationsEnabled: (enabled: boolean) => void;
@@ -533,40 +568,51 @@ export const useStatsStore = create<StatsState>()(
       fetchGroupLive: async () => {
         if (get().isLiveFetching) return;
         set({ isLiveFetching: true });
-        
+
         try {
           const liveData = await statsService.getGroupLiveData(false);
           const currentGroupStats = get().groupStats;
-          
+
           if (currentGroupStats) {
             const newGroupStats = { ...currentGroupStats };
             const newUsers = { ...newGroupStats.users };
             const newMembers = [...newGroupStats.members];
 
-            liveData.members.forEach((liveUser) => {
+            liveData.members?.forEach((liveUser) => {
               const existingUser = newUsers[liveUser.id];
+
               if (existingUser) {
+                // Merge live data while preserving rich data from /api/group
                 const prevTrackId = existingUser.nowPlaying?.track?.id;
                 const newTrackId = liveUser.nowPlaying?.track?.id;
 
-                const updatedUser = {
-                  ...existingUser,
+                const mergedUser = {
+                  ...existingUser,              // Keep all existing data
                   nowPlaying: liveUser.nowPlaying,
-                  platform: liveUser.platform,
-                  avatar: liveUser.avatar,
-                  name: liveUser.name,
+                  platform: liveUser.platform || existingUser.platform,
+                  avatar: liveUser.avatar || existingUser.avatar,
+                  name: liveUser.name || existingUser.name,
+                  // Preserve: topItems, recent, catalogSummary, errors, stats
                 };
-                newUsers[liveUser.id] = updatedUser;
+
+                newUsers[liveUser.id] = mergedUser;
 
                 const memberIndex = newMembers.findIndex(m => m.id === liveUser.id);
                 if (memberIndex !== -1) {
-                  newMembers[memberIndex] = updatedUser;
+                  newMembers[memberIndex] = mergedUser;
                 }
 
                 if (newTrackId && prevTrackId !== newTrackId) {
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('nowPlayingChanged', { detail: { userId: liveUser.id } }));
                   }
+                }
+              } else {
+                // New member from live endpoint - add to both structures
+                const normalizedLive = statsService.normalizeMember?.(liveUser);
+                if (normalizedLive) {
+                  newUsers[normalizedLive.id] = normalizedLive;
+                  newMembers.push(normalizedLive);
                 }
               }
             });

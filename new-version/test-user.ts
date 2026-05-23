@@ -1,6 +1,0 @@
-import http from 'node:http';
-http.get('http://0.0.0.0:3000/api/user?user=leo', (res) => {
-  let data = '';
-  res.on('data', chunk => data += chunk);
-  res.on('end', () => console.log(data));
-});
