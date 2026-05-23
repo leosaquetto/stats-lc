@@ -6,3 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
+.gemini/tmp/stats-lc/memory/MEMORY.md
+.gemini/tmp/stats-lc/tool-outputs/
