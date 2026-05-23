@@ -111,6 +111,10 @@ interface StatsState {
   setUserFullStatsCache: (userId: string, data: any) => void;
   setTimeRangeStatsCache: (key: string, data: any) => void;
   setTopItemsCache: (key: string, data: any) => void;
+  prefetchUserTops: (userId: string, period?: string) => Promise<void>;
+  prefetchNextFriend: (currentUserId: string) => void;
+  heartbeat: number;
+  startHeartbeat: () => void;
 
   // Push Notification settings
   pushNotificationsEnabled: boolean;
@@ -246,6 +250,41 @@ export const useStatsStore = create<StatsState>()(
         saveToMMKV('topItemsCache', nextCache);
         saveToMMKV('topItemsCacheMeta', nextMeta);
         set({ topItemsCache: nextCache, topItemsCacheMeta: nextMeta });
+      },
+
+      prefetchUserTops: async (userId: string, period: string = 'month') => {
+        const types: ('tracks' | 'artists' | 'albums')[] = ['tracks', 'artists', 'albums'];
+        await Promise.allSettled(types.map(type => 
+          statsService.getTopItems(userId, type, period)
+        ));
+      },
+
+      prefetchNextFriend: (currentUserId: string) => {
+        const members = get().groupStats?.members || [];
+        if (members.length <= 1) return;
+
+        const currentIndex = members.findIndex(m => m.id === currentUserId);
+        if (currentIndex === -1) return;
+
+        const nextIndex = (currentIndex + 1) % members.length;
+        const nextFriend = members[nextIndex];
+
+        if (!get().isLoading && !get().isRefreshing) {
+          setTimeout(() => {
+            get().prefetchUserTops(nextFriend.id);
+            statsService.getUserFullStats(nextFriend.id).catch(() => {});
+          }, 1500);
+        }
+      },
+
+      heartbeat: Date.now(),
+      startHeartbeat: () => {
+        if ((window as any)._heartbeatStarted) return;
+        (window as any)._heartbeatStarted = true;
+        
+        setInterval(() => {
+          set({ heartbeat: Date.now() });
+        }, 1000);
       },
 
       pushNotificationsEnabled: false,
@@ -485,6 +524,11 @@ export const useStatsStore = create<StatsState>()(
         if (isInitial) set({ isLoading: true });
         else set({ isRefreshing: true });
         
+        // Safety timeout: 45s (higher than axios 30s timeout)
+        const safetyTimer = setTimeout(() => {
+          set({ isLoading: false, isRefreshing: false });
+        }, 45000);
+
         set({ error: null });
         try {
           // Se estiver offline ou navigator indicar estar desconectado, servir cache imediatamente sem tentar requisição
@@ -501,6 +545,7 @@ export const useStatsStore = create<StatsState>()(
                 isOffline: true,
                 error: null,
               });
+              clearTimeout(safetyTimer);
               if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
               return;
             }
@@ -562,17 +607,26 @@ export const useStatsStore = create<StatsState>()(
               groupStats: cachedGroup,
               userFullStatsCache: cachedUserFullStats,
               error: null, // Sem falhar: limpa erro para exibir o cache de forma suave
+              isLoading: false, // Ensure loading is false
+              isRefreshing: false, // Ensure refreshing is false
             });
             if ((import.meta as any).env?.DEV) console.warn("[fetchGroup] Serving cached MMKV data graciously despite obsolete or fetch failure.");
           } else {
             set({ error: "Erro na conexão com a API de música." });
           }
+        } finally {
+          clearTimeout(safetyTimer);
         }
       },
 
       fetchGroupLive: async () => {
         if (get().isLiveFetching) return;
         set({ isLiveFetching: true });
+
+        // Safety timeout: 35s
+        const safetyTimer = setTimeout(() => {
+          set({ isLiveFetching: false });
+        }, 35000);
 
         try {
           const liveData = await statsService.getGroupLiveData(false);
@@ -634,6 +688,7 @@ export const useStatsStore = create<StatsState>()(
           console.warn('Silent live fetch failed:', e);
         } finally {
           set({ isLiveFetching: false });
+          clearTimeout(safetyTimer);
         }
       },
 

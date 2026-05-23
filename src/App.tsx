@@ -21,6 +21,7 @@ import { Users } from 'lucide-react';
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
+  const startHeartbeat = useStatsStore(s => s.startHeartbeat);
   const setOffline = useStatsStore(s => s.setOffline);
   const pushNotificationsEnabled = useStatsStore(s => s.pushNotificationsEnabled);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
@@ -47,6 +48,7 @@ export default function App() {
 
     // Initial fetch
     fetchStats();
+    startHeartbeat();
 
     return () => {
       window.removeEventListener('online', handleOnline);

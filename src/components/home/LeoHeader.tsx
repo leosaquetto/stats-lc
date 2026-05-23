@@ -83,60 +83,34 @@ export const LiveTrackProgress = memo(({
       return;
     }
 
-    // Apple Music Logic: calcula progresso baseado em tempo decorrido
-    if (platform === "appleMusic") {
+    const calculateProgress = () => {
       const baseProgress = playedMs ?? progressMs ?? 0;
       
       if (!durationMs) {
-        // Sem duração: mostra animação de loading
-        const timer = setTimeout(() => setMinPlayTime(true), 3 * 60 * 1000);
-        const interval = setInterval(() => {
-          setCurrentProgress(prev => (prev + 0.2) % 100);
-        }, 500);
-        return () => {
-          clearTimeout(timer);
-          clearInterval(interval);
-        };
+        // Sem duração: animação de loading simples
+        setCurrentProgress(prev => (prev + 0.5) % 100);
+        return;
       }
 
-      // Com duração: calcula progresso real
-      const calculateProgress = () => {
-        const startTime = new Date(timestamp).getTime();
-        const now = Date.now();
-        const elapsedSinceLog = Math.max(0, now - startTime);
-        const totalProgressMs = baseProgress + elapsedSinceLog;
-        const percent = (totalProgressMs / durationMs) * 100;
-        
-        if (percent >= 100) {
-          if (currentProgress < 100) {
-            onComplete?.();
-          }
-          setCurrentProgress(100);
-          setMinPlayTime(true);
-        } else {
-          setCurrentProgress(Math.min(percent, 100));
-        }
-      };
-
-      calculateProgress();
-      const interval = setInterval(calculateProgress, 1000);
-      return () => clearInterval(interval);
-    }
-    
-    // Spotify Logic: usa progress da API
-    if (durationMs && progressMs !== undefined) {
-      const calculateProgress = () => {
-        const percent = (progressMs / durationMs) * 100;
-        if (percent >= 100 && currentProgress < 100) {
+      const startTime = new Date(timestamp).getTime();
+      const now = Date.now();
+      const elapsedSinceLog = Math.max(0, now - startTime);
+      const totalProgressMs = baseProgress + elapsedSinceLog;
+      const percent = (totalProgressMs / durationMs) * 100;
+      
+      if (percent >= 100) {
+        if (currentProgress < 100) {
           onComplete?.();
         }
+        setCurrentProgress(100);
+        setMinPlayTime(true);
+      } else {
         setCurrentProgress(Math.min(percent, 100));
-      };
-      calculateProgress();
-      const interval = setInterval(calculateProgress, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [progressMs, playedMs, durationMs, timestamp, isNowPlaying, platform]);
+      }
+    };
+
+    calculateProgress();
+  }, [heartbeat, isNowPlaying, platform, durationMs, progressMs, playedMs, timestamp, onComplete]);
 
   const elapsedMs = useMemo(() => (currentProgress / 100) * (durationMs || 0), [currentProgress, durationMs]);
 
@@ -424,7 +398,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   };
 
   return (
-    <div className="relative mt-2 mb-4 px-4 overflow-visible">
+    <div className="relative mt-2 mb-4 px-6 overflow-visible">
     <div className="w-full relative overflow-visible">
       <motion.div 
         className="relative overflow-visible"
@@ -435,7 +409,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
           isHighlighted 
             ? "glass premium-gradient border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.65)]" 
             : "glass premium-gradient border-white/20 shadow-[0_15px_40px_-5px_rgba(0,0,0,0.8)]"
-        )}>
+        )}
+        style={{ willChange: 'transform, opacity' }}
+        >
           <AnimatePresence>
             {isActuallyLive ? (
               <motion.div 
@@ -711,7 +687,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     </div>
 
                     {/* CONTEÚDO DIREITO: O Vinil vazando para fora com efeito de parallax */}
-                    <div className="absolute right-[-40px] sm:right-[-60px] top-1/2 -translate-y-1/2 w-[150px] h-[150px] sm:w-[210px] sm:h-[210px] shrink-0 z-50 pointer-events-auto">
+                    <div className="absolute right-[-45px] sm:right-[-70px] top-1/2 -translate-y-1/2 w-[165px] h-[165px] sm:w-[235px] sm:h-[235px] shrink-0 z-50 pointer-events-auto">
                       <motion.div style={{ y: yOffset }} className="w-full h-full overflow-visible">
                         <VinylRecord 
                           albumImage={albumImage || ""}

@@ -176,30 +176,32 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               }
             }}
             transition={{
-              type: "spring",
-              stiffness: 350,
-              damping: 26,
+              layout: { type: "spring", stiffness: 300, damping: 30 },
+              opacity: { duration: 0.2 }
             }}
             className={clsx(
-              "pointer-events-auto flex items-center mb-1 select-none group relative transition-all duration-300 overflow-hidden text-left",
+              "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
               shouldShowExpanded 
                 ? "bg-transparent border-none shadow-none h-10 gap-2 max-w-[95vw]" 
-                : "cursor-pointer " + (activeMembersSorted.length > 0 
-                    ? "h-7 pl-2.5 pr-2 gap-1.5 rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg" 
-                    : "h-7 w-7 justify-center rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg")
+                : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg " + 
+                  (activeMembersSorted.length > 0 ? "h-7 pl-2.5 pr-2 gap-1.5" : "h-7 w-7 justify-center")
             )}
             title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
           >
             {activeMembersSorted.length > 0 ? (
-              <div className={clsx(
-                "flex items-center transition-all duration-300 min-w-0",
-                shouldShowExpanded ? "gap-2" : "gap-1"
-              )}>
-                <div 
+              <motion.div 
+                layout="position"
+                className={clsx(
+                  "flex items-center min-w-0",
+                  shouldShowExpanded ? "gap-2" : "gap-1"
+                )}
+              >
+                <motion.div 
+                  layout="position"
                   className={clsx(
-                    "flex items-center transition-all duration-300 min-w-0",
+                    "flex items-center min-w-0 transition-all duration-300",
                     shouldShowExpanded 
-                      ? "overflow-x-auto max-w-[calc(95vw-48px)] py-1.5 px-0.5 gap-2" 
+                      ? "overflow-x-auto no-scrollbar max-w-[calc(95vw-48px)] py-1.5 px-0.5 gap-2" 
                       : "-space-x-1.5"
                   )}
                   onClick={(e) => {
@@ -208,7 +210,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     }
                   }}
                 >
-                  {activeMembersSorted.map((user, idx) => {
+                  {activeMembersSorted.map((user) => {
                     const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
                     const userTrack = user.nowPlaying?.track;
                     const uSongName = userTrack?.name || "Nenhuma música";
@@ -222,10 +224,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         layout 
                         key={user.id} 
                         animate={isBubbleHighlighted ? {
-                          scale: [1, 1.22, 1],
+                          scale: [1, 1.2, 1],
                           filter: [
                             "drop-shadow(0px 0px 0px rgba(249,115,22,0))",
-                            "drop-shadow(0px 0px 8px rgba(249,115,22,0.85))",
+                            "drop-shadow(0px 0px 8px rgba(249,115,22,0.6))",
                             "drop-shadow(0px 0px 0px rgba(249,115,22,0))"
                           ]
                         } : {}}
@@ -238,19 +240,19 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       >
                         {/* Avatar container with Equalizer Overlay (only when expanded) */}
                         <motion.div 
-                          layout 
+                          layout="position"
                           className="relative shrink-0"
                           animate={isBubbleHighlighted ? {
                             boxShadow: [
                               "0 0 0 0px rgba(249,115,22,0)",
-                              "0 0 0 3px rgba(249,115,22,0.8)",
+                              "0 0 0 3px rgba(249,115,22,0.6)",
                               "0 0 0 0px rgba(249,115,22,0)"
                             ]
                           } : {}}
                           transition={{ duration: 2, ease: "easeInOut" }}
                           style={{ borderRadius: "9999px" }}
                         >
-                          <motion.div layout className={clsx(
+                          <motion.div layout="position" className={clsx(
                             "rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-all duration-300",
                             shouldShowExpanded ? "h-6.5 w-6.5" : "h-5 w-5"
                           )}>
@@ -264,7 +266,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                           
                           {/* Status Indicator (Equalizer) - overlay on bottom right (ONLY WHEN EXPANDED) */}
                           {shouldShowExpanded && user.nowPlaying?.isNow && (
-                            <div className="absolute -bottom-1 -right-1 flex items-center justify-center transition-all duration-300 z-10 scale-[0.7]">
+                            <div className="absolute -bottom-1 -right-1 flex items-center justify-center transition-all duration-300 z-10 scale-[0.6]">
                               <EqualizerIcon />
                             </div>
                           )}
@@ -274,11 +276,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         <AnimatePresence mode="popLayout" initial={false}>
                           {shouldShowExpanded && (
                             <motion.div
-                              layout
-                              initial={{ opacity: 0, width: 0, x: -10 }}
+                              layout="position"
+                              initial={{ opacity: 0, width: 0, x: -5 }}
                               animate={{ opacity: 1, width: "auto", x: 0 }}
-                              exit={{ opacity: 0, width: 0, x: -10 }}
-                              transition={{ duration: 0.3, ease: "easeInOut" }}
+                              exit={{ opacity: 0, width: 0, x: -5 }}
+                              transition={{ duration: 0.25 }}
                               className="flex flex-col min-w-0 text-left max-w-[120px] sm:max-w-[160px] overflow-hidden"
                             >
                               <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
@@ -293,30 +295,31 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       </motion.div>
                     );
                   })}
-                </div>
+                </motion.div>
                 
                 {/* Close Button only when expanded to allow easy collapsing since users list has stopPropagation */}
                 {shouldShowExpanded && (
-                  <button
+                  <motion.button
+                    layout="position"
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleSyncInfo();
                     }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/15 backdrop-blur-md text-white/80 hover:text-white shrink-0 shadow-md cursor-pointer pointer-events-auto"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/15 backdrop-blur-md text-white/80 hover:text-white shrink-0 shadow-md cursor-pointer pointer-events-auto ml-1"
                     title="Minimizar informações"
                   >
                     <X className="h-4 w-4" />
-                  </button>
+                  </motion.button>
                 )}
 
                 {/* Global Equalizer in Minimized mode when someone is playing */}
                 {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
-                  <div className="opacity-80">
+                  <motion.div layout="position" className="opacity-80">
                     <EqualizerIcon />
-                  </div>
+                  </motion.div>
                 )}
-              </div>
+              </motion.div>
             ) : (
               /* Scenario when nobody is actively playing */
               <div 

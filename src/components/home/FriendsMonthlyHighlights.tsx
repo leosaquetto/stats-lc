@@ -17,19 +17,19 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const FriendsMonthlyHighlights = () => {
+export const FriendsMonthlyHighlights = React.memo(() => {
   const { groupStats, featuredUserId, hiddenUsers } = useStatsStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
   const members = groupStats?.members || [];
   const isWaitingForGroup = !groupStats;
-  const friends = members.filter(m => m.id !== featuredUserId && !hiddenUsers.includes(m.id));
+  const friends = React.useMemo(() => members.filter(m => m.id !== featuredUserId && !hiddenUsers.includes(m.id)), [members, featuredUserId, hiddenUsers]);
 
-  const sortedFriends = [...friends].sort((a, b) => {
+  const sortedFriends = React.useMemo(() => [...friends].sort((a, b) => {
     const hasA = a.topItems?.tracks?.[0] || a.topItems?.artists?.[0] || a.topItems?.albums?.[0] ? 1 : 0;
     const hasB = b.topItems?.tracks?.[0] || b.topItems?.artists?.[0] || b.topItems?.albums?.[0] ? 1 : 0;
     return hasB - hasA;
-  }).filter(f => f.topItems?.tracks?.[0] || f.topItems?.artists?.[0] || f.topItems?.albums?.[0]);
+  }).filter(f => f.topItems?.tracks?.[0] || f.topItems?.artists?.[0] || f.topItems?.albums?.[0]), [friends]);
 
   if (isWaitingForGroup) {
     return (
@@ -97,7 +97,7 @@ export const FriendsMonthlyHighlights = () => {
   );
 };
 
-const FriendHighlightRow = ({ 
+const FriendHighlightRow = React.memo(({ 
   friend, 
   isExpanded, 
   onToggle 

@@ -36,15 +36,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const pipelineStreamLines = [
-  { left: '16.6%', duration: 2.2, delay: 0 },
-  { left: '33.2%', duration: 3.1, delay: 0.35 },
-  { left: '49.8%', duration: 2.6, delay: 0.7 },
-  { left: '66.4%', duration: 3.4, delay: 0.2 },
-  { left: '83%', duration: 2.9, delay: 0.95 },
-  { left: '91.5%', duration: 3.7, delay: 0.55 },
-];
-
 export default function HomeScreen() {
   const { 
     groupStats, 
@@ -55,6 +46,8 @@ export default function HomeScreen() {
     error, 
     fetchGroup, 
     fetchGroupLive,
+    prefetchUserTops,
+    prefetchNextFriend,
     featuredUserId, 
     setFeaturedUserId,
     hiddenUsers,
@@ -81,9 +74,18 @@ export default function HomeScreen() {
   const toastIdRef = useRef(0);
 
   const allMembers = groupStats?.members || [];
-  const members = allMembers.filter(m => !hiddenUsers.includes(m.id));
-  const primaryUser = members.find(m => m.id === featuredUserId) || members[0];
+  const members = useMemo(() => allMembers.filter(m => !hiddenUsers.includes(m.id)), [allMembers, hiddenUsers]);
+  const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || members[0], [members, featuredUserId]);
   const FEATURED_ID = primaryUser?.id;
+
+  const pipelineStreamLinesMemo = useMemo(() => [
+    { left: '16.6%', duration: 2.2, delay: 0 },
+    { left: '33.2%', duration: 3.1, delay: 0.35 },
+    { left: '49.8%', duration: 2.6, delay: 0.7 },
+    { left: '66.4%', duration: 3.4, delay: 0.2 },
+    { left: '83%', duration: 2.9, delay: 0.95 },
+    { left: '91.5%', duration: 3.7, delay: 0.55 },
+  ], []);
 
   useEffect(() => {
     let frame = 0;
@@ -91,9 +93,12 @@ export default function HomeScreen() {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+        const shouldBeScrolled = scrollY >= 160;
+        const shouldBeReset = scrollY <= 90;
+        
         setIsHeaderScrolled((current) => {
-          if (!current && scrollY >= 160) return true;
-          if (current && scrollY <= 90) return false;
+          if (!current && shouldBeScrolled) return true;
+          if (current && shouldBeReset) return false;
           return current;
         });
         frame = 0;
@@ -186,7 +191,15 @@ export default function HomeScreen() {
     if (!featuredUserId && members.length > 0) {
       setFeaturedUserId(members[0].id);
     }
-  }, [featuredUserId, members, setFeaturedUserId]);
+
+    if (featuredUserId) {
+      // Phase 3: Proactive Data Loading
+      // 1. Priority Prefetch for current featured user
+      prefetchUserTops(featuredUserId);
+      // 2. Background Warm-up for the next friend in carousel
+      prefetchNextFriend(featuredUserId);
+    }
+  }, [featuredUserId, members, setFeaturedUserId, prefetchUserTops, prefetchNextFriend]);
 
   const [swipeDirection, setSwipeDirection] = useState<number>(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -497,7 +510,7 @@ export default function HomeScreen() {
           >
             <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#050505]/75 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
               <button
-                onClick={fetchGroupLive}
+                onClick={handleRefresh}
                 disabled={isLiveFetching || isRefreshing}
                 title="Sincronizar Live"
                 aria-label="Sincronizar Live"
@@ -506,7 +519,7 @@ export default function HomeScreen() {
                 <RefreshCcw
                   className={cn(
                     "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                    isLiveFetching && "animate-spin text-orange-500"
+                    (isLiveFetching || isRefreshing) && "animate-spin text-orange-500"
                   )}
                 />
               </button>
@@ -530,7 +543,7 @@ export default function HomeScreen() {
       )}
 
       <PullToRefresh 
-      onRefresh={fetchGroupLive}
+      onRefresh={handleRefresh}
       pullingContent={
         <div className="flex flex-col items-center justify-center py-14 gap-6 bg-gradient-to-b from-orange-500/[0.1] via-orange-500/[0.02] to-transparent border-b border-white/5 select-none transition-all duration-300 relative overflow-hidden">
           {/* Depth Scanning Grid */}
@@ -589,8 +602,7 @@ export default function HomeScreen() {
           
           {/* Vertical Stream Lines */}
           <div className="absolute inset-x-0 top-0 bottom-0 overflow-hidden pointer-events-none">
-            {pipelineStreamLines.map((line, i) => (
-              <motion.div
+            {pipelineStreamLinesMemo.map((line, i) => (              <motion.div
                 key={i}
                 className="absolute w-[1px] bg-gradient-to-b from-transparent via-orange-500/20 to-transparent"
                 style={{ left: line.left, height: '100%' }}

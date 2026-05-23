@@ -207,6 +207,7 @@ export const ShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: 
       }}
       style={{
         background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
+        willChange: 'transform'
       }}
     />
   </div>
@@ -226,27 +227,40 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
 export const AnimatedNumber = ({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = useState(value);
   const prevValueRef = useRef(value);
-  
+  const requestRef = useRef<number>();
+  const startTimeRef = useRef<number>();
+
   useEffect(() => {
     if (prevValueRef.current === value) return;
     
-    let start = prevValueRef.current;
-    const end = value;
+    const startValue = prevValueRef.current;
+    const endValue = value;
     const duration = 800;
-    const increment = (end - start) / (duration / 16);
-    
-    const timer = setInterval(() => {
-      start += increment;
-      if ((increment > 0 && start >= end) || (increment < 0 && start <= end)) {
-        setDisplayValue(end);
-        prevValueRef.current = end;
-        clearInterval(timer);
-      } else {
-        setDisplayValue(Math.floor(start));
-      }
-    }, 16);
 
-    return () => clearInterval(timer);
+    const animate = (time: number) => {
+      if (!startTimeRef.current) startTimeRef.current = time;
+      const elapsed = time - startTimeRef.current;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Quartic out easing for smoother finish
+      const easeProgress = 1 - Math.pow(1 - progress, 4);
+      const current = Math.floor(startValue + (endValue - startValue) * easeProgress);
+      
+      setDisplayValue(current);
+
+      if (progress < 1) {
+        requestRef.current = requestAnimationFrame(animate);
+      } else {
+        prevValueRef.current = endValue;
+        startTimeRef.current = undefined;
+      }
+    };
+
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      startTimeRef.current = undefined;
+    };
   }, [value]);
 
   return <span>{displayValue}</span>;

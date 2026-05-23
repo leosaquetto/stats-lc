@@ -9,21 +9,22 @@ interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
 }
 
-export const HomeInsights: React.FC<HomeInsightsProps> = ({ onFriendClick }) => {
+export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
   const { groupStats, hiddenUsers } = useStatsStore();
 
   const members = groupStats?.members || [];
-  const activeMembers = members.filter(m => !hiddenUsers.includes(m.id));
+  const activeMembers = React.useMemo(() => members.filter(m => !hiddenUsers.includes(m.id)), [members, hiddenUsers]);
 
-  if (activeMembers.length < 2) return null;
+  const mostActive = React.useMemo(() => {
+    if (activeMembers.length === 0) return null;
+    return [...activeMembers].reduce((prev, current) => {
+      return (current.streamsToday || 0) > (prev.streamsToday || 0) ? current : prev;
+    }, activeMembers[0]);
+  }, [activeMembers]);
 
-  // 1. Mais ativo hoje
-  const mostActive = [...activeMembers].reduce((prev, current) => {
-    return (current.streamsToday || 0) > (prev.streamsToday || 0) ? current : prev;
-  }, activeMembers[0]);
+  const match = React.useMemo(() => {
+    if (activeMembers.length < 2) return null;
 
-  // 2. Match do dia (Afinidade)
-  const getMatchOfTheDay = () => {
     let bestPair = null;
     let maxScore = -1;
     let matchedItemName = "";
@@ -69,7 +70,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = ({ onFriendClick }) => 
     }
 
     if (!bestPair || maxScore === 0) {
-      // Fallback
       return {
         u1: activeMembers[0],
         u2: activeMembers[1] || activeMembers[0],
@@ -84,9 +84,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = ({ onFriendClick }) => 
       score: maxScore,
       reason: matchedItemName ? `Curtem ${matchedItemName}` : "Alinhamento sonoro!"
     };
-  };
+  }, [activeMembers]);
 
-  const match = getMatchOfTheDay();
+  if (activeMembers.length < 2) return null;
 
   return (
     <div className="flex flex-col gap-3 mb-3 mt-1">

@@ -24,22 +24,19 @@ export const VinylRecord = ({
 }: VinylRecordProps) => {
   const uniqueId = useId();
 
-  // Estado para progresso em tempo real
-  const [realTimeProgress, setRealTimeProgress] = useState(progressMs || 0);
+  const heartbeat = useStatsStore(state => state.heartbeat);
 
-  useEffect(() => {
-    setRealTimeProgress(progressMs || 0);
-    if (!isPlaying || !progressMs || !durationMs) return;
-
-    const interval = setInterval(() => {
-      setRealTimeProgress(prev => {
-        const next = prev + 1000;
-        return next > durationMs ? durationMs : next;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [progressMs, durationMs, isPlaying]);
+  // Estado para progresso em tempo real sincronizado com o heartbeat
+  const realTimeProgress = useMemo(() => {
+    if (!isPlaying || !progressMs || !durationMs) return progressMs || 0;
+    
+    // Calcula quanto tempo passou desde que o heartbeat foi capturado
+    const now = Date.now();
+    const elapsedSinceLastUpdate = Math.max(0, now - (useStatsStore.getState().lastFetchTime.group || now));
+    
+    const next = (progressMs || 0) + elapsedSinceLastUpdate;
+    return next > durationMs ? durationMs : next;
+  }, [progressMs, durationMs, isPlaying, heartbeat]);
 
   // Razão atual de progresso
   const currentRatio = useMemo(() => {
@@ -90,18 +87,18 @@ export const VinylRecord = ({
         className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.65) 25%, transparent 26%),
-            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.45)} 0%, transparent 55%),
-            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.35)} 0%, transparent 50%),
+            radial-gradient(circle at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.45) 25%, transparent 26%),
+            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.3)} 0%, transparent 55%),
+            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.25)} 0%, transparent 50%),
             conic-gradient(
               from 0deg,
-              ${withAlpha(safeDominantColor, 0.65)} 0deg,
-              ${withAlpha(darkColor, 0.55)} 60deg,
-              ${withAlpha(safeDominantColor, 0.6)} 120deg,
-              ${withAlpha(lightColor, 0.7)} 180deg,
-              ${withAlpha(safeDominantColor, 0.6)} 240deg,
-              ${withAlpha(darkColor, 0.5)} 300deg,
-              ${withAlpha(safeDominantColor, 0.65)} 360deg
+              ${withAlpha(safeDominantColor, 0.45)} 0deg,
+              ${withAlpha(darkColor, 0.35)} 60deg,
+              ${withAlpha(safeDominantColor, 0.4)} 120deg,
+              ${withAlpha(lightColor, 0.5)} 180deg,
+              ${withAlpha(safeDominantColor, 0.4)} 240deg,
+              ${withAlpha(darkColor, 0.3)} 300deg,
+              ${withAlpha(safeDominantColor, 0.45)} 360deg
             )
           `,
           backdropFilter: 'blur(3px)',
@@ -110,17 +107,18 @@ export const VinylRecord = ({
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 3.5%, black 3.8%)',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
-          transformOrigin: 'center center'
+          transformOrigin: 'center center',
+          willChange: 'transform'
         }}
         animate={
           isPlaying && !prefersReducedMotion
             ? { rotate: 360 }
-            : { scale: [0.985, 1.015, 0.985] }
+            : { rotate: [-1.5, 1.5, -1.5] }
         }
         transition={
           isPlaying && !prefersReducedMotion
             ? { duration: 2.5, repeat: Infinity, ease: 'linear' }
-            : { duration: 8, repeat: Infinity, ease: 'easeInOut' }
+            : { duration: 10, repeat: Infinity, ease: 'easeInOut' }
         }
       >
         {/* Grooves / Sulcos concêntricos */}
@@ -153,7 +151,7 @@ export const VinylRecord = ({
         {/* Glow pulsing effect wrapping the album cover */}
         {isPlaying && (
           <motion.div
-            className="absolute inset-[22%] rounded-full z-15 pointer-events-none filter blur-md"
+            className="absolute inset-[24%] rounded-full z-15 pointer-events-none filter blur-md"
             style={{
               background: withAlpha(safeDominantColor, 0.5),
             }}
@@ -171,7 +169,7 @@ export const VinylRecord = ({
 
         {/* Album Cover */}
         <div
-          className="absolute inset-[24%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900"
+          className="absolute inset-[26%] rounded-full overflow-hidden z-20 shadow-2xl flex items-center justify-center bg-stone-900"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -218,8 +216,8 @@ export const VinylRecord = ({
       {/* Tonearm */}
       <motion.div
         className="absolute right-[-14%] top-[4%] w-[48%] h-[6%] pointer-events-none z-30"
-        style={{ transformOrigin: '90% 50%' }}
-        animate={{ rotate: isPlaying ? 20 : -32 }}
+        style={{ transformOrigin: '90% 50%', willChange: 'transform' }}
+        animate={{ rotate: isPlaying ? 28 : -45 }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="relative w-full h-full">

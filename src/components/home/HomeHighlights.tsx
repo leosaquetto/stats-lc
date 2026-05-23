@@ -26,7 +26,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
+export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const totalStreams = users.reduce((sum, u) => sum + (u.streamsToday || 0), 0);
   const sortedParticipants = [...users]
     .sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0));
@@ -134,7 +134,7 @@ export const LiveGroupOverviewSkeleton = () => (
   </motion.div>
 );
 
-export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: UserStats[], type?: 'today' | 'week' | 'month' | 'year' | 'lifetime' }) => {
+export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { users: UserStats[], type?: 'today' | 'week' | 'month' | 'year' | 'lifetime' }) => {
   const isYear = type === 'year';
   const isWeek = type === 'week';
   const isToday = type === 'today';
@@ -233,7 +233,7 @@ export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: User
   );
 };
 
-export const FriendsLiveCarousel = () => {
+export const FriendsLiveCarousel = React.memo(() => {
   const { groupStats, hiddenUsers, featuredUserId } = useStatsStore();
   
   const members = (groupStats?.members || Object.values(groupStats?.users || {}))
@@ -327,7 +327,7 @@ export const FriendsLiveCarousel = () => {
   );
 };
 
-export const HomeHighlights = ({ userId, onItemClick }: { userId: string, onItemClick?: (item: any, type: 'track' | 'artist' | 'album') => void }) => {
+export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: string, onItemClick?: (item: any, type: 'track' | 'artist' | 'album') => void }) => {
   const [tops, setTops] = useState<{ tracks: any[], artists: any[], albums: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>('month');
