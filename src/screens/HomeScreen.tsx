@@ -11,24 +11,24 @@ import { coreUtils } from '../services/statsCore';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
 // Novos componentes modulares
-import { 
+import {
   LeoHeader,
-  HomeHighlights, 
-  LiveGroupOverview, 
+  HomeHighlights,
+  LiveGroupOverview,
   LiveGroupOverviewSkeleton,
   FriendHistoryCard,
   UserHistoryModal,
   TrackLeaderboardModal,
-  AlbumDetailModal,
   UserAlbumHistoryModal,
   CircleActivityModal,
   TrackHistoryModal,
-  SectionHeader, 
-  SmartImage, 
+  SectionHeader,
+  SmartImage,
   FriendsMonthlyHighlights,
   StatsAlike,
   ShimmerOverlay
 } from '../components/MusicUI';
+import { AlbumDetailModal } from '../components/modals/AlbumDetailModal';
 import { HomeInsights } from '../components/home/HomeInsights';
 
 function cn(...inputs: ClassValue[]) {

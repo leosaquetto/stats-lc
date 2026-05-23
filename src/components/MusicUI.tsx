@@ -27,7 +27,7 @@ export * from './battle/GroupGrowthChart';
 
 // Modal components
 export * from './modals/UserModals';
-export * from './modals/AlbumDetailModal';
+// AlbumDetailModal removed from aggregator to enable code splitting
 export * from './modals/UserHistoryModal';
 export * from './modals/TrackLeaderboardModal';
 export * from './modals/TrackHistoryModal';

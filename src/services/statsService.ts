@@ -419,8 +419,37 @@ export const statsService = {
       const response = await fetchFromApi<any>('/api/group', { range: backendRange });
 
       // Prioritize pre-calculated rankings from API
-      if (response.rankings && typeof response.rankings === 'object') {
-        return response.rankings;
+      if (response.rankings) {
+        // If rankings is already in the expected format
+        if (typeof response.rankings === 'object' && !Array.isArray(response.rankings)) {
+          // Check if it's already Record<userId, { count, durationMs }>
+          const firstKey = Object.keys(response.rankings)[0];
+          if (firstKey && typeof response.rankings[firstKey] === 'object' && 'count' in response.rankings[firstKey]) {
+            return response.rankings;
+          }
+        }
+
+        // If rankings come as arrays by period (today, week, month, etc.)
+        if (typeof response.rankings === 'object') {
+          const periodKey = backendRange || range;
+          const periodRankings = response.rankings[periodKey] || response.rankings[range];
+
+          if (Array.isArray(periodRankings)) {
+            const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
+            periodRankings.forEach((item: any) => {
+              const userId = item.id || item.userId || item.user;
+              if (userId) {
+                rankingsResult[userId] = {
+                  count: item.count || item.streams || 0,
+                  durationMs: item.durationMs || item.playedMs || 0
+                };
+              }
+            });
+            if (Object.keys(rankingsResult).length > 0) {
+              return rankingsResult;
+            }
+          }
+        }
       }
 
       // Fallback: calculate from members

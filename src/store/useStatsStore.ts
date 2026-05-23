@@ -8,6 +8,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { GroupStats, UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { notificationService } from '../services/notificationService';
+import { coreUtils } from '../services/statsCore';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -183,7 +184,7 @@ export const useStatsStore = create<StatsState>()(
       isLoading: false,
       isRefreshing: false,
       isLiveFetching: false,
-      isOffline: !navigator.onLine,
+      isOffline: !coreUtils.isBrowserOnline(),
       error: null,
       lastFetchTime: {},
       userTrackStats: {},
@@ -511,13 +512,18 @@ export const useStatsStore = create<StatsState>()(
           saveToMMKV('groupStats', data);
           mmkv.set('groupStats_timestamp', Date.now());
 
-          set({ 
-            groupStats: data, 
-            isLoading: false, 
+          // Migrate old state to canonical IDs
+          const currentState = get();
+          const migrations = migrateStateToCanonicalIds(currentState, data);
+
+          set({
+            groupStats: data,
+            isLoading: false,
             isRefreshing: false,
             isOffline: false, // Sucesso indica que estamos online
             error: null, // Limpa erros de conexões anteriores
-            lastFetchTime: { ...get().lastFetchTime, group: Date.now() } 
+            lastFetchTime: { ...get().lastFetchTime, group: Date.now() },
+            ...migrations // Apply migrations
           });
 
           // Disparar push notifications
@@ -532,11 +538,11 @@ export const useStatsStore = create<StatsState>()(
             });
           }
         } catch (err: any) {
-          const isNetworkError = !navigator.onLine || 
-            err.message?.includes('Network Error') || 
-            err.message?.includes('timeout') || 
-            err.message?.includes('Timeout') || 
-            err.message?.includes('Falha de Conexão') || 
+          const isNetworkError = !coreUtils.isBrowserOnline() ||
+            err.message?.includes('Network Error') ||
+            err.message?.includes('timeout') ||
+            err.message?.includes('Timeout') ||
+            err.message?.includes('Falha de Conexão') ||
             err.code === 'ECONNABORTED' ||
             err.message?.includes('network');
             
