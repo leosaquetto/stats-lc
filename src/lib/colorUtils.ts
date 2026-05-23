@@ -5,14 +5,20 @@
 
 import * as ColorThiefModule from 'colorthief';
 
-const ColorThief = (ColorThiefModule as any).default || ColorThiefModule;
-const colorThief = new ColorThief();
+type ColorThiefApi = {
+  getColor?: (image: HTMLImageElement) => Promise<number[]> | number[];
+  getColorSync?: (image: HTMLImageElement) => number[];
+};
+
+const colorThiefApi = ColorThiefModule as ColorThiefApi;
 
 /**
  * Normalize color input to #rrggbb format
  */
 export function normalizeColor(input: string | number[] | null | undefined, fallback: string = '#ea580c'): string {
   if (!input) return fallback;
+
+  const toHex = (value: number) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0');
 
   // If already hex
   if (typeof input === 'string') {
@@ -25,7 +31,7 @@ export function normalizeColor(input: string | number[] | null | undefined, fall
       const r = parseInt(rgbMatch[1]);
       const g = parseInt(rgbMatch[2]);
       const b = parseInt(rgbMatch[3]);
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
     }
     return fallback;
   }
@@ -33,7 +39,7 @@ export function normalizeColor(input: string | number[] | null | undefined, fall
   // If array [r, g, b]
   if (Array.isArray(input) && input.length >= 3) {
     const [r, g, b] = input;
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }
 
   return fallback;
@@ -45,7 +51,7 @@ export function normalizeColor(input: string | number[] | null | undefined, fall
  * @param amount - Amount to adjust (-1 to 1, negative darkens, positive lightens)
  */
 export function adjustBrightness(color: string, amount: number): string {
-  const hex = color.replace('#', '');
+  const hex = normalizeColor(color).replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
@@ -70,11 +76,12 @@ export function adjustBrightness(color: string, amount: number): string {
  * @param alpha - Alpha value (0 to 1)
  */
 export function withAlpha(color: string, alpha: number): string {
-  const hex = color.replace('#', '');
+  const hex = normalizeColor(color).replace('#', '');
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const safeAlpha = Math.max(0, Math.min(1, alpha));
+  return `rgba(${r}, ${g}, ${b}, ${safeAlpha})`;
 }
 
 /**
@@ -87,10 +94,12 @@ export function getDominantColor(imageSrc: string): Promise<string> {
     img.crossOrigin = 'Anonymous';
     img.src = imageSrc;
 
-    img.onload = () => {
+    img.onload = async () => {
       try {
         // Try ColorThief first
-        const rgb = colorThief.getColor(img);
+        const rgb = typeof colorThiefApi.getColorSync === 'function'
+          ? colorThiefApi.getColorSync(img)
+          : await colorThiefApi.getColor?.(img);
         if (rgb && Array.isArray(rgb) && rgb.length === 3) {
           resolve(normalizeColor(rgb));
           return;

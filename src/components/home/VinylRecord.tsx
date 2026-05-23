@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { SmartImage } from '../shared/CommonUI';
-import { adjustBrightness, withAlpha } from '../../lib/colorUtils';
+import { adjustBrightness, normalizeColor, withAlpha } from '../../lib/colorUtils';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -73,8 +73,9 @@ export const VinylRecord = ({
     : false;
 
   // Derive color variations
-  const darkColor = useMemo(() => adjustBrightness(dominantColor, -0.4), [dominantColor]);
-  const lightColor = useMemo(() => adjustBrightness(dominantColor, 0.3), [dominantColor]);
+  const safeDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
+  const darkColor = useMemo(() => adjustBrightness(safeDominantColor, -0.4), [safeDominantColor]);
+  const lightColor = useMemo(() => adjustBrightness(safeDominantColor, 0.3), [safeDominantColor]);
 
   // Grooves opacity based on playing state
   const groovesOpacity = isPlaying ? 0.6 : 0.3;
@@ -92,13 +93,13 @@ export const VinylRecord = ({
             radial-gradient(circle at center, #000 0%, #000 28%, transparent 29%),
             conic-gradient(
               from 0deg,
-              ${dominantColor} 0deg,
+              ${safeDominantColor} 0deg,
               ${darkColor} 60deg,
-              ${dominantColor} 120deg,
+              ${safeDominantColor} 120deg,
               ${lightColor} 180deg,
-              ${dominantColor} 240deg,
+              ${safeDominantColor} 240deg,
               ${darkColor} 300deg,
-              ${dominantColor} 360deg
+              ${safeDominantColor} 360deg
             ),
             radial-gradient(circle at center, #0a0a0a 0%, #050505 100%)
           `,
@@ -146,7 +147,7 @@ export const VinylRecord = ({
           <motion.div
             className="absolute inset-[28%] rounded-full z-15 pointer-events-none filter blur-md"
             style={{
-              background: withAlpha(dominantColor, 0.5),
+              background: withAlpha(safeDominantColor, 0.5),
             }}
             animate={{
               scale: [0.98, pulseScale, 0.98],
