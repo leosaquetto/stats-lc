@@ -87,22 +87,25 @@ export const VinylRecord = ({
     >
       {/* Vinyl Disc Body */}
       <motion.div
-        className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
+        className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/20"
         style={{
           background: `
-            radial-gradient(circle at center, #000 0%, #000 28%, transparent 29%),
+            radial-gradient(circle at center, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) 13%, transparent 14%),
+            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.55)} 0%, transparent 55%),
+            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.4)} 0%, transparent 50%),
             conic-gradient(
               from 0deg,
-              ${safeDominantColor} 0deg,
-              ${darkColor} 60deg,
-              ${safeDominantColor} 120deg,
-              ${lightColor} 180deg,
-              ${safeDominantColor} 240deg,
-              ${darkColor} 300deg,
-              ${safeDominantColor} 360deg
-            ),
-            radial-gradient(circle at center, #0a0a0a 0%, #050505 100%)
+              ${withAlpha(safeDominantColor, 0.9)} 0deg,
+              ${withAlpha(darkColor, 0.75)} 60deg,
+              ${withAlpha(safeDominantColor, 0.85)} 120deg,
+              ${withAlpha(lightColor, 0.95)} 180deg,
+              ${withAlpha(safeDominantColor, 0.85)} 240deg,
+              ${withAlpha(darkColor, 0.7)} 300deg,
+              ${withAlpha(safeDominantColor, 0.9)} 360deg
+            )
           `,
+          backdropFilter: 'blur(0px)',
+          WebkitBackdropFilter: 'blur(0px)',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center'
@@ -140,12 +143,16 @@ export const VinylRecord = ({
               />
             );
           })}
+
+          {/* Buraco central */}
+          <circle cx="50" cy="50" r="3.5" fill="rgba(0,0,0,0.9)" />
+          <circle cx="50" cy="50" r="3.5" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.3" />
         </svg>
 
         {/* Glow pulsing effect wrapping the album cover */}
         {isPlaying && (
           <motion.div
-            className="absolute inset-[28%] rounded-full z-15 pointer-events-none filter blur-md"
+            className="absolute inset-[24%] rounded-full z-15 pointer-events-none filter blur-md"
             style={{
               background: withAlpha(safeDominantColor, 0.5),
             }}
@@ -163,7 +170,7 @@ export const VinylRecord = ({
 
         {/* Album Cover */}
         <div
-          className="absolute inset-[30%] rounded-full overflow-hidden z-20 border-[3px] border-black/80 shadow-inner flex items-center justify-center bg-stone-900"
+          className="absolute inset-[26%] rounded-full overflow-hidden z-20 border-[3px] border-black/80 shadow-inner flex items-center justify-center bg-stone-900"
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -195,23 +202,13 @@ export const VinylRecord = ({
           </AnimatePresence>
           {isPlaying && (
             <motion.div
-              className="absolute inset-0 pointer-events-none mix-blend-overlay rounded-full"
+              className="absolute inset-0 pointer-events-none rounded-full"
               style={{
-                background: 'linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%)',
-                width: '200%',
-                height: '200%',
-                top: '-50%',
-                left: '-50%'
+                background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.35) 25%, transparent 50%, rgba(255,255,255,0.15) 75%, transparent 100%)',
+                mixBlendMode: 'overlay',
               }}
-              animate={{
-                x: ['-50%', '50%'],
-                y: ['-50%', '50%']
-              }}
-              transition={{
-                duration: shimmerSpeed,
-                repeat: Infinity,
-                ease: "linear"
-              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: shimmerSpeed, repeat: Infinity, ease: 'linear' }}
             />
           )}
         </div>
@@ -219,31 +216,40 @@ export const VinylRecord = ({
 
       {/* Tonearm */}
       <motion.div
-        className="absolute right-[-18%] top-[8%] w-[46%] h-[8%] pointer-events-none z-30 opacity-90 sm:opacity-100"
-        style={{
-          transformOrigin: '85% 50%',
-        }}
-        animate={{
-          rotate: isPlaying ? 18 : -28
-        }}
-        transition={{
-          duration: 1.2,
-          ease: [0.16, 1, 0.3, 1]
-        }}
+        className="absolute right-[-14%] top-[4%] w-[48%] h-[6%] pointer-events-none z-30"
+        style={{ transformOrigin: '90% 50%' }}
+        animate={{ rotate: isPlaying ? 20 : -32 }}
+        transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Tonearm body */}
         <div className="relative w-full h-full">
+          {/* Corpo do braço — mais fino e com gradiente metálico */}
           <div
-            className="absolute inset-0 rounded-full shadow-lg"
+            className="absolute inset-0 rounded-full"
             style={{
-              background: 'linear-gradient(90deg, #52525b 0%, #71717a 50%, #52525b 100%)',
+              background: 'linear-gradient(90deg, #3f3f46 0%, #a1a1aa 40%, #d4d4d8 60%, #71717a 100%)',
+              height: '40%',
+              top: '30%',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.6)',
             }}
           />
-          {/* Stylus */}
+          {/* Pivô no lado direito */}
           <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-[8%] h-[140%] rounded-full shadow-md"
+            className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full"
             style={{
+              width: '10%',
+              height: '220%',
+              background: 'radial-gradient(circle at 40% 40%, #d4d4d8, #52525b)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.5)',
+            }}
+          />
+          {/* Agulha (stylus) — ponta fina na esquerda */}
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              width: '5%',
+              height: '160%',
               background: 'linear-gradient(180deg, #fb7185 0%, #f43f5e 100%)',
+              boxShadow: '0 0 4px rgba(244,63,94,0.6)',
             }}
           />
         </div>
