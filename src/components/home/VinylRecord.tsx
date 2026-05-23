@@ -249,6 +249,14 @@ export const VinylRecord = ({
               />
             )}
           </AnimatePresence>
+
+          {/* Sombra interna — profundidade no miolo */}
+          <div
+            className="absolute inset-0 rounded-full pointer-events-none z-30"
+            style={{
+              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
+            }}
+          />
         </div>
 
         {/* Partículas de poeira — só idle */}
