@@ -15,12 +15,19 @@
     "moduleDetection": "force",
     "allowJs": true,
     "jsx": "react-jsx",
+    "baseUrl": "./",
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "react-native-mmkv": [
+        "src/lib/mmkv"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "new-version"
+  ]
 }
