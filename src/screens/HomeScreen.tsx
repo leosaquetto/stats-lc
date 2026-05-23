@@ -558,7 +558,7 @@ export default function HomeScreen() {
         </div>
       }
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 pt-24">
         <AnimatePresence>
           <CircleActivityModal
             isOpen={showCircleActivity}
@@ -602,6 +602,68 @@ export default function HomeScreen() {
             user={viewingAlbumHistoryUser}
             onClose={() => setViewingAlbumHistoryUser(null)}
           />
+        )}
+        
+        {showUserSelector && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowUserSelector(false)}
+              className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
+            >
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
+              <div className="flex flex-col gap-1.5 mt-1 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {members.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => {
+                      setFeaturedUserId(u.id);
+                      setShowUserSelector(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
+                      featuredUserId === u.id 
+                        ? "bg-white/10 border border-white/10 shadow-lg" 
+                        : "hover:bg-white/5 opacity-70 hover:opacity-100"
+                    )}
+                  >
+                    <div className={cn(
+                      "rounded-full border overflow-hidden relative shrink-0 transition-all duration-300",
+                      featuredUserId === u.id 
+                        ? "h-11 w-11 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" 
+                        : "h-9 w-9 border-white/10"
+                    )}>
+                        <SmartImage 
+                          src={coreUtils.getUserAvatar(u.id, u.avatar)} 
+                          className="h-full w-full object-cover" 
+                          fallback=""
+                          rounded="full"
+                        />
+                    </div>
+                    <div className="flex flex-col items-start min-w-0">
+                      <span className={cn(
+                        "text-sm font-bold transition-colors truncate w-full",
+                        featuredUserId === u.id ? "text-white" : "text-white/80"
+                      )}>
+                        {u.name}
+                      </span>
+                    </div>
+                    {featuredUserId === u.id && (
+                      <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -659,9 +721,9 @@ export default function HomeScreen() {
              <RefreshCcw className={cn("h-4 w-4 text-white/40 group-hover:text-white transition-colors", isLiveFetching && "animate-spin text-orange-500")} />
            </button>
            <div 
-             onClick={cycleUser}
+             onClick={() => setShowUserSelector(true)}
              className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0"
-             title="Próximo Usuário"
+             title="Selecionar Usuário"
            >
              <SmartImage 
                src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""} 
@@ -878,70 +940,6 @@ export default function HomeScreen() {
                   onAvatarClick={() => setShowUserSelector(true)}
                   isHighlighted={headerHighlight}
                 />
-                
-                <AnimatePresence>
-                  {showUserSelector && (
-                    <>
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={() => setShowUserSelector(false)}
-                        className="fixed inset-0 z-[100]"
-                      />
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                        className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
-                      >
-                        <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
-                        <div className="flex flex-col gap-1.5 mt-1 max-h-[300px] overflow-y-auto custom-scrollbar">
-                          {members.map((u) => (
-                            <button
-                              key={u.id}
-                              onClick={() => {
-                                setFeaturedUserId(u.id);
-                                setShowUserSelector(false);
-                              }}
-                              className={cn(
-                                "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
-                                featuredUserId === u.id 
-                                  ? "bg-white/10 border border-white/10 shadow-lg" 
-                                  : "hover:bg-white/5 opacity-70 hover:opacity-100"
-                              )}
-                            >
-                              <div className={cn(
-                                "rounded-full border overflow-hidden relative shrink-0 transition-all duration-300",
-                                featuredUserId === u.id 
-                                  ? "h-11 w-11 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" 
-                                  : "h-9 w-9 border-white/10"
-                              )}>
-                                 <SmartImage 
-                                   src={coreUtils.getUserAvatar(u.id, u.avatar)} 
-                                   className="h-full w-full object-cover" 
-                                   fallback=""
-                                   rounded="full"
-                                 />
-                              </div>
-                              <div className="flex flex-col items-start min-w-0">
-                                <span className={cn(
-                                  "text-sm font-bold transition-colors truncate w-full",
-                                  featuredUserId === u.id ? "text-white" : "text-white/80"
-                                )}>
-                                  {u.name}
-                                </span>
-                              </div>
-                              {featuredUserId === u.id && (
-                                <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
               </div>
 
               <div className="px-4 sm:px-6 lg:px-8">
