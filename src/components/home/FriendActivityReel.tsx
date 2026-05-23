@@ -43,7 +43,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   const { groupStats, hiddenUsers } = useStatsStore();
   
   const allMembers = groupStats?.members || [];
-  const members = allMembers.filter(m => !hiddenUsers.includes(m.id) && m.id !== excludeUserId);
+  const members = allMembers.filter(m => 
+    !hiddenUsers.includes(m.id) && 
+    String(m.id).trim() !== String(excludeUserId).trim()
+  );
   
   // Amigos ordenados por atividade recente (isNow primeiro, depois timestamp)
   const sortedFriends = [...members].sort((a, b) => {

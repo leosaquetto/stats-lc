@@ -87,24 +87,25 @@ export const VinylRecord = ({
         className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.45) 25%, transparent 26%),
-            radial-gradient(circle at 30% 25%, ${withAlpha(lightColor, 0.3)} 0%, transparent 55%),
-            radial-gradient(circle at 70% 75%, ${withAlpha(darkColor, 0.25)} 0%, transparent 50%),
+            radial-gradient(circle at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.5) 20%, transparent 21%),
+            radial-gradient(circle at 25% 20%, ${withAlpha(lightColor, 0.35)} 0%, transparent 50%),
+            radial-gradient(circle at 75% 80%, ${withAlpha(darkColor, 0.25)} 0%, transparent 45%),
+            radial-gradient(circle at 60% 15%, rgba(255,255,255,0.08) 0%, transparent 35%),
             conic-gradient(
               from 0deg,
               ${withAlpha(safeDominantColor, 0.45)} 0deg,
-              ${withAlpha(darkColor, 0.35)} 60deg,
-              ${withAlpha(safeDominantColor, 0.4)} 120deg,
-              ${withAlpha(lightColor, 0.5)} 180deg,
-              ${withAlpha(safeDominantColor, 0.4)} 240deg,
-              ${withAlpha(darkColor, 0.3)} 300deg,
+              ${withAlpha(darkColor, 0.30)} 60deg,
+              ${withAlpha(safeDominantColor, 0.40)} 120deg,
+              ${withAlpha(lightColor, 0.55)} 180deg,
+              ${withAlpha(safeDominantColor, 0.40)} 240deg,
+              ${withAlpha(darkColor, 0.28)} 300deg,
               ${withAlpha(safeDominantColor, 0.45)} 360deg
             )
           `,
-          backdropFilter: 'blur(3px)',
-          WebkitBackdropFilter: 'blur(3px)',
-          maskImage: 'radial-gradient(circle at center, transparent 3.5%, black 3.8%)',
-          WebkitMaskImage: 'radial-gradient(circle at center, transparent 3.5%, black 3.8%)',
+          backdropFilter: 'blur(0.5px)',
+          WebkitBackdropFilter: 'blur(0.5px)',
+          maskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
