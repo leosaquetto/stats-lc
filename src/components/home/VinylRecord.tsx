@@ -217,7 +217,7 @@ export const VinylRecord = ({
       <motion.div
         className="absolute right-[-14%] top-[4%] w-[48%] h-[6%] pointer-events-none z-30"
         style={{ transformOrigin: '90% 50%', willChange: 'transform' }}
-        animate={{ rotate: isPlaying ? 28 : -45 }}
+        animate={{ rotate: isPlaying ? -45 : 28 }}
         transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="relative w-full h-full">

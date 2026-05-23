@@ -398,7 +398,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   };
 
   return (
-    <div className="relative mt-2 mb-4 px-6 overflow-visible">
+    <div className="relative mt-2 mb-4 px-8 overflow-visible">
     <div className="w-full relative overflow-visible">
       <motion.div 
         className="relative overflow-visible"
@@ -687,7 +687,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     </div>
 
                     {/* CONTEÚDO DIREITO: O Vinil vazando para fora com efeito de parallax */}
-                    <div className="absolute right-[-45px] sm:right-[-70px] top-1/2 -translate-y-1/2 w-[165px] h-[165px] sm:w-[235px] sm:h-[235px] shrink-0 z-50 pointer-events-auto">
+                    <div className="absolute right-[-45px] sm:right-[-70px] top-[40%] -translate-y-1/2 w-[180px] h-[180px] sm:w-[260px] sm:h-[260px] shrink-0 z-50 pointer-events-auto">
                       <motion.div style={{ y: yOffset }} className="w-full h-full overflow-visible">
                         <VinylRecord 
                           albumImage={albumImage || ""}
