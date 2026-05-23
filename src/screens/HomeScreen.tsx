@@ -85,11 +85,25 @@ export default function HomeScreen() {
   const FEATURED_ID = primaryUser?.id;
 
   useEffect(() => {
+    let frame = 0;
     const handleScroll = () => {
-      setIsHeaderScrolled(window.scrollY >= 10);
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+        setIsHeaderScrolled((current) => {
+          if (!current && scrollY >= 160) return true;
+          if (current && scrollY <= 90) return false;
+          return current;
+        });
+        frame = 0;
+      });
     };
+    handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
@@ -667,71 +681,44 @@ export default function HomeScreen() {
         )}
       </AnimatePresence>
 
-      {/* Top Bar Navigation - Sticky */}
-      <header 
+      {/* Top Bar Navigation - Floating */}
+      <header
         style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
         className={cn(
-          "fixed top-0 left-0 right-0 z-[80] flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b transition-all duration-300 backdrop-blur-md will-change-transform",
-          isHeaderScrolled 
-            ? "translate-y-0 opacity-100 bg-[#050505]/85 border-white/10 pointer-events-auto shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
-            : "translate-y-0 opacity-100 bg-[#050505]/35 border-transparent pointer-events-auto"
+          "fixed top-0 left-0 right-0 z-[80] flex justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
+          isHeaderScrolled
+            ? "translate-y-0 opacity-100 pointer-events-auto"
+            : "-translate-y-4 opacity-0 pointer-events-none"
         )}
       >
-        <div 
-          onClick={cycleUser}
-          className="flex items-center gap-3.5 cursor-pointer group active:scale-95 transition-all"
-        >
-          <div className="flex flex-col">
-            <h1 className="font-mundial text-xl font-black tracking-widest leading-none lowercase group-hover:text-orange-500 transition-colors drop-shadow-sm">
-              stats.lc
-            </h1>
-            <div className="flex items-center gap-1.5 mt-1.5">
-               <div className="relative flex h-2 w-2">
-                 <div className={clsx(
-                   "absolute h-full w-full rounded-full opacity-40 animate-ping",
-                   isOffline ? "bg-amber-500" : (isLoading || isRefreshing) ? "bg-orange-500" : "bg-green-500"
-                 )} />
-                 <div className={clsx(
-                   "relative h-2 w-2 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.3)]",
-                   isOffline ? "bg-amber-500" : (isLoading || isRefreshing) ? "bg-orange-500" : "bg-green-500"
-                 )} />
-               </div>
-               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50 leading-none">
-                 {isOffline ? "Offline Mode" : primaryUser?.name ? `${primaryUser.name.split(' ')[0]}'s Circle` : 'Circle Live'}
-               </span>
-               {groupStats?.lastUpdated && (
-                <div className="flex items-center gap-1.5 opacity-30">
-                  <div className="h-1.5 w-[1px] bg-white/20" />
-                  <span className="text-[7px] font-bold text-white uppercase tracking-[0.1em] whitespace-nowrap">
-                    UP: {new Date(groupStats.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-               )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-           <button 
-             onClick={fetchGroupLive}
-             disabled={isLiveFetching || isRefreshing}
-             title="Sincronizar Live"
-             className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0"
-           >
-             <RefreshCcw className={cn("h-4 w-4 text-white/40 group-hover:text-white transition-colors", isLiveFetching && "animate-spin text-orange-500")} />
-           </button>
-           <div 
-             onClick={() => setShowUserSelector(true)}
-             className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0"
-             title="Selecionar Usuário"
-           >
-             <SmartImage 
-               src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""} 
-               className="h-full w-full object-cover"
-               fallback=""
-               rounded="full"
-             />
-           </div>
+        <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#050505]/75 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+          <button
+            onClick={fetchGroupLive}
+            disabled={isLiveFetching || isRefreshing}
+            title="Sincronizar Live"
+            aria-label="Sincronizar Live"
+            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
+          >
+            <RefreshCcw
+              className={cn(
+                "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
+                isLiveFetching && "animate-spin text-orange-500"
+              )}
+            />
+          </button>
+          <button
+            onClick={() => setShowUserSelector(true)}
+            title="Selecionar Usuário"
+            aria-label="Selecionar Usuário"
+            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
+          >
+            <SmartImage
+              src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
+              className="h-full w-full object-cover"
+              fallback=""
+              rounded="full"
+            />
+          </button>
         </div>
       </header>
 
