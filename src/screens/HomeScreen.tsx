@@ -1,15 +1,13 @@
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, Bell, AlertTriangle, WifiOff, Users, ChevronRight, ChevronLeft, History, Swords, ArrowDown, Sparkles, Loader2, Check, Info, X, Database } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, ArrowDown, Sparkles, Loader2, Check, Info, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DiscreetFriendsRow } from '../components/home/DiscreetFriendsRow';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
 import { coreUtils } from '../services/statsCore';
-import { statsService } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
 // Novos componentes modulares
@@ -17,22 +15,15 @@ import {
   LeoHeader,
   HomeHighlights, 
   LiveGroupOverview, 
-  FriendsHorizontalCard, 
-  FriendsCardSkeleton,
+  LiveGroupOverviewSkeleton,
   FriendHistoryCard,
   UserHistoryModal,
   TrackLeaderboardModal,
-  UserDetailModal, 
-  StatsBattleModal,
   AlbumDetailModal,
   UserAlbumHistoryModal,
   CircleActivityModal,
-  MusicCard, 
   TrackHistoryModal,
-  Skeleton, 
   SectionHeader, 
-  StatsLCLogo, 
-  MusicPlatformBadge, 
   SmartImage, 
   FriendsMonthlyHighlights,
   StatsAlike,
@@ -43,6 +34,15 @@ import { HomeInsights } from '../components/home/HomeInsights';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const pipelineStreamLines = [
+  { left: '16.6%', duration: 2.2, delay: 0 },
+  { left: '33.2%', duration: 3.1, delay: 0.35 },
+  { left: '49.8%', duration: 2.6, delay: 0.7 },
+  { left: '66.4%', duration: 3.4, delay: 0.2 },
+  { left: '83%', duration: 2.9, delay: 0.95 },
+  { left: '91.5%', duration: 3.7, delay: 0.55 },
+];
 
 export default function HomeScreen() {
   const { 
@@ -77,6 +77,7 @@ export default function HomeScreen() {
   const [refreshProgress, setRefreshProgress] = useState(100);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
+  const toastIdRef = useRef(0);
 
   const allMembers = groupStats?.members || [];
   const members = allMembers.filter(m => !hiddenUsers.includes(m.id));
@@ -110,7 +111,7 @@ export default function HomeScreen() {
   }, [featuredUserId]);
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
-    const id = Math.random().toString(36).substring(2, 9);
+    const id = `toast-${Date.now()}-${toastIdRef.current++}`;
     const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setToasts(prev => [...prev, { id, title, message, type, timestamp }]);
     setTimeout(() => {
@@ -127,6 +128,37 @@ export default function HomeScreen() {
       showToast('Filtro de Ruído', 'Não foi possível completar a sincronização live.', 'error');
     }
   };
+
+  useEffect(() => {
+    if (!isRefreshing) {
+      setRefreshStepText('Status: Ciclo Sincronizado');
+      setRefreshProgress(100);
+      setProcessedItems(0);
+      return;
+    }
+
+    const steps = [
+      { text: 'Validando cache local', progress: 18, items: 2 },
+      { text: 'Consultando grupo', progress: 42, items: 8 },
+      { text: 'Atualizando destaques', progress: 68, items: 18 },
+      { text: 'Persistindo snapshot', progress: 88, items: 26 },
+      { text: 'Sincronia concluindo', progress: 96, items: 32 },
+    ];
+    let index = 0;
+
+    setRefreshStepText(steps[0].text);
+    setRefreshProgress(steps[0].progress);
+    setProcessedItems(steps[0].items);
+
+    const timer = window.setInterval(() => {
+      index = Math.min(index + 1, steps.length - 1);
+      setRefreshStepText(steps[index].text);
+      setRefreshProgress(steps[index].progress);
+      setProcessedItems(steps[index].items);
+    }, 700);
+
+    return () => window.clearInterval(timer);
+  }, [isRefreshing]);
   
   useEffect(() => {
     // Busca inicial se não houver dados no store
@@ -387,19 +419,19 @@ export default function HomeScreen() {
           
           {/* Vertical Stream Lines */}
           <div className="absolute inset-x-0 top-0 bottom-0 overflow-hidden pointer-events-none">
-            {[...Array(6)].map((_, i) => (
+            {pipelineStreamLines.map((line, i) => (
               <motion.div
                 key={i}
                 className="absolute w-[1px] bg-gradient-to-b from-transparent via-orange-500/20 to-transparent"
-                style={{ left: `${(i + 1) * 16.6}%`, height: '100%' }}
+                style={{ left: line.left, height: '100%' }}
                 animate={{ 
                   opacity: [0, 1, 0],
                   top: ['-50%', '100%']
                 }}
                 transition={{ 
-                  duration: 2 + Math.random() * 2, 
+                  duration: line.duration,
                   repeat: Infinity, 
-                  delay: Math.random() * 2,
+                  delay: line.delay,
                   ease: "linear"
                 }}
               />
@@ -503,7 +535,7 @@ export default function HomeScreen() {
                      <div className="grid grid-cols-2 gap-2.5 w-full">
                         <div className="flex flex-col gap-1 px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/5">
                            <span className="text-[6px] font-bold text-white/30 uppercase tracking-[0.2em] leading-none">Latência de Sync</span>
-                           <span className="text-[10px] font-black text-orange-500/70 font-mono tracking-widest">{20 + Math.floor(Math.random() * 15)}ms</span>
+                           <span className="text-[10px] font-black text-orange-500/70 font-mono tracking-widest">{12 + (processedItems % 9)}ms</span>
                         </div>
                         <div className="flex flex-col gap-1 px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/5 items-end text-right">
                            <span className="text-[6px] font-bold text-white/30 uppercase tracking-[0.2em] leading-none">Estabilidade</span>
@@ -577,9 +609,9 @@ export default function HomeScreen() {
       <header 
         style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
         className={cn(
-          "sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 mb-4 border-b transition-all duration-300 backdrop-blur-md",
+          "fixed top-0 left-0 right-0 z-[80] flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 border-b transition-all duration-300 backdrop-blur-md will-change-transform",
           isHeaderScrolled 
-            ? "translate-y-0 opacity-100 bg-[#050505]/80 border-white/10" 
+            ? "translate-y-0 opacity-100 bg-[#050505]/85 border-white/10 pointer-events-auto shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
             : "-translate-y-full opacity-0 pointer-events-none border-transparent bg-transparent"
         )}
       >
@@ -861,7 +893,7 @@ export default function HomeScreen() {
                         initial={{ opacity: 0, scale: 0.95, y: -20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                        className="absolute top-[20px] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[101] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
+                        className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
                       >
                         <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
                         <div className="flex flex-col gap-1.5 mt-1 max-h-[300px] overflow-y-auto custom-scrollbar">
@@ -996,6 +1028,12 @@ export default function HomeScreen() {
         </motion.div>
       )}
 
+      {!groupStats && isLoading && (
+        <div className="px-4 sm:px-6 lg:px-8">
+          <LiveGroupOverviewSkeleton />
+        </div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1078,70 +1116,6 @@ export default function HomeScreen() {
             </button>
           )}
       </div>
-
-      {/* Discreet Friends Footer Row (Sync Footer) */}
-      <div className="mt-8 mb-4 px-4">
-        <DiscreetFriendsRow 
-          friends={allMembers}
-          onTrackClick={setSelectedTrack}
-          onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
-        />
-      </div>
-
-      <p className="mt-4 text-center text-[9px] text-white/40 lowercase tracking-[0.4em] font-mundial font-semibold mb-12">
-        stats.lc • Leo's Circle Exclusive v1.0
-      </p>
-
-      {/* Floating Status Ticker for Background Sync */}
-      <AnimatePresence>
-        {isRefreshing && (
-          <motion.div
-            initial={{ y: 100, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90vw] max-w-sm"
-          >
-             <div className="glass border border-orange-500/20 px-6 py-2.5 rounded-full shadow-[0_-20px_40px_rgba(0,0,0,0.4)] flex items-center justify-between gap-4 overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 via-transparent to-orange-500/5 animate-pulse" />
-                
-                <div className="flex items-center gap-3 relative z-10 shrink-0">
-                   <div className="flex items-center gap-1">
-                      <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-                        <RefreshCcw className="h-3 w-3 text-orange-500" />
-                      </motion.div>
-                      <span className="text-[7px] font-black text-orange-500 uppercase tracking-widest">LIVE DATA FEED</span>
-                   </div>
-                </div>
-
-                <div className="flex-1 overflow-hidden relative h-4">
-                  <motion.div 
-                    initial={{ x: '100%' }}
-                    animate={{ x: '-150%' }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-                    className="absolute whitespace-nowrap flex items-center gap-8"
-                  >
-                    <span className="text-[8px] font-mono font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                       <span className="h-1 w-1 rounded-full bg-green-500" />
-                       PACKET_{processedItems}_RECEIVED :: SUCCESS
-                    </span>
-                    <span className="text-[8px] font-mono font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                       <span className="h-1 w-1 rounded-full bg-orange-500" />
-                       PIPELINE_HANDSHAKE_ACTIVE :: LATENCY_12MS
-                    </span>
-                    <span className="text-[8px] font-mono font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-                       <span className="h-1 w-1 rounded-full bg-blue-500" />
-                       METADATA_INJECTED :: CIRCLE_V4
-                    </span>
-                  </motion.div>
-                </div>
-
-                <div className="shrink-0 relative z-10 pl-2">
-                   <span className="text-[10px] font-black text-orange-400 font-mono">{refreshProgress}%</span>
-                </div>
-             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Toast Notification Container */}
       <div className="fixed bottom-24 right-4 z-[200] flex flex-col gap-3 pointer-events-none w-[calc(100%-32px)] sm:w-80">

@@ -181,7 +181,6 @@ export const ScrollingText = ({ text, className, speed = 30 }: { text: string; c
 export const SectionHeader = ({ title, icon: Icon, action }: { title: string, icon?: any, action?: React.ReactNode }) => (
   <div className="flex items-center justify-between mb-4 mt-6 px-1">
     <div className="flex items-center gap-2.5">
-      <div className="h-4 w-1 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
       {Icon && (
         <div className="opacity-70 group-hover:opacity-100 transition-opacity">
           {typeof Icon === 'function' ? <Icon className="h-3 w-3 text-white" /> : Icon}

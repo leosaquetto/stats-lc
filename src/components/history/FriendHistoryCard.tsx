@@ -1,7 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Loader2 } from 'lucide-react';
-import { SmartImage } from '../shared/CommonUI';
+import { ShimmerOverlay, Skeleton, SmartImage } from '../shared/CommonUI';
 import { cn } from '../../lib/utils';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
@@ -269,12 +268,25 @@ export const FriendHistoryCard = memo(({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className="flex flex-col items-center justify-center py-10 gap-2.5"
+                    className="relative flex flex-col py-2 gap-2 overflow-hidden"
                   >
-                    <Loader2 className="h-5 w-5 text-orange-500 animate-spin opacity-80" />
-                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] animate-pulse">
-                      Carregando canções...
-                    </span>
+                    <ShimmerOverlay duration={2.6} />
+                    {[0, 1, 2].map((row) => (
+                      <motion.div
+                        key={row}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.35, delay: row * 0.05, ease: "easeOut" }}
+                        className="flex items-center gap-3 p-2 rounded-xl"
+                      >
+                        <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                        <div className="flex flex-col gap-2 flex-1 min-w-0">
+                          <Skeleton className="h-2.5 w-32 rounded-full" />
+                          <Skeleton className="h-2 w-24 rounded-full" />
+                        </div>
+                        <Skeleton className="h-2 w-10 rounded-full shrink-0" />
+                      </motion.div>
+                    ))}
                   </motion.div>
                 ) : historyList.length === 0 ? (
                   <div className="text-center py-8">

@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { UserStats, TopItem } from '../../types/stats';
-import { SmartImage, SectionHeader } from '../shared/CommonUI';
+import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Music, Disc, Mic2, ChevronDown, ChevronUp } from 'lucide-react';
@@ -22,6 +22,7 @@ export const FriendsMonthlyHighlights = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
   const members = groupStats?.members || [];
+  const isWaitingForGroup = !groupStats;
   const friends = members.filter(m => m.id !== featuredUserId && !hiddenUsers.includes(m.id));
 
   const sortedFriends = [...friends].sort((a, b) => {
@@ -29,6 +30,40 @@ export const FriendsMonthlyHighlights = () => {
     const hasB = b.topItems?.tracks?.[0] || b.topItems?.artists?.[0] || b.topItems?.albums?.[0] ? 1 : 0;
     return hasB - hasA;
   }).filter(f => f.topItems?.tracks?.[0] || f.topItems?.artists?.[0] || f.topItems?.albums?.[0]);
+
+  if (isWaitingForGroup) {
+    return (
+      <div className="flex flex-col gap-3 mb-3 mt-1">
+        <SectionHeader title="Destaques do Mês" />
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="glass-card p-4 sm:p-5 border-white/5 bg-white/[0.01] relative overflow-hidden"
+        >
+          <ShimmerOverlay duration={2.8} />
+          <div className="flex flex-col divide-y divide-white/5 relative z-10">
+            {[0, 1, 2, 3].map((row) => (
+              <div key={row} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+                  <div className="flex flex-col gap-2 min-w-0 flex-1">
+                    <Skeleton className="h-3 w-28 rounded-full" />
+                    <Skeleton className="h-2.5 w-20 rounded-full" />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (sortedFriends.length === 0) return null;
 

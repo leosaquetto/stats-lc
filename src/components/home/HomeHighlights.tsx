@@ -13,9 +13,11 @@ import {
   AnimatedNumber, 
   StatsLCLogo, 
   SmartImage, 
-  SectionHeader 
+  SectionHeader,
+  ShimmerOverlay,
+  Skeleton
 } from '../shared/CommonUI';
-import { Headphones, Flame, ArrowRight, BarChart3 } from 'lucide-react';
+import { Headphones, Flame, ArrowRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router-dom';
@@ -102,6 +104,35 @@ export const LiveGroupOverview = ({ users, lastUpdate }: { users: UserStats[], l
     </motion.div>
   );
 };
+
+export const LiveGroupOverviewSkeleton = () => (
+  <motion.div
+    initial={{ opacity: 0, scale: 0.97, y: 12 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+    className="glass-card overflow-hidden rounded-[40px] p-6 mb-6 premium-gradient border-white/5 shadow-2xl flex flex-col gap-6 relative"
+  >
+    <ShimmerOverlay duration={2.8} />
+    <div className="flex justify-between items-start gap-4 relative z-10">
+      <div className="flex flex-col gap-5 flex-1">
+        <Skeleton className="h-3 w-36 rounded-full" />
+        <div className="flex items-end gap-3">
+          <Skeleton className="h-20 w-32 rounded-[24px]" />
+          <div className="flex flex-col gap-2 mb-2">
+            <Skeleton className="h-3 w-20 rounded-full" />
+            <Skeleton className="h-3 w-24 rounded-full" />
+          </div>
+        </div>
+      </div>
+      <Skeleton className="h-12 w-12 rounded-2xl" />
+    </div>
+    <div className="flex -space-x-3 relative z-10">
+      {[0, 1, 2, 3, 4].map((item) => (
+        <Skeleton key={item} className="h-12 w-12 rounded-full ring-4 ring-[#0a0a0a]" />
+      ))}
+    </div>
+  </motion.div>
+);
 
 export const MonthlyGroupLeaderboard = ({ users, type = 'month' }: { users: UserStats[], type?: 'today' | 'week' | 'month' | 'year' | 'lifetime' }) => {
   const isYear = type === 'year';
@@ -334,20 +365,40 @@ export const HomeHighlights = ({ userId, onItemClick }: { userId: string, onItem
     'lifetime': 'Tudo'
   };
 
+  const renderHighlightsSkeleton = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col gap-3 my-2 relative"
+    >
+      <SectionHeader title="Seus Destaques" icon={<Flame className="h-3.5 w-3.5 text-orange-500" />} />
+      <Skeleton className="h-8 w-full rounded-lg" />
+      {['artistas', 'faixas', 'álbuns'].map((label, sectionIndex) => (
+        <div key={label} className="flex flex-col gap-2">
+          <Skeleton className="h-2.5 w-24 rounded-full" />
+          <div className="flex gap-2 overflow-hidden -mx-4 px-4">
+            {[0, 1, 2, 3, 4, 5, 6].map((item) => (
+              <motion.div
+                key={`${label}-${item}`}
+                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: sectionIndex * 0.04 + item * 0.02, ease: "easeOut" }}
+                className="flex flex-col items-center gap-1 shrink-0 w-[48px]"
+              >
+                <Skeleton className={cn("h-[48px] w-[48px]", label === 'artistas' ? "rounded-full" : "rounded-lg")} />
+                <Skeleton className="h-2 w-10 rounded-full" />
+                <Skeleton className="h-2 w-8 rounded-full" />
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </motion.div>
+  );
+
   if (loading && !tops) {
-    return (
-      <div className="h-48 flex flex-col items-center justify-center gap-4 bg-white/[0.02] rounded-[32px] border border-white/5 border-dashed">
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          <Flame className="h-8 w-8 text-orange-500/50" />
-        </motion.div>
-        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 animate-pulse">
-          Sincronizando Destaques...
-        </span>
-      </div>
-    );
+    return renderHighlightsSkeleton();
   }
   
   if (!loading && (!tops || (!tops.tracks.length && !tops.artists.length && !tops.albums.length))) {
@@ -369,10 +420,22 @@ export const HomeHighlights = ({ userId, onItemClick }: { userId: string, onItem
       className="flex flex-col gap-3 my-2"
       key={`highlights-${userId}-${period}`}
     >
-      <SectionHeader 
-        title="Seus Destaques" 
-        icon={<Flame className="h-3.5 w-3.5 text-orange-500" />} 
-      />
+      <div className="relative">
+        <SectionHeader
+          title="Seus Destaques"
+          icon={<Flame className="h-3.5 w-3.5 text-orange-500" />}
+          action={loading ? (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+              <motion.span
+                className="h-1.5 w-1.5 rounded-full bg-orange-500"
+                animate={{ scale: [1, 1.6, 1], opacity: [0.6, 1, 0.6] }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              />
+              <span className="text-[7px] font-black uppercase tracking-widest text-orange-400">Atualizando</span>
+            </div>
+          ) : null}
+        />
+      </div>
       
       <div className="flex gap-1 bg-white/5 p-0.5 rounded-lg glass border border-white/5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-0.5">
         {(['today', 'week', '7days', 'month', 'year', 'lifetime'] as const).map(p => (

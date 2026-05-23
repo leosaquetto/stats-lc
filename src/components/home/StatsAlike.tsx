@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { UserStats, TopItem } from '../../types/stats';
-import { SmartImage, SectionHeader } from '../shared/CommonUI';
+import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -38,11 +38,21 @@ export const StatsAlike = React.memo(() => {
 
   const members = groupStats?.members || [];
   const featuredUser = members.find(m => m.id === featuredUserId);
+  const topItemsSignature = useMemo(() => {
+    return members.map((member) => {
+      const tops = member.topItems;
+      const ids = [
+        ...(tops?.tracks || []).slice(0, 12).map((item: any) => item?.id || item?.track?.id || item?.name),
+        ...(tops?.artists || []).slice(0, 12).map((item: any) => item?.id || item?.artist?.id || item?.name),
+        ...(tops?.albums || []).slice(0, 12).map((item: any) => item?.id || item?.album?.id || item?.name),
+      ];
+      return `${member.id}:${ids.join(',')}`;
+    }).join('|');
+  }, [members]);
 
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];
 
-    const pool: AlikeConnection[] = [];
     const friends = members.filter(m => m.id !== featuredUserId);
 
     // Helper to find match for a specific type
@@ -62,8 +72,7 @@ export const StatsAlike = React.memo(() => {
       const userItems = (featuredUser.topItems?.[`${type}s` as keyof typeof featuredUser.topItems] as TopItem[] || []).map(normalizeItem);
       
       const found: AlikeConnection[] = [];
-      
-      const searchDepth = 50;
+      const searchDepth = 36;
 
       for (let i = 0; i < searchDepth && i < userItems.length; i++) {
         const topItem = userItems[i];
@@ -198,7 +207,7 @@ export const StatsAlike = React.memo(() => {
     }
 
     return selection;
-  }, [featuredUser, members, featuredUserId]);
+  }, [featuredUserId, topItemsSignature]);
 
   useEffect(() => {
     if (!isAutoRotating || alikeConnections.length < 2) return;
@@ -207,6 +216,34 @@ export const StatsAlike = React.memo(() => {
     }, 5000);
     return () => clearInterval(timer);
   }, [isAutoRotating, alikeConnections.length]);
+
+  if (!groupStats || !featuredUser) {
+    return (
+      <div className="flex flex-col gap-3 mb-4 mt-1">
+        <SectionHeader
+          title="Stats Alike"
+          icon={<HeartHandshake className="h-4 w-4 text-orange-500" />}
+          action={<Skeleton className="h-6 w-24 rounded-full" />}
+        />
+        <motion.div
+          initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="relative h-[240px] sm:h-[300px] w-full flex items-center justify-center overflow-visible"
+        >
+          <div className="absolute h-56 w-56 rounded-full border border-white/[0.04]" />
+          <div className="relative glass-card p-6 rounded-[32px] border-white/10 shadow-2xl overflow-hidden">
+            <ShimmerOverlay duration={2.8} />
+            <div className="flex items-center gap-3 relative z-10">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <Skeleton className="h-[72px] w-[72px] rounded-2xl" />
+              <Skeleton className="h-11 w-11 rounded-full" />
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (alikeConnections.length === 0) return null;
 
@@ -408,7 +445,7 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Central Item Image */}
-          <div className="relative h-18 w-18 flex-shrink-0 group">
+          <div className="relative h-[72px] w-[72px] flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               className={cn(
@@ -483,4 +520,3 @@ const AlikeOrbitalItem = ({
     </div>
   );
 };
-
