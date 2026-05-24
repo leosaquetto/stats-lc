@@ -8,6 +8,8 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, ArrowDown, Sparkles, Loader2
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
+import { UserSelectorModal } from '../components/home/UserSelectorModal';
+import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { coreUtils } from '../services/statsCore';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
@@ -72,6 +74,8 @@ export default function HomeScreen() {
   const [refreshProgress, setRefreshProgress] = useState(100);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(false);
+  const [showInitialModal, setShowInitialModal] = useState(false);
   const toastIdRef = useRef(0);
 
   const allMembers = groupStats?.members || [];
@@ -189,8 +193,12 @@ export default function HomeScreen() {
   }, [groupStats, isLoading, fetchGroup]);
 
   useEffect(() => {
-    if (!featuredUserId && members.length > 0) {
-      setFeaturedUserId(members[0].id);
+    if (!featuredUserId && members.length > 0 && groupStats && !isLoading) {
+      // Mostra o modal inicial ao invés de selecionar automaticamente
+      setShowInitialModal(true);
+    } else if (featuredUserId) {
+      // Fecha o modal quando um usuário é selecionado
+      setShowInitialModal(false);
     }
 
     if (featuredUserId) {
@@ -200,7 +208,18 @@ export default function HomeScreen() {
       // 2. Background Warm-up for the next friend in carousel
       prefetchNextFriend(featuredUserId);
     }
-  }, [featuredUserId, members, setFeaturedUserId, prefetchUserTops, prefetchNextFriend]);
+  }, [featuredUserId, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend]);
+
+  // Mark app as ready when we have data and a primary user
+  useEffect(() => {
+    if (!isLoading && primaryUser && groupStats) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => setIsAppReady(true), 300);
+      return () => clearTimeout(timer);
+    } else {
+      setIsAppReady(false);
+    }
+  }, [isLoading, primaryUser, groupStats]);
 
   const [swipeDirection, setSwipeDirection] = useState<number>(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -392,6 +411,24 @@ export default function HomeScreen() {
       {createPortal(
         <>
           <AnimatePresence>
+            {/* Modal inicial - primeira vez */}
+            <UserSelectorModal
+              isOpen={showInitialModal}
+              members={members}
+              featuredUserId={featuredUserId || ''}
+              onSelectUser={(userId) => {
+                setFeaturedUserId(userId);
+                setShowInitialModal(false);
+              }}
+              onClose={() => {
+                // Seleciona o primeiro usuário se fechar sem escolher
+                if (!featuredUserId && members.length > 0) {
+                  setFeaturedUserId(members[0].id);
+                }
+                setShowInitialModal(false);
+              }}
+            />
+
             <CircleActivityModal
               isOpen={showCircleActivity}
               onClose={() => setShowCircleActivity(false)}
@@ -826,7 +863,7 @@ export default function HomeScreen() {
 
       {/* Primary Highlight: Dynamic User */}
       <AnimatePresence mode="wait">
-        {(isLoading || !primaryUser) && !error ? (
+        {!isAppReady && !error ? (
           <motion.div
             key="loading-splash"
             initial={{ opacity: 0 }}
