@@ -255,14 +255,6 @@ export const VinylRecord = ({
               />
             )}
           </AnimatePresence>
-
-          {/* Sombra interna — profundidade no miolo */}
-          <div
-            className="absolute inset-0 rounded-full pointer-events-none z-30"
-            style={{
-              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
-            }}
-          />
         </div>
 
         {/* Partículas de poeira — só idle */}
@@ -330,14 +322,18 @@ export const VinylRecord = ({
         >
         {/* Corpo do braço */}
         <div
-          className="absolute rounded-full"
+          className="absolute rounded-full transition-all duration-700"
           style={{
-            background: 'linear-gradient(90deg, #27272a 0%, #71717a 25%, #e4e4e7 55%, #a1a1aa 75%, #52525b 100%)',
+            background: isPlaying
+              ? 'linear-gradient(90deg, #ea580c 0%, #f97316 25%, #fb923c 55%, #fdba74 75%, #fed7aa 100%)'
+              : 'linear-gradient(90deg, #27272a 0%, #71717a 25%, #e4e4e7 55%, #a1a1aa 75%, #52525b 100%)',
             height: '30%',
             top:    '35%',
             left:   '2%',
             right:  '12%',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.15)',
+            boxShadow: isPlaying
+              ? '0 1px 3px rgba(249,115,22,0.7), inset 0 1px 0 rgba(255,255,255,0.15), 0 0 10px rgba(249,115,22,0.4)'
+              : '0 1px 3px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.15)',
           }}
         />
         {/* Pivô circular */}

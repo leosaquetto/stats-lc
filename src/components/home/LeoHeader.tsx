@@ -610,8 +610,13 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     {user.name}
                   </h2>
 
-                  {/* Streams hoje — número animado */}
-                  <div className="flex items-center gap-1.5">
+                  {/* Streams hoje — badge com glass/blur */}
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-xl border transition-all duration-500",
+                    isActuallyLive
+                      ? "bg-white/[0.08] border-white/20"
+                      : "bg-white/[0.03] border-white/10"
+                  )}>
                     <TrendingUp className={cn(
                       "h-2.5 w-2.5 transition-colors duration-500",
                       isActuallyLive ? "text-orange-400" : "text-white/30"

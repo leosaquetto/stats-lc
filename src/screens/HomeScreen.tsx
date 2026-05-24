@@ -8,6 +8,7 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, ArrowDown, Sparkles, Loader2
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
+import { ReplaySection } from '../components/home/ReplaySection';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { coreUtils } from '../services/statsCore';
@@ -16,7 +17,6 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 // Novos componentes modulares
 import {
   LeoHeader,
-  HomeHighlights,
   LiveGroupOverview,
   LiveGroupOverviewSkeleton,
   FriendHistoryCard,
@@ -1022,10 +1022,15 @@ export default function HomeScreen() {
                   onViewAll={() => setShowCircleActivity(true)}
                 />
 
-                <HomeHighlights userId={primaryUser.id} onItemClick={(item, type) => {
-                  if (type === 'album') setSelectedAlbum(item);
-                  else setSelectedTrack(item); 
-                }} />
+                <ReplaySection
+                  topArtists={[]}
+                  topTracks={[]}
+                  topAlbums={[]}
+                  totalSongsCount={0}
+                  onOpenArtistsModal={() => {}}
+                  onOpenSongsModal={() => {}}
+                  onOpenAlbumsModal={() => {}}
+                />
               </div>
             </motion.div>
           </div>
