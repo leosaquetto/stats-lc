@@ -59,7 +59,7 @@ export const VinylRecord = ({
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.4), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.3), [safeDominantColor]);
 
-  const tonearmRotate = isPlaying ? 18 : -38;
+  const tonearmRotate = isPlaying ? -45 : 20;
   const tonearmY      = isPlaying ? 0  : -6;
 
   return (
@@ -121,12 +121,12 @@ export const VinylRecord = ({
         animate={
           isPlaying && !prefersReducedMotion
             ? { rotate: 360, opacity: 1, scale: 1 }
-            : { rotate: [-1.5, 1.5, -1.5], opacity: [0.75, 0.88, 0.75], scale: [0.995, 1.005, 0.995] }
+            : { rotate: [-3, 3, -3], opacity: [0.65, 0.82, 0.65], scale: [0.99, 1.01, 0.99] }
         }
         transition={
           isPlaying && !prefersReducedMotion
-            ? { duration: 3.5, repeat: Infinity, ease: 'linear' }
-            : { duration: 16, repeat: Infinity, ease: 'easeInOut' }
+            ? { duration: 3, repeat: Infinity, ease: 'linear' }
+            : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
         }
       >
         {/* Sulcos realistas + grain */}
@@ -174,13 +174,14 @@ export const VinylRecord = ({
             width: '9%',
             height: '9%',
             background: 'radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 100%)',
+            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 8px rgba(0,0,0,0.7)',
           }}
         />
 
         {/* Glow pulsante atrás da capa — só playing */}
         {isPlaying && (
           <motion.div
-            className="absolute inset-[24%] rounded-full pointer-events-none"
+            className="absolute inset-[22%] rounded-full pointer-events-none"
             style={{
               background: withAlpha(safeDominantColor, 0.5),
               filter: 'blur(12px)',
@@ -255,6 +256,13 @@ export const VinylRecord = ({
             )}
           </AnimatePresence>
 
+          {/* Sombra interna — profundidade no miolo */}
+          <div
+            className="absolute inset-0 rounded-full pointer-events-none z-30"
+            style={{
+              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
+            }}
+          />
         </div>
 
         {/* Partículas de poeira — só idle */}
