@@ -826,7 +826,7 @@ export default function HomeScreen() {
 
       {/* Primary Highlight: Dynamic User */}
       <AnimatePresence mode="wait">
-        {isLoading && !primaryUser ? (
+        {(isLoading || !primaryUser) && !error ? (
           <div className="flex flex-col items-center justify-center py-24 px-6 gap-6 min-h-[60vh] text-center">
             <motion.div
               animate={{ rotate: 360 }}
