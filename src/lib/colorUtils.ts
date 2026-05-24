@@ -12,6 +12,10 @@ type ColorThiefApi = {
 
 const colorThiefApi = ColorThiefModule as unknown as ColorThiefApi;
 
+// Cache para cores dominantes extraídas
+const colorCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 100;
+
 /**
  * Normalize color input to #rrggbb format
  */
@@ -85,10 +89,45 @@ export function withAlpha(color: string, alpha: number): string {
 }
 
 /**
+ * Calculate perceived brightness of a color (0-255)
+ */
+export function getPerceivedBrightness(color: string): number {
+  const hex = normalizeColor(color).replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  // Weighted formula for perceived brightness
+  return (r * 299 + g * 587 + b * 114) / 1000;
+}
+
+/**
+ * Calculate color saturation (0-1)
+ */
+export function getSaturation(color: string): number {
+  const hex = normalizeColor(color).replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+
+  if (max === 0) return 0;
+  return delta / max;
+}
+
+/**
  * Get dominant color from image using ColorThief with canvas fallback
+ * Includes caching to avoid reprocessing the same images
  * @returns Promise<string> - Hex color (#rrggbb)
  */
 export function getDominantColor(imageSrc: string): Promise<string> {
+  // Check cache first
+  if (colorCache.has(imageSrc)) {
+    return Promise.resolve(colorCache.get(imageSrc)!);
+  }
+
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
@@ -100,16 +139,20 @@ export function getDominantColor(imageSrc: string): Promise<string> {
         const color = typeof colorThiefApi.getColorSync === 'function'
           ? colorThiefApi.getColorSync(img)
           : await colorThiefApi.getColor?.(img);
-        
+
         if (color) {
           // New versions return an object with .hex() and .array()
           if (typeof color.hex === 'function') {
-            resolve(color.hex());
+            const hexColor = color.hex();
+            cacheColor(imageSrc, hexColor);
+            resolve(hexColor);
             return;
           }
           // Fallback for older versions that might return [r, g, b]
           if (Array.isArray(color) && color.length >= 3) {
-            resolve(normalizeColor(color));
+            const hexColor = normalizeColor(color);
+            cacheColor(imageSrc, hexColor);
+            resolve(hexColor);
             return;
           }
         }
@@ -150,7 +193,9 @@ export function getDominantColor(imageSrc: string): Promise<string> {
           r = Math.floor(r / count);
           g = Math.floor(g / count);
           b = Math.floor(b / count);
-          resolve(normalizeColor([r, g, b]));
+          const hexColor = normalizeColor([r, g, b]);
+          cacheColor(imageSrc, hexColor);
+          resolve(hexColor);
         } else {
           resolve('#ea580c');
         }
@@ -163,4 +208,58 @@ export function getDominantColor(imageSrc: string): Promise<string> {
       resolve('#ea580c');
     };
   });
+}
+
+/**
+ * Cache a color with LRU eviction
+ */
+function cacheColor(imageSrc: string, color: string): void {
+  // LRU: se o cache está cheio, remove o mais antigo
+  if (colorCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = colorCache.keys().next().value;
+    colorCache.delete(firstKey);
+  }
+  colorCache.set(imageSrc, color);
+}
+
+/**
+ * Ensure color is visible against dark background by adjusting brightness/saturation
+ * @param color - Input color
+ * @param minBrightness - Minimum brightness (0-255)
+ * @param minSaturation - Minimum saturation (0-1)
+ */
+export function ensureVisibility(
+  color: string,
+  minBrightness: number = 100,
+  minSaturation: number = 0.3
+): string {
+  const brightness = getPerceivedBrightness(color);
+  const saturation = getSaturation(color);
+
+  let result = color;
+
+  // If too dark, brighten it
+  if (brightness < minBrightness) {
+    const brightenAmount = (minBrightness - brightness) / 255;
+    result = adjustBrightness(result, brightenAmount * 1.5);
+  }
+
+  // If too desaturated (grayish), boost saturation by mixing with a vibrant version
+  if (saturation < minSaturation) {
+    const hex = normalizeColor(result).replace('#', '');
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+
+    // Find the dominant channel and boost it
+    const max = Math.max(r, g, b);
+    const boostFactor = 1.4;
+    const newR = r === max ? Math.min(255, Math.round(r * boostFactor)) : r;
+    const newG = g === max ? Math.min(255, Math.round(g * boostFactor)) : g;
+    const newB = b === max ? Math.min(255, Math.round(b * boostFactor)) : b;
+
+    result = normalizeColor([newR, newG, newB]);
+  }
+
+  return result;
 }

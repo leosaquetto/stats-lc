@@ -148,7 +148,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-6 pb-32 px-4">
       <header className="px-1 flex justify-between items-start">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
@@ -598,14 +598,14 @@ export default function SettingsScreen() {
            </p>
            
            <div className="glass-card p-6 flex flex-col gap-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col justify-between gap-4">
                 <div className="flex flex-col gap-1">
                    <span className="text-[13px] font-bold text-white/90">Tempo do Intervalo</span>
                    <span className="text-[10px] text-white/30">Determina com precisão a cada quantos segundos os dados são requisitados.</span>
                 </div>
                 
                 {/* Manual Numeric input with visual styling */}
-                <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                <div className="flex items-center gap-2 self-start shrink-0">
                    <input 
                      type="number"
                      min={5}
@@ -716,7 +716,7 @@ export default function SettingsScreen() {
                        <span className="text-[13px] font-bold text-white/90">Duração do Fade-In</span>
                        <span className="text-[10px] text-white/30">Duração do efeito de esmaecimento ao carregar e expandir cards.</span>
                     </div>
-                    <div className="flex items-center gap-1.5 self-start sm:self-center shrink-0">
+                    <div className="flex items-center gap-1.5 self-start shrink-0">
                        <input 
                          type="number"
                          min="0.05"
@@ -766,7 +766,7 @@ export default function SettingsScreen() {
                        <span className="text-[13px] font-bold text-white/90">Atraso (Delay) do Cascade</span>
                        <span className="text-[10px] text-white/30">O delay multiplicador entre o surgimento sequencial de cada card.</span>
                     </div>
-                    <div className="flex items-center gap-1.5 self-start sm:self-center shrink-0">
+                    <div className="flex items-center gap-1.5 self-start shrink-0">
                        <input 
                          type="number"
                          min="0.0"
@@ -816,7 +816,7 @@ export default function SettingsScreen() {
                        <span className="text-[13px] font-bold text-white/90">Velocidade do Shimmer</span>
                        <span className="text-[10px] text-white/30">Duração do ciclo de varredura brilhante em imagens carregando.</span>
                     </div>
-                    <div className="flex items-center gap-1.5 self-start sm:self-center shrink-0">
+                    <div className="flex items-center gap-1.5 self-start shrink-0">
                        <input 
                          type="number"
                          min="0.5"
@@ -882,7 +882,7 @@ export default function SettingsScreen() {
         </div>
       </div>
 
-      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-3 max-w-sm w-[calc(100%-2rem)] md:w-96 pointer-events-none">
+      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-3 max-w-sm w-[calc(100%-2rem)] pointer-events-none">
         <AnimatePresence>
           {toasts.map(toast => (
             <motion.div

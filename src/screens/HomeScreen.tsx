@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
@@ -31,20 +31,21 @@ import {
 } from '../components/MusicUI';
 import { AlbumDetailModal } from '../components/modals/AlbumDetailModal';
 import { HomeInsights } from '../components/home/HomeInsights';
+import { ReplaySection } from '../components/home/ReplaySection';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 export default function HomeScreen() {
-  const { 
-    groupStats, 
-    isLoading, 
-    isRefreshing, 
+  const {
+    groupStats,
+    isLoading,
+    isRefreshing,
     isLiveFetching,
     isOffline,
-    error, 
-    fetchGroup, 
+    error,
+    fetchGroup,
     fetchGroupLive,
     prefetchUserTops,
     prefetchNextFriend,
@@ -130,16 +131,16 @@ export default function HomeScreen() {
     return () => window.removeEventListener('nowPlayingChanged', handleNowPlaying);
   }, [featuredUserId]);
 
-  const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const showToast = useCallback((title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = `toast-${Date.now()}-${toastIdRef.current++}`;
     const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setToasts(prev => [...prev, { id, title, message, type, timestamp }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4500);
-  };
+  }, []);
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     try {
       await fetchGroupLive();
       showToast('Sincronização Live', 'Status do grupo atualizado com sucesso.', 'success');
@@ -147,7 +148,7 @@ export default function HomeScreen() {
       console.error(err);
       showToast('Filtro de Ruído', 'Não foi possível completar a sincronização live.', 'error');
     }
-  };
+  }, [fetchGroupLive, showToast]);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -1015,6 +1016,43 @@ export default function HomeScreen() {
       >
         <StatsAlike />
       </motion.div>
+
+      {/* Replay Section */}
+      {primaryUser && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <ReplaySection
+            topArtists={primaryUser.topItems?.artists?.slice(0, 10).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              image: a.image,
+              streams: a.playedCount || 0
+            })) || []}
+            topTracks={primaryUser.topItems?.tracks?.slice(0, 12).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              artist: t.primaryArtistName || t.artists?.[0]?.name || 'Artista Desconhecido',
+              image: t.image,
+              streams: t.playedCount || 0
+            })) || []}
+            topAlbums={primaryUser.topItems?.albums?.slice(0, 10).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              artist: a.artist || 'Artista Desconhecido',
+              image: a.image,
+              streams: a.playedCount || 0
+            })) || []}
+            totalSongsCount={primaryUser.streamsToday || 0}
+            onOpenArtistsModal={() => console.log('Open artists modal')}
+            onOpenSongsModal={() => console.log('Open songs modal')}
+            onOpenAlbumsModal={() => console.log('Open albums modal')}
+          />
+        </motion.div>
+      )}
 
       {groupStats && (
         <motion.div

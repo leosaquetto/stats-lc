@@ -270,7 +270,7 @@ export default function RankingScreen() {
 
   if ((isGlobalLoading || isLocalLoading) && sortedUsers.length === 0) {
     return (
-      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-6 px-4">
         <header className="px-1">
           <Skeleton className="h-8 w-48 mb-2" />
           <Skeleton className="h-4 w-64" />
@@ -300,7 +300,7 @@ export default function RankingScreen() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-6 pb-32 px-4">
       <AnimatePresence>
         {selectedUser && (
           <UserDetailModal 
@@ -446,9 +446,9 @@ export default function RankingScreen() {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-red-500/10 via-orange-500/[0.08] to-amber-500/10 border border-orange-500/15 p-6 flex flex-col md:flex-row items-center justify-between gap-4 shadow-2xl"
+          className="relative overflow-hidden rounded-[32px] bg-gradient-to-r from-red-500/10 via-orange-500/[0.08] to-amber-500/10 border border-orange-500/15 p-6 flex flex-col items-center justify-between gap-4 shadow-2xl"
         >
-          <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
+          <div className="flex flex-col items-center gap-6 text-center">
             <div className="flex items-center -space-x-4">
               <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-orange-500 bg-black/40 shadow-xl p-0.5">
                 <SmartImage 

@@ -50,7 +50,7 @@ export const DailyActivityHeatmap: React.FC<DailyActivityHeatmapProps> = ({
 
       <div className="flex flex-col gap-4">
         {/* The Heatmap Grid */}
-        <div className="grid grid-cols-12 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-12 gap-1.5">
           {sortedData.map((item) => {
             const intensity = item.streams / maxStreams;
             const opacity = 0.05 + (intensity * 0.95);
@@ -91,7 +91,7 @@ export const DailyActivityHeatmap: React.FC<DailyActivityHeatmapProps> = ({
         </div>
 
         {/* Summary Insights */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
+        <div className="grid grid-cols-2 gap-3 mt-2">
           {timeRanges.map((range) => {
             const rangeData = sortedData.filter(d => d.hour >= range.range[0] && d.hour <= range.range[1]);
             const totalStreams = rangeData.reduce((acc, curr) => acc + curr.streams, 0);

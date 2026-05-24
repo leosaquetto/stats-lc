@@ -70,11 +70,15 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [isScrolled, setIsScrolled] = React.useState(false);
+  const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      const scrolled = window.scrollY > 50;
+      setIsScrolled(scrolled);
+      // Mostra footer apenas quando scrollar para baixo (sair da área do LeoHeader)
+      setShowSyncFooter(window.scrollY > 400);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
@@ -127,13 +131,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-[#050505] overflow-x-clip font-sans">
+    <div className="relative flex min-h-screen w-full max-w-[480px] mx-auto flex-col bg-[#050505] overflow-x-clip overflow-y-visible font-sans">
       {/* Scroll Fade Gradients removed to prevent overlaying headers */}
 
       {/* Offline Status */}
       <AnimatePresence>
         {isOffline && (
-          <motion.div 
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -166,28 +170,34 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2">
-        {/* Sync Info Footer */}
-        {lastUpdate && (
-          <motion.div
-            layout
-            onClick={() => {
-              if (!shouldShowExpanded) {
-                toggleSyncInfo();
-              }
-            }}
-            transition={{
-              layout: { type: "spring", stiffness: 300, damping: 30 },
-              opacity: { duration: 0.2 }
-            }}
-            className={clsx(
-              "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
-              shouldShowExpanded 
-                ? "bg-transparent border-none shadow-none h-10 gap-2 max-w-[95vw]" 
-                : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg " + 
-                  (activeMembersSorted.length > 0 ? "h-7 pl-2.5 pr-2 gap-1.5" : "h-7 w-7 justify-center")
-            )}
-            title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
-          >
+        {/* Sync Info Footer - aparece apenas quando scrollar */}
+        <AnimatePresence>
+          {showSyncFooter && lastUpdate && (
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 25,
+                mass: 0.8
+              }}
+              layout
+              onClick={() => {
+                if (!shouldShowExpanded) {
+                  toggleSyncInfo();
+                }
+              }}
+              className={clsx(
+                "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
+                shouldShowExpanded
+                  ? "bg-transparent border-none shadow-none h-10 gap-2 max-w-[95vw]"
+                  : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg " +
+                    (activeMembersSorted.length > 0 ? "h-7 pl-2.5 pr-2 gap-1.5" : "h-7 w-7 justify-center")
+              )}
+              title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
+            >
             {activeMembersSorted.length > 0 ? (
               <motion.div 
                 layout="position"
@@ -281,7 +291,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                               animate={{ opacity: 1, width: "auto", x: 0 }}
                               exit={{ opacity: 0, width: 0, x: -5 }}
                               transition={{ duration: 0.25 }}
-                              className="flex flex-col min-w-0 text-left max-w-[120px] sm:max-w-[160px] overflow-hidden"
+                              className="flex flex-col min-w-0 text-left max-w-[140px] overflow-hidden"
                             >
                               <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
                                 {uSongName}
@@ -347,15 +357,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     </motion.div>
                   )}
                 </AnimatePresence>
-                
+
                 {/* Scroll dot removed per user request */}
               </div>
             )}
           </motion.div>
-        )}
+          )}
+        </AnimatePresence>
 
-        <nav className="w-full px-3 sm:px-6 pb-8 pb-[env(safe-area-inset-bottom)] pointer-events-auto max-w-lg mx-auto">
-          <div className="glass-card premium-gradient flex h-[72px] items-center justify-around rounded-[32px] px-1 sm:px-2 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-white/15 relative overflow-hidden group">
+        {/* Navigation - sempre visível */}
+        <nav className="w-full max-w-[480px] px-3 pb-8 pb-[env(safe-area-inset-bottom)] pointer-events-auto mx-auto">
+          <div className="glass-card premium-gradient flex h-[72px] items-center justify-around rounded-[32px] px-1 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-white/15 relative overflow-hidden group">
             {/* Glossy Reflection Overlay */}
             <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
             
@@ -393,11 +405,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         strokeWidth={isActive ? 2.5 : 2}
                       />
                     </motion.div>
-                    
+
                     <span className={clsx(
-                      "text-[8px] sm:text-[9px] font-mundial font-bold uppercase tracking-tight sm:tracking-[0.1em] transition-all duration-300 mt-1.5",
-                      isActive ? "text-orange-500 opacity-100" : "text-white/40 opacity-70",
-                      item.label === 'Stats' && "tracking-tighter sm:tracking-tight" // reduce tracking specifically for long name
+                      "text-[8px] font-mundial font-bold uppercase tracking-tight transition-all duration-300 mt-1.5",
+                      isActive ? "text-orange-500 opacity-100" : "text-white/40 opacity-70"
                     )}>
                       {item.label}
                     </span>
@@ -416,7 +427,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </nav>
       </div>
-      
+
       {/* Background Atmosphere */}
       <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] h-[50%] w-[70%] rounded-full bg-blue-600/[0.07] blur-[120px] animate-pulse-slow" />

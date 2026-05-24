@@ -157,7 +157,7 @@ export default function AlikeScreen() {
   const affinityScore = friendAffinities.find(a => a.friend.id === selectedFriendId)?.affinity || 0;
 
   return (
-    <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 py-8 max-w-5xl mx-auto w-full">
+    <div className="flex flex-col gap-6 px-4 py-8 max-w-5xl mx-auto w-full">
       {/* Header */}
       <div className="flex flex-col items-center text-center gap-3">
         <motion.div 
@@ -180,7 +180,7 @@ export default function AlikeScreen() {
       {/* Amigos Mais Parecidos Ranking */}
       <div className="flex flex-col gap-4">
         <SectionHeader title="Ranking de Afinidade" icon={<Users className="h-4 w-4 text-orange-500" />} />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {friendAffinities.slice(0, 4).map((aff, index) => (
             <motion.button
               key={aff.friend.id}
@@ -220,7 +220,7 @@ export default function AlikeScreen() {
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col gap-6"
         >
-          <div className="glass-card rounded-[40px] p-6 lg:p-10 border-white/5 flex gap-8 items-center justify-center relative overflow-hidden">
+          <div className="glass-card rounded-[40px] p-6 border-white/5 flex gap-8 items-center justify-center relative overflow-hidden">
             {/* Background Glow */}
             <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-64 h-64 bg-orange-500/10 rounded-full blur-[100px] pointer-events-none" />
             <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
@@ -230,7 +230,7 @@ export default function AlikeScreen() {
                 src={coreUtils.getUserAvatar(featuredUserId, featuredUser.avatar)} 
                 fallback={featuredUser.name?.charAt(0)} 
                 rounded="full" 
-                className="h-20 w-20 sm:h-28 sm:w-28 border-4 border-white/10 shadow-2xl bg-black"
+                className="h-20 w-20 border-4 border-white/10 shadow-2xl bg-black"
               />
               <span className="text-sm font-bold text-white/90">{featuredUser.name}</span>
             </div>
@@ -249,13 +249,13 @@ export default function AlikeScreen() {
                 src={coreUtils.getUserAvatar(selectedFriend.id, selectedFriend.avatar)} 
                 fallback={selectedFriend.name?.charAt(0)} 
                 rounded="full" 
-                className="h-20 w-20 sm:h-28 sm:w-28 border-4 border-white/10 shadow-2xl bg-black"
+                className="h-20 w-20 border-4 border-white/10 shadow-2xl bg-black"
               />
               <span className="text-sm font-bold text-white/90">{selectedFriend.name}</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {/* Stats Comparison */}
             <div className="glass-card rounded-[32px] p-6 border-white/5 flex flex-col gap-6 w-full">
               <SectionHeader title="Comparativo (Hoje)" icon={<Clock className="h-4 w-4 text-orange-500" />} />

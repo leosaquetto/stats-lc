@@ -3,6 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Play, Music, Clock, Music2 } from 'lucide-react';
 import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
+import { BassPulseIcon } from '../shared/BassPulseIcon';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 
@@ -45,7 +46,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -59,7 +60,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-[#0a0a0a] rounded-t-[32px] sm:rounded-[32px] overflow-hidden border border-white/10 flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-lg bg-[#0a0a0a] rounded-t-[32px] overflow-hidden border border-white/10 flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-white/5 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-md z-20">
@@ -124,18 +125,12 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                       </div>
 
                       {/* Track Info */}
-                      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <div className="flex-1 min-w-0 flex flex-col gap-0.5 relative">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="text-[12px] font-black text-white group-hover:text-orange-400 transition-colors">{friend.name}</span>
-                          <div className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5">
-                            {trackSymbol}
-                            <span className="text-[7.5px] font-black text-white/40 uppercase tracking-wider">
-                              {isPlaying ? "Live" : coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
-                            </span>
-                          </div>
                         </div>
-                        
-                        <div 
+
+                        <div
                           className="flex flex-col min-w-0"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -151,8 +146,8 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                               </span>
                               <span className="text-[9px] font-medium text-white/30 truncate">
                                 {friend.nowPlaying.track.artists?.[0] ? (
-                                  typeof friend.nowPlaying.track.artists[0] === 'string' 
-                                    ? friend.nowPlaying.track.artists[0] 
+                                  typeof friend.nowPlaying.track.artists[0] === 'string'
+                                    ? friend.nowPlaying.track.artists[0]
                                     : (friend.nowPlaying.track.artists[0] as any).name
                                 ) : "Artista Desconhecido"}
                               </span>
@@ -166,6 +161,26 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                             </div>
                           )}
                         </div>
+
+                        {/* Badge Live - Posicionado no canto inferior direito */}
+                        {isPlaying && (
+                          <div className="absolute bottom-0 right-0 flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
+                            <BassPulseIcon />
+                            <span className="text-[7.5px] font-black text-orange-500 uppercase tracking-wider">
+                              Live
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Badge de tempo - quando não está live */}
+                        {!isPlaying && hasTrack && (
+                          <div className="absolute bottom-0 right-0 flex items-center gap-1.5 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5">
+                            <Clock className="h-2.5 w-2.5 text-white/30" />
+                            <span className="text-[7.5px] font-black text-white/40 uppercase tracking-wider">
+                              {coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="shrink-0 pl-2 opacity-40 group-hover:opacity-100 transition-opacity">
@@ -178,8 +193,9 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-6 bg-white/[0.02] border-t border-white/5">
+            <div className="p-6 bg-white/[0.02] border-t border-white/5 flex flex-col gap-2">
                <p className="text-[9px] font-black text-center text-white/20 uppercase tracking-[0.3em]">Círculo de Amigos • Atualizado em Tempo Real</p>
+               <p className="text-[8px] font-medium text-center text-white/15 uppercase tracking-[0.2em]">Powered by stats.fm</p>
             </div>
           </motion.div>
         </div>

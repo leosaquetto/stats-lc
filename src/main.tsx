@@ -20,8 +20,14 @@ if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
   });
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+const root = createRoot(document.getElementById('root')!);
+root.render(
+  <App />
 );
+
+// Sinaliza que o React renderizou e o splash pode ser removido
+setTimeout(() => {
+  if (window.__SPLASH_READY__ !== undefined) {
+    window.__SPLASH_READY__ = true;
+  }
+}, 100);

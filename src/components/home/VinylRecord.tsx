@@ -17,6 +17,7 @@ interface VinylRecordProps {
   progressMs?: number;
   durationMs?: number;
   onClick?: () => void;
+  hideTonearm?: boolean;
 }
 
 export const VinylRecord = ({
@@ -25,7 +26,8 @@ export const VinylRecord = ({
   isPlaying,
   progressMs,
   durationMs,
-  onClick
+  onClick,
+  hideTonearm = false
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const heartbeat = useStatsStore(state => state.heartbeat);
@@ -110,17 +112,21 @@ export const VinylRecord = ({
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
-          willChange: 'transform',
+          willChange: isPlaying ? 'transform' : 'auto',
+          filter: isPlaying ? 'brightness(1.3) saturate(1.2)' : 'none',
+          boxShadow: isPlaying
+            ? `0 0 30px ${withAlpha(safeDominantColor, 0.5)}, 0 0 60px ${withAlpha(safeDominantColor, 0.3)}`
+            : 'none'
         }}
         animate={
           isPlaying && !prefersReducedMotion
             ? { rotate: 360, opacity: 1, scale: 1 }
-            : { rotate: [-3, 3, -3], opacity: [0.65, 0.82, 0.65], scale: [0.99, 1.01, 0.99] }
+            : { rotate: [-1.5, 1.5, -1.5], opacity: [0.75, 0.88, 0.75], scale: [0.995, 1.005, 0.995] }
         }
         transition={
           isPlaying && !prefersReducedMotion
-            ? { duration: 3, repeat: Infinity, ease: 'linear' }
-            : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
+            ? { duration: 3.5, repeat: Infinity, ease: 'linear' }
+            : { duration: 16, repeat: Infinity, ease: 'easeInOut' }
         }
       >
         {/* Sulcos realistas + grain */}
@@ -168,7 +174,6 @@ export const VinylRecord = ({
             width: '9%',
             height: '9%',
             background: 'radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 100%)',
-            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 8px rgba(0,0,0,0.7)',
           }}
         />
 
@@ -250,13 +255,6 @@ export const VinylRecord = ({
             )}
           </AnimatePresence>
 
-          {/* Sombra interna — profundidade no miolo */}
-          <div
-            className="absolute inset-0 rounded-full pointer-events-none z-30"
-            style={{
-              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.4)',
-            }}
-          />
         </div>
 
         {/* Partículas de poeira — só idle */}
@@ -300,27 +298,28 @@ export const VinylRecord = ({
       </motion.div>
 
       {/* ── TONEARM ─────────────────────────────────────────────── */}
-      <motion.div
-        className="absolute z-40 pointer-events-none"
-        style={{
-          right:           '0%',
-          top:             '6%',
-          width:           '50%',
-          height:          '8%',
-          transformOrigin: '92% 50%',
-          willChange:      'transform',
-          filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
-          zIndex:          50,
-        }}
-        animate={{
-          rotate: tonearmRotate,
-          y:      tonearmY,
-        }}
-        transition={{
-          duration: 1.4,
-          ease: [0.16, 1, 0.3, 1],
-        }}
-      >
+      {!hideTonearm && (
+        <motion.div
+          className="absolute z-40 pointer-events-none"
+          style={{
+            right:           '0%',
+            top:             '6%',
+            width:           '50%',
+            height:          '8%',
+            transformOrigin: '92% 50%',
+            willChange:      'transform',
+            filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
+            zIndex:          50,
+          }}
+          animate={{
+            rotate: tonearmRotate,
+            y:      tonearmY,
+          }}
+          transition={{
+            duration: 1.4,
+            ease: [0.16, 1, 0.3, 1],
+          }}
+        >
         {/* Corpo do braço */}
         <div
           className="absolute rounded-full"
@@ -372,6 +371,7 @@ export const VinylRecord = ({
           }}
         />
       </motion.div>
+      )}
 
     </div>
   );

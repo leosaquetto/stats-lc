@@ -76,7 +76,7 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {history.map((item) => (
                 <motion.div 
                   key={item.id}

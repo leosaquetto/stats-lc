@@ -55,7 +55,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
              <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 whitespace-nowrap">Arena Group Live</span>
           </div>
           <div className="flex items-end gap-3 pt-6 pb-2">
-            <span className="text-7xl sm:text-8xl font-display font-black tracking-tighter leading-[0.6] text-white drop-shadow-2xl">
+            <span className="text-7xl font-display font-black tracking-tighter leading-[0.6] text-white drop-shadow-2xl">
               <AnimatedNumber value={totalStreams} />
             </span>
             <div className="flex flex-col shrink-0 mb-[4px]">

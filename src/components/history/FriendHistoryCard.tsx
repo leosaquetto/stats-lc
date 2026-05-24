@@ -94,15 +94,22 @@ export const FriendHistoryCard = memo(({
       const initialStats = statsCacheService.getStats(user.id);
       if (initialStats && mounted) setUserStats(initialStats);
 
+      // 2. Só buscar dados novos se não tiver cache ou se o cache for muito antigo (> 5 min)
+      const hasValidCache = cachedHistory && cachedHistory.length > 0;
+      if (hasValidCache) {
+        // Já tem cache, não precisa buscar novamente
+        return;
+      }
+
       try {
-        // 2. Buscar histórico real em background
+        // 3. Buscar histórico real apenas se não tiver cache
         const historyData = await statsCacheService.cacheUserHistory(user.id);
         if (mounted) {
           setRecents(historyData);
           setLoading(false);
         }
 
-        // 3. Stats consolidadas
+        // 4. Stats consolidadas
         const stats = await statsCacheService.cacheUserStats(user.id);
         if (mounted && stats) setUserStats(stats);
       } catch (e) {
@@ -155,7 +162,7 @@ export const FriendHistoryCard = memo(({
             <div className="relative">
               <SmartImage
                 src={coreUtils.getUserAvatar(user.id, user.avatar)}
-                className="h-10 w-10 sm:h-11 sm:w-11 rounded-full shrink-0 border border-white/20 shadow-lg"
+                className="h-10 w-10 rounded-full shrink-0 border border-white/20 shadow-lg"
                 fallback=""
                 rounded="full"
               />

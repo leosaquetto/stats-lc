@@ -22,9 +22,9 @@ function cn(...inputs: ClassValue[]) {
 export const FriendsCardSkeleton = () => (
   <div className="flex flex-col items-center gap-3 w-full min-w-0">
     <div className="h-2 w-12 bg-white/10 rounded-full mb-1 opacity-20" />
-    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-[22px] sm:rounded-[28px] glass border-white/5 relative overflow-hidden bg-white/[0.02]">
+    <div className="h-16 w-16 rounded-[22px] glass border-white/5 relative overflow-hidden bg-white/[0.02]">
        <ShimmerOverlay duration={3} />
-       <div className="absolute -bottom-1 -right-1 h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-white/5 border-2 border-[#050505] shadow-inner" />
+       <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-white/5 border-2 border-[#050505] shadow-inner" />
     </div>
     <div className="flex flex-col items-center w-full gap-1.5 mt-1 px-1 relative">
       <div className="flex flex-col items-center gap-1 w-full">
@@ -76,10 +76,10 @@ export const FriendsHorizontalCard = React.memo(({
 
       <div className="relative">
         <div className={cn(
-          "h-14 w-14 sm:h-20 sm:w-20 rounded-[20px] sm:rounded-[28px] p-[1.5px] transition-all duration-500 shadow-xl",
+          "h-14 w-14 rounded-[20px] p-[1.5px] transition-all duration-500 shadow-xl",
           isActuallyLive ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/10"
         )}>
-          <div className="h-full w-full rounded-[18px] sm:rounded-[26px] bg-[#050505] overflow-hidden relative">
+          <div className="h-full w-full rounded-[18px] bg-[#050505] overflow-hidden relative">
             <SmartImage 
               src={trackImage} 
               className={cn("h-full w-full grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
@@ -88,7 +88,7 @@ export const FriendsHorizontalCard = React.memo(({
           </div>
         </div>
         
-        <div className="absolute -bottom-1 -right-1 h-6 w-6 sm:h-7 sm:w-7 rounded-full border-2 border-[#050505] bg-black overflow-hidden shadow-2xl z-10 transition-transform group-hover:scale-110">
+        <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full border-2 border-[#050505] bg-black overflow-hidden shadow-2xl z-10 transition-transform group-hover:scale-110">
           <SmartImage src={userAvatar} className="h-full w-full" fallback="" rounded="full" />
         </div>
       </div>

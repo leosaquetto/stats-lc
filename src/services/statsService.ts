@@ -146,7 +146,7 @@ const normalizeGroupStats = (data: any): GroupStats => {
 /**
  * Utilitário para chamadas à nossa API Backend na Vercel
  */
-const API_RESPONSE_CACHE_TTL = 30 * 1000;
+const API_RESPONSE_CACHE_TTL = 60 * 1000; // Aumentado de 30s para 60s
 const apiResponseCache = new Map<string, { expiresAt: number; data: any }>();
 const apiRequestInFlight = new Map<string, Promise<any>>();
 

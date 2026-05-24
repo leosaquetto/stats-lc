@@ -229,7 +229,7 @@ export const StatsAlike = React.memo(() => {
           initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          className="relative h-[240px] sm:h-[300px] w-full flex items-center justify-center overflow-visible"
+          className="relative h-[240px] w-full flex items-center justify-center overflow-visible"
         >
           <div className="absolute h-56 w-56 rounded-full border border-white/[0.04]" />
           <div className="relative glass-card p-6 rounded-[32px] border-white/10 shadow-2xl overflow-hidden">
@@ -281,13 +281,13 @@ export const StatsAlike = React.memo(() => {
       />
 
       <div 
-        className="relative h-[240px] sm:h-[300px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
+        className="relative h-[240px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
       >
         {/* Orbital Background - Glass Stage */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 rounded-full border border-white/[0.03] bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 sm:w-80 sm:h-80 rounded-full border border-white/[0.01] pointer-events-none mb-4" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full border border-white/[0.03] bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full border border-white/[0.01] pointer-events-none mb-4" />
 
         <div className="relative w-full h-full max-w-lg mb-8">
           {alikeConnections.map((conn, idx) => {

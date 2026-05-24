@@ -15,7 +15,7 @@ export const snapshotService = {
   async captureElement(
     element: HTMLElement, 
     template: ShareTemplate = 'glass',
-    title: string = 'Stats Loop'
+    title: string = 'stats.lc'
   ): Promise<string | null> {
     try {
       // Small delay to ensure any animations settle
@@ -118,7 +118,7 @@ export const snapshotService = {
         await navigator.share({
           files: [file],
           title: title,
-          text: 'Confira minhas estatísticas no Stats Loop!',
+          text: 'Confira minhas estatísticas no stats.lc!',
         });
         return true;
       } else {

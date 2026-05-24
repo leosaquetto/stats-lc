@@ -1143,7 +1143,7 @@ export default function StatsScreen() {
 
   if (!user) {
     return (
-      <div className="flex flex-col gap-6 px-4 sm:px-6 lg:px-8 py-12">
+      <div className="flex flex-col gap-6 px-4 py-12">
         <Skeleton className="h-12 w-48" />
         <div className="flex gap-4">
            <Skeleton className="h-32 flex-1 rounded-[32px]" />
@@ -1155,7 +1155,7 @@ export default function StatsScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-6 pb-32 px-4">
       <header className="px-1 flex justify-between items-start pb-1">
         <div className="flex flex-col gap-1">
           <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Stats</h1>
@@ -1415,7 +1415,7 @@ export default function StatsScreen() {
                       <div className="absolute top-0 right-0 p-1">
                          <Star className="h-2 w-2 text-yellow-500/40" />
                       </div>
-                      <div className="relative h-14 w-14 sm:h-16 sm:w-16">
+                      <div className="relative h-14 w-14">
                         <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-200 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
                         <SmartImage 
                           src={itemData?.image || itemData?.album?.image || itemData?.artist?.image} 
@@ -1822,7 +1822,7 @@ export default function StatsScreen() {
                   <div className="h-2 w-16 bg-white/5 rounded-full" />
                 </div>
                 <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-12 gap-1.5 sm:gap-2">
+                  <div className="grid grid-cols-12 gap-1.5">
                     {Array.from({ length: 24 }).map((_, i) => (
                       <div key={i} className="aspect-square bg-white/5 rounded-lg border border-white/5" />
                     ))}

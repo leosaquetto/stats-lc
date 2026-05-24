@@ -541,7 +541,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Destaques do Confronto</span>
                    </div>
                    
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   <div className="grid grid-cols-1 gap-3">
                      {duelCategories.map((category) => {
                        const isWinnerA = category.valA > category.valB;
                        const isWinnerB = category.valB > category.valA;
@@ -609,7 +609,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                                  </span>
                                </div>
                                <span className={clsx(
-                                 "text-[14px] font-black font-mono tracking-tight text-right sm:text-left",
+                                 "text-[14px] font-black font-mono tracking-tight text-right",
                                  isWinnerB ? "text-amber-400 font-black drop-shadow-[0_0_8px_rgba(251,191,36,0.15)]" : "text-white/60"
                                )}>
                                  {category.formattedB}
@@ -822,7 +822,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
           {activeTab === 'artists' && (
             <div className="flex flex-col gap-5">
               {/* Lado a Lado Grid */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Column A */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-white/5">
@@ -1038,7 +1038,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
           {activeTab === 'tracks' && (
             <div className="flex flex-col gap-5">
               {/* Lado a Lado Grid */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Column A */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-white/5">
@@ -1253,7 +1253,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
           {activeTab === 'albums' && (
             <div className="flex flex-col gap-5">
               {/* Lado a Lado Grid */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 {/* Column A */}
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-1.5 px-1 pb-1 border-b border-white/5">

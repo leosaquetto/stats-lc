@@ -1,0 +1,61 @@
+feat: Add Replay feature with temporal filters and expanded views
+
+Implements a comprehensive Replay section inspired by Spotify Wrapped,
+allowing users to explore their music statistics across different time periods.
+
+## New Components
+- ReplaySection: Main component with period filters and three content sections
+- ReplayModals: Three modal views for expanded artist/track/album lists
+- BassPulseIcon: Animated bass pulse indicator
+- UserSelectorModal: Enhanced user selection with floating animations
+
+## Features
+### Period Filters
+- Today, Week (last 7 days / current week), Month, Year, All-time
+- Smart dropdowns for month (only past months) and year (2024-2026)
+- Dynamic text updates based on selected period
+
+### Content Sections
+1. Top Artists (10): Vertical cards with 40vh height, grain effect, rankings
+2. Top Tracks (12): Horizontal paginated columns, 4 tracks per page
+3. Top Albums (10): Square cards with album art and play counts
+
+### Modals
+- TopArtistsModal: Up to 20 artists with circular avatars
+- TopSongsModal: Up to 30 tracks with album art
+- TopAlbumsModal: Up to 15 albums in 2-column grid
+
+## Visual Improvements
+- Inline splash screen with stats.lc logo and loading bar
+- New brand icons: statslc_white.svg, statslc_black.svg
+- Updated favicons with transparent backgrounds
+- Glass morphism effects and smooth animations
+- Grain texture overlay on artist cards
+
+## Performance Optimizations
+- useCallback for handlers to prevent unnecessary re-renders
+- Lazy loading with whileInView (margin: -100px)
+- Memoized sorted lists and filtered data
+- Limited list sizes for optimal scroll performance
+
+## Technical Details
+- 787 lines across 2 main Replay components
+- 5 new files, 25 modified files
+- ~1,200 lines added, ~200 removed
+- No new dependencies required
+- Mobile-first responsive design
+- Accessibility: respects prefers-reduced-motion
+
+## Known Limitations
+- Share button is placeholder (not yet functional)
+- Track "⋯" button placeholder (platform links not implemented)
+- Period filters are UI-only (API integration pending)
+
+## Next Steps
+- Connect period filters to /api/top with time parameters
+- Implement share functionality with html-to-image
+- Add deep links to Spotify/Apple Music
+- Add loading states and skeleton loaders
+- Implement analytics tracking for filter usage
+
+Co-Authored-By: Claude Sonnet 4 (1M context) <noreply@anthropic.com>

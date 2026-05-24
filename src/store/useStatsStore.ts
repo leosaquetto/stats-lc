@@ -115,6 +115,7 @@ interface StatsState {
   prefetchNextFriend: (currentUserId: string) => void;
   heartbeat: number;
   startHeartbeat: () => void;
+  lastLiveFetchTime: number;
 
   // Push Notification settings
   pushNotificationsEnabled: boolean;
@@ -278,6 +279,7 @@ export const useStatsStore = create<StatsState>()(
       },
 
       heartbeat: Date.now(),
+      lastLiveFetchTime: 0,
       startHeartbeat: () => {
         if ((window as any)._heartbeatStarted) return;
         (window as any)._heartbeatStarted = true;
@@ -620,13 +622,25 @@ export const useStatsStore = create<StatsState>()(
       },
 
       fetchGroupLive: async () => {
+        const now = Date.now();
+        const timeSinceLastFetch = now - get().lastLiveFetchTime;
+        const MIN_FETCH_INTERVAL = 15000; // 15 segundos mínimo entre chamadas
+
+        // Throttling: não permite chamadas muito frequentes
+        if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
+          if ((import.meta as any).env?.DEV) {
+            console.log(`[fetchGroupLive] Throttled: ${Math.round((MIN_FETCH_INTERVAL - timeSinceLastFetch) / 1000)}s remaining`);
+          }
+          return;
+        }
+
         if (get().isLiveFetching) return;
 
         if ((import.meta as any).env?.DEV) {
           console.log('[fetchGroupLive] Starting live fetch...');
         }
 
-        set({ isLiveFetching: true });
+        set({ isLiveFetching: true, lastLiveFetchTime: now });
 
         // Safety timeout: 35s
         const safetyTimer = setTimeout(() => {
@@ -669,7 +683,7 @@ export const useStatsStore = create<StatsState>()(
                   newMembers[memberIndex] = mergedUser;
                 }
 
-                if (newTrackId && prevTrackId !== newTrackId) {
+                if (newTrackId && prevTrackId && prevTrackId !== newTrackId) {
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('nowPlayingChanged', { detail: { userId: liveUser.id } }));
                   }
@@ -839,6 +853,7 @@ export const useStatsStore = create<StatsState>()(
         animationDuration: state.animationDuration,
         animationDelay: state.animationDelay,
         shimmerDuration: state.shimmerDuration,
+        lastLiveFetchTime: state.lastLiveFetchTime,
       }),
     }
   )

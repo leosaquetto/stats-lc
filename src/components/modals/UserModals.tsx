@@ -45,23 +45,23 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
   const todayPercent = Math.min(((stats.today?.count || 0) / maxStreams) * 100, 100);
 
   return (
-    <div className="px-6 sm:px-12 py-8 flex flex-col gap-10">
+    <div className="px-6 py-8 flex flex-col gap-10">
        <div className="text-center mb-4">
-         <h3 className="text-3xl sm:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 drop-shadow-[0_0_20px_rgba(249,115,22,0.3)]">
+         <h3 className="text-3xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-amber-300 drop-shadow-[0_0_20px_rgba(249,115,22,0.3)]">
             Estatísticas Principais
          </h3>
-         <p className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-[0.3em] mt-3">Modo de Apresentação</p>
+         <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mt-3">Modo de Apresentação</p>
        </div>
 
        <div className="flex flex-col gap-8">
           {/* Lifetime */}
-          <div className="glass-card p-6 sm:p-8 flex flex-col gap-4 relative overflow-hidden border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)]">
+          <div className="glass-card p-6 flex flex-col gap-4 relative overflow-hidden border-orange-500/20 shadow-[0_0_30px_rgba(249,115,22,0.1)]">
              <div className="absolute top-0 right-0 p-6 opacity-10">
                 <BarChart3 className="w-32 h-32 text-orange-500" />
              </div>
              <div className="flex flex-col gap-1 relative z-10">
                 <span className="text-[11px] font-black text-white/50 uppercase tracking-[0.25em]">Streams Totais (Lifetime)</span>
-                <div className="text-5xl sm:text-7xl font-display font-black text-white">
+                <div className="text-5xl font-display font-black text-white">
                    <AnimatedNumber value={stats.lifetime?.count || 0} />
                 </div>
              </div>
@@ -75,7 +75,7 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
              </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
              {/* Monthly */}
              <div className="glass-card p-6 flex flex-col gap-3 border-amber-500/10">
                 <div className="flex flex-col gap-1">
@@ -199,12 +199,12 @@ export const UserDetailModal = ({
              <button 
                onClick={() => setPresentationMode(!presentationMode)}
                className={cn(
-                  "h-11 px-3 sm:px-4 glass rounded-2xl flex items-center gap-2 transition-all border border-white/5 shadow-2xl",
+                  "h-11 px-3 glass rounded-2xl flex items-center gap-2 transition-all border border-white/5 shadow-2xl",
                   presentationMode ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "text-white/40 hover:text-white/90 active:scale-95"
                )}
              >
                <Maximize className="h-4 w-4" />
-               <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Apresentação</span>
+               <span className="text-[10px] font-black uppercase tracking-widest hidden">Apresentação</span>
              </button>
              <button 
                onClick={onClose}
@@ -311,9 +311,9 @@ export const UserDetailModal = ({
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-col justify-between gap-4">
                      <SectionHeader title="Top Rankings" />
-                     <div className="flex gap-1 bg-white/5 p-1 rounded-xl glass border border-white/5 self-start sm:self-center">
+                     <div className="flex gap-1 bg-white/5 p-1 rounded-xl glass border border-white/5 self-start">
                         {(['artists', 'tracks', 'albums'] as const).map(tab => (
                           <button
                             key={tab}
