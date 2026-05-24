@@ -950,7 +950,7 @@ export default function HomeScreen() {
                 />
               </div>
 
-              <div className="px-4 sm:px-6 lg:px-8">
+              <div className="px-4 sm:px-6 lg:px-8 -mt-20">
                 <FriendActivityReel 
                   excludeUserId={primaryUser.id}
                   onTrackClick={(track) => setSelectedTrack(track)} 

@@ -5,21 +5,20 @@
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { Headphones, ChevronLeft, Music2, TrendingUp, PlayCircle } from 'lucide-react';
+import { Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
 import { UserStats } from '../../types/stats';
 import {
   SmartImage,
-  MusicPlatformBadge,
   ScrollingText,
   AnimatedNumber
 } from '../shared/CommonUI';
 import { VinylRecord } from './VinylRecord';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getDominantColor, withAlpha } from '../../lib/colorUtils';
+import { getDominantColor, withAlpha, ensureVisibility } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 
 function cn(...inputs: ClassValue[]) {
@@ -35,6 +34,7 @@ interface LiveTrackProgressProps {
   platform: "spotify" | "appleMusic" | "unknown";
   onComplete?: () => void;
   compact?: boolean;
+  dominantColor?: string | null;
 }
 
 export const LiveTrackProgress = memo(({
@@ -45,7 +45,8 @@ export const LiveTrackProgress = memo(({
   isNowPlaying,
   platform,
   onComplete,
-  compact = false
+  compact = false,
+  dominantColor
 }: LiveTrackProgressProps) => {
   const heartbeat = useStatsStore(state => state.heartbeat);
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -79,6 +80,7 @@ export const LiveTrackProgress = memo(({
   );
 
   const PlatformLogo = platform === 'spotify' ? <SpotifyLogo /> : <AppleMusicLogo />;
+  const PlatformName = platform === 'spotify' ? 'SPOTIFY' : platform === 'appleMusic' ? 'APPLE MUSIC' : 'MUSIC';
 
   useEffect(() => {
     if (!isNowPlaying) {
@@ -139,70 +141,99 @@ export const LiveTrackProgress = memo(({
           <motion.div
             key="idle"
             initial={{ opacity: 0 }} animate={{ opacity: 0.6 }} exit={{ opacity: 0 }}
-            className="flex flex-col gap-1 w-full"
+            className="flex flex-col gap-1.5 w-full"
           >
-            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full w-full bg-white/20" />
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-white/40 font-mono">{timeLabel}</span>
-              <motion.div
-                className="flex items-center gap-1 text-white/40"
-                animate={{ opacity: [0.6, 1, 0.6] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <span className="text-[10px] text-white/30">OUVIU NO</span>
-                <div className="flex items-center overflow-visible">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] opacity-0">0:00</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">OUVIU NO</span>
+                <div className="text-white/35 flex items-center overflow-visible">
                   {PlatformLogo}
                 </div>
-              </motion.div>
+                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">{PlatformName}</span>
+              </div>
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">{timeLabel}</span>
+            </div>
+            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full w-full bg-white/20" />
             </div>
           </motion.div>
         ) : (
           <motion.div
             key="loading"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden relative"
+            className="flex flex-col gap-1.5 w-full"
           >
-            <motion.div
-              animate={{ x: ["-100%", "200%"] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="h-full w-1/2 bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] opacity-0">0:00</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">OUVINDO NO</span>
+                <div className="text-white/35 flex items-center overflow-visible">
+                  {PlatformLogo}
+                </div>
+                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">{PlatformName}</span>
+              </div>
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] opacity-0">0:00</span>
+            </div>
+            <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden relative">
+              <motion.div
+                animate={{ x: ["-100%", "200%"] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="h-full w-1/2 bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"
+              />
+            </div>
           </motion.div>
         )
       ) : (
         <motion.div
           key="playing"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="flex flex-col gap-1 w-full"
+          className="flex flex-col gap-1.5 w-full"
         >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] tabular-nums">{formatTime(elapsedMs)}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">OUVINDO NO</span>
+              <div className="text-white/35 flex items-center overflow-visible">
+                {PlatformLogo}
+              </div>
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em]">{PlatformName}</span>
+            </div>
+            <span className="text-[7px] font-black text-white/25 uppercase tracking-[0.15em] tabular-nums">{formatTime(durationMs)}</span>
+          </div>
           <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
             <div
               className="h-full rounded-full transition-all duration-1000 relative"
               style={{
                 width: `${currentProgress}%`,
-                background: 'linear-gradient(90deg, #f97316, #fb923c)'
+                background: dominantColor
+                  ? (() => {
+                      const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
+                      return `linear-gradient(90deg, ${visibleColor}, ${withAlpha(visibleColor, 0.85)})`;
+                    })()
+                  : 'linear-gradient(90deg, #f97316, #fb923c)',
+                filter: 'brightness(1.3) saturate(1.2)',
+                boxShadow: dominantColor
+                  ? (() => {
+                      const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
+                      return `0 0 12px ${withAlpha(visibleColor, 0.6)}`;
+                    })()
+                  : '0 0 12px rgba(249,115,22,0.6)'
               }}
             >
               {/* Thumb */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_6px_rgba(249,115,22,0.8)] translate-x-1/2" />
-            </div>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-white/40 font-mono">{formatTime(elapsedMs)}</span>
-            <div className="flex items-center gap-1">
-              <motion.span
-                className="text-[10px] text-orange-400"
-                animate={{ opacity: [0.65, 1, 0.65] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                OUVINDO NO
-              </motion.span>
-              <div className="flex items-center overflow-visible">
-                {PlatformLogo}
-              </div>
-              <span className="text-[10px] text-white/30 font-mono">{formatTime(durationMs)}</span>
+              <div
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
+                style={{
+                  boxShadow: dominantColor
+                    ? (() => {
+                        const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
+                        return `0 0 10px ${withAlpha(visibleColor, 1)}, 0 0 20px ${withAlpha(visibleColor, 0.5)}`;
+                      })()
+                    : '0 0 10px rgba(249,115,22,1), 0 0 20px rgba(249,115,22,0.5)',
+                  filter: 'brightness(1.2)'
+                }}
+              />
             </div>
           </div>
         </motion.div>
@@ -418,7 +449,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute -inset-x-8 -top-12 bottom-[-18px] overflow-hidden transition-all duration-500 pointer-events-none",
+          "absolute -inset-x-8 -top-24 bottom-[-80px] overflow-hidden transition-all duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
@@ -436,26 +467,26 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               >
                 <motion.div
                   animate={{
-                    opacity: [0.3, 0.6, 0.3]
+                    opacity: [0.5, 0.8, 0.5]
                   }}
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 20% 20%, ${withAlpha(dominantColor, 0.2)} 0%, transparent 60%)`
-                      : "radial-gradient(circle at 20% 20%, rgba(234,88,12,0.2) 0%, transparent 60%)"
+                      ? `radial-gradient(circle at 20% 20%, ${withAlpha(dominantColor, 0.35)} 0%, transparent 60%)`
+                      : "radial-gradient(circle at 20% 20%, rgba(234,88,12,0.35) 0%, transparent 60%)"
                   }}
                 />
                 <motion.div
                   animate={{
-                    opacity: [0.2, 0.5, 0.2]
+                    opacity: [0.4, 0.7, 0.4]
                   }}
                   transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 80% 80%, ${withAlpha(dominantColor, 0.15)} 0%, transparent 60%)`
-                      : "radial-gradient(circle at 80% 80%, rgba(234,179,8,0.15) 0%, transparent 60%)"
+                      ? `radial-gradient(circle at 80% 80%, ${withAlpha(dominantColor, 0.25)} 0%, transparent 60%)`
+                      : "radial-gradient(circle at 80% 80%, rgba(234,179,8,0.25) 0%, transparent 60%)"
                   }}
                 />
                 <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]" />
@@ -547,17 +578,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       className="absolute inset-[-3px] rounded-full"
                       style={{
                         background: `conic-gradient(${dominantColor || '#f97316'}, transparent, ${dominantColor || '#f97316'})`,
+                        filter: 'brightness(1.5) saturate(1.3)'
                       }}
                       animate={{ rotate: 360 }}
                       transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
                     />
                   )}
-                  <div className={cn(
-                    "relative rounded-full overflow-hidden border-2 transition-all duration-500",
-                    isActuallyLive
-                      ? "w-14 h-14 sm:w-16 sm:h-16 border-black/80"
-                      : "w-12 h-12 sm:w-14 sm:h-14 border-white/20"
-                  )}>
+                    <div className={cn(
+                      "relative rounded-full overflow-hidden border-2 transition-all duration-500",
+                      isActuallyLive
+                        ? "w-14 h-14 sm:w-16 sm:h-16 border-white/90 shadow-[0_0_20px_rgba(255,255,255,0.6)]"
+                        : "w-12 h-12 sm:w-14 sm:h-14 border-white/20"
+                    )}>
                     <SmartImage
                       src={profileAvatar}
                       className="h-full w-full"
@@ -675,13 +707,23 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2 w-[clamp(250px,78vw,360px)] max-w-[92vw]">
-                        {showRankingSummary ? (
+                        {playCount === 1 ? (
+                          <div className="glass flex items-center gap-1.5 px-2 py-1 rounded-full">
+                            <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
+                            <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
+                              <AnimatedNumber value={1} />
+                            </span>
+                            <span className="text-[7px] font-black uppercase tracking-[0.15em] leading-none text-orange-300/80">
+                              First Listen
+                            </span>
+                          </div>
+                        ) : showRankingSummary ? (
                           <div className="flex flex-wrap items-center justify-start gap-2 w-full">
                             <motion.div
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
                               className={cn(
-                                "flex items-center gap-2 sm:gap-3 pl-2.5 sm:pl-3 pr-4 sm:pr-5 py-2 sm:py-2 rounded-full bg-gradient-to-b from-white/[0.12] to-white/[0.05] border border-white/12 backdrop-blur-xl shadow-[0_14px_35px_rgba(0,0,0,0.35)] hover:bg-white/[0.14] hover:border-white/22 transition-all cursor-pointer group/arena max-w-full",
+                                "flex items-center gap-3 sm:gap-4 pl-3 sm:pl-4 pr-5 sm:pr-6 py-2.5 sm:py-3 rounded-full glass hover:bg-white/[0.14] transition-all cursor-pointer group/arena max-w-full",
                                 arenaExpanded ? "max-w-full flex-wrap justify-center py-2" : "shrink-0"
                               )}
                             >
@@ -699,8 +741,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     style={{ zIndex: trackArenaUsers.length - i }}
                                   >
                                     <div className={cn(
-                                      "relative h-7 w-7 sm:h-8 sm:w-8 rounded-full overflow-hidden transition-all duration-300 ring-2 ring-black/80",
-                                      u.id === user.id ? "ring-orange-500/80" : "group-hover/avatar:ring-white/40"
+                                      "relative h-9 w-9 sm:h-10 sm:w-10 rounded-full overflow-hidden transition-all duration-300 ring-2",
+                                      u.id === user.id ? "ring-orange-500/80" : "ring-white/20 group-hover/avatar:ring-white/40"
                                     )}>
                                       <div className="relative h-full w-full rounded-full overflow-hidden">
                                         <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
@@ -743,26 +785,23 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           >
                             {playCount === undefined ? (
                               <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
-                            ) : playCount === 1 ? (
-                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                                style={{ background: 'rgba(251,146,60,0.10)', border: '1px solid rgba(251,146,60,0.20)' }}
-                              >
-                                <motion.div
-                                  className="w-1.5 h-1.5 rounded-full bg-orange-400"
-                                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 1, 0.5] }}
-                                  transition={{ duration: 1.8, repeat: Infinity }}
-                                />
-                                <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300">
-                                  First Listen
-                                </span>
-                              </div>
                             ) : (
-                              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                              >
-                                <Headphones className="h-3 w-3 text-white/40" />
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
-                                  {coreUtils.formatPlayCount(playCount)}
+                              <div className="glass flex items-center gap-1.5 px-2 py-1 rounded-full">
+                                <Headphones className={cn(
+                                  "h-2.5 w-2.5 transition-colors duration-500",
+                                  isActuallyLive ? "text-orange-400" : "text-white/40"
+                                )} />
+                                <span className={cn(
+                                  "text-[10px] font-black tabular-nums leading-none transition-colors duration-500",
+                                  isActuallyLive ? "text-white" : "text-white/60"
+                                )}>
+                                  <AnimatedNumber value={playCount} />
+                                </span>
+                                <span className={cn(
+                                  "text-[7px] font-black uppercase tracking-[0.15em] leading-none transition-colors duration-500",
+                                  isActuallyLive ? "text-white/60" : "text-white/40"
+                                )}>
+                                  Plays
                                 </span>
                               </div>
                             )}
@@ -782,6 +821,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                         isNowPlaying={isActuallyLive}
                         platform={platform.primary}
                         compact
+                        dominantColor={dominantColor || undefined}
                         onComplete={() => {
                            setIsForceFinished(true);
                            fetchGroupLive();
