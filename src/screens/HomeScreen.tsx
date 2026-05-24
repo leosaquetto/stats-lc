@@ -827,19 +827,46 @@ export default function HomeScreen() {
       {/* Primary Highlight: Dynamic User */}
       <AnimatePresence mode="wait">
         {(isLoading || !primaryUser) && !error ? (
-          <div className="flex flex-col items-center justify-center py-24 px-6 gap-6 min-h-[60vh] text-center">
+          <motion.div
+            key="loading-splash"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-8"
+          >
             <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-              className="text-orange-500"
+              animate={{
+                scale: [1, 1.05, 1],
+                opacity: [0.8, 1, 0.8]
+              }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              className="w-48 h-auto"
             >
-              <Loader2 className="h-10 w-10" />
+              <img src="/statslc_white.svg" alt="Stats LC" className="w-full h-full" />
             </motion.div>
-            <div className="flex flex-col items-center gap-2">
-              <h3 className="text-xs font-black uppercase tracking-[0.25em] text-orange-500">Sincronizando Loop...</h3>
-              <p className="text-[11px] font-medium text-white/40">Conectando ao gateway de scrobbling e processando métricas</p>
-            </div>
-          </div>
+            <motion.div
+              className="flex items-center gap-2"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              <motion.div
+                className="h-2 w-2 rounded-full bg-orange-500"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
+              />
+              <motion.div
+                className="h-2 w-2 rounded-full bg-orange-500"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+              />
+              <motion.div
+                className="h-2 w-2 rounded-full bg-orange-500"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+              />
+            </motion.div>
+          </motion.div>
         ) : error ? (
             <motion.div 
              key="error"
