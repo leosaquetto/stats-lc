@@ -244,7 +244,7 @@ export const LiveTrackProgress = memo(({
 
 LiveTrackProgress.displayName = 'LiveTrackProgress';
 
-export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: () => void, isHighlighted?: boolean }) => {
+export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLButtonElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const { scrollY } = useScroll();
@@ -568,7 +568,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               <div className="flex flex-row items-center gap-3 sm:gap-4 relative z-40 pt-1">
 
                 {/* Avatar com ring animado quando tocando */}
-                <motion.div
+                <motion.button
                   onClick={onAvatarClick}
                   className="relative shrink-0 cursor-pointer"
                   whileTap={{ scale: 0.95 }}
@@ -597,7 +597,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       rounded="full"
                     />
                   </div>
-                </motion.div>
+                </motion.button>
 
                 {/* Nome + Streams */}
                 <div className="flex flex-col items-start min-w-0 gap-1">

@@ -11,6 +11,7 @@ import { FriendActivityReel } from '../components/home/FriendActivityReel';
 import { ReplaySection } from '../components/home/ReplaySection';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
+import { VinylRecord } from '../components/home/VinylRecord';
 import { coreUtils } from '../services/statsCore';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
@@ -63,10 +64,12 @@ export default function HomeScreen() {
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
   const [viewingAlbumHistoryUser, setViewingAlbumHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
+  const [avatarClickPosition, setAvatarClickPosition] = useState<{ x: number; y: number } | null>(null);
+  const [selectorMode, setSelectorMode] = useState<'header' | 'mini-header'>('header');
   const [showCircleActivity, setShowCircleActivity] = useState(false);
   const [visibleHistory, setVisibleHistory] = useState(5);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
+
   const [toasts, setToasts] = useState<any[]>([]);
   const [processedItems, setProcessedItems] = useState(0);
   const [refreshStepText, setRefreshStepText] = useState('Status: Ciclo Sincronizado');
@@ -81,6 +84,12 @@ export default function HomeScreen() {
   const members = useMemo(() => allMembers.filter(m => !hiddenUsers.includes(m.id)), [allMembers, hiddenUsers]);
   const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || members[0], [members, featuredUserId]);
   const FEATURED_ID = primaryUser?.id;
+
+  // Mini header vinyl states
+  const miniHeaderAlbumImage = primaryUser?.nowPlaying?.track?.album?.image || '';
+  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || '';
+  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus(primaryUser) : null;
+  const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
 
   const pipelineStreamLinesMemo = useMemo(() => [
     { left: '16.6%', duration: 2.2, delay: 0 },
@@ -471,109 +480,95 @@ export default function HomeScreen() {
                 onClose={() => setViewingAlbumHistoryUser(null)}
               />
             )}
-            
-            {showUserSelector && (
-              <>
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowUserSelector(false)}
-                  className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm"
-                />
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95, y: -20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                  className="fixed top-[calc(env(safe-area-inset-top,0px)+76px)] right-4 sm:right-10 w-64 glass-card border-white/10 p-2 z-[120] shadow-2xl backdrop-blur-3xl overflow-hidden rounded-3xl"
-                >
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-white/50 px-3 py-2.5 mb-1 border-b border-white/5">Selecionar Usuário</div>
-                  <div className="flex flex-col gap-1.5 mt-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                    {members.map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          setFeaturedUserId(u.id);
-                          setShowUserSelector(false);
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all",
-                          featuredUserId === u.id 
-                            ? "bg-white/10 border border-white/10 shadow-lg" 
-                            : "hover:bg-white/5 opacity-70 hover:opacity-100"
-                        )}
-                      >
-                        <div className={cn(
-                          "rounded-full border overflow-hidden relative shrink-0 transition-all duration-300",
-                          featuredUserId === u.id 
-                            ? "h-11 w-11 border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" 
-                            : "h-9 w-9 border-white/10"
-                        )}>
-                            <SmartImage 
-                              src={coreUtils.getUserAvatar(u.id, u.avatar)} 
-                              className="h-full w-full object-cover" 
-                              fallback=""
-                              rounded="full"
-                            />
-                        </div>
-                        <div className="flex flex-col items-start min-w-0">
-                          <span className={cn(
-                            "text-sm font-bold transition-colors truncate w-full",
-                            featuredUserId === u.id ? "text-white" : "text-white/80"
-                          )}>
-                            {u.name}
-                          </span>
-                        </div>
-                        {featuredUserId === u.id && (
-                          <div className="ml-auto h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.8)]" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              </>
-            )}
+
+            {/* Explosão contextual de usuários */}
+            <UserSelectorExplosion
+              isOpen={showUserSelector}
+              members={members}
+              featuredUserId={featuredUserId || ''}
+              onSelectUser={(userId) => {
+                setFeaturedUserId(userId);
+                setShowUserSelector(false);
+                setAvatarClickPosition(null);
+              }}
+              onClose={() => {
+                setShowUserSelector(false);
+                setAvatarClickPosition(null);
+              }}
+              triggerPosition={avatarClickPosition || undefined}
+              mode={selectorMode}
+            />
           </AnimatePresence>
 
           {/* Top Bar Navigation - Floating */}
           <header
             style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
             className={cn(
-              "fixed top-0 left-0 right-0 z-[150] flex justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
+              "fixed top-0 left-0 right-0 z-[150] flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
               isHeaderScrolled
                 ? "translate-y-0 opacity-100 pointer-events-auto"
                 : "-translate-y-4 opacity-0 pointer-events-none"
             )}
           >
-            <div className="flex items-center gap-3 rounded-full border border-white/10 bg-black/40 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-md">
-              <button
-                onClick={handleRefresh}
-                disabled={isLiveFetching || isRefreshing}
-                title="Sincronizar Live"
-                aria-label="Sincronizar Live"
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
+            {/* Avatar do usuário */}
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setAvatarClickPosition({
+                  x: rect.left + rect.width / 2,
+                  y: rect.top + rect.height / 2
+                });
+                setSelectorMode('mini-header');
+                setShowUserSelector(true);
+              }}
+              title="Selecionar Usuário"
+              aria-label="Selecionar Usuário"
+              className="h-10 w-10 flex items-center justify-center rounded-full bg-black/40 border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
+            >
+              <SmartImage
+                src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
+                className="h-full w-full object-cover"
+                fallback=""
+                rounded="full"
+              />
+            </button>
+
+            {/* Vinil Mini */}
+            {miniHeaderAlbumImage && (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="absolute left-1/2 -translate-x-1/2 h-12 w-12"
               >
-                <RefreshCcw
-                  className={cn(
-                    "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                    (isLiveFetching || isRefreshing) && "animate-spin text-orange-500"
-                  )}
+                <VinylRecord
+                  albumImage={miniHeaderAlbumImage}
+                  dominantColor={miniHeaderDominantColor || ""}
+                  isPlaying={miniHeaderIsPlaying}
+                  progressMs={0}
+                  durationMs={undefined}
+                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                  hideTonearm={true}
                 />
-              </button>
-              <button
-                onClick={() => setShowUserSelector(true)}
-                title="Selecionar Usuário"
-                aria-label="Selecionar Usuário"
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
-              >
-                <SmartImage
-                  src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
-                  className="h-full w-full object-cover"
-                  fallback=""
-                  rounded="full"
-                />
-              </button>
-            </div>
+              </motion.div>
+            )}
+
+            {/* Botão de Refresh */}
+            <button
+              onClick={handleRefresh}
+              disabled={isLiveFetching || isRefreshing}
+              title="Sincronizar Live"
+              aria-label="Sincronizar Live"
+              className="h-10 w-10 flex items-center justify-center rounded-full bg-black/40 border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
+            >
+              <RefreshCcw
+                className={cn(
+                  "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
+                  (isLiveFetching || isRefreshing) && "animate-spin text-orange-500"
+                )}
+              />
+            </button>
           </header>
         </>,
         document.body
@@ -1004,11 +999,19 @@ export default function HomeScreen() {
                 onTouchEnd={handleTouchEnd}
                 className="relative -mt-[4px] touch-pan-y"
               >
-                <LeoHeader 
+                <LeoHeader
                   user={primaryUser}
-                  streamsToday={primaryUser.streamsToday || 0} 
+                  streamsToday={primaryUser.streamsToday || 0}
                   onTrackClick={(track) => setSelectedTrack(track)}
-                  onAvatarClick={() => setShowUserSelector(true)}
+                  onAvatarClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setAvatarClickPosition({
+                      x: rect.left + rect.width / 2,
+                      y: rect.top + rect.height / 2
+                    });
+                    setSelectorMode('header');
+                    setShowUserSelector(true);
+                  }}
                   isHighlighted={headerHighlight}
                 />
               </div>
