@@ -29,7 +29,9 @@ export default function App() {
   const setFeaturedUserId = useStatsStore(s => s.setFeaturedUserId);
   const groupStats = useStatsStore(s => s.groupStats);
 
-  const allUsers = Object.values(groupStats?.users || {});
+  const allUsers = Object.values(groupStats?.users || {}).filter((user, index, list) =>
+    user?.id && list.findIndex(candidate => candidate?.id === user.id) === index
+  );
   const hasSelectedUserBefore = typeof localStorage !== 'undefined'
     && localStorage.getItem('stats-lc-has-selected-user') === '1';
 
@@ -140,7 +142,7 @@ export default function App() {
               <div className="flex justify-center gap-2 max-w-[92vw] overflow-x-auto overflow-y-visible custom-scrollbar px-2 pb-2">
                 {[...allUsers].sort((a, b) => a.name.localeCompare(b.name)).map((user, index) => (
                   <motion.button
-                    key={user.id}
+                    key={`${user.id}-${index}`}
                     initial={{ opacity: 0, scale: 0.8, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ delay: 0.4 + index * 0.05 }}

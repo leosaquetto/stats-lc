@@ -87,7 +87,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                   
                   return (
                     <motion.div
-                      key={friend.id}
+                      key={`${friend.id}-${idx}`}
                       initial={{ opacity: 0, scale: 0.9, y: 15 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ 

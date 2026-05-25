@@ -117,6 +117,79 @@ export function getSaturation(color: string): number {
   return delta / max;
 }
 
+function getSmartCanvasColor(img: HTMLImageElement): string | null {
+  const canvas = document.createElement('canvas');
+  const size = 96;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  ctx.drawImage(img, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+  const buckets = new Map<string, { r: number; g: number; b: number; score: number; count: number }>();
+  let fallbackR = 0;
+  let fallbackG = 0;
+  let fallbackB = 0;
+  let fallbackScore = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const alpha = data[i + 3] / 255;
+    if (alpha < 0.65) continue;
+
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+    // Album covers often have large white/black fields; skip them so the UI
+    // follows the artwork accent instead of the paper/background.
+    if (brightness > 235 || brightness < 24 || saturation < 0.08) continue;
+
+    const warmthBoost = r > b && r > g ? 1.18 : 1;
+    const score = alpha * (0.7 + saturation * 1.8) * (brightness > 205 ? 0.72 : 1) * warmthBoost;
+    const qR = Math.round(r / 24) * 24;
+    const qG = Math.round(g / 24) * 24;
+    const qB = Math.round(b / 24) * 24;
+    const key = `${qR},${qG},${qB}`;
+    const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, score: 0, count: 0 };
+
+    bucket.r += r * score;
+    bucket.g += g * score;
+    bucket.b += b * score;
+    bucket.score += score;
+    bucket.count += 1;
+    buckets.set(key, bucket);
+
+    fallbackR += r * score;
+    fallbackG += g * score;
+    fallbackB += b * score;
+    fallbackScore += score;
+  }
+
+  const candidates = [...buckets.values()]
+    .filter(bucket => bucket.score > 0 && bucket.count >= 2)
+    .sort((a, b) => b.score - a.score);
+
+  const chosen = candidates[0];
+  if (chosen) {
+    return normalizeColor([
+      chosen.r / chosen.score,
+      chosen.g / chosen.score,
+      chosen.b / chosen.score
+    ]);
+  }
+
+  if (fallbackScore > 0) {
+    return normalizeColor([fallbackR / fallbackScore, fallbackG / fallbackScore, fallbackB / fallbackScore]);
+  }
+
+  return null;
+}
+
 /**
  * Get dominant color from image using ColorThief with canvas fallback
  * Includes caching to avoid reprocessing the same images
@@ -134,6 +207,19 @@ export function getDominantColor(imageSrc: string): Promise<string> {
     img.src = imageSrc;
 
     img.onload = async () => {
+      try {
+        const smartColor = getSmartCanvasColor(img);
+        if (smartColor) {
+          cacheColor(imageSrc, smartColor);
+          resolve(smartColor);
+          return;
+        }
+      } catch (e) {
+        if ((import.meta as any).env?.DEV) {
+          console.warn('[colorUtils] Smart canvas color failed, trying ColorThief:', e);
+        }
+      }
+
       try {
         // Try ColorThief first
         const color = typeof colorThiefApi.getColorSync === 'function'
@@ -181,7 +267,8 @@ export function getDominantColor(imageSrc: string): Promise<string> {
         let count = 0;
 
         for (let i = 0; i < data.length; i += 16 * 4) {
-          if (data[i + 3] > 128) {
+          const brightness = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+          if (data[i + 3] > 128 && brightness > 24 && brightness < 235) {
             r += data[i];
             g += data[i + 1];
             b += data[i + 2];

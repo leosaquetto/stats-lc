@@ -56,6 +56,34 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
     const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 844;
     const avatarSize = 56;
     const padding = avatarSize / 2 + 12;
+    const isSmallPhone = viewportWidth <= 430;
+
+    if (isSmallPhone) {
+      const columns = Math.min(2, Math.max(1, count));
+      const gap = 70;
+      const rows = Math.ceil(count / columns);
+      const centerX = x < viewportWidth / 2
+        ? Math.min(viewportWidth - padding - gap / 2, x + 128)
+        : Math.max(padding + gap / 2, x - 128);
+      const centerY = Math.min(
+        Math.max(y + (mode === 'header' ? 34 : 92), padding + gap / 2),
+        viewportHeight - padding - 128
+      );
+
+      return otherMembers.map((member, i) => {
+        const col = i % columns;
+        const row = Math.floor(i / columns);
+        const xOffset = (col - (columns - 1) / 2) * gap;
+        const yOffset = (row - (rows - 1) / 2) * gap;
+
+        return {
+          member,
+          x: Math.min(Math.max(centerX + xOffset, padding), viewportWidth - padding),
+          y: Math.min(Math.max(centerY + yOffset, padding + 8), viewportHeight - padding - 96),
+          delay: i * 0.045
+        };
+      });
+    }
 
     // Configuração de ângulos por modo
     const preferredAngles = mode === 'header'
@@ -99,9 +127,9 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
           />
 
           {/* Avatares em órbita (sem mostrar o usuário principal) */}
-          {positions.map(({ member, x, y, delay }) => (
+          {positions.map(({ member, x, y, delay }, index) => (
             <motion.button
-              key={member.id}
+              key={`${member.id}-${index}`}
               onClick={() => {
                 onSelectUser(member.id);
                 onClose();

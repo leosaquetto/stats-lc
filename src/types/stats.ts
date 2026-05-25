@@ -46,6 +46,7 @@ export interface NowPlaying {
   progressMs?: number;
   durationMs?: number;
   playedMs?: number;
+  dominantColor?: string;
   platformCandidate?: {
     primary: "appleMusic" | "spotify" | "unknown";
   };

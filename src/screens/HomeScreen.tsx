@@ -88,8 +88,14 @@ export default function HomeScreen() {
     albums: []
   });
   const toastIdRef = useRef(0);
+  const liveRefreshActive = isManualLiveRefresh || isLiveFetching;
 
-  const allMembers = groupStats?.members || [];
+  const allMembers = useMemo(() => {
+    const source = groupStats?.members || Object.values(groupStats?.users || {});
+    return source.filter((member, index, list) =>
+      member?.id && list.findIndex(candidate => candidate?.id === member.id) === index
+    );
+  }, [groupStats?.members, groupStats?.users]);
   const members = useMemo(() => allMembers.filter(m => !hiddenUsers.includes(m.id)), [allMembers, hiddenUsers]);
   const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || members[0], [members, featuredUserId]);
   const FEATURED_ID = primaryUser?.id;
@@ -276,7 +282,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!isLoading && primaryUser && groupStats) {
       // Small delay to ensure smooth transition
-      const timer = setTimeout(() => setIsAppReady(true), 300);
+      const timer = setTimeout(() => setIsAppReady(true), 650);
       return () => clearTimeout(timer);
     } else {
       setIsAppReady(false);
@@ -612,7 +618,7 @@ export default function HomeScreen() {
                   e.stopPropagation();
                   handleRefresh();
                 }}
-                disabled={isManualLiveRefresh}
+                disabled={liveRefreshActive}
                 title="Atualizar tocando agora"
                 aria-label="Atualizar tocando agora"
                 className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
@@ -620,7 +626,7 @@ export default function HomeScreen() {
                 <RefreshCcw
                   className={cn(
                     "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                    isManualLiveRefresh && "animate-spin text-orange-500"
+                    liveRefreshActive && "animate-spin text-orange-500"
                   )}
                 />
               </button>
@@ -676,7 +682,7 @@ export default function HomeScreen() {
       <PullToRefresh 
       onRefresh={handleRefresh}
       pullingContent={
-        <div className="flex flex-col items-center justify-center py-8 gap-3 border-b border-white/5 select-none bg-black/20 backdrop-blur-sm">
+        <div className="flex flex-col items-center justify-center pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-8 gap-3 border-b border-white/5 select-none bg-black/30 backdrop-blur-sm">
           <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.04] flex items-center justify-center">
             <ArrowDown className="h-4 w-4 text-white/45" />
           </div>
@@ -686,7 +692,7 @@ export default function HomeScreen() {
         </div>
       }
       refreshingContent={
-        <div className="flex flex-col items-center justify-center py-8 gap-3 border-b border-white/5 select-none bg-black/25 backdrop-blur-sm">
+        <div className="flex flex-col items-center justify-center pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-8 gap-3 border-b border-white/5 select-none bg-black/35 backdrop-blur-md">
           <div className="h-10 w-10 rounded-full border border-orange-500/20 bg-white/[0.04] flex items-center justify-center">
             <RefreshCcw className="h-4 w-4 text-orange-500 animate-spin" />
           </div>
@@ -700,7 +706,7 @@ export default function HomeScreen() {
 
       {/* Custom Background Sync Bar */}
       <AnimatePresence>
-        {isRefreshing && (
+        {isRefreshing && !isManualLiveRefresh && (
           <motion.div
             initial={{ opacity: 0, height: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, height: 'auto', scale: 1, y: 0 }}
@@ -787,7 +793,7 @@ export default function HomeScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-8"
+            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-8 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
           >
             <motion.div
               animate={{
@@ -921,7 +927,7 @@ export default function HomeScreen() {
               <div 
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
-                className="relative -mt-[4px] touch-pan-y"
+                className="relative -mt-[4px] touch-pan-y overflow-visible"
               >
                 <LeoHeader
                   user={primaryUser}
@@ -940,7 +946,7 @@ export default function HomeScreen() {
                 />
               </div>
 
-              <div className="px-4 sm:px-6 lg:px-8 -mt-20">
+              <div className="px-4 sm:px-6 lg:px-8 -mt-10">
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
                   onTrackClick={(track) => setSelectedTrack(track)}
@@ -973,7 +979,7 @@ export default function HomeScreen() {
       </AnimatePresence>
 
       {/* Replay Section */}
-      {primaryUser && (
+      {isAppReady && primaryUser && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -990,14 +996,14 @@ export default function HomeScreen() {
             topTracks={replayTracks.slice(0, 12).map((t: any) => ({
               id: t.id,
               name: t.name,
-              artist: t.primaryArtistName || t.artists?.[0]?.name || 'Artista Desconhecido',
+              artist: t.primaryArtistName || (typeof t.artists?.[0] === 'string' ? t.artists[0] : t.artists?.[0]?.name) || t.artistName || 'Artista Desconhecido',
               image: t.image || t.albumImage,
               streams: t.playedCount || t.streams || t.playcount || t.count || 0
             })) || []}
             topAlbums={replayAlbums.slice(0, 10).map((a: any) => ({
               id: a.id,
               name: a.name,
-              artist: a.artist || a.artistName || a.albumArtist || 'Artista Desconhecido',
+              artist: a.artist || a.artistName || a.albumArtist || a.primaryArtistName || (typeof a.artists?.[0] === 'string' ? a.artists[0] : a.artists?.[0]?.name) || 'Artista Desconhecido',
               image: a.image,
               streams: a.playedCount || a.streams || a.playcount || a.count || 0
             })) || []}
@@ -1009,6 +1015,7 @@ export default function HomeScreen() {
         </motion.div>
       )}
 
+      {isAppReady && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1018,7 +1025,9 @@ export default function HomeScreen() {
       >
         <FriendsMonthlyHighlights />
       </motion.div>
+      )}
 
+      {isAppReady && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1028,7 +1037,9 @@ export default function HomeScreen() {
       >
         <HomeInsights onFriendClick={(friend) => setViewingFullHistoryUser(friend)} />
       </motion.div>
+      )}
 
+      {isAppReady && (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1038,8 +1049,9 @@ export default function HomeScreen() {
       >
         <StatsAlike />
       </motion.div>
+      )}
 
-      {groupStats && (
+      {isAppReady && groupStats && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1062,6 +1074,7 @@ export default function HomeScreen() {
         </div>
       )}
 
+      {isAppReady && (
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1071,6 +1084,8 @@ export default function HomeScreen() {
       >
         <SectionHeader title="Timeline da Sessão" />
       </motion.div>
+      )}
+      {isAppReady && (
       <div className="flex flex-col gap-2 custom-scrollbar scroll-fade-v h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
           {isLoading ? (
             [1, 2, 3, 4, 5].map(i => (
@@ -1101,7 +1116,7 @@ export default function HomeScreen() {
               {recentTracks.slice(0, visibleHistory).map((user, idx) => (
                 <motion.div
                   layout
-                  key={user.id || `hist-${idx}`}
+                  key={`${user.id || 'hist'}-${idx}`}
                   initial={{ opacity: 0, scale: 0.95, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -1131,6 +1146,7 @@ export default function HomeScreen() {
             </button>
           )}
       </div>
+      )}
 
       {/* Toast Notification Container */}
       <div className="fixed bottom-24 right-4 z-[200] flex flex-col gap-3 pointer-events-none w-[calc(100%-32px)] sm:w-80">

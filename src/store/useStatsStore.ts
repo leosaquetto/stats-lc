@@ -639,7 +639,7 @@ export const useStatsStore = create<StatsState>()(
           return;
         }
 
-        if (get().isLiveFetching) return;
+        if (get().isLiveFetching && !force) return;
 
         if ((import.meta as any).env?.DEV) {
           console.log('[fetchGroupLive] Starting live fetch...');
@@ -656,7 +656,7 @@ export const useStatsStore = create<StatsState>()(
         }, 35000);
 
         try {
-          const liveData = await statsService.getGroupLiveData(true);
+          const liveData = await statsService.getGroupLiveData(force);
           const currentGroupStats = get().groupStats;
 
           if (currentGroupStats) {

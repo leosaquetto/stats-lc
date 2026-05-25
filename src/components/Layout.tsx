@@ -39,7 +39,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const { isOffline, groupStats, featuredUserId } = useStatsStore();
   
   const allUsers = React.useMemo(() => {
-    return Object.values(groupStats?.users || {});
+    return Object.values(groupStats?.users || {}).filter((user, index, list) =>
+      user?.id && list.findIndex(candidate => candidate?.id === user.id) === index
+    );
   }, [groupStats?.users]);
 
   const activeMembersSorted = React.useMemo(() => {
@@ -220,7 +222,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     }
                   }}
                 >
-                  {activeMembersSorted.map((user) => {
+                  {activeMembersSorted.map((user, index) => {
                     const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
                     const userTrack = user.nowPlaying?.track;
                     const uSongName = userTrack?.name || "Nenhuma música";
@@ -232,7 +234,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     return (
                       <motion.div 
                         layout 
-                        key={user.id} 
+                        key={`${user.id}-${index}`}
                         animate={isBubbleHighlighted ? {
                           scale: [1, 1.2, 1],
                           filter: [

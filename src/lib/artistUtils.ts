@@ -1,9 +1,41 @@
 // Utilities para manipulação de arrays de artistas
 // Reutilizado em: TrackLeaderboardModal, FriendHistoryCard, HomeHighlights
 
+const getArtistName = (artist: any): string => {
+  if (!artist) return '';
+  if (typeof artist === 'string') return artist;
+  return artist.name || artist.artistName || artist.displayName || '';
+};
+
+const getArtistId = (artist: any): string => {
+  if (!artist || typeof artist === 'string') return '';
+  return artist.id || artist.statsfmId || artist.spotifyId || artist.appleMusicId || '';
+};
+
+const sameArtist = (a: any, b: any) => {
+  const idA = getArtistId(a);
+  const idB = getArtistId(b);
+  if (idA && idB && idA === idB) return true;
+  const nameA = getArtistName(a).trim().toLowerCase();
+  const nameB = getArtistName(b).trim().toLowerCase();
+  return !!nameA && !!nameB && nameA === nameB;
+};
+
 export const getMainArtist = (track: any): any => {
   if (!track) return null;
-  // Prioridade 0: Novos campos da API
+  // Prioridade 0: albumArtist corrige singles/feats quando a API ordena artistas de forma instável.
+  if (track.albumArtist) {
+    return track.albumArtist;
+  }
+  if (track.album?.artist) {
+    return track.album.artist;
+  }
+  if (track.albumArtistName || track.album?.artistName || track.album?.primaryArtistName) {
+    const name = track.albumArtistName || track.album?.artistName || track.album?.primaryArtistName;
+    return { id: track.albumArtistId || track.album?.artistId || track.album?.primaryArtistId, name, artistName: name };
+  }
+
+  // Prioridade 1: Novos campos da API
   if (track.primaryArtist) {
     return track.primaryArtist;
   }
@@ -13,14 +45,6 @@ export const getMainArtist = (track: any): any => {
       name: track.primaryArtistName,
       artistName: track.primaryArtistName
     };
-  }
-
-  // Prioridade 1: albumArtist (artista principal do álbum)
-  if (track.albumArtist) {
-    return track.albumArtist;
-  }
-  if (track.album?.artist) {
-    return track.album.artist;
   }
   
   // Prioridade 2: artista marcado como main no array
@@ -49,10 +73,7 @@ export const getSecondaryArtists = (track: any): any[] => {
     secondary = track.secondaryArtists;
   } else if (Array.isArray(track.artists) && track.artists.length > 0) {
     const mainArtist = getMainArtist(track);
-    secondary = track.artists.filter((a: any) => 
-      a.id !== mainArtist?.id && 
-      a.name !== mainArtist?.name
-    );
+    secondary = track.artists.filter((a: any) => !sameArtist(a, mainArtist));
   }
   
   return secondary.map(a => {

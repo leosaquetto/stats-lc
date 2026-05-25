@@ -101,7 +101,7 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
             >
               {sortedMembers.map((u, idx) => (
                 <motion.button
-                  key={u.id}
+                  key={`${u.id}-${idx}`}
                   onClick={() => {
                     onSelectUser(u.id);
                   }}

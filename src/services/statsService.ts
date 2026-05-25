@@ -44,20 +44,36 @@ const getPrimaryArtistName = (artists: any[] | undefined) => {
   return typeof first === 'string' ? first : first?.name;
 };
 
+const getArtistName = (artist: any) => {
+  if (!artist) return undefined;
+  if (typeof artist === 'string') return artist;
+  return artist.name || artist.artistName || artist.displayName;
+};
+
 const normalizeTrack = (track: any) => {
   if (!track) return undefined;
+
+  const albumArtist =
+    track.albumArtist ||
+    track.albumArtistName ||
+    track.album?.artist ||
+    track.album?.artistName ||
+    track.album?.primaryArtist ||
+    track.album?.primaryArtistName;
+  const albumArtistName = getArtistName(albumArtist);
 
   return {
     id: track.id,
     name: track.name,
     artists: track.artists || [],
-    primaryArtist: track.primaryArtist,
-    primaryArtistId: track.primaryArtistId,
-    primaryArtistName: track.primaryArtistName || getPrimaryArtistName(track.artists),
+    primaryArtist: albumArtist && typeof albumArtist !== 'string' ? albumArtist : track.primaryArtist,
+    primaryArtistId: (albumArtist && typeof albumArtist !== 'string' ? albumArtist.id : undefined) || track.primaryArtistId,
+    primaryArtistName: albumArtistName || track.primaryArtistName || getPrimaryArtistName(track.artists),
     secondaryArtists: track.secondaryArtists,
     image: track.image,
     albumId: track.albumId || track.album?.id,
     albumName: track.albumName || track.album?.name,
+    albumArtist,
     albumImage: track.albumImage || track.album?.image,
     durationMs: track.durationMs,
     playedCount: track.playedCount,

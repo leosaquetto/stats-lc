@@ -32,6 +32,7 @@ export const TrackLeaderboardModal = ({
   const [stats, setStats] = useState<Record<string, { track: number, album: number, artist: number }>>({});
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'track' | 'album' | 'artist'>('track');
+  const [selectedArtist, setSelectedArtist] = useState<any>(null);
 
   useEffect(() => {
     async function loadStats() {
@@ -52,7 +53,8 @@ export const TrackLeaderboardModal = ({
 
 
       // Identificação ultra-robusta dos IDs
-      const artistId = track.artistId || track.artist?.id || (Array.isArray(track.artists) && track.artists[0]?.id) || (track.type === 'artist' ? track.id : null);
+      const chosenArtist = selectedArtist || getMainArtist(track);
+      const artistId = chosenArtist?.id || track.artistId || track.artist?.id || (Array.isArray(track.artists) && track.artists[0]?.id) || (track.type === 'artist' ? track.id : null);
       const albumId = track.albumId || track.album?.id || (Array.isArray(track.albums) && track.albums[0]?.id) || (track.type === 'album' ? track.id : null);
       const trackId = track.type === 'track' ? track.id : (track.type === 'artist' || track.type === 'album' ? null : (track.artists || track.name ? track.id : null));
       
@@ -100,7 +102,7 @@ export const TrackLeaderboardModal = ({
       setLoading(false);
     }
     loadStats();
-  }, [track?.id, track?.albumId, track?.artistId]);
+  }, [track?.id, track?.albumId, track?.artistId, selectedArtist?.id, selectedArtist?.name]);
 
   const { groupStats, featuredUserId } = useStatsStore();
   const membersData = groupStats?.users || {};
@@ -121,6 +123,28 @@ export const TrackLeaderboardModal = ({
     ? track.name
     : getMainArtistName(track);
   const secondaryArtists = getSecondaryArtists(track);
+  const artistOptions = [
+    mainArtist ? {
+      ...mainArtist,
+      name: mainArtistName,
+      image: mainArtist?.image || track.artist?.image || track.image
+    } : null,
+    ...secondaryArtists
+  ].filter(Boolean);
+  const activeArtist = selectedArtist || artistOptions[0] || mainArtist;
+  const activeArtistName = activeArtist?.name || activeArtist?.artistName || mainArtistName;
+  const activeArtistImage = activeArtist?.image || activeArtist?.avatar || track.artist?.image || track.artists?.find?.((artist: any) => artist?.id && artist.id === activeArtist?.id)?.image || track.image;
+  const albumArtistName = (() => {
+    const candidate =
+      track.albumArtist ||
+      track.albumArtistName ||
+      track.artistName ||
+      track.primaryArtistName ||
+      track.album?.artist ||
+      track.album?.artistName ||
+      mainArtistName;
+    return typeof candidate === 'string' ? candidate : (candidate?.name || candidate?.artistName || mainArtistName);
+  })();
   // When the track IS an album entity, use track.name as the album name
   const albumName = (track.type === 'album' && track.name)
     ? track.name
@@ -136,6 +160,7 @@ export const TrackLeaderboardModal = ({
   useEffect(() => {
     if (track.type === 'artist' || track.type === 'album' || track.type === 'track') {
       setView(track.type);
+      if (track.type !== 'artist') setSelectedArtist(null);
     } else if (isArtist) {
       setView('artist');
     } else if (isAlbum) {
@@ -184,7 +209,7 @@ export const TrackLeaderboardModal = ({
                 >
                   <SmartImage 
                     src={
-                      view === 'artist' ? (track.artists?.[0]?.image || track.artist?.image || track.image) :
+                      view === 'artist' ? activeArtistImage :
                       view === 'album' ? (track.albumImage || track.album?.image || track.albums?.[0]?.image || track.image) :
                       track.image
                     } 
@@ -210,14 +235,18 @@ export const TrackLeaderboardModal = ({
                  className="w-full"
                >
                  <h2 className="text-lg font-display font-black text-white leading-tight truncate px-4">
-                   {view === 'artist' ? mainArtistName : (view === 'album' ? albumName : track.name)}
+                   {view === 'artist' ? activeArtistName : (view === 'album' ? albumName : track.name)}
                  </h2>
 
                  {view === 'track' && (
                    <div className="flex flex-col items-center gap-3 mt-4 px-4">
                      <div className="flex items-center gap-1.5 flex-wrap justify-center">
                        <button 
-                         onClick={() => onArtistClick?.(mainArtist)}
+                         onClick={() => {
+                           setSelectedArtist(artistOptions[0]);
+                           setView('artist');
+                           onArtistClick?.(artistOptions[0] || mainArtist);
+                         }}
                          className="text-[10px] font-bold text-orange-400 hover:text-orange-300 cursor-pointer transition-colors"
                        >
                          {mainArtistName}
@@ -229,7 +258,11 @@ export const TrackLeaderboardModal = ({
                            {secondaryArtists.map((artist: any, idx: number) => (
                              <React.Fragment key={artist.id || idx}>
                                <button 
-                                 onClick={() => onArtistClick?.(artist)}
+                                 onClick={() => {
+                                   setSelectedArtist(artist);
+                                   setView('artist');
+                                   onArtistClick?.(artist);
+                                 }}
                                  className="text-[9px] font-medium text-white/50 hover:text-white/70 cursor-pointer transition-colors"
                                >
                                  {typeof artist === 'string' ? artist : artist.name}
@@ -254,7 +287,7 @@ export const TrackLeaderboardModal = ({
                  {view === 'album' && (
                    <div className="flex flex-col items-center gap-1 mt-2 px-4">
                      <span className="text-[10px] font-medium text-white/60">
-                       {mainArtistName}
+                       {albumArtistName || getMainArtistName(track)}
                      </span>
                      {track.releaseDate && (
                        <span className="text-[8px] text-white/40">
@@ -274,7 +307,31 @@ export const TrackLeaderboardModal = ({
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar flex flex-col gap-6">
-          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4">
+            {view === 'artist' && artistOptions.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+                {artistOptions.map((artist: any, idx: number) => {
+                  const selected = (activeArtist?.id && artist?.id && activeArtist.id === artist.id) || activeArtistName === artist?.name;
+                  return (
+                    <button
+                      key={artist?.id || artist?.name || idx}
+                      onClick={() => {
+                        setSelectedArtist(artist);
+                        setView('artist');
+                      }}
+                      className={cn(
+                        "shrink-0 rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] transition-all",
+                        selected
+                          ? "border-orange-500/50 bg-orange-500/15 text-orange-300"
+                          : "border-white/10 bg-white/[0.03] text-white/40 hover:text-white/70"
+                      )}
+                    >
+                      {artist?.name || artist?.artistName || 'Artista'}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/5 shrink-0">
                {[
                  { id: 'track', label: 'Faixa' },
@@ -359,7 +416,7 @@ export const TrackLeaderboardModal = ({
                                    id: user.id, 
                                    name: user.name, 
                                    avatar: user.avatar,
-                                   initialSearch: view === 'track' ? track.name : view === 'artist' ? mainArtistName : albumName 
+                                   initialSearch: view === 'track' ? track.name : view === 'artist' ? activeArtistName : albumName
                                  } 
                                });
                                window.dispatchEvent(event);

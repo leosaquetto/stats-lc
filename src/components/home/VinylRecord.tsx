@@ -20,6 +20,38 @@ interface VinylRecordProps {
   hideTonearm?: boolean;
 }
 
+const hashString = (value: string) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = Math.imul(31, hash) + value.charCodeAt(i) | 0;
+  }
+  return Math.abs(hash);
+};
+
+const seededValue = (seed: number, index: number) => {
+  const x = Math.sin(seed + index * 97.13) * 10000;
+  return x - Math.floor(x);
+};
+
+const vinylTextureCache = new Map<string, { seed: number; variant: number }>();
+
+const getTextureProfile = (albumImage: string, dominantColor: string) => {
+  const key = `${albumImage || 'no-cover'}|${dominantColor}`;
+  const cached = vinylTextureCache.get(key);
+  if (cached) return cached;
+
+  const imageHash = hashString(albumImage || 'no-cover');
+  const colorHash = hashString(dominantColor);
+  const seed = Math.abs(Math.imul(imageHash || 17, 101) ^ Math.imul(colorHash || 29, 53) ^ key.length);
+  const profile = { seed, variant: (seed + Math.floor(seededValue(seed, 4) * 1000)) % 3 };
+
+  if (vinylTextureCache.size > 120) {
+    vinylTextureCache.delete(vinylTextureCache.keys().next().value);
+  }
+  vinylTextureCache.set(key, profile);
+  return profile;
+};
+
 export const VinylRecord = ({
   albumImage,
   dominantColor,
@@ -58,9 +90,26 @@ export const VinylRecord = ({
   const safeDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.4), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.3), [safeDominantColor]);
+  const textureProfile    = useMemo(() => getTextureProfile(albumImage, safeDominantColor), [albumImage, safeDominantColor]);
+  const textureSeed       = textureProfile.seed;
+  const textureVariant    = textureProfile.variant;
+  const splatters = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
+    angle: seededValue(textureSeed, i) * 360,
+    length: 8 + seededValue(textureSeed, i + 31) * 22,
+    width: 0.5 + seededValue(textureSeed, i + 61) * 1.2,
+    radius: 24 + seededValue(textureSeed, i + 91) * 22,
+    opacity: 0.25 + seededValue(textureSeed, i + 121) * 0.55,
+  })), [textureSeed]);
+  const wisps = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
+    angle: seededValue(textureSeed, i + 151) * 360,
+    radius: 18 + seededValue(textureSeed, i + 181) * 32,
+    width: 10 + seededValue(textureSeed, i + 211) * 18,
+    height: 1.6 + seededValue(textureSeed, i + 241) * 4,
+    opacity: 0.07 + seededValue(textureSeed, i + 271) * 0.18,
+  })), [textureSeed]);
 
-  const tonearmRotate = isPlaying ? -45 : 20;
-  const tonearmY      = isPlaying ? 0  : -6;
+  const tonearmRotate = isPlaying ? -22 - currentRatio * 17 : 18;
+  const tonearmY      = isPlaying ? 0  : -5;
 
   return (
     <div
@@ -90,30 +139,30 @@ export const VinylRecord = ({
         className="absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10"
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.55) 19%, transparent 20%),
-            radial-gradient(circle at 25% 20%, ${withAlpha(lightColor, 0.50)} 0%, transparent 55%),
-            radial-gradient(circle at 75% 80%, ${withAlpha(darkColor,  0.35)} 0%, transparent 50%),
-            radial-gradient(circle at 60% 10%, rgba(255,255,255,0.12) 0%, transparent 40%),
+            radial-gradient(circle at center, rgba(0,0,0,0.48) 0%, rgba(0,0,0,0.48) 19%, transparent 20%),
+            radial-gradient(circle at 24% 18%, ${withAlpha(lightColor, textureVariant === 0 ? 0.38 : 0.30)} 0%, transparent 56%),
+            radial-gradient(circle at 78% 82%, ${withAlpha(darkColor,  textureVariant === 1 ? 0.22 : 0.16)} 0%, transparent 54%),
+            radial-gradient(circle at 58% 8%, rgba(255,255,255,0.11) 0%, transparent 38%),
             conic-gradient(
               from 0deg,
-              ${withAlpha(safeDominantColor, 0.55)} 0deg,
-              ${withAlpha(darkColor,         0.38)} 60deg,
-              ${withAlpha(safeDominantColor, 0.50)} 120deg,
-              ${withAlpha(lightColor,        0.65)} 180deg,
-              ${withAlpha(safeDominantColor, 0.50)} 240deg,
-              ${withAlpha(darkColor,         0.35)} 300deg,
-              ${withAlpha(safeDominantColor, 0.55)} 360deg
+              ${withAlpha(safeDominantColor, 0.34)} 0deg,
+              ${withAlpha(darkColor,         0.18)} 60deg,
+              ${withAlpha(safeDominantColor, 0.24)} 120deg,
+              ${withAlpha(lightColor,        0.40)} 180deg,
+              ${withAlpha(safeDominantColor, 0.28)} 240deg,
+              ${withAlpha(darkColor,         0.16)} 300deg,
+              ${withAlpha(safeDominantColor, 0.34)} 360deg
             )
           `,
-          backdropFilter: 'blur(0px)',
-          WebkitBackdropFilter: 'blur(0px)',
+          backdropFilter: 'blur(1.5px) saturate(1.15)',
+          WebkitBackdropFilter: 'blur(1.5px) saturate(1.15)',
           maskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
           willChange: isPlaying ? 'transform' : 'auto',
-          filter: isPlaying ? 'brightness(1.3) saturate(1.2)' : 'none',
+          filter: isPlaying ? 'brightness(1.18) saturate(1.16)' : 'none',
           boxShadow: isPlaying
             ? `0 0 30px ${withAlpha(safeDominantColor, 0.5)}, 0 0 60px ${withAlpha(safeDominantColor, 0.3)}`
             : 'none'
@@ -129,11 +178,76 @@ export const VinylRecord = ({
             : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
         }
       >
+        {/* Texturas translúcidas inspiradas nas referências de vinil */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none z-[11]"
+          style={{
+            background:
+              textureVariant === 0
+                ? `radial-gradient(circle at 50% 50%, transparent 0 23%, rgba(255,255,255,0.13) 24%, transparent 29%),
+                   radial-gradient(circle at 44% 40%, rgba(255,255,255,0.18), transparent 34%),
+                   radial-gradient(circle at 66% 32%, rgba(255,255,255,0.12), transparent 22%),
+                   conic-gradient(from 20deg, transparent 0deg, rgba(255,255,255,0.12) 9deg, transparent 18deg, transparent 54deg, rgba(255,255,255,0.10) 66deg, transparent 78deg, transparent 360deg)`
+                : textureVariant === 1
+                  ? `radial-gradient(circle at 30% 28%, ${withAlpha(lightColor, 0.24)}, transparent 29%),
+                     radial-gradient(circle at 62% 68%, ${withAlpha(darkColor, 0.17)}, transparent 40%),
+                     radial-gradient(circle at 74% 24%, rgba(255,255,255,0.09), transparent 24%),
+                     conic-gradient(from 120deg, ${withAlpha(darkColor, 0.19)}, transparent 45deg, ${withAlpha(lightColor, 0.15)} 90deg, transparent 145deg, ${withAlpha(darkColor, 0.14)} 220deg, transparent 360deg)`
+                  : `radial-gradient(circle at 42% 32%, rgba(255,255,255,0.13), transparent 28%),
+                     radial-gradient(circle at 72% 46%, ${withAlpha(lightColor, 0.17)}, transparent 38%),
+                     radial-gradient(circle at 28% 78%, ${withAlpha(darkColor, 0.11)}, transparent 28%),
+                     conic-gradient(from 260deg, transparent, ${withAlpha(safeDominantColor, 0.16)}, transparent, ${withAlpha(darkColor, 0.12)}, transparent)`,
+            mixBlendMode: textureVariant === 0 ? 'screen' : 'soft-light',
+            opacity: isPlaying ? 0.74 : 0.54,
+          }}
+        />
+
+        {(textureVariant === 0 || textureVariant === 2) && (
+          <svg
+            viewBox="0 0 100 100"
+            className="absolute inset-0 w-full h-full pointer-events-none z-[12]"
+            style={{ opacity: isPlaying ? 0.78 : 0.42, mixBlendMode: 'screen' }}
+          >
+            {splatters.map((s, i) => (
+              <ellipse
+                key={`${uniqueId}-splat-${i}`}
+                cx="50"
+                cy={50 - s.radius}
+                rx={s.width}
+                ry={s.length}
+                fill="rgba(255,255,255,0.75)"
+                opacity={textureVariant === 0 ? s.opacity : s.opacity * 0.28}
+                transform={`rotate(${s.angle} 50 50)`}
+              />
+            ))}
+          </svg>
+        )}
+
+        {(textureVariant === 1 || textureVariant === 2) && (
+          <svg
+            viewBox="0 0 100 100"
+            className="absolute inset-0 w-full h-full pointer-events-none z-[12]"
+            style={{ opacity: isPlaying ? 0.85 : 0.55, mixBlendMode: 'multiply' }}
+          >
+            {wisps.map((w, i) => (
+              <ellipse
+                key={`${uniqueId}-wisp-${i}`}
+                cx="50"
+                cy={50 - w.radius}
+                rx={w.width}
+                ry={w.height}
+                fill={withAlpha(darkColor, w.opacity)}
+                transform={`rotate(${w.angle} 50 50)`}
+              />
+            ))}
+          </svg>
+        )}
+
         {/* Sulcos realistas + grain */}
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ opacity: isPlaying ? 0.42 : 0.18, mixBlendMode: 'soft-light' }}
+          style={{ opacity: isPlaying ? 0.52 : 0.24, mixBlendMode: 'soft-light', zIndex: 13 }}
         >
           <defs>
             <filter id={`${uniqueId}-grain`}>
@@ -141,15 +255,15 @@ export const VinylRecord = ({
               <feColorMatrix type="saturate" values="0" />
             </filter>
           </defs>
-          {Array.from({ length: 12 }, (_, i) => (
+          {Array.from({ length: 15 }, (_, i) => (
             <circle
               key={`${uniqueId}-groove-${i}`}
               cx="50" cy="50"
-              r={45 - i * 3.0}
+              r={45 - i * 2.45}
               fill="none"
               stroke="white"
-              strokeWidth={i % 3 === 0 ? 0.45 : 0.2}
-              opacity={1 - i * 0.055}
+              strokeWidth={i % 3 === 0 ? 0.36 : 0.16}
+              opacity={0.9 - i * 0.045}
             />
           ))}
           <circle cx="50" cy="50" r="26" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.55" />
@@ -302,11 +416,11 @@ export const VinylRecord = ({
         <motion.div
           className="absolute z-40 pointer-events-none"
           style={{
-            right:           isPlaying ? '14%' : '0%',
-            top:             isPlaying ? '-4%' : '6%',
-            width:           isPlaying ? '46%' : '50%',
-            height:          '8%',
-            transformOrigin: '92% 50%',
+            right:           isPlaying ? '-5%' : '-10%',
+            top:             isPlaying ? '5%' : '-1%',
+            width:           isPlaying ? '50%' : '52%',
+            height:          '9%',
+            transformOrigin: '90% 42%',
             willChange:      'transform',
             filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
             zIndex:          50,
@@ -325,53 +439,67 @@ export const VinylRecord = ({
           className="absolute rounded-full transition-all duration-700"
           style={{
             background: isPlaying
-              ? 'linear-gradient(90deg, #ea580c 0%, #f97316 25%, #fb923c 55%, #fdba74 75%, #fed7aa 100%)'
+              ? 'linear-gradient(90deg, #1f2937 0%, #d1d5db 18%, #f9fafb 48%, #9ca3af 72%, #111827 100%)'
               : 'linear-gradient(90deg, #27272a 0%, #71717a 25%, #e4e4e7 55%, #a1a1aa 75%, #52525b 100%)',
-            height: '30%',
-            top:    '35%',
-            left:   '2%',
-            right:  '12%',
+            height: '24%',
+            top:    '38%',
+            left:   '8%',
+            right:  '17%',
             boxShadow: isPlaying
-              ? '0 1px 3px rgba(249,115,22,0.7), inset 0 1px 0 rgba(255,255,255,0.15), 0 0 10px rgba(249,115,22,0.4)'
+              ? '0 1px 5px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.35)'
               : '0 1px 3px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.15)',
+          }}
+        />
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: '13%',
+            right: '20%',
+            top: '43%',
+            height: '7%',
+            background: 'rgba(255,255,255,0.5)',
+            filter: 'blur(1px)',
           }}
         />
         {/* Pivô circular */}
         <div
           className="absolute rounded-full"
           style={{
-            right:     0,
-            top:       '50%',
+            right:     '-1%',
+            top:       '42%',
             transform: 'translateY(-50%)',
-            width:     '11%',
-            height:    '240%',
-            background: 'radial-gradient(circle at 38% 32%, #e4e4e7 0%, #71717a 45%, #3f3f46 100%)',
-            boxShadow:  '0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.2)',
+            width:     '26%',
+            height:    '290%',
+            background: 'radial-gradient(circle at 42% 35%, rgba(255,255,255,0.14) 0%, rgba(39,39,42,0.78) 38%, rgba(0,0,0,0.78) 100%)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            boxShadow:  '0 2px 12px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.12)',
           }}
         />
         {/* Headshell */}
         <div
-          className="absolute rounded-sm"
+          className="absolute rounded-md"
           style={{
-            left:      '1%',
-            top:       '15%',
-            width:     '8%',
-            height:    '70%',
-            background: 'linear-gradient(135deg, #71717a 0%, #3f3f46 100%)',
-            boxShadow:  '0 1px 4px rgba(0,0,0,0.5)',
+            left:      '0%',
+            top:       '16%',
+            width:     '18%',
+            height:    '88%',
+            background: 'linear-gradient(135deg, #18181b 0%, #09090b 72%, #27272a 100%)',
+            boxShadow:  '0 2px 7px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
+            transform: 'skewX(-10deg)',
           }}
         />
         {/* Agulha */}
         <div
           className="absolute rounded-full"
           style={{
-            left:      '0%',
-            top:       '50%',
-            transform: 'translateY(-50%)',
+            left:      '2%',
+            top:       '86%',
+            transform: 'rotate(-28deg)',
+            transformOrigin: '50% 0%',
             width:     '3%',
-            height:    '180%',
-            background: 'linear-gradient(180deg, #fda4af 0%, #fb7185 40%, #f43f5e 100%)',
-            boxShadow:  '0 0 6px rgba(244,63,94,0.8), 0 0 2px rgba(244,63,94,1)',
+            height:    '70%',
+            background: isPlaying ? '#fb923c' : '#3f3f46',
+            boxShadow:  isPlaying ? '0 0 8px rgba(249,115,22,0.72)' : 'none',
           }}
         />
       </motion.div>
