@@ -330,7 +330,7 @@ export const StatsAlike = React.memo(() => {
 
             return (
               <motion.div
-                key={conn.id}
+                key={`${conn.id}-${idx}`}
                 animate={{ 
                   x: `calc(-50% + ${x}px)`, 
                   y: `calc(-50% + ${y}px)`,

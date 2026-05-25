@@ -13,7 +13,9 @@ import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { VinylRecord } from '../components/home/VinylRecord';
 import { coreUtils } from '../services/statsCore';
+import { statsService } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
+import { getDominantColor } from '../lib/colorUtils';
 
 // Novos componentes modulares
 import {
@@ -78,6 +80,13 @@ export default function HomeScreen() {
   const [headerHighlight, setHeaderHighlight] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
+  const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
+  const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
+  const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
+    artists: [],
+    tracks: [],
+    albums: []
+  });
   const toastIdRef = useRef(0);
 
   const allMembers = groupStats?.members || [];
@@ -86,9 +95,24 @@ export default function HomeScreen() {
   const FEATURED_ID = primaryUser?.id;
 
   // Mini header vinyl states
-  const miniHeaderAlbumImage = primaryUser?.nowPlaying?.track?.album?.image || '';
-  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || '';
-  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus(primaryUser) : null;
+  const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
+  const miniHeaderAlbumImage = (
+    miniHeaderTrack?.image ||
+    miniHeaderTrack?.albumImage ||
+    miniHeaderTrack?.album?.image ||
+    miniHeaderTrack?.album?.images?.[0]?.url ||
+    miniHeaderTrack?.album?.images?.[0] ||
+    miniHeaderTrack?.images?.[0]?.url ||
+    miniHeaderTrack?.images?.[0] ||
+    miniHeaderTrack?.albumArt ||
+    miniHeaderTrack?.coverArt ||
+    miniHeaderTrack?.cover_art ||
+    miniHeaderTrack?.album_image ||
+    miniHeaderTrack?.cover ||
+    ''
+  );
+  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
+  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
 
   const pipelineStreamLinesMemo = useMemo(() => [
@@ -152,13 +176,36 @@ export default function HomeScreen() {
     }, 4500);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!miniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
+      setMiniHeaderResolvedColor('');
+      return;
+    }
+
+    getDominantColor(miniHeaderAlbumImage)
+      .then((color) => {
+        if (!cancelled) setMiniHeaderResolvedColor(color || '');
+      })
+      .catch(() => {
+        if (!cancelled) setMiniHeaderResolvedColor('');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
+
   const handleRefresh = useCallback(async () => {
+    setIsManualLiveRefresh(true);
     try {
-      await fetchGroupLive();
-      showToast('Sincronização Live', 'Status do grupo atualizado com sucesso.', 'success');
+      await fetchGroupLive(true);
+      showToast('Now Playing', 'Tocando agora atualizado.', 'success');
     } catch (err: any) {
       console.error(err);
-      showToast('Filtro de Ruído', 'Não foi possível completar a sincronização live.', 'error');
+      showToast('Now Playing', 'Não foi possível atualizar o tocando agora.', 'error');
+    } finally {
+      setIsManualLiveRefresh(false);
     }
   }, [fetchGroupLive, showToast]);
 
@@ -202,8 +249,15 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!featuredUserId && members.length > 0 && groupStats && !isLoading) {
-      // Mostra o modal inicial ao invés de selecionar automaticamente
-      setShowInitialModal(true);
+      const hasSelectedBefore = typeof localStorage !== 'undefined'
+        && localStorage.getItem('stats-lc-has-selected-user') === '1';
+
+      if (hasSelectedBefore) {
+        setFeaturedUserId(members[0].id);
+        setShowInitialModal(false);
+      } else {
+        setShowInitialModal(true);
+      }
     } else if (featuredUserId) {
       // Fecha o modal quando um usuário é selecionado
       setShowInitialModal(false);
@@ -414,6 +468,45 @@ export default function HomeScreen() {
         }
       });
   }, [members, featuredUserId, historyOrder, historyCustomOrder]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!primaryUser?.id) {
+      setReplayTopItems({ artists: [], tracks: [], albums: [] });
+      return;
+    }
+
+    const currentTopItems = primaryUser.topItems;
+    const hasEmbeddedTopItems =
+      (currentTopItems?.artists?.length || 0) > 0 ||
+      (currentTopItems?.tracks?.length || 0) > 0 ||
+      (currentTopItems?.albums?.length || 0) > 0;
+
+    if (hasEmbeddedTopItems) {
+      setReplayTopItems({
+        artists: currentTopItems?.artists || [],
+        tracks: currentTopItems?.tracks || [],
+        albums: currentTopItems?.albums || []
+      });
+      return;
+    }
+
+    Promise.all([
+      statsService.getTopItems(primaryUser.id, 'artists', 'month').catch(() => []),
+      statsService.getTopItems(primaryUser.id, 'tracks', 'month').catch(() => []),
+      statsService.getTopItems(primaryUser.id, 'albums', 'month').catch(() => [])
+    ]).then(([artists, tracks, albums]) => {
+      if (!cancelled) setReplayTopItems({ artists, tracks, albums });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryUser?.id, primaryUser?.topItems]);
+
+  const replayArtists = replayTopItems.artists.length ? replayTopItems.artists : (primaryUser?.topItems?.artists || []);
+  const replayTracks = replayTopItems.tracks.length ? replayTopItems.tracks : (primaryUser?.topItems?.tracks || []);
+  const replayAlbums = replayTopItems.albums.length ? replayTopItems.albums : (primaryUser?.topItems?.albums || []);
   return (
     <>
       {createPortal(
@@ -426,12 +519,14 @@ export default function HomeScreen() {
               featuredUserId={featuredUserId || ''}
               onSelectUser={(userId) => {
                 setFeaturedUserId(userId);
+                localStorage.setItem('stats-lc-has-selected-user', '1');
                 setShowInitialModal(false);
               }}
               onClose={() => {
                 // Seleciona o primeiro usuário se fechar sem escolher
                 if (!featuredUserId && members.length > 0) {
                   setFeaturedUserId(members[0].id);
+                  localStorage.setItem('stats-lc-has-selected-user', '1');
                 }
                 setShowInitialModal(false);
               }}
@@ -488,6 +583,7 @@ export default function HomeScreen() {
               featuredUserId={featuredUserId || ''}
               onSelectUser={(userId) => {
                 setFeaturedUserId(userId);
+                localStorage.setItem('stats-lc-has-selected-user', '1');
                 setShowUserSelector(false);
                 setAvatarClickPosition(null);
               }}
@@ -504,71 +600,74 @@ export default function HomeScreen() {
           <header
             style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
             className={cn(
-              "fixed top-0 left-0 right-0 z-[150] flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
+              "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
               isHeaderScrolled
                 ? "translate-y-0 opacity-100 pointer-events-auto"
                 : "-translate-y-4 opacity-0 pointer-events-none"
             )}
           >
-            {/* Avatar do usuário */}
-            <button
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setAvatarClickPosition({
-                  x: rect.left + rect.width / 2,
-                  y: rect.top + rect.height / 2
-                });
-                setSelectorMode('mini-header');
-                setShowUserSelector(true);
-              }}
-              title="Selecionar Usuário"
-              aria-label="Selecionar Usuário"
-              className="h-10 w-10 flex items-center justify-center rounded-full bg-black/40 border border-white/10 hover:bg-white/[0.08] backdrop-blur-md cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
-            >
-              <SmartImage
-                src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
-                className="h-full w-full object-cover"
-                fallback=""
-                rounded="full"
-              />
-            </button>
-
-            {/* Vinil Mini */}
-            {miniHeaderAlbumImage && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute left-1/2 -translate-x-1/2 h-12 w-12"
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/35">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRefresh();
+                }}
+                disabled={isManualLiveRefresh}
+                title="Atualizar tocando agora"
+                aria-label="Atualizar tocando agora"
+                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
               >
-                <VinylRecord
-                  albumImage={miniHeaderAlbumImage}
-                  dominantColor={miniHeaderDominantColor || ""}
-                  isPlaying={miniHeaderIsPlaying}
-                  progressMs={0}
-                  durationMs={undefined}
-                  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  hideTonearm={true}
+                <RefreshCcw
+                  className={cn(
+                    "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
+                    isManualLiveRefresh && "animate-spin text-orange-500"
+                  )}
                 />
-              </motion.div>
-            )}
+              </button>
 
-            {/* Botão de Refresh */}
-            <button
-              onClick={handleRefresh}
-              disabled={isLiveFetching || isRefreshing}
-              title="Sincronizar Live"
-              aria-label="Sincronizar Live"
-              className="h-10 w-10 flex items-center justify-center rounded-full bg-black/40 border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
-            >
-              <RefreshCcw
-                className={cn(
-                  "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                  (isLiveFetching || isRefreshing) && "animate-spin text-orange-500"
-                )}
-              />
-            </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setAvatarClickPosition({
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                  });
+                  setSelectorMode('mini-header');
+                  setShowUserSelector(true);
+                }}
+                title="Selecionar Usuário"
+                aria-label="Selecionar Usuário"
+                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
+              >
+                <SmartImage
+                  src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
+                  className="h-full w-full object-cover"
+                  fallback=""
+                  rounded="full"
+                />
+              </button>
+
+              {miniHeaderAlbumImage && (
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="h-12 w-12 -ml-1 shrink-0"
+                >
+                  <VinylRecord
+                    albumImage={miniHeaderAlbumImage}
+                    dominantColor={miniHeaderDominantColor || ""}
+                    isPlaying={miniHeaderIsPlaying}
+                    progressMs={0}
+                    durationMs={undefined}
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    hideTonearm={true}
+                  />
+                </motion.div>
+              )}
+            </div>
           </header>
         </>,
         document.body
@@ -577,198 +676,23 @@ export default function HomeScreen() {
       <PullToRefresh 
       onRefresh={handleRefresh}
       pullingContent={
-        <div className="flex flex-col items-center justify-center py-14 gap-6 bg-gradient-to-b from-orange-500/[0.1] via-orange-500/[0.02] to-transparent border-b border-white/5 select-none transition-all duration-300 relative overflow-hidden">
-          {/* Depth Scanning Grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(249,115,22,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(249,115,22,0.1)_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)] opacity-20" />
-          
-          <div className="relative">
-            {/* Outer Rings */}
-            <motion.div 
-               className="absolute -inset-8 rounded-full border border-orange-500/10"
-               animate={{ scale: [0.9, 1.1, 0.9], opacity: [0.1, 0.3, 0.1] }}
-               transition={{ duration: 3, repeat: Infinity }}
-            />
-            <motion.div 
-               className="absolute -inset-4 rounded-full border border-orange-500/20"
-               animate={{ rotate: 360 }}
-               transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-            />
-            
-            <div className="h-16 w-16 rounded-2xl glass border border-orange-500/30 flex items-center justify-center bg-black/60 shadow-[0_0_30px_rgba(249,115,22,0.2)] relative z-10 backdrop-blur-xl group">
-              <motion.div
-                animate={{ 
-                  y: [0, 4, 0],
-                  scale: [1, 1.05, 1]
-                }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-              >
-                <ArrowDown className="h-7 w-7 text-orange-400 opacity-70 group-hover:opacity-100 transition-opacity" />
-              </motion.div>
-            </div>
-
-            {/* Scanning Line */}
-            <motion.div 
-              className="absolute left-[-40px] right-[-40px] h-[1px] bg-gradient-to-r from-transparent via-orange-500 to-transparent z-20"
-              animate={{ top: ['0%', '100%'] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            />
+        <div className="flex flex-col items-center justify-center py-8 gap-3 border-b border-white/5 select-none bg-black/20 backdrop-blur-sm">
+          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.04] flex items-center justify-center">
+            <ArrowDown className="h-4 w-4 text-white/45" />
           </div>
-          
-          <div className="flex flex-col items-center gap-2 relative z-10">
-            <span className="text-[10px] font-black uppercase tracking-[0.6em] text-white/40 font-display">
-              Puxe para Sincronizar
-            </span>
-            <div className="flex items-center gap-2 opacity-30">
-              <div className="h-[1px] w-4 bg-white/20" />
-              <span className="text-[7px] font-mono uppercase tracking-widest text-white/60">Ready to Handshake</span>
-              <div className="h-[1px] w-4 bg-white/20" />
-            </div>
-          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/35">
+            Atualizar tocando agora
+          </span>
         </div>
       }
       refreshingContent={
-        <div className="flex flex-col items-center justify-center py-20 gap-12 bg-[#020202] border-b border-orange-500/50 select-none shadow-[inset_0_-60px_120px_rgba(249,115,22,0.15)] relative overflow-hidden h-[90vh]">
-          {/* Enhanced Background Effects */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.12)_0%,transparent_75%)]" />
-          <div className="absolute inset-0 bg-[url('https://transparenttextures.com/patterns/real-carbon-fibre.png')] opacity-[0.04] mix-blend-overlay" />
-          
-          {/* Vertical Stream Lines */}
-          <div className="absolute inset-x-0 top-0 bottom-0 overflow-hidden pointer-events-none">
-            {pipelineStreamLinesMemo.map((line, i) => (              <motion.div
-                key={i}
-                className="absolute w-[1px] bg-gradient-to-b from-transparent via-orange-500/20 to-transparent"
-                style={{ left: line.left, height: '100%' }}
-                animate={{ 
-                  opacity: [0, 1, 0],
-                  top: ['-50%', '100%']
-                }}
-                transition={{ 
-                  duration: line.duration,
-                  repeat: Infinity, 
-                  delay: line.delay,
-                  ease: "linear"
-                }}
-              />
-            ))}
+        <div className="flex flex-col items-center justify-center py-8 gap-3 border-b border-white/5 select-none bg-black/25 backdrop-blur-sm">
+          <div className="h-10 w-10 rounded-full border border-orange-500/20 bg-white/[0.04] flex items-center justify-center">
+            <RefreshCcw className="h-4 w-4 text-orange-500 animate-spin" />
           </div>
-          
-          {/* Circular HUD - Advanced Version */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-40 pointer-events-none">
-             <motion.div 
-               animate={{ rotate: 360 }}
-               transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
-               className="h-[600px] w-[600px] rounded-full border border-orange-500/5 absolute" 
-             />
-             <motion.div 
-               animate={{ rotate: -360 }}
-               transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-               className="h-[450px] w-[450px] rounded-full border border-dashed border-orange-500/10 absolute" 
-             />
-             <motion.div 
-               animate={{ rotate: 360 }}
-               transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-               className="h-96 w-96 rounded-full border-t border-orange-500/40 absolute" 
-             />
-             
-             {/* Data Points */}
-             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-               <motion.div
-                 key={angle}
-                 className="absolute h-1 w-1 bg-orange-400 rounded-full"
-                 animate={{ opacity: [0, 1, 0] }}
-                 transition={{ duration: 1.5, repeat: Infinity, delay: angle / 360 }}
-                 style={{ 
-                   transform: `rotate(${angle}deg) translate(225px)` 
-                 }}
-               />
-             ))}
-          </div>
-
-          <div className="relative z-40 flex flex-col items-center gap-12 w-full max-w-sm px-8">
-            {/* Core Processor High Fidelity Overlay */}
-            <div className="relative flex items-center justify-center h-28 w-28">
-              <motion.div 
-                className="absolute inset-0 rounded-[40px] border-2 border-orange-500/40 shadow-[0_0_50px_rgba(249,115,22,0.5)]"
-                animate={{ 
-                  rotate: [0, 90, 0], 
-                  borderRadius: ["40px", "56px", "40px"],
-                  scale: [1, 1.08, 1]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              
-              <div className="h-14 w-14 bg-[#080808] border border-orange-500/30 rounded-2xl flex items-center justify-center shadow-inner relative overflow-hidden group">
-                 <motion.div 
-                   className="absolute inset-0 bg-orange-500/10" 
-                   animate={{ opacity: [0.1, 0.4, 0.1] }} 
-                   transition={{ duration: 2, repeat: Infinity }} 
-                 />
-                 <motion.div 
-                   animate={{ rotate: 360 }}
-                   transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                 >
-                    <RefreshCcw className="h-6 w-6 text-orange-500" />
-                 </motion.div>
-              </div>
-            </div>
-
-            {/* Diagnostic Interface Upgrade */}
-            <div className="flex flex-col items-center gap-6 w-full glass border-white/10 p-7 rounded-[40px] shadow-3xl relative overflow-hidden">
-               <div className="absolute inset-0 bg-gradient-to-b from-orange-500/5 to-transparent" />
-               
-               <AnimatePresence mode="wait">
-                <motion.div 
-                  key={refreshStepText}
-                  initial={{ opacity: 0, y: 15, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 1.05 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                  className="flex flex-col items-center gap-4 w-full"
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <span className="text-[9px] font-mono font-black text-orange-500/50 uppercase tracking-[0.4em] leading-none mb-1">Status do Pipeline</span>
-                    <h2 className="text-[14px] font-black text-white uppercase tracking-[0.25em] font-display text-center leading-tight">
-                      {refreshStepText}
-                    </h2>
-                  </div>
-                  
-                  <div className="w-full flex flex-col gap-5 mt-4">
-                     <div className="flex items-center justify-between px-1">
-                        <span className="text-[7px] font-mono text-orange-500/60 uppercase tracking-widest">Processamento Digital</span>
-                        <span className="text-[8px] font-mono text-white/40 uppercase tracking-widest">Nodes: {processedItems} unidades</span>
-                     </div>
-                     <div className="h-[4px] w-full bg-white/5 rounded-full overflow-hidden relative border border-white/5">
-                       <motion.div 
-                         className="h-full bg-gradient-to-r from-orange-600 via-white to-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.8)]" 
-                         animate={{ width: `${refreshProgress}%` }} 
-                         transition={{ duration: 0.7, ease: "linear" }} 
-                       />
-                     </div>
-                     
-                     {/* Stream Analytics Panel */}
-                     <div className="grid grid-cols-2 gap-2.5 w-full">
-                        <div className="flex flex-col gap-1 px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/5">
-                           <span className="text-[6px] font-bold text-white/30 uppercase tracking-[0.2em] leading-none">Latência de Sync</span>
-                           <span className="text-[10px] font-black text-orange-500/70 font-mono tracking-widest">{12 + (processedItems % 9)}ms</span>
-                        </div>
-                        <div className="flex flex-col gap-1 px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/5 items-end text-right">
-                           <span className="text-[6px] font-bold text-white/30 uppercase tracking-[0.2em] leading-none">Estabilidade</span>
-                           <span className="text-[10px] font-black text-green-500/70 font-mono tracking-widest">99.8%</span>
-                        </div>
-                     </div>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Bottom Status Ticker */}
-            <div className="flex flex-col items-center gap-3 opacity-30">
-               <div className="flex items-center gap-3">
-                 <div className="h-1 w-1 rounded-full bg-orange-500 animate-ping" />
-                 <span className="text-[7px] font-black text-white uppercase tracking-[0.4em] font-mono">X-Terminal Linked</span>
-               </div>
-            </div>
-          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/40">
+            Atualizando now playing
+          </span>
         </div>
       }
     >
@@ -1048,6 +972,43 @@ export default function HomeScreen() {
         )}
       </AnimatePresence>
 
+      {/* Replay Section */}
+      {primaryUser && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <ReplaySection
+            topArtists={replayArtists.slice(0, 10).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              image: a.image,
+              streams: a.playedCount || a.streams || a.playcount || a.count || 0
+            })) || []}
+            topTracks={replayTracks.slice(0, 12).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              artist: t.primaryArtistName || t.artists?.[0]?.name || 'Artista Desconhecido',
+              image: t.image || t.albumImage,
+              streams: t.playedCount || t.streams || t.playcount || t.count || 0
+            })) || []}
+            topAlbums={replayAlbums.slice(0, 10).map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              artist: a.artist || a.artistName || a.albumArtist || 'Artista Desconhecido',
+              image: a.image,
+              streams: a.playedCount || a.streams || a.playcount || a.count || 0
+            })) || []}
+            totalSongsCount={primaryUser.streamsToday || primaryUser.streamsMonth || primaryUser.totalStreams || replayTracks.length}
+            onOpenArtistsModal={() => console.log('Open artists modal')}
+            onOpenSongsModal={() => console.log('Open songs modal')}
+            onOpenAlbumsModal={() => console.log('Open albums modal')}
+          />
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -1077,43 +1038,6 @@ export default function HomeScreen() {
       >
         <StatsAlike />
       </motion.div>
-
-      {/* Replay Section */}
-      {primaryUser && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <ReplaySection
-            topArtists={primaryUser.topItems?.artists?.slice(0, 10).map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              image: a.image,
-              streams: a.playedCount || 0
-            })) || []}
-            topTracks={primaryUser.topItems?.tracks?.slice(0, 12).map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              artist: t.primaryArtistName || t.artists?.[0]?.name || 'Artista Desconhecido',
-              image: t.image,
-              streams: t.playedCount || 0
-            })) || []}
-            topAlbums={primaryUser.topItems?.albums?.slice(0, 10).map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              artist: a.artist || 'Artista Desconhecido',
-              image: a.image,
-              streams: a.playedCount || 0
-            })) || []}
-            totalSongsCount={primaryUser.streamsToday || 0}
-            onOpenArtistsModal={() => console.log('Open artists modal')}
-            onOpenSongsModal={() => console.log('Open songs modal')}
-            onOpenAlbumsModal={() => console.log('Open albums modal')}
-          />
-        </motion.div>
-      )}
 
       {groupStats && (
         <motion.div

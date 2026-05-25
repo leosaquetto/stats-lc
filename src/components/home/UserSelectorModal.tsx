@@ -83,76 +83,79 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
               </svg>
             </motion.div>
 
-            {/* Modal delicado */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-              className="w-[95vw] max-w-2xl glass border border-white/5 px-8 py-10 shadow-2xl backdrop-blur-3xl overflow-visible rounded-3xl touch-auto"
+            {/* Texto acima dos avatares */}
+            <motion.h3
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="text-center text-[11px] font-medium text-white/50 leading-relaxed"
+            >
+              Selecione o seu perfil para<br />personalizar a sua experiência no stats.lc.
+            </motion.h3>
+
+            {/* Avatares retangulares flutuantes */}
+            <div
+              className="flex justify-center gap-2 max-w-[92vw] overflow-x-auto overflow-y-visible custom-scrollbar px-2 pb-2 touch-auto"
               onTouchStart={(e) => e.stopPropagation()}
               onTouchMove={(e) => e.stopPropagation()}
             >
-              {/* Texto com quebra elegante */}
-              <h3 className="text-center text-base font-light text-white/80 mb-10 leading-relaxed">
-                Selecione o seu<br />
-                <span className="font-semibold text-white">perfil</span>
-              </h3>
-
-              {/* Grid retangular de usuários */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-2">
-                {sortedMembers.map((u, idx) => (
-                  <motion.button
-                    key={u.id}
-                    onClick={() => {
-                      onSelectUser(u.id);
-                    }}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1
-                    }}
-                    transition={{
-                      opacity: { duration: 0.3, delay: idx * 0.05 },
-                      scale: { duration: 0.3, delay: idx * 0.05 }
-                    }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+              {sortedMembers.map((u, idx) => (
+                <motion.button
+                  key={u.id}
+                  onClick={() => {
+                    onSelectUser(u.id);
+                  }}
+                  initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ delay: 0.4 + idx * 0.05 }}
+                  whileHover={{ scale: 1.05, y: -4 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative group flex-shrink-0"
+                >
+                  <motion.div
                     className={cn(
-                      "flex flex-col items-center gap-3 p-4 rounded-2xl transition-all relative",
-                      featuredUserId === u.id
-                        ? "bg-gradient-to-b from-orange-500/20 to-orange-500/5 border border-orange-500/30 shadow-lg"
-                        : "bg-white/5 hover:bg-white/10 border border-white/5"
+                      "absolute inset-0 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity",
+                      featuredUserId === u.id ? "bg-orange-500/30 opacity-60" : "bg-orange-500/20"
                     )}
-                  >
-                    {featuredUserId === u.id && (
-                      <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
-                    )}
-                    <div className="rounded-full overflow-hidden relative shrink-0">
-                      <SmartImage
-                        src={coreUtils.getUserAvatar(u.id, u.avatar)}
-                        className="h-20 w-20 object-cover"
-                        fallback=""
-                        rounded="full"
-                      />
-                    </div>
-                    <span className={cn(
-                      "text-xs font-semibold text-center leading-tight line-clamp-2 w-full",
-                      featuredUserId === u.id ? "text-white" : "text-white/70"
-                    )}>
-                      {u.name}
-                    </span>
-                  </motion.button>
-                ))}
-              </div>
+                  />
+                  <div className={cn(
+                    "relative rounded-2xl overflow-hidden w-[56px] h-32 transition-all shadow-lg",
+                    featuredUserId === u.id && "ring-2 ring-orange-500/70"
+                  )}>
+                    <SmartImage
+                      src={coreUtils.getUserAvatar(u.id, u.avatar)}
+                      fallback={u.name}
+                      className="h-full w-full object-cover"
+                      rounded="none"
+                    />
+                  </div>
+                </motion.button>
+              ))}
+            </div>
 
-              {/* Footer com powered by stats.fm */}
-              <div className="mt-8 text-center">
-                <p className="text-[10px] font-medium text-white/30 tracking-wide">
-                  powered by stats.fm
-                </p>
-              </div>
+            {/* Ícone de nota musical animado embaixo */}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+            >
+              <motion.div
+                animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="text-orange-500 flex justify-center"
+              >
+                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21,0-4,1.79-4,4s1.79,4,4,4,4-1.79,4-4V7h4V3h-6z"/>
+                </svg>
+              </motion.div>
             </motion.div>
+
+            {/* Footer com powered by stats.fm */}
+            <div className="text-center">
+              <p className="text-[10px] font-medium text-white/30 tracking-wide">
+                powered by stats.fm
+              </p>
+            </div>
           </div>
         </>
       )}

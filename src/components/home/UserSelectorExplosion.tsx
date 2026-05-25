@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
@@ -33,6 +34,12 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
   triggerPosition,
   mode = 'header'
 }) => {
+  const [lastTriggerPosition, setLastTriggerPosition] = useState(triggerPosition);
+
+  useEffect(() => {
+    if (triggerPosition) setLastTriggerPosition(triggerPosition);
+  }, [triggerPosition]);
+
   // Filtra apenas os outros membros (não mostra o usuário principal)
   const otherMembers = useMemo(() => {
     return members.filter(m => m.id !== featuredUserId);
@@ -40,35 +47,44 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
 
   // Calcula posições em órbita ao redor do avatar
   const positions = useMemo(() => {
-    if (!triggerPosition) return [];
+    const origin = triggerPosition || lastTriggerPosition;
+    if (!origin) return [];
 
-    const { x, y } = triggerPosition;
+    const { x, y } = origin;
     const count = otherMembers.length;
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 390;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 844;
+    const avatarSize = 56;
+    const padding = avatarSize / 2 + 12;
 
     // Configuração de ângulos por modo
     const preferredAngles = mode === 'header'
-      ? [30, 75, 120, 165, 210, -30, -75, -120] // direita e inferior
-      : [150, 195, 240, 105, 285, -60, -105, -150]; // esquerda e inferior
+      ? [18, 52, 88, 124, 160, 205, -18, -52]
+      : [115, 150, 185, 220, 255, 290, 80, 325];
 
-    const radius = 90;
+    const baseRadius = mode === 'header' ? 82 : 76;
 
     return otherMembers.map((member, i) => {
       const angle = preferredAngles[i % preferredAngles.length] * (Math.PI / 180);
+      const radius = baseRadius + (i % 2) * 14;
       const offsetX = Math.cos(angle) * radius;
       const offsetY = Math.sin(angle) * radius;
+      const nextX = Math.min(Math.max(x + offsetX, padding), viewportWidth - padding);
+      const nextY = Math.min(Math.max(y + offsetY, padding + 8), viewportHeight - padding - 96);
 
       return {
         member,
-        x: x + offsetX,
-        y: y + offsetY,
+        x: nextX,
+        y: nextY,
         delay: i * 0.04
       };
     });
-  }, [triggerPosition, otherMembers, mode]);
+  }, [triggerPosition, lastTriggerPosition, otherMembers, mode]);
 
-  if (!isOpen || !triggerPosition) return null;
+  const origin = triggerPosition || lastTriggerPosition;
+  if (!origin || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -92,24 +108,24 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
               }}
               initial={{
                 scale: 0,
-                x: triggerPosition.x,
-                y: triggerPosition.y,
+                left: origin.x,
+                top: origin.y,
                 opacity: 0
               }}
               animate={{
                 scale: 1,
-                x,
-                y,
+                left: x,
+                top: y,
                 opacity: 1
               }}
               exit={{
                 scale: 0,
-                x: triggerPosition.x,
-                y: triggerPosition.y,
+                left: origin.x,
+                top: origin.y,
                 opacity: 0
               }}
               transition={{
-                duration: 0.3,
+                duration: 0.34,
                 delay,
                 ease: [0.16, 1, 0.3, 1]
               }}
@@ -117,8 +133,12 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
               whileTap={{ scale: 0.9 }}
               className="fixed z-[201] -translate-x-1/2 -translate-y-1/2 cursor-pointer"
             >
-              <div className="relative group">
-                <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-white/20 group-hover:border-orange-500/60 transition-all shadow-xl bg-stone-900">
+              <motion.div
+                className="relative group"
+                animate={{ y: [0, -3, 0] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay }}
+              >
+                <div className="h-14 w-14 rounded-full overflow-hidden transition-all shadow-[0_12px_28px_rgba(0,0,0,0.45)] bg-stone-900 ring-1 ring-white/10 group-hover:ring-orange-500/50">
                   <SmartImage
                     src={coreUtils.getUserAvatar(member.id, member.avatar)}
                     className="h-full w-full object-cover"
@@ -135,11 +155,12 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
                     </span>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </motion.button>
           ))}
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

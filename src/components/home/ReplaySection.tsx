@@ -332,10 +332,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-6 pr-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 px-4 hide-scrollbar">
             {limitedArtists.map((artist, index) => (
               <motion.div
-                key={artist.id}
+                key={`${artist.id || artist.name}-${index}`}
                 className="flex-shrink-0 snap-start"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -404,7 +404,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </div>
 
           {/* Scroll horizontal com 4 linhas verticais - mostra 12 músicas (3 colunas de 4) */}
-          <div className="overflow-x-auto snap-x hide-scrollbar pl-6 pr-4">
+          <div className="overflow-x-auto snap-x hide-scrollbar px-4">
             <div className="flex gap-6">
               {/* Cada "página" mostra 4 músicas em coluna */}
               {Array.from({ length: Math.ceil(limitedTracks.length / 4) }).map((_, pageIndex) => (
@@ -413,7 +413,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     const globalIndex = pageIndex * 4 + indexInPage;
                     return (
                       <motion.div
-                        key={track.id}
+                        key={`${track.id || track.name}-${globalIndex}`}
                         className="flex items-center gap-3 w-[82vw]"
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
@@ -474,10 +474,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-6 pr-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 px-4 hide-scrollbar">
             {limitedAlbums.map((album, index) => (
               <motion.div
-                key={album.id}
+                key={`${album.id || album.name}-${index}`}
                 className="flex-shrink-0 snap-start w-36"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

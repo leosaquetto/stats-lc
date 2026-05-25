@@ -84,6 +84,12 @@ export const FriendHistoryCard = memo(({
     const store = useStatsStore.getState();
 
     const fetchData = async () => {
+      const embeddedRecent = storeUser.recent || user.recent || [];
+      if (embeddedRecent.length > 0 && mounted) {
+        setRecents(embeddedRecent);
+        setLoading(false);
+      }
+
       // 1. Servir cache imediatamente se disponível
       const cachedHistory = store.getHistoryCache(user.id);
       if (cachedHistory && cachedHistory.length > 0 && mounted) {
@@ -95,7 +101,9 @@ export const FriendHistoryCard = memo(({
       if (initialStats && mounted) setUserStats(initialStats);
 
       // 2. Só buscar dados novos se não tiver cache ou se o cache for muito antigo (> 5 min)
-      const hasValidCache = cachedHistory && cachedHistory.length > 0;
+      const hasValidCache =
+        (cachedHistory && cachedHistory.length > 0) ||
+        embeddedRecent.length > 0;
       if (hasValidCache) {
         // Já tem cache, não precisa buscar novamente
         return;

@@ -30,6 +30,8 @@ export default function App() {
   const groupStats = useStatsStore(s => s.groupStats);
 
   const allUsers = Object.values(groupStats?.users || {});
+  const hasSelectedUserBefore = typeof localStorage !== 'undefined'
+    && localStorage.getItem('stats-lc-has-selected-user') === '1';
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -72,7 +74,7 @@ export default function App() {
     // Call live fetch when tab becomes visible again
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchGroupLive();
+        fetchGroupLive(true);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -98,7 +100,7 @@ export default function App() {
 
       {/* MODAL INICIAL - Seleção de usuário na primeira vez que abre o app */}
       <AnimatePresence>
-        {(!featuredUserId || !allUsers.some(user => user.id === featuredUserId)) && allUsers.length > 0 && (
+        {(!featuredUserId || !allUsers.some(user => user.id === featuredUserId)) && allUsers.length > 0 && !hasSelectedUserBefore && (
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-xl p-4">
             <div className="flex flex-col items-center gap-8">
               {/* Logo fora/acima do card */}
@@ -124,63 +126,66 @@ export default function App() {
                 </svg>
               </motion.div>
 
-              {/* Modal delicado */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-                className="w-[95vw] max-w-2xl glass border border-white/5 px-8 py-10 shadow-2xl backdrop-blur-3xl overflow-visible rounded-3xl"
+              {/* Texto acima dos avatares */}
+              <motion.h3
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-center text-[11px] font-medium text-white/50 leading-relaxed"
               >
-                {/* Texto com quebra elegante */}
-                <h3 className="text-center text-base font-light text-white/80 mb-10 leading-relaxed">
-                  Selecione o seu<br />
-                  <span className="font-semibold text-white">perfil</span>
-                </h3>
+                Selecione o seu perfil para<br />personalizar a sua experiência no stats.lc.
+              </motion.h3>
 
-                {/* Grid retangular de usuários */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto custom-scrollbar px-2">
-                  {[...allUsers].sort((a, b) => a.name.localeCompare(b.name)).map((user, idx) => (
-                    <motion.button
-                      key={user.id}
-                      onClick={() => setFeaturedUserId(user.id)}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{
-                        opacity: 1,
-                        scale: 1
-                      }}
-                      transition={{
-                        opacity: { duration: 0.3, delay: idx * 0.05 },
-                        scale: { duration: 0.3, delay: idx * 0.05 }
-                      }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className={clsx(
-                        "flex flex-col items-center gap-3 p-4 rounded-2xl transition-all relative bg-white/5 hover:bg-white/10 border border-white/5"
-                      )}
-                    >
-                      <div className="rounded-full overflow-hidden relative shrink-0">
-                        <SmartImage
-                          src={coreUtils.getUserAvatar(user.id, user.avatar)}
-                          className="h-20 w-20 object-cover"
-                          fallback=""
-                          rounded="full"
-                        />
-                      </div>
-                      <span className="text-xs font-semibold text-center leading-tight line-clamp-2 w-full text-white/70">
-                        {user.name}
-                      </span>
-                    </motion.button>
-                  ))}
-                </div>
+              {/* Avatares retangulares flutuantes */}
+              <div className="flex justify-center gap-2 max-w-[92vw] overflow-x-auto overflow-y-visible custom-scrollbar px-2 pb-2">
+                {[...allUsers].sort((a, b) => a.name.localeCompare(b.name)).map((user, index) => (
+                  <motion.button
+                    key={user.id}
+                    initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ delay: 0.4 + index * 0.05 }}
+                    whileHover={{ scale: 1.05, y: -4 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      localStorage.setItem('stats-lc-has-selected-user', '1');
+                      setFeaturedUserId(user.id);
+                    }}
+                    className="relative group flex-shrink-0"
+                  >
+                    <motion.div className="absolute inset-0 rounded-2xl bg-orange-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative rounded-2xl overflow-hidden w-[56px] h-32 transition-all shadow-lg">
+                      <SmartImage
+                        src={coreUtils.getUserAvatar(user.id, user.avatar)}
+                        fallback={user.name}
+                        className="h-full w-full object-cover"
+                        rounded="none"
+                      />
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
 
-                {/* Footer com powered by stats.fm */}
-                <div className="mt-8 text-center">
-                  <p className="text-[10px] font-medium text-white/30 tracking-wide">
-                    powered by stats.fm
-                  </p>
-                </div>
+              {/* Ícone de nota musical animado embaixo */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+              >
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="text-orange-500 flex justify-center"
+                >
+                  <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                  </svg>
+                </motion.div>
               </motion.div>
+            </div>
+
+            {/* Rodapé */}
+            <div className="fixed bottom-8 left-0 right-0 text-center">
+              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-[0.15em]">powered by stats.fm</p>
             </div>
           </div>
         )}

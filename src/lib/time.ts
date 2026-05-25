@@ -160,10 +160,10 @@ export function formatRelativeTimeSP(dateInput: string | number | Date): string 
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   if (formatDateSP(date) === formatDateSP(yesterday)) {
-    return `ontem ${timeStr}`;
+    return `ontem às ${timeStr}`;
   }
 
-  return `${formatDateSP(date)} ${timeStr}`;
+  return `${formatDateSP(date)} às ${timeStr}`;
 }
 
 /**

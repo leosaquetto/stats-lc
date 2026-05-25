@@ -100,7 +100,7 @@ interface StatsState {
   isUserPreloaded: (userId: string) => boolean;
   clearUserCache: (userId: string) => void;
   fetchGroup: (force?: boolean) => Promise<void>;
-  fetchGroupLive: () => Promise<void>;
+  fetchGroupLive: (force?: boolean) => Promise<void>;
   fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
   fetchTrackStatsForAll: (trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
@@ -207,7 +207,12 @@ export const useStatsStore = create<StatsState>()(
       topItemsCacheMeta: loadFromMMKV<Record<string, number>>('topItemsCacheMeta', {}),
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
-      setFeaturedUserId: (userId: string) => set({ featuredUserId: userId }),
+      setFeaturedUserId: (userId: string) => {
+        if (typeof localStorage !== 'undefined' && userId) {
+          localStorage.setItem('stats-lc-has-selected-user', '1');
+        }
+        set({ featuredUserId: userId });
+      },
       setHiddenUsers: (users: string[]) => set({ hiddenUsers: users }),
       setHideRankingBadge: (hide: boolean) => set({ hideRankingBadge: hide }),
       
@@ -294,7 +299,7 @@ export const useStatsStore = create<StatsState>()(
       notifyOnGroupHighlights: true,
       notifyOnArenaBattle: false,
       arenaName: 'Arena do Grupo',
-      pollingFrequency: 60,
+      pollingFrequency: 20,
 
       historyOrder: 'lastPlayed',
       historyCustomOrder: [],
@@ -621,13 +626,13 @@ export const useStatsStore = create<StatsState>()(
         }
       },
 
-      fetchGroupLive: async () => {
+      fetchGroupLive: async (force = false) => {
         const now = Date.now();
         const timeSinceLastFetch = now - get().lastLiveFetchTime;
         const MIN_FETCH_INTERVAL = 15000; // 15 segundos mínimo entre chamadas
 
         // Throttling: não permite chamadas muito frequentes
-        if (timeSinceLastFetch < MIN_FETCH_INTERVAL) {
+        if (!force && timeSinceLastFetch < MIN_FETCH_INTERVAL) {
           if ((import.meta as any).env?.DEV) {
             console.log(`[fetchGroupLive] Throttled: ${Math.round((MIN_FETCH_INTERVAL - timeSinceLastFetch) / 1000)}s remaining`);
           }
@@ -651,7 +656,7 @@ export const useStatsStore = create<StatsState>()(
         }, 35000);
 
         try {
-          const liveData = await statsService.getGroupLiveData(false);
+          const liveData = await statsService.getGroupLiveData(true);
           const currentGroupStats = get().groupStats;
 
           if (currentGroupStats) {

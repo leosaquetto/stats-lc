@@ -90,7 +90,7 @@ export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClos
             <div className="flex-1 overflow-y-auto">
               {limitedArtists.map((artist, index) => (
                 <div
-                  key={artist.id}
+                  key={`${artist.id || artist.name}-${index}`}
                   className="flex items-center gap-4 px-6 py-4 border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
                   {/* Imagem circular */}
@@ -167,7 +167,7 @@ export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, t
             <div className="flex-1 overflow-y-auto">
               {limitedTracks.map((track, index) => (
                 <div
-                  key={track.id}
+                  key={`${track.id || track.name}-${index}`}
                   className="flex items-center gap-4 px-6 py-4 border-b border-white/5 hover:bg-white/5 transition-colors"
                 >
                   {/* Capa */}
@@ -246,7 +246,7 @@ export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose,
             <div className="flex-1 overflow-y-auto p-4">
               <div className="grid grid-cols-2 gap-4">
                 {limitedAlbums.map((album, index) => (
-                  <div key={album.id} className="flex flex-col">
+                  <div key={`${album.id || album.name}-${index}`} className="flex flex-col">
                     {/* Imagem */}
                     <div className="w-full aspect-square rounded-xl overflow-hidden bg-white/5">
                       <SmartImage

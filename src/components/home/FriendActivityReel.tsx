@@ -89,7 +89,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
             return (
               <motion.div
-                key={friend.id}
+                key={`${friend.id}-${idx}`}
                 initial={{ opacity: 0, scale: 0.95, x: 15 }}
                 whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true, margin: "-20px" }}

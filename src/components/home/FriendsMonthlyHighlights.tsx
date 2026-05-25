@@ -83,9 +83,9 @@ export const FriendsMonthlyHighlights = React.memo(() => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
         
         <div className="flex flex-col divide-y divide-white/5 relative z-10">
-          {sortedFriends.map((friend) => (
+          {sortedFriends.map((friend, idx) => (
             <FriendHighlightRow 
-              key={friend.id} 
+              key={`${friend.id}-${idx}`} 
               friend={friend} 
               isExpanded={expandedId === friend.id}
               onToggle={() => setExpandedId(expandedId === friend.id ? null : friend.id)}

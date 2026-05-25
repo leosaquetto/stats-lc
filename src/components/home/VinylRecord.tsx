@@ -302,9 +302,9 @@ export const VinylRecord = ({
         <motion.div
           className="absolute z-40 pointer-events-none"
           style={{
-            right:           '0%',
-            top:             '6%',
-            width:           '50%',
+            right:           isPlaying ? '14%' : '0%',
+            top:             isPlaying ? '-4%' : '6%',
+            width:           isPlaying ? '46%' : '50%',
             height:          '8%',
             transformOrigin: '92% 50%',
             willChange:      'transform',

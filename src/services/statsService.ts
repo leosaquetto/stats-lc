@@ -195,13 +195,16 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
       const status = error.response?.status;
       const isNetworkError = !error.response && error.request;
 
-      if ((import.meta as any).env?.DEV) console.error(`Vercel API Fetch Error [${endpoint}]:`, {
-        message: error.message,
-        code: error.code,
-        status: status,
-        isNetworkError,
-        data: error.response?.data
-      });
+      const isOptionalDatesEndpoint = endpoint === '/api/stats-dates';
+      if ((import.meta as any).env?.DEV && !isOptionalDatesEndpoint) {
+        console.error(`Vercel API Fetch Error [${endpoint}]:`, {
+          message: error.message,
+          code: error.code,
+          status: status,
+          isNetworkError,
+          data: error.response?.data
+        });
+      }
 
       if (status === 429) throw error; // Sem retry para Rate Limit
 
@@ -735,10 +738,7 @@ export const statsService = {
       const res = await fetchFromApi<any>('/api/stats-dates', { user: userParam, after });
       store.setTimeRangeStatsCache?.(cacheKey, res);
       return res;
-    } catch (e: any) {
-      if (e.response?.status !== 404) {
-        console.error(`Failed to load time-range dates for ${userId}`, e);
-      }
+    } catch (_e: any) {
       try {
         const { useStatsStore } = await import('../store/useStatsStore');
         const store = useStatsStore.getState();
