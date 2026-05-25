@@ -1017,21 +1017,11 @@ export default function HomeScreen() {
               </div>
 
               <div className="px-4 sm:px-6 lg:px-8 -mt-20">
-                <FriendActivityReel 
+                <FriendActivityReel
                   excludeUserId={primaryUser.id}
-                  onTrackClick={(track) => setSelectedTrack(track)} 
+                  onTrackClick={(track) => setSelectedTrack(track)}
                   onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
                   onViewAll={() => setShowCircleActivity(true)}
-                />
-
-                <ReplaySection
-                  topArtists={[]}
-                  topTracks={[]}
-                  topAlbums={[]}
-                  totalSongsCount={0}
-                  onOpenArtistsModal={() => {}}
-                  onOpenSongsModal={() => {}}
-                  onOpenAlbumsModal={() => {}}
                 />
               </div>
             </motion.div>
