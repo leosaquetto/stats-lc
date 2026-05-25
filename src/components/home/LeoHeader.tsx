@@ -179,16 +179,16 @@ export const LiveTrackProgress = memo(({
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="flex flex-col gap-1.5 w-full"
           >
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 mb-1">
-              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] opacity-0">0:00</span>
-              <div className="flex items-center justify-center gap-1 min-w-0 overflow-hidden">
-                <span className="text-[6.5px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">OUVINDO NO</span>
-                <div className="text-white/35 flex items-center overflow-visible">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-1">
+              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] opacity-0">0:00</span>
+              <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
+                <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+                <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
                   {PlatformLogo}
                 </div>
-                <span className="text-[6.5px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{PlatformName}</span>
+                <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
               </div>
-              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.15em] opacity-0">0:00</span>
+              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] opacity-0">0:00</span>
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden relative">
               <motion.div
@@ -205,18 +205,18 @@ export const LiveTrackProgress = memo(({
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="flex flex-col gap-1.5 w-full"
         >
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3 mb-1">
-              <span className="text-[6.5px] font-black text-white/35 uppercase tracking-[0.12em] tabular-nums">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-1">
+              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] tabular-nums">
               {formatTime(elapsedMs)}
             </span>
-            <div className="flex items-center justify-center gap-1 min-w-0 overflow-hidden">
-              <span className="text-[6.5px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">OUVINDO NO</span>
-              <div className="text-white/35 flex items-center overflow-visible">
+            <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
+              <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+              <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
                 {PlatformLogo}
               </div>
-              <span className="text-[6.5px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{PlatformName}</span>
+              <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
             </div>
-            <span className="text-[6.5px] font-black text-white/25 uppercase tracking-[0.12em] tabular-nums">
+            <span className="text-[6px] font-black text-white/25 uppercase tracking-[0.1em] tabular-nums">
               {formatTime(durationMs)}
             </span>
           </div>
@@ -370,6 +370,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const [listenStatsOpen, setListenStatsOpen] = useState(false);
   const [listenStatsLoading, setListenStatsLoading] = useState(false);
+  const [listenAlbumCount, setListenAlbumCount] = useState<number | null>(null);
+  const [listenAlbumLoading, setListenAlbumLoading] = useState(false);
   const [listenStats, setListenStats] = useState({ artist: 0, track: 0, album: 0 });
   const listenStatsRef = React.useRef<HTMLDivElement>(null);
 
@@ -448,6 +450,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const listenArtistId = mainArtist?.id || track?.primaryArtistId || track?.artistId;
   const listenAlbumId = track?.albumId || track?.album?.id;
   const canShowListenStats = isActuallyLive && !!track?.id;
+  const shouldShowAlbumTitle = !!track?.albumName && (
+    !isActuallyLive ||
+    !listenAlbumId ||
+    (!listenAlbumLoading && (listenAlbumCount || 0) > 0)
+  );
 
   useEffect(() => {
     if (!listenStatsOpen) return;
@@ -484,6 +491,35 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       cancelled = true;
     };
   }, [listenStatsOpen, canShowListenStats, user.id, listenArtistId, track?.id, listenAlbumId]);
+
+  useEffect(() => {
+    if (!canShowListenStats || !listenAlbumId) {
+      setListenAlbumCount(null);
+      setListenAlbumLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setListenAlbumCount(null);
+    setListenAlbumLoading(true);
+    statsService.fetchEntityStats(user.id, 'album', listenAlbumId)
+      .then((count) => {
+        if (!cancelled) {
+          setListenAlbumCount(count || 0);
+          setListenStats(current => ({ ...current, album: count || 0 }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setListenAlbumCount(0);
+      })
+      .finally(() => {
+        if (!cancelled) setListenAlbumLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canShowListenStats, user.id, listenAlbumId]);
 
   const filteredMembers = useMemo(() => {
     const list = groupStats?.members || Object.values(groupStats?.users || {}).map(u => ({ id: u.id }));
@@ -703,74 +739,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     )}>
                       {user.name}
                     </h2>
-
-                    <AnimatePresence>
-                      {canShowListenStats && (
-                        <motion.div
-                          ref={listenStatsRef}
-                          initial={{ opacity: 0, scale: 0.92, x: 6 }}
-                          animate={{ opacity: 1, scale: 1, x: 0 }}
-                          exit={{ opacity: 0, scale: 0.92, x: 6 }}
-                          className="relative ml-auto shrink-0"
-                        >
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setListenStatsOpen(prev => !prev);
-                            }}
-                            aria-label="Ver contagens desta reprodução"
-                            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/20 text-white/55 backdrop-blur-xl shadow-[0_10px_28px_rgba(0,0,0,0.28)] active:scale-95 transition-all hover:text-white"
-                          >
-                            <span className="flex flex-col items-end gap-[3px]">
-                              <span className="h-[2px] w-3.5 rounded-full bg-current opacity-55" />
-                              <span className="h-[2px] w-5 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.45)]" />
-                              <span className="h-[2px] w-3.5 rounded-full bg-current opacity-35" />
-                            </span>
-                          </button>
-
-                          <AnimatePresence>
-                            {listenStatsOpen && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -8, scale: 0.96, filter: 'blur(6px)' }}
-                                animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                                exit={{ opacity: 0, y: -8, scale: 0.96, filter: 'blur(6px)' }}
-                                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                className="absolute right-0 top-10 z-[90] w-[min(74vw,270px)] rounded-[22px] bg-black/38 px-3 py-3 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                {[
-                                  { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista' },
-                                  { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música' },
-                                  { key: 'album', label: 'álbum', count: listenStats.album, name: track?.albumName || 'Álbum' },
-                                ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0).map((item, index) => (
-                                  <motion.div
-                                    key={item.key}
-                                    initial={{ opacity: 0, x: 8 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.035 }}
-                                    className="flex min-w-0 items-center gap-2.5 py-1.5"
-                                  >
-                                    <span className="w-12 shrink-0 text-[7px] font-black uppercase tracking-[0.18em] text-white/32">
-                                      {item.label}
-                                    </span>
-                                    <span className={cn(
-                                      "flex h-5 min-w-[24px] shrink-0 items-center justify-center rounded-full px-1.5 text-[8px] font-black shadow-xl",
-                                      item.key === 'album' ? "bg-white/10 text-white/70" : "bg-orange-500 text-white shadow-orange-500/25"
-                                    )}>
-                                      {listenStatsLoading ? '...' : item.count}
-                                    </span>
-                                    <span className="min-w-0 truncate text-[10px] font-bold leading-none text-white/82">
-                                      {item.name}
-                                    </span>
-                                  </motion.div>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
 
                   {/* Streams hoje */}
@@ -856,7 +824,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                             </>
                           )}
                         </div>
-                        {track.albumName && (
+                        {shouldShowAlbumTitle && (
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
@@ -897,19 +865,19 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                          />
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 w-[clamp(250px,78vw,360px)] max-w-[92vw]">
-                        {playCount === 1 ? (
-                          <div className="flex h-7 items-center gap-1.5 rounded-full border border-orange-400/20 bg-black/20 px-3 backdrop-blur-xl shadow-[0_0_22px_rgba(249,115,22,0.10)]">
-                            <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
-                            <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
-                              <AnimatedNumber value={1} />
-                            </span>
-                            <span className="text-[7px] font-black uppercase tracking-[0.18em] leading-none text-orange-300/80 whitespace-nowrap">
-                              FIRST LISTEN
-                            </span>
-                          </div>
-                        ) : showRankingSummary ? (
-                          <div className="flex flex-wrap items-center justify-start gap-2 w-full">
+                      <div className="relative flex w-[calc(100vw-40px)] max-w-[350px] items-start justify-between gap-2 pr-1">
+                        <div className="flex min-w-0 max-w-[calc(100%-48px)] flex-wrap items-center gap-2">
+                          {playCount === 1 ? (
+                            <div className="flex h-7 items-center gap-1.5 rounded-full border border-orange-400/20 bg-black/20 px-3 backdrop-blur-xl shadow-[0_0_22px_rgba(249,115,22,0.10)]">
+                              <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
+                              <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
+                                <AnimatedNumber value={1} />
+                              </span>
+                              <span className="text-[7px] font-black uppercase tracking-[0.18em] leading-none text-orange-300/80 whitespace-nowrap">
+                                FIRST LISTEN
+                              </span>
+                            </div>
+                          ) : showRankingSummary ? (
                             <motion.div
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
@@ -966,38 +934,115 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 </button>
                               )}
                             </motion.div>
+                          ) : (
+                            <motion.div
+                              onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
+                              whileTap={{ scale: 0.96 }}
+                              className="flex items-center gap-2 cursor-pointer shrink-0"
+                            >
+                              {playCount === undefined ? (
+                                <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
+                              ) : (
+                                <div className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 backdrop-blur-xl">
+                                  <Headphones className={cn(
+                                    "h-2.5 w-2.5 transition-colors duration-500",
+                                    isActuallyLive ? "text-orange-400" : "text-white/40"
+                                  )} />
+                                  <span className={cn(
+                                    "text-[10px] font-black tabular-nums leading-none transition-colors duration-500",
+                                    isActuallyLive ? "text-white" : "text-white/60"
+                                  )}>
+                                    <AnimatedNumber value={playCount} />
+                                  </span>
+                                  <span className={cn(
+                                    "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                    isActuallyLive ? "text-white/60" : "text-white/40"
+                                  )}>
+                                    PLAYS
+                                  </span>
+                                </div>
+                              )}
+                            </motion.div>
+                          )}
+                        </div>
 
-                          </div>
-                        ) : (
-                          <motion.div
-                            onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
-                            whileTap={{ scale: 0.96 }}
-                            className="flex items-center gap-2 cursor-pointer shrink-0"
-                          >
-                            {playCount === undefined ? (
-                              <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
-                            ) : (
-                              <div className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 backdrop-blur-xl">
-                                <Headphones className={cn(
-                                  "h-2.5 w-2.5 transition-colors duration-500",
-                                  isActuallyLive ? "text-orange-400" : "text-white/40"
-                                )} />
-                                <span className={cn(
-                                  "text-[10px] font-black tabular-nums leading-none transition-colors duration-500",
-                                  isActuallyLive ? "text-white" : "text-white/60"
-                                )}>
-                                  <AnimatedNumber value={playCount} />
+                        <AnimatePresence>
+                          {canShowListenStats && (
+                            <motion.div
+                              ref={listenStatsRef}
+                              initial={{ opacity: 0, scale: 0.92, y: 5 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.92, y: 5 }}
+                              className="relative z-[85] shrink-0"
+                            >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setListenStatsOpen(prev => !prev);
+                                }}
+                                aria-label="Ver contagens desta reprodução"
+                                className={cn(
+                                  "flex h-8 min-w-8 items-center justify-center gap-1 rounded-full border px-2 text-white backdrop-blur-xl shadow-[0_14px_34px_rgba(0,0,0,0.38)] active:scale-95 transition-all",
+                                  listenStatsOpen
+                                    ? "border-orange-400/45 bg-orange-500/18 text-orange-100"
+                                    : "border-white/10 bg-black/30 text-white/75 hover:bg-white/[0.08]"
+                                )}
+                              >
+                                <Headphones className="h-3 w-3 text-orange-300" />
+                                <span className="text-[8px] font-black tabular-nums leading-none">
+                                  {listenStatsLoading ? "..." : (listenStats.track || playCount || 0)}
                                 </span>
-                                <span className={cn(
-                                  "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
-                                  isActuallyLive ? "text-white/60" : "text-white/40"
-                                )}>
-                                  PLAYS
-                                </span>
-                              </div>
-                            )}
-                          </motion.div>
-                        )}
+                              </button>
+
+                              <AnimatePresence>
+                                {listenStatsOpen && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.94, filter: 'blur(8px)' }}
+                                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                                    exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
+                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                                    className="absolute right-0 top-10 z-[120] w-[min(82vw,300px)] rounded-[24px] border border-white/12 bg-black/72 px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.82)] backdrop-blur-[28px]"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/82">
+                                        Suas reproduções
+                                      </span>
+                                      <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.8)]" />
+                                    </div>
+                                    {[
+                                      { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista' },
+                                      { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música' },
+                                      { key: 'album', label: 'álbum', count: listenStats.album, name: track?.albumName || 'Álbum' },
+                                    ].filter(item => item.key !== 'album' || item.count > 0).map((item, index) => (
+                                      <motion.div
+                                        key={item.key}
+                                        initial={{ opacity: 0, x: 8 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: index * 0.035 }}
+                                        className="flex min-w-0 items-center gap-2.5 border-t border-white/[0.06] py-2 first:border-t-0"
+                                      >
+                                        <span className="w-12 shrink-0 text-[7px] font-black uppercase tracking-[0.18em] text-white/40">
+                                          {item.label}
+                                        </span>
+                                        <span className={cn(
+                                          "flex h-5 min-w-[26px] shrink-0 items-center justify-center rounded-full px-1.5 text-[8px] font-black shadow-xl",
+                                          item.key === 'album' ? "bg-white/12 text-white/78" : "bg-orange-500 text-white shadow-orange-500/25"
+                                        )}>
+                                          {listenStatsLoading ? '...' : item.count}
+                                        </span>
+                                        <span className="min-w-0 truncate text-[11px] font-bold leading-none text-white/88">
+                                          {item.name}
+                                        </span>
+                                      </motion.div>
+                                    ))}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                   </motion.div>

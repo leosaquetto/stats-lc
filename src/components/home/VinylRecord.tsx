@@ -108,8 +108,8 @@ export const VinylRecord = ({
     opacity: 0.07 + seededValue(textureSeed, i + 271) * 0.18,
   })), [textureSeed]);
 
-  const tonearmRotate = isPlaying ? -22 - currentRatio * 17 : 18;
-  const tonearmY      = isPlaying ? 0  : -5;
+  const tonearmRotate = -20 - currentRatio * 17;
+  const tonearmY      = -2 + currentRatio * 3;
 
   return (
     <div
@@ -412,98 +412,101 @@ export const VinylRecord = ({
       </motion.div>
 
       {/* ── TONEARM ─────────────────────────────────────────────── */}
-      {!hideTonearm && (
-        <motion.div
-          className="absolute z-40 pointer-events-none"
-          style={{
-            right:           isPlaying ? '-5%' : '-10%',
-            top:             isPlaying ? '5%' : '-1%',
-            width:           isPlaying ? '50%' : '52%',
-            height:          '9%',
-            transformOrigin: '90% 42%',
-            willChange:      'transform',
-            filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
-            zIndex:          50,
-          }}
-          animate={{
-            rotate: tonearmRotate,
-            y:      tonearmY,
-          }}
-          transition={{
-            duration: 1.4,
-            ease: [0.16, 1, 0.3, 1],
-          }}
-        >
-        {/* Corpo do braço */}
-        <div
-          className="absolute rounded-full transition-all duration-700"
-          style={{
-            background: isPlaying
-              ? 'linear-gradient(90deg, #1f2937 0%, #d1d5db 18%, #f9fafb 48%, #9ca3af 72%, #111827 100%)'
-              : 'linear-gradient(90deg, #27272a 0%, #71717a 25%, #e4e4e7 55%, #a1a1aa 75%, #52525b 100%)',
-            height: '24%',
-            top:    '38%',
-            left:   '8%',
-            right:  '17%',
-            boxShadow: isPlaying
-              ? '0 1px 5px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.35)'
-              : '0 1px 3px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.15)',
-          }}
-        />
-        <div
-          className="absolute rounded-full"
-          style={{
-            left: '13%',
-            right: '20%',
-            top: '43%',
-            height: '7%',
-            background: 'rgba(255,255,255,0.5)',
-            filter: 'blur(1px)',
-          }}
-        />
-        {/* Pivô circular */}
-        <div
-          className="absolute rounded-full"
-          style={{
-            right:     '-1%',
-            top:       '42%',
-            transform: 'translateY(-50%)',
-            width:     '26%',
-            height:    '290%',
-            background: 'radial-gradient(circle at 42% 35%, rgba(255,255,255,0.14) 0%, rgba(39,39,42,0.78) 38%, rgba(0,0,0,0.78) 100%)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow:  '0 2px 12px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.12)',
-          }}
-        />
-        {/* Headshell */}
-        <div
-          className="absolute rounded-md"
-          style={{
-            left:      '0%',
-            top:       '16%',
-            width:     '18%',
-            height:    '88%',
-            background: 'linear-gradient(135deg, #18181b 0%, #09090b 72%, #27272a 100%)',
-            boxShadow:  '0 2px 7px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
-            transform: 'skewX(-10deg)',
-          }}
-        />
-        {/* Agulha */}
-        <div
-          className="absolute rounded-full"
-          style={{
-            left:      '2%',
-            top:       '86%',
-            transform: 'rotate(-28deg)',
-            transformOrigin: '50% 0%',
-            width:     '3%',
-            height:    '70%',
-            background: isPlaying ? '#fb923c' : '#3f3f46',
-            boxShadow:  isPlaying ? '0 0 8px rgba(249,115,22,0.72)' : 'none',
-          }}
-        />
-      </motion.div>
-      )}
+      <AnimatePresence>
+        {!hideTonearm && isPlaying && (
+          <motion.div
+            className="absolute z-40 pointer-events-none"
+            style={{
+              right:           '16%',
+              top:             '4%',
+              width:           '46%',
+              height:          '9%',
+              transformOrigin: '92% 44%',
+              willChange:      'transform, opacity',
+              filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
+              zIndex:          50,
+            }}
+            initial={{ opacity: 0, rotate: 8, x: 24, y: -10, scale: 0.96 }}
+            animate={{
+              opacity: 1,
+              rotate: tonearmRotate,
+              x: 0,
+              y: tonearmY,
+              scale: 1,
+            }}
+            exit={{ opacity: 0, rotate: 8, x: 24, y: -10, scale: 0.96 }}
+            transition={{
+              duration: 1.1,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+          >
+            {/* Corpo do braço */}
+            <div
+              className="absolute rounded-full transition-all duration-700"
+              style={{
+                background: 'linear-gradient(90deg, #1f2937 0%, #d1d5db 18%, #f9fafb 48%, #9ca3af 72%, #111827 100%)',
+                height: '24%',
+                top:    '38%',
+                left:   '8%',
+                right:  '17%',
+                boxShadow: '0 1px 5px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.35)',
+              }}
+            />
+            <div
+              className="absolute rounded-full"
+              style={{
+                left: '13%',
+                right: '20%',
+                top: '43%',
+                height: '7%',
+                background: 'rgba(255,255,255,0.5)',
+                filter: 'blur(1px)',
+              }}
+            />
+            {/* Pivô circular */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                right:     '-1%',
+                top:       '42%',
+                transform: 'translateY(-50%)',
+                width:     '26%',
+                height:    '290%',
+                background: 'radial-gradient(circle at 42% 35%, rgba(255,255,255,0.14) 0%, rgba(39,39,42,0.78) 38%, rgba(0,0,0,0.78) 100%)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow:  '0 2px 12px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}
+            />
+            {/* Headshell */}
+            <div
+              className="absolute rounded-md"
+              style={{
+                left:      '0%',
+                top:       '16%',
+                width:     '18%',
+                height:    '88%',
+                background: 'linear-gradient(135deg, #18181b 0%, #09090b 72%, #27272a 100%)',
+                boxShadow:  '0 2px 7px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
+                transform: 'skewX(-10deg)',
+              }}
+            />
+            {/* Agulha */}
+            <div
+              className="absolute rounded-full"
+              style={{
+                left:      '2%',
+                top:       '86%',
+                transform: 'rotate(-28deg)',
+                transformOrigin: '50% 0%',
+                width:     '3%',
+                height:    '70%',
+                background: '#fb923c',
+                boxShadow:  '0 0 8px rgba(249,115,22,0.72)',
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
+  const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
     tracks: [],
@@ -89,6 +90,7 @@ export default function HomeScreen() {
   });
   const toastIdRef = useRef(0);
   const liveRefreshActive = isManualLiveRefresh || isLiveFetching;
+  const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
   const allMembers = useMemo(() => {
     const source = groupStats?.members || Object.values(groupStats?.users || {});
@@ -120,6 +122,19 @@ export default function HomeScreen() {
   const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
   const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
+  const primaryPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
+  const primaryTrack = primaryUser?.nowPlaying?.track;
+  const primaryIsPlaying = primaryPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
+  const visibleMembersCount = members.length || 1;
+  const currentTrackId = (primaryTrack as any)?.id;
+  const currentTrackArenaPlayCount = currentTrackId
+    ? Object.values(groupStats?.users || {})
+        .filter(member => !hiddenUsers.includes(member.id))
+        .reduce((total, member) => total + (userTrackStatsForLayout[`${member.id}:${currentTrackId}`] || 0), 0)
+    : 0;
+  const friendActivityOffset = primaryIsPlaying
+    ? (currentTrackArenaPlayCount > visibleMembersCount ? "-mt-5" : "-mt-7")
+    : "-mt-14";
 
   const pipelineStreamLinesMemo = useMemo(() => [
     { left: '16.6%', duration: 2.2, delay: 0 },
@@ -478,10 +493,12 @@ export default function HomeScreen() {
   useEffect(() => {
     let cancelled = false;
     if (!primaryUser?.id) {
+      setReplayState('idle');
       setReplayTopItems({ artists: [], tracks: [], albums: [] });
       return;
     }
 
+    setReplayState('loading');
     const currentTopItems = primaryUser.topItems;
     const hasEmbeddedTopItems =
       (currentTopItems?.artists?.length || 0) > 0 ||
@@ -494,6 +511,7 @@ export default function HomeScreen() {
         tracks: currentTopItems?.tracks || [],
         albums: currentTopItems?.albums || []
       });
+      setReplayState('ready');
       return;
     }
 
@@ -502,7 +520,10 @@ export default function HomeScreen() {
       statsService.getTopItems(primaryUser.id, 'tracks', 'month').catch(() => []),
       statsService.getTopItems(primaryUser.id, 'albums', 'month').catch(() => [])
     ]).then(([artists, tracks, albums]) => {
-      if (!cancelled) setReplayTopItems({ artists, tracks, albums });
+      if (!cancelled) {
+        setReplayTopItems({ artists, tracks, albums });
+        setReplayState('ready');
+      }
     });
 
     return () => {
@@ -510,9 +531,10 @@ export default function HomeScreen() {
     };
   }, [primaryUser?.id, primaryUser?.topItems]);
 
-  const replayArtists = replayTopItems.artists.length ? replayTopItems.artists : (primaryUser?.topItems?.artists || []);
-  const replayTracks = replayTopItems.tracks.length ? replayTopItems.tracks : (primaryUser?.topItems?.tracks || []);
-  const replayAlbums = replayTopItems.albums.length ? replayTopItems.albums : (primaryUser?.topItems?.albums || []);
+  const replayArtists = replayTopItems.artists;
+  const replayTracks = replayTopItems.tracks;
+  const replayAlbums = replayTopItems.albums;
+  const isReplayLoading = isAppReady && !!primaryUser && replayState !== 'ready';
   return (
     <>
       {createPortal(
@@ -946,7 +968,7 @@ export default function HomeScreen() {
                 />
               </div>
 
-              <div className="px-4 sm:px-6 lg:px-8 -mt-10">
+              <div className={cn("px-4 sm:px-6 lg:px-8 transition-[margin] duration-500", friendActivityOffset)}>
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
                   onTrackClick={(track) => setSelectedTrack(track)}
@@ -979,7 +1001,30 @@ export default function HomeScreen() {
       </AnimatePresence>
 
       {/* Replay Section */}
-      {isAppReady && primaryUser && (
+      {isReplayLoading && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="px-4 sm:px-6 lg:px-8 py-8"
+        >
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <div className="flex items-center justify-between">
+              <div className="h-9 w-28 rounded-2xl bg-white/10 animate-pulse" />
+              <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2.5">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="aspect-[0.82] rounded-[18px] bg-white/[0.07] animate-pulse" />
+              ))}
+            </div>
+            <div className="mt-4 h-3 w-44 rounded-full bg-orange-500/15 animate-pulse" />
+          </div>
+        </motion.div>
+      )}
+
+      {isAppReady && primaryUser && replayState === 'ready' && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
