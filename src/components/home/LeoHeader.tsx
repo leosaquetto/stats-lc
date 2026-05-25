@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
+import { BarChart3, Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
@@ -82,9 +82,12 @@ export const LiveTrackProgress = memo(({
   );
 
   const SpotifyIcon = () => (
-    <svg viewBox="0 0 24 24" className="h-[1em] w-[1em] object-contain fill-current" aria-label="Spotify" role="img">
-      <path d="M12 1.8A10.2 10.2 0 1 0 12 22.2 10.2 10.2 0 0 0 12 1.8Zm4.68 14.7a.78.78 0 0 1-1.07.25c-2.93-1.79-6.61-2.2-10.94-1.2a.78.78 0 1 1-.35-1.52c4.74-1.08 8.8-.6 12.1 1.42.37.23.48.7.26 1.05Zm1.24-2.76a.97.97 0 0 1-1.34.32c-3.35-2.06-8.47-2.66-12.43-1.45a.97.97 0 1 1-.57-1.86c4.52-1.38 10.16-.71 14.02 1.65.46.28.6.88.32 1.34Zm.1-2.88C14 8.47 7.35 8.25 3.52 9.41a1.16 1.16 0 1 1-.67-2.22c4.41-1.34 11.75-1.08 16.38 1.67a1.16 1.16 0 0 1-1.2 2Z" />
-    </svg>
+    <img
+      src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg"
+      className="h-[1em] w-[1em] object-contain grayscale brightness-[1.9] opacity-75"
+      alt="Spotify"
+      referrerPolicy="no-referrer"
+    />
   );
   const PlatformLogo = platform === 'spotify' ? <SpotifyIcon /> : <AppleMusicLogo />;
   const PlatformName = platform === 'spotify' ? 'SPOTIFY' : platform === 'appleMusic' ? 'APPLE MUSIC' : 'MUSIC';
@@ -449,7 +452,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
   const listenArtistId = mainArtist?.id || track?.primaryArtistId || track?.artistId;
   const listenAlbumId = track?.albumId || track?.album?.id;
-  const canShowListenStats = isActuallyLive && !!track?.id;
+  const canShowListenStats = !!track?.id;
+  const listenArtistImage =
+    mainArtist?.image ||
+    mainArtist?.avatar ||
+    track?.artistImage ||
+    track?.primaryArtistImage ||
+    track?.artists?.[0]?.image ||
+    '';
   const shouldShowAlbumTitle = !!track?.albumName && (
     !isActuallyLive ||
     !listenAlbumId ||
@@ -557,7 +567,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     )}>
       <div className={cn(
         "w-full relative overflow-visible",
-        isActuallyLive ? "min-h-[394px] sm:min-h-[460px]" : "min-h-[320px] sm:min-h-[390px]"
+        isActuallyLive ? "min-h-[334px] sm:min-h-[410px]" : "min-h-[306px] sm:min-h-[376px]"
       )}>
       <motion.div
         className="relative h-full overflow-visible"
@@ -989,9 +999,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     : "border-white/10 bg-black/30 text-white/75 hover:bg-white/[0.08]"
                                 )}
                               >
-                                <Headphones className="h-3 w-3 text-orange-300" />
-                                <span className="text-[8px] font-black tabular-nums leading-none">
-                                  {listenStatsLoading ? "..." : (listenStats.track || playCount || 0)}
+                                <BarChart3 className="h-3 w-3 text-orange-300" />
+                                <span className="text-[7px] font-black uppercase tracking-[0.12em] leading-none">
+                                  Repros
                                 </span>
                               </button>
 
@@ -1002,41 +1012,51 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
                                     transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                                    className="absolute right-0 top-10 z-[120] w-[min(82vw,300px)] rounded-[24px] border border-white/12 bg-black/72 px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.82)] backdrop-blur-[28px]"
+                                    className="absolute right-0 top-10 z-[120] w-[min(84vw,320px)] rounded-[24px] bg-black/[0.58] px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.9)] backdrop-blur-[42px]"
                                     onClick={(event) => event.stopPropagation()}
                                   >
-                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                    <div className="absolute inset-0 rounded-[24px] bg-gradient-to-b from-white/[0.08] via-white/[0.035] to-black/30 pointer-events-none" />
+                                    <div className="relative z-10">
+                                    <div className="mb-3 flex items-center justify-between gap-3">
                                       <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/82">
                                         Suas reproduções
                                       </span>
                                       <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.8)]" />
                                     </div>
+                                    <div className="grid grid-cols-3 gap-2.5">
                                     {[
-                                      { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista' },
-                                      { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música' },
-                                      { key: 'album', label: 'álbum', count: listenStats.album, name: track?.albumName || 'Álbum' },
-                                    ].filter(item => item.key !== 'album' || item.count > 0).map((item, index) => (
+                                      { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista', image: listenArtistImage, rounded: 'full' },
+                                      { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música', image: albumImage, rounded: 'xl' },
+                                      { key: 'album', label: 'álbum', count: listenStats.album, name: track?.albumName || 'Álbum', image: albumImage, rounded: 'xl' },
+                                    ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0).map((item, index) => (
                                       <motion.div
                                         key={item.key}
-                                        initial={{ opacity: 0, x: 8 }}
-                                        animate={{ opacity: 1, x: 0 }}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.035 }}
-                                        className="flex min-w-0 items-center gap-2.5 border-t border-white/[0.06] py-2 first:border-t-0"
+                                        className="flex min-w-0 flex-col items-center text-center"
                                       >
-                                        <span className="w-12 shrink-0 text-[7px] font-black uppercase tracking-[0.18em] text-white/40">
+                                        <span className="mb-2 text-[6.5px] font-black uppercase tracking-[0.18em] text-white/45">
                                           {item.label}
                                         </span>
-                                        <span className={cn(
-                                          "flex h-5 min-w-[26px] shrink-0 items-center justify-center rounded-full px-1.5 text-[8px] font-black shadow-xl",
-                                          item.key === 'album' ? "bg-white/12 text-white/78" : "bg-orange-500 text-white shadow-orange-500/25"
-                                        )}>
-                                          {listenStatsLoading ? '...' : item.count}
-                                        </span>
-                                        <span className="min-w-0 truncate text-[11px] font-bold leading-none text-white/88">
+                                        <div className="relative h-14 w-14">
+                                          <SmartImage
+                                            src={item.image}
+                                            className="h-14 w-14 shadow-[0_16px_34px_rgba(0,0,0,0.45)]"
+                                            fallback={item.name}
+                                            rounded={item.rounded}
+                                          />
+                                          <span className="absolute -bottom-1 -right-1 flex h-5 min-w-[22px] items-center justify-center rounded-full bg-orange-500 px-1 text-[8px] font-black text-white shadow-[0_0_18px_rgba(249,115,22,0.48)]">
+                                            {listenStatsLoading ? '...' : item.count}
+                                          </span>
+                                        </div>
+                                        <span className="mt-2 line-clamp-2 min-w-0 text-[9px] font-bold leading-[1.1] text-white/88">
                                           {item.name}
                                         </span>
                                       </motion.div>
                                     ))}
+                                    </div>
+                                    </div>
                                   </motion.div>
                                 )}
                               </AnimatePresence>

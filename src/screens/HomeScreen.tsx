@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, AlertTriangle, WifiOff, Users, ArrowDown, Sparkles, Loader2, Check, Info, X } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
@@ -46,7 +46,6 @@ export default function HomeScreen() {
     groupStats,
     isLoading,
     isRefreshing,
-    isLiveFetching,
     isOffline,
     error,
     fetchGroup,
@@ -89,7 +88,7 @@ export default function HomeScreen() {
     albums: []
   });
   const toastIdRef = useRef(0);
-  const liveRefreshActive = isManualLiveRefresh || isLiveFetching;
+  const liveRefreshActive = isManualLiveRefresh;
   const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
   const allMembers = useMemo(() => {
@@ -119,6 +118,7 @@ export default function HomeScreen() {
     miniHeaderTrack?.cover ||
     ''
   );
+  const hasMiniHeaderAlbumImage = typeof miniHeaderAlbumImage === 'string' && miniHeaderAlbumImage.trim().length > 5;
   const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
   const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
@@ -133,7 +133,7 @@ export default function HomeScreen() {
         .reduce((total, member) => total + (userTrackStatsForLayout[`${member.id}:${currentTrackId}`] || 0), 0)
     : 0;
   const friendActivityOffset = primaryIsPlaying
-    ? (currentTrackArenaPlayCount > visibleMembersCount ? "-mt-5" : "-mt-7")
+    ? (currentTrackArenaPlayCount > visibleMembersCount ? "-mt-16" : "-mt-18")
     : "-mt-14";
 
   const pipelineStreamLinesMemo = useMemo(() => [
@@ -293,16 +293,16 @@ export default function HomeScreen() {
     }
   }, [featuredUserId, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend]);
 
-  // Mark app as ready when we have data and a primary user
+  // Mark app as ready when group data is available; the empty-user state renders below.
   useEffect(() => {
-    if (!isLoading && primaryUser && groupStats) {
+    if (!isLoading && groupStats) {
       // Small delay to ensure smooth transition
       const timer = setTimeout(() => setIsAppReady(true), 650);
       return () => clearTimeout(timer);
     } else {
       setIsAppReady(false);
     }
-  }, [isLoading, primaryUser, groupStats]);
+  }, [isLoading, groupStats]);
 
   const [swipeDirection, setSwipeDirection] = useState<number>(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -457,6 +457,11 @@ export default function HomeScreen() {
       trackEvent('user_selector_opened');
     }
   }, [showUserSelector]);
+
+  useEffect(() => {
+    setShowUserSelector(false);
+    setAvatarClickPosition(null);
+  }, [featuredUserId]);
 
   const friendsSelection = useMemo(() => members.filter(u => u && u.id && u.id !== FEATURED_ID), [members, FEATURED_ID]);
   
@@ -676,7 +681,7 @@ export default function HomeScreen() {
                 />
               </button>
 
-              {miniHeaderAlbumImage && (
+              {hasMiniHeaderAlbumImage && (
                 <motion.div
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -704,22 +709,22 @@ export default function HomeScreen() {
       <PullToRefresh 
       onRefresh={handleRefresh}
       pullingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-8 gap-3 border-b border-white/5 select-none bg-black/30 backdrop-blur-sm">
-          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.04] flex items-center justify-center">
-            <ArrowDown className="h-4 w-4 text-white/45" />
+        <div className="flex flex-col items-center justify-center pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-9 gap-3 border-b border-orange-500/10 select-none bg-black/70 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
+          <div className="h-11 w-11 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_24px_rgba(249,115,22,0.18)]">
+            <RefreshCcw className="h-4 w-4 text-orange-300" />
           </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/35">
-            Atualizar tocando agora
+          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/55">
+            Puxe para atualizar
           </span>
         </div>
       }
       refreshingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1rem+env(safe-area-inset-top,0px))] pb-8 gap-3 border-b border-white/5 select-none bg-black/35 backdrop-blur-md">
-          <div className="h-10 w-10 rounded-full border border-orange-500/20 bg-white/[0.04] flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-9 gap-3 border-b border-orange-500/10 select-none bg-black/75 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
+          <div className="h-11 w-11 rounded-full border border-orange-500/30 bg-orange-500/12 flex items-center justify-center shadow-[0_0_28px_rgba(249,115,22,0.24)]">
             <RefreshCcw className="h-4 w-4 text-orange-500 animate-spin" />
           </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/40">
-            Atualizando now playing
+          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/60">
+            Atualizando agora
           </span>
         </div>
       }

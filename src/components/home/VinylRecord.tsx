@@ -63,6 +63,7 @@ export const VinylRecord = ({
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const heartbeat = useStatsStore(state => state.heartbeat);
+  const hasAlbumImage = typeof albumImage === 'string' && albumImage.trim().length > 5;
 
   const realTimeProgress = useMemo(() => {
     if (!isPlaying || !progressMs || !durationMs) return progressMs || 0;
@@ -116,6 +117,10 @@ export const VinylRecord = ({
       className="relative w-full aspect-square flex items-center justify-center cursor-pointer"
       onClick={onClick}
     >
+      {!hasAlbumImage ? (
+        <div className="absolute inset-[22%] rounded-full bg-black/30" />
+      ) : (
+        <>
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
@@ -410,10 +415,12 @@ export const VinylRecord = ({
         </AnimatePresence>
 
       </motion.div>
+        </>
+      )}
 
       {/* ── TONEARM ─────────────────────────────────────────────── */}
       <AnimatePresence>
-        {!hideTonearm && isPlaying && (
+        {!hideTonearm && isPlaying && hasAlbumImage && (
           <motion.div
             className="absolute z-40 pointer-events-none"
             style={{

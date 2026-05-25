@@ -61,6 +61,11 @@ export default function App() {
     };
   }, [fetchStats, setOffline]);
 
+  useEffect(() => {
+    if (!hasSelectedUserBefore || featuredUserId || allUsers.length === 0) return;
+    setFeaturedUserId(allUsers[0].id);
+  }, [allUsers, featuredUserId, hasSelectedUserBefore, setFeaturedUserId]);
+
   // Separate polling to prevent interval accumulation - always respects configured pollingFrequency in seconds
   useEffect(() => {
     // Safety guard: minimum of 20 seconds to prevent rate-limiting or heavy CPU usage
