@@ -82,6 +82,8 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
             const trackImage = track?.image || "";
+            const liveBorderDuration = 4.2 + (friend.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 9) * 0.28;
+            const liveBorderDelay = (friend.id.length % 5) * 0.18;
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -123,9 +125,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                           initial={{ pathLength: 0.3, pathOffset: 0 }}
                           animate={{ pathOffset: [0, 1] }}
                           transition={{ 
-                            duration: 5, 
+                            duration: liveBorderDuration,
                             repeat: Infinity, 
-                            ease: "linear" 
+                            ease: "linear",
+                            delay: liveBorderDelay
                           }}
                         />
                         <defs>

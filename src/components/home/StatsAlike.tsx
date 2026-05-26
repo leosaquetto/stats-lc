@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { UserStats, TopItem } from '../../types/stats';
@@ -33,11 +33,13 @@ interface AlikeConnection {
 export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
 
   const members = groupStats?.members || [];
-  const featuredUser = members.find(m => m.id === featuredUserId);
+  const featuredUser = members.find(m => m.id === featuredUserId) || members[0];
+  const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
   const topItemsSignature = useMemo(() => {
     return members.map((member) => {
       const tops = member.topItems;
@@ -53,7 +55,7 @@ export const StatsAlike = React.memo(() => {
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];
 
-    const friends = members.filter(m => m.id !== featuredUserId);
+    const friends = members.filter(m => m.id !== effectiveFeaturedUserId);
 
     // Helper to find match for a specific type
     const findMatches = (type: 'artist' | 'track' | 'album', limit: number = 3) => {
@@ -207,7 +209,7 @@ export const StatsAlike = React.memo(() => {
     }
 
     return selection;
-  }, [featuredUserId, topItemsSignature]);
+  }, [effectiveFeaturedUserId, topItemsSignature]);
 
   useEffect(() => {
     if (!isAutoRotating || alikeConnections.length < 2) return;
@@ -229,10 +231,10 @@ export const StatsAlike = React.memo(() => {
           initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          className="relative h-[240px] w-full flex items-center justify-center overflow-visible"
+          className="relative h-[260px] w-full flex items-center justify-center overflow-visible"
         >
           <div className="absolute h-56 w-56 rounded-full border border-white/[0.04]" />
-          <div className="relative glass-card p-6 rounded-[32px] border-white/10 shadow-2xl overflow-hidden">
+          <div className="relative glass-card p-6 rounded-[32px] shadow-2xl overflow-hidden">
             <ShimmerOverlay duration={2.8} />
             <div className="flex items-center gap-3 relative z-10">
               <Skeleton className="h-11 w-11 rounded-full" />
@@ -281,7 +283,7 @@ export const StatsAlike = React.memo(() => {
       />
 
       <div 
-        className="relative h-[240px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
+        className="relative h-[280px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
       >
@@ -341,15 +343,24 @@ export const StatsAlike = React.memo(() => {
                   rotateY,
                 }}
                 transition={{ type: "spring", stiffness: 180, damping: 22 }}
-                className="absolute top-1/2 left-1/2 w-[220px]"
+                className="absolute top-1/2 left-1/2 w-[250px]"
                 onClick={() => position !== 0 && setActiveIndex(idx)}
               >
-                <AlikeOrbitalItem 
-                  connection={conn} 
-                  isCentered={position === 0}
-                  featuredUserAvatar={featuredUser?.avatar}
-                  featuredUserId={featuredUserId || ''}
-                />
+                <motion.div
+                  animate={shouldReduceMotion ? {} : {
+                    x: [0, idx % 2 === 0 ? 7 : -6, 0],
+                    y: [0, idx % 2 === 0 ? -5 : 6, 0],
+                    rotate: [0, idx % 2 === 0 ? 1.2 : -1.2, 0]
+                  }}
+                  transition={{ duration: 9 + idx * 2, repeat: Infinity, ease: "easeInOut", delay: idx * 0.6 }}
+                >
+                  <AlikeOrbitalItem
+                    connection={conn}
+                    isCentered={position === 0}
+                    featuredUserAvatar={featuredUser?.avatar}
+                    featuredUserId={effectiveFeaturedUserId}
+                  />
+                </motion.div>
               </motion.div>
             );
           })}
@@ -393,7 +404,7 @@ const AlikeOrbitalItem = ({
           </span>
         </motion.div>
 
-        <div className="relative glass-card p-4 rounded-[32px] border border-white/5 shadow-2xl flex flex-col items-center justify-center min-h-[140px] px-6 text-center">
+        <div className="relative glass-card p-5 rounded-[32px] shadow-2xl flex flex-col items-center justify-center min-h-[152px] px-7 text-center">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
@@ -421,8 +432,8 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative glass-card p-6 rounded-[32px] border-white/10 shadow-2xl transition-all duration-700",
-        Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] border-red-500/20 shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
+        "relative glass-card p-7 rounded-[32px] shadow-2xl transition-all duration-700",
+        Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-3">
           {/* User (You) */}
@@ -445,7 +456,7 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Central Item Image */}
-          <div className="relative h-[72px] w-[72px] flex-shrink-0 group">
+          <div className="relative h-[84px] w-[84px] flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               className={cn(

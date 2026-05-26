@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Share2 } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
@@ -14,11 +14,11 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type FilterPeriod = 'today' | 'week' | 'month' | 'year' | 'all';
-type WeekMode = 'last-7' | 'current';
+export type ReplayFilterPeriod = 'today' | 'week' | 'month' | 'year' | 'all';
+export type ReplayWeekMode = 'last-7' | 'current';
 
-interface SelectedSubValues {
-  weekMode?: WeekMode;
+export interface ReplaySelectedSubValues {
+  weekMode?: ReplayWeekMode;
   month?: string;
   year?: string;
 }
@@ -51,19 +51,19 @@ interface ReplaySectionProps {
   topTracks: Track[];
   topAlbums: Album[];
   totalSongsCount: number;
+  activeTab: ReplayFilterPeriod;
+  selectedSubValues: ReplaySelectedSubValues;
+  onActiveTabChange: (tab: ReplayFilterPeriod) => void;
+  onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
   onOpenArtistsModal: () => void;
   onOpenSongsModal: () => void;
   onOpenAlbumsModal: () => void;
+  isLoading?: boolean;
 }
 
-const MONTHS = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-];
-
 const MONTHS_SHORT = [
-  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
-  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+  'jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.',
+  'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'
 ];
 
 const YEARS = [2024, 2025, 2026];
@@ -73,17 +73,16 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   topTracks,
   topAlbums,
   totalSongsCount,
+  activeTab,
+  selectedSubValues,
+  onActiveTabChange,
+  onSelectedSubValuesChange,
   onOpenArtistsModal,
   onOpenSongsModal,
-  onOpenAlbumsModal
+  onOpenAlbumsModal,
+  isLoading = false
 }) => {
-  const [activeTab, setActiveTab] = useState<FilterPeriod>('today');
-  const [selectedSubValues, setSelectedSubValues] = useState<SelectedSubValues>({
-    weekMode: 'last-7',
-    month: String(new Date().getMonth()).padStart(2, '0'),
-    year: String(new Date().getFullYear())
-  });
-
+  const [openMenu, setOpenMenu] = useState<ReplayFilterPeriod | null>(null);
   const filterText = useMemo(() => {
     switch (activeTab) {
       case 'today':
@@ -91,10 +90,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       case 'week':
         return selectedSubValues.weekMode === 'last-7'
           ? 'nos últimos 7 dias'
-          : 'essa semana';
+          : 'esta semana';
       case 'month':
         const monthIndex = parseInt(selectedSubValues.month || '0');
-        return `em ${MONTHS[monthIndex].toLowerCase()}`;
+        return `em ${MONTHS_SHORT[monthIndex] || 'mês'}`;
       case 'year':
         return `em ${selectedSubValues.year}`;
       case 'all':
@@ -112,10 +111,19 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT.slice(0, currentMonth + 1);
+  const hasSubmenu = (tab: ReplayFilterPeriod) => tab === 'week' || tab === 'month' || tab === 'year';
+  const selectTab = (tab: ReplayFilterPeriod) => {
+    onActiveTabChange(tab);
+    setOpenMenu(hasSubmenu(tab) ? (openMenu === tab ? null : tab) : null);
+  };
+  const selectSubValue = (values: ReplaySelectedSubValues) => {
+    onSelectedSubValuesChange(values);
+    setOpenMenu(null);
+  };
 
   if (!hasData) {
     return (
-      <div className="py-8">
+      <div className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="glass-card rounded-3xl p-8 text-center flex flex-col items-center gap-4">
           <div className="text-6xl">🎵</div>
           <h2 className="text-2xl font-black text-white">Sem dados para este período</h2>
@@ -128,9 +136,19 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   }
 
   return (
-    <div className="w-full overflow-hidden py-8 space-y-8">
+    <div className="relative w-full overflow-hidden py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+      {isLoading && (
+        <div className="absolute top-2 left-4 right-4 h-px overflow-hidden rounded-full bg-white/5">
+          <motion.div
+            className="h-full w-1/2 rounded-full bg-orange-500/70"
+            animate={{ x: ['-100%', '220%'] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
+      )}
+
       {/* HEADER */}
-      <div className="pl-4 pr-4">
+      <div>
         <div className="flex items-center justify-between">
           <h2 className="text-4xl font-black text-white">Replay</h2>
           <button
@@ -146,10 +164,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       </div>
 
       {/* FILTROS (pills horizontais) - ANTES da frase */}
-      <div className="px-4">
+      <div>
         <div className="flex w-full justify-between items-center relative">
           <button
-            onClick={() => setActiveTab('today')}
+            onClick={() => selectTab('today')}
             className={cn(
               "text-sm font-medium transition-colors px-3 py-1.5",
               activeTab === 'today'
@@ -163,7 +181,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           {/* Pill Semana com dropdown */}
           <div className="relative">
             <button
-              onClick={() => setActiveTab('week')}
+              onClick={() => selectTab('week')}
               className={cn(
                 "text-sm font-medium transition-colors px-3 py-1.5",
                 activeTab === 'week'
@@ -175,14 +193,14 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
 
             {/* Dropdown Semana */}
-            {activeTab === 'week' && (
+            {openMenu === 'week' && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-black/90 border border-white/10 rounded-xl backdrop-blur-lg shadow-2xl overflow-hidden min-w-[160px]"
               >
                 <button
-                  onClick={() => setSelectedSubValues(prev => ({ ...prev, weekMode: 'last-7' }))}
+                  onClick={() => selectSubValue({ ...selectedSubValues, weekMode: 'last-7' })}
                   className={cn(
                     "w-full px-4 py-2.5 text-left text-xs transition-colors",
                     selectedSubValues.weekMode === 'last-7'
@@ -190,10 +208,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                       : "text-white/40 hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  Últimos 7 dias
+                  últimos 7 dias
                 </button>
                 <button
-                  onClick={() => setSelectedSubValues(prev => ({ ...prev, weekMode: 'current' }))}
+                  onClick={() => selectSubValue({ ...selectedSubValues, weekMode: 'current' })}
                   className={cn(
                     "w-full px-4 py-2.5 text-left text-xs transition-colors",
                     selectedSubValues.weekMode === 'current'
@@ -201,7 +219,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                       : "text-white/40 hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  Esta semana
+                  esta semana
                 </button>
               </motion.div>
             )}
@@ -210,7 +228,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           {/* Pill Mês com dropdown */}
           <div className="relative">
             <button
-              onClick={() => setActiveTab('month')}
+              onClick={() => selectTab('month')}
               className={cn(
                 "text-sm font-medium transition-colors px-3 py-1.5",
                 activeTab === 'month'
@@ -222,7 +240,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
 
             {/* Dropdown Mês */}
-            {activeTab === 'month' && (
+            {openMenu === 'month' && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -231,7 +249,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 {availableMonths.map((month, index) => (
                   <button
                     key={index}
-                    onClick={() => setSelectedSubValues(prev => ({ ...prev, month: String(index).padStart(2, '0') }))}
+                    onClick={() => selectSubValue({ ...selectedSubValues, month: String(index).padStart(2, '0') })}
                     className={cn(
                       "w-full px-4 py-2.5 text-left text-xs transition-colors whitespace-nowrap",
                       selectedSubValues.month === String(index).padStart(2, '0')
@@ -249,7 +267,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           {/* Pill Ano com dropdown */}
           <div className="relative">
             <button
-              onClick={() => setActiveTab('year')}
+              onClick={() => selectTab('year')}
               className={cn(
                 "text-sm font-medium transition-colors px-3 py-1.5",
                 activeTab === 'year'
@@ -261,7 +279,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
 
             {/* Dropdown Ano */}
-            {activeTab === 'year' && (
+            {openMenu === 'year' && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -270,7 +288,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 {YEARS.map((year) => (
                   <button
                     key={year}
-                    onClick={() => setSelectedSubValues(prev => ({ ...prev, year: String(year) }))}
+                    onClick={() => selectSubValue({ ...selectedSubValues, year: String(year) })}
                     className={cn(
                       "w-full px-4 py-2.5 text-left text-xs transition-colors",
                       selectedSubValues.year === String(year)
@@ -286,7 +304,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </div>
 
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => selectTab('all')}
             className={cn(
               "text-sm font-medium transition-colors px-3 py-1.5",
               activeTab === 'all'
@@ -300,7 +318,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       </div>
 
       {/* BLOCO DE CONTAGEM - 3 linhas */}
-      <div className="pl-4 pr-4 space-y-1">
+      <div className={cn("space-y-1 transition-opacity duration-300", isLoading && "opacity-55")}>
         <p className="text-lg">
           <span className="text-white/50">Você ouviu </span>
           <motion.span
@@ -321,8 +339,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {/* SEÇÃO 1 — ARTISTAS MAIS OUVIDOS */}
       {limitedArtists.length > 0 && (
-        <div className="space-y-4">
-          <div className="pl-4 pr-4">
+        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+          <div>
             <button
               onClick={onOpenArtistsModal}
               className="flex items-center gap-2 group"
@@ -332,7 +350,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 px-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 -mx-4 px-4 hide-scrollbar">
             {limitedArtists.map((artist, index) => (
               <motion.div
                 key={`${artist.id || artist.name}-${index}`}
@@ -392,8 +410,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {/* SEÇÃO 2 — MÚSICAS MAIS OUVIDAS */}
       {limitedTracks.length > 0 && (
-        <div className="space-y-4">
-          <div className="pl-4 pr-4">
+        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+          <div>
             <button
               onClick={onOpenSongsModal}
               className="flex items-center gap-2 group"
@@ -404,7 +422,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </div>
 
           {/* Scroll horizontal com 4 linhas verticais - mostra 12 músicas (3 colunas de 4) */}
-          <div className="overflow-x-auto snap-x hide-scrollbar px-4">
+          <div className="overflow-x-auto snap-x hide-scrollbar -mx-4 px-4">
             <div className="flex gap-6">
               {/* Cada "página" mostra 4 músicas em coluna */}
               {Array.from({ length: Math.ceil(limitedTracks.length / 4) }).map((_, pageIndex) => (
@@ -414,7 +432,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     return (
                       <motion.div
                         key={`${track.id || track.name}-${globalIndex}`}
-                        className="flex items-center gap-3 w-[82vw]"
+                        className="flex items-center gap-3 w-[calc(100vw-56px)] max-w-[360px]"
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
                       >
@@ -463,8 +481,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {/* SEÇÃO 3 — ÁLBUNS MAIS OUVIDOS */}
       {limitedAlbums.length > 0 && (
-        <div className="space-y-4">
-          <div className="pl-4 pr-4">
+        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+          <div>
             <button
               onClick={onOpenAlbumsModal}
               className="flex items-center gap-2 group"
@@ -474,7 +492,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 px-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 -mx-4 px-4 hide-scrollbar">
             {limitedAlbums.map((album, index) => (
               <motion.div
                 key={`${album.id || album.name}-${index}`}

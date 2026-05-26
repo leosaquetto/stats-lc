@@ -109,8 +109,8 @@ export const VinylRecord = ({
     opacity: 0.07 + seededValue(textureSeed, i + 271) * 0.18,
   })), [textureSeed]);
 
-  const tonearmRotate = -20 - currentRatio * 17;
-  const tonearmY      = -2 + currentRatio * 3;
+  const tonearmRotate = -19 - currentRatio * 8;
+  const tonearmY      = 18 + currentRatio * 4;
 
   return (
     <div
@@ -260,18 +260,6 @@ export const VinylRecord = ({
               <feColorMatrix type="saturate" values="0" />
             </filter>
           </defs>
-          {Array.from({ length: 15 }, (_, i) => (
-            <circle
-              key={`${uniqueId}-groove-${i}`}
-              cx="50" cy="50"
-              r={45 - i * 2.45}
-              fill="none"
-              stroke="white"
-              strokeWidth={i % 3 === 0 ? 0.36 : 0.16}
-              opacity={0.9 - i * 0.045}
-            />
-          ))}
-          <circle cx="50" cy="50" r="26" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.55" />
           <rect width="100" height="100" filter={`url(#${uniqueId}-grain)`} opacity="0.08" />
         </svg>
 
@@ -424,9 +412,9 @@ export const VinylRecord = ({
           <motion.div
             className="absolute z-40 pointer-events-none"
             style={{
-              right:           '16%',
-              top:             '4%',
-              width:           '46%',
+              right:           '3%',
+              top:             '7%',
+              width:           '38%',
               height:          '9%',
               transformOrigin: '92% 44%',
               willChange:      'transform, opacity',

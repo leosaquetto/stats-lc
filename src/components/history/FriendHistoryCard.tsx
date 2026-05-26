@@ -13,6 +13,8 @@ interface FriendHistoryCardProps {
   onTrackClick: (track: any) => void;
   onFullHistoryClick?: (user: any) => void;
   index?: number;
+  showFullHistoryButton?: boolean;
+  showInlineHistory?: boolean;
 }
 
 // Ícone de equalizer para o header (ao vivo no card)
@@ -50,7 +52,9 @@ export const FriendHistoryCard = memo(({
   user,
   onTrackClick,
   onFullHistoryClick,
-  index = 0
+  index = 0,
+  showFullHistoryButton = true,
+  showInlineHistory = true
 }: FriendHistoryCardProps) => {
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [recents, setRecents] = useState<any[]>([]);
@@ -84,6 +88,13 @@ export const FriendHistoryCard = memo(({
     const store = useStatsStore.getState();
 
     const fetchData = async () => {
+      if (!showInlineHistory) {
+        const initialStats = statsCacheService.getStats(user.id);
+        if (initialStats && mounted) setUserStats(initialStats);
+        if (mounted) setLoading(false);
+        return;
+      }
+
       const embeddedRecent = storeUser.recent || user.recent || [];
       if (embeddedRecent.length > 0 && mounted) {
         setRecents(embeddedRecent);
@@ -128,7 +139,7 @@ export const FriendHistoryCard = memo(({
 
     fetchData();
     return () => { mounted = false; };
-  }, [user.id]);
+  }, [user.id, showInlineHistory]);
 
   const historyList = getHistoryList();
 
@@ -259,7 +270,7 @@ export const FriendHistoryCard = memo(({
           )}
         </AnimatePresence>
 
-        {/* Lista de histórico — sempre visível */}
+        {showInlineHistory && (
         <div className="border-t border-white/5">
           {loading && recents.length === 0 ? (
             <div className="p-3 flex flex-col gap-2">
@@ -345,9 +356,10 @@ export const FriendHistoryCard = memo(({
             </div>
           )}
         </div>
+        )}
 
         {/* Botão "Ver histórico completo" */}
-        {!loading && (
+        {!loading && showFullHistoryButton && (
           <div className="px-3 pb-3">
             <button
               onClick={(e) => {

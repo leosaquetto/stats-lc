@@ -8,12 +8,12 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, In
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
-import { ReplaySection } from '../components/home/ReplaySection';
+import { ReplaySection, type ReplayFilterPeriod, type ReplaySelectedSubValues } from '../components/home/ReplaySection';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { VinylRecord } from '../components/home/VinylRecord';
 import { coreUtils } from '../services/statsCore';
-import { statsService } from '../services/statsService';
+import { statsService, type ReplayPeriodQuery } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { getDominantColor } from '../lib/colorUtils';
 
@@ -40,6 +40,37 @@ import { HomeInsights } from '../components/home/HomeInsights';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const getStartOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+const getReplayQuery = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedSubValues): ReplayPeriodQuery => {
+  const now = new Date();
+  if (activeTab === 'today') {
+    return { period: 'today', after: getStartOfDay(now), limit: 12, force: true };
+  }
+  if (activeTab === 'week') {
+    if (selected.weekMode === 'current') {
+      const day = now.getDay();
+      const diffToMonday = (day + 6) % 7;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
+      return { period: 'week', after: getStartOfDay(monday), limit: 12, force: true };
+    }
+    const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 12, force: true };
+  }
+  if (activeTab === 'month') {
+    const month = Number(selected.month ?? now.getMonth());
+    const year = now.getFullYear();
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 1);
+    return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 12, force: true };
+  }
+  if (activeTab === 'year') {
+    const year = Number(selected.year || now.getFullYear());
+    return { period: 'year', after: new Date(year, 0, 1).getTime(), before: new Date(year + 1, 0, 1).getTime(), limit: 12, force: true };
+  }
+  return { period: 'lifetime', limit: 12, force: true };
+};
 
 export default function HomeScreen() {
   const {
@@ -69,6 +100,7 @@ export default function HomeScreen() {
   const [selectorMode, setSelectorMode] = useState<'header' | 'mini-header'>('header');
   const [showCircleActivity, setShowCircleActivity] = useState(false);
   const [visibleHistory, setVisibleHistory] = useState(5);
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [toasts, setToasts] = useState<any[]>([]);
@@ -86,6 +118,13 @@ export default function HomeScreen() {
     artists: [],
     tracks: [],
     albums: []
+  });
+  const [replayTotalSongsCount, setReplayTotalSongsCount] = useState(0);
+  const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
+  const [replaySelectedSubValues, setReplaySelectedSubValues] = useState<ReplaySelectedSubValues>({
+    weekMode: 'last-7',
+    month: String(new Date().getMonth()).padStart(2, '0'),
+    year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
   const liveRefreshActive = isManualLiveRefresh;
@@ -135,6 +174,10 @@ export default function HomeScreen() {
   const friendActivityOffset = primaryIsPlaying
     ? (currentTrackArenaPlayCount > visibleMembersCount ? "-mt-16" : "-mt-18")
     : "-mt-14";
+  const replayPeriodQuery = useMemo(
+    () => getReplayQuery(replayActiveTab, replaySelectedSubValues),
+    [replayActiveTab, replaySelectedSubValues]
+  );
 
   const pipelineStreamLinesMemo = useMemo(() => [
     { left: '16.6%', duration: 2.2, delay: 0 },
@@ -473,8 +516,8 @@ export default function HomeScreen() {
     return members
       .filter(u => u && u.id)
       .sort((a, b) => {
-        if (a.id === featuredUserId) return -1;
-        if (b.id === featuredUserId) return 1;
+        if (a.id === FEATURED_ID) return -1;
+        if (b.id === FEATURED_ID) return 1;
         
         const order = historyOrder || 'lastPlayed';
         if (order === 'alphabetical') {
@@ -493,40 +536,47 @@ export default function HomeScreen() {
           return timeB - timeA;
         }
       });
-  }, [members, featuredUserId, historyOrder, historyCustomOrder]);
+  }, [members, FEATURED_ID, historyOrder, historyCustomOrder]);
 
   useEffect(() => {
     let cancelled = false;
     if (!primaryUser?.id) {
       setReplayState('idle');
       setReplayTopItems({ artists: [], tracks: [], albums: [] });
+      setReplayTotalSongsCount(0);
       return;
     }
 
     setReplayState('loading');
-    const currentTopItems = primaryUser.topItems;
-    const hasEmbeddedTopItems =
-      (currentTopItems?.artists?.length || 0) > 0 ||
-      (currentTopItems?.tracks?.length || 0) > 0 ||
-      (currentTopItems?.albums?.length || 0) > 0;
-
-    if (hasEmbeddedTopItems) {
-      setReplayTopItems({
-        artists: currentTopItems?.artists || [],
-        tracks: currentTopItems?.tracks || [],
-        albums: currentTopItems?.albums || []
-      });
-      setReplayState('ready');
-      return;
-    }
-
-    Promise.all([
-      statsService.getTopItems(primaryUser.id, 'artists', 'month').catch(() => []),
-      statsService.getTopItems(primaryUser.id, 'tracks', 'month').catch(() => []),
-      statsService.getTopItems(primaryUser.id, 'albums', 'month').catch(() => [])
-    ]).then(([artists, tracks, albums]) => {
+    statsService.getReplayData(primaryUser.id, replayPeriodQuery)
+      .then((replay) => ({
+        artists: replay.topArtists,
+        tracks: replay.topTracks,
+        albums: replay.topAlbums,
+        totalSongs: replay.totalSongs
+      }))
+      .catch(async () => {
+        const [artists, tracks, albums] = await Promise.all([
+          statsService.getTopItems(primaryUser.id, 'artists', replayPeriodQuery).catch(() => []),
+          statsService.getTopItems(primaryUser.id, 'tracks', replayPeriodQuery).catch(() => []),
+          statsService.getTopItems(primaryUser.id, 'albums', replayPeriodQuery).catch(() => [])
+        ]);
+        return { artists, tracks, albums, totalSongs: undefined };
+      })
+      .then(({ artists, tracks, albums, totalSongs }) => {
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });
+          setReplayTotalSongsCount(totalSongs ?? (
+            replayActiveTab === 'today'
+              ? primaryUser.streamsToday || 0
+              : replayActiveTab === 'month'
+                ? primaryUser.streamsMonth || 0
+                : replayActiveTab === 'year'
+                  ? primaryUser.streamsYear || 0
+                  : replayActiveTab === 'all'
+                    ? primaryUser.totalStreams || 0
+                    : tracks.length
+          ));
         setReplayState('ready');
       }
     });
@@ -534,12 +584,15 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [primaryUser?.id, primaryUser?.topItems]);
+  }, [primaryUser?.id, replayPeriodQuery, replayActiveTab]);
 
   const replayArtists = replayTopItems.artists;
   const replayTracks = replayTopItems.tracks;
   const replayAlbums = replayTopItems.albums;
-  const isReplayLoading = isAppReady && !!primaryUser && replayState !== 'ready';
+  const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
+  const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
+  const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
+  const showPipelineSync = false;
   return (
     <>
       {createPortal(
@@ -733,7 +786,7 @@ export default function HomeScreen() {
 
       {/* Custom Background Sync Bar */}
       <AnimatePresence>
-        {isRefreshing && !isManualLiveRefresh && (
+        {showPipelineSync && (
           <motion.div
             initial={{ opacity: 0, height: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, height: 'auto', scale: 1, y: 0 }}
@@ -1006,7 +1059,7 @@ export default function HomeScreen() {
       </AnimatePresence>
 
       {/* Replay Section */}
-      {isReplayLoading && (
+      {isReplayInitialLoading && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1029,7 +1082,7 @@ export default function HomeScreen() {
         </motion.div>
       )}
 
-      {isAppReady && primaryUser && replayState === 'ready' && (
+      {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1057,10 +1110,15 @@ export default function HomeScreen() {
               image: a.image,
               streams: a.playedCount || a.streams || a.playcount || a.count || 0
             })) || []}
-            totalSongsCount={primaryUser.streamsToday || primaryUser.streamsMonth || primaryUser.totalStreams || replayTracks.length}
+            totalSongsCount={replayTotalSongsCount}
+            activeTab={replayActiveTab}
+            selectedSubValues={replaySelectedSubValues}
+            onActiveTabChange={setReplayActiveTab}
+            onSelectedSubValuesChange={setReplaySelectedSubValues}
             onOpenArtistsModal={() => console.log('Open artists modal')}
             onOpenSongsModal={() => console.log('Open songs modal')}
             onOpenAlbumsModal={() => console.log('Open albums modal')}
+            isLoading={isReplayUpdating}
           />
         </motion.div>
       )}
@@ -1073,7 +1131,7 @@ export default function HomeScreen() {
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="px-4 sm:px-6 lg:px-8"
       >
-        <FriendsMonthlyHighlights />
+        <FriendsMonthlyHighlights periodQuery={replayPeriodQuery} />
       </motion.div>
       )}
 
@@ -1136,7 +1194,7 @@ export default function HomeScreen() {
       </motion.div>
       )}
       {isAppReady && (
-      <div className="flex flex-col gap-2 custom-scrollbar scroll-fade-v h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
+      <div className="flex flex-col gap-2 custom-scrollbar h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
           {isLoading ? (
             [1, 2, 3, 4, 5].map(i => (
               <motion.div 
@@ -1180,6 +1238,8 @@ export default function HomeScreen() {
                     index={idx}
                     onTrackClick={setSelectedTrackHistory}
                     onFullHistoryClick={(u) => setViewingFullHistoryUser(u)}
+                    showFullHistoryButton={timelineExpanded}
+                    showInlineHistory={false}
                   />
                 </motion.div>
               ))}
@@ -1188,11 +1248,14 @@ export default function HomeScreen() {
           
           {!isLoading && recentTracks.length > visibleHistory && (
             <button
-              onClick={() => setShowCircleActivity(true)}
+              onClick={() => {
+                setTimelineExpanded(true);
+                setVisibleHistory(recentTracks.length);
+              }}
               className="w-full mt-2 mb-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
             >
               <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
-              <span>Ver Atividade Completa</span>
+              <span>Expandir todos</span>
             </button>
           )}
       </div>

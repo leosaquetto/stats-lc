@@ -53,6 +53,25 @@ const saveToMMKV = (key: string, value: any) => {
   }
 };
 
+const isValidGroupStats = (value: any): value is GroupStats => {
+  return !!value && typeof value === 'object' && Array.isArray(value.members) && value.users && typeof value.users === 'object';
+};
+
+const clearPersistedGroupCache = () => {
+  try {
+    mmkv.delete('groupStats');
+    mmkv.delete('groupStats_timestamp');
+  } catch {}
+};
+
+const isLivePayloadOlder = (existing?: any, incoming?: any) => {
+  if (!existing?.timestamp || !incoming?.timestamp) return false;
+  const existingTime = new Date(existing.timestamp).getTime();
+  const incomingTime = new Date(incoming.timestamp).getTime();
+  if (!Number.isFinite(existingTime) || !Number.isFinite(incomingTime)) return false;
+  return incomingTime + 1500 < existingTime;
+};
+
 interface StatsState {
   groupStats: GroupStats | null;
   isLoading: boolean;
@@ -185,7 +204,14 @@ const migrateStateToCanonicalIds = (state: StatsState, groupStats: GroupStats | 
 export const useStatsStore = create<StatsState>()(
   persist(
     (set, get) => ({
-      groupStats: loadFromMMKV<GroupStats | null>('groupStats', null),
+      groupStats: (() => {
+        const cached = loadFromMMKV<GroupStats | null>('groupStats', null);
+        if (cached && !isValidGroupStats(cached)) {
+          clearPersistedGroupCache();
+          return null;
+        }
+        return cached;
+      })(),
       isLoading: false,
       isRefreshing: false,
       isLiveFetching: false,
@@ -515,6 +541,9 @@ export const useStatsStore = create<StatsState>()(
           const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
           const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
           if (cachedGroup) {
+            if (!isValidGroupStats(cachedGroup)) {
+              clearPersistedGroupCache();
+            } else {
             set({
               groupStats: cachedGroup,
               userFullStatsCache: cachedUserFullStats,
@@ -524,6 +553,7 @@ export const useStatsStore = create<StatsState>()(
             });
             if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Serving valid MMKV cache, skipping fetch.");
             return;
+            }
           }
         }
 
@@ -544,6 +574,9 @@ export const useStatsStore = create<StatsState>()(
             const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
             const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
             if (cachedGroup) {
+              if (!isValidGroupStats(cachedGroup)) {
+                clearPersistedGroupCache();
+              } else {
               set({
                 groupStats: cachedGroup,
                 userFullStatsCache: cachedUserFullStats,
@@ -555,6 +588,7 @@ export const useStatsStore = create<StatsState>()(
               clearTimeout(safetyTimer);
               if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
               return;
+              }
             }
           }
 
@@ -610,6 +644,10 @@ export const useStatsStore = create<StatsState>()(
           const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
           const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
           if (cachedGroup) {
+            if (!isValidGroupStats(cachedGroup)) {
+              clearPersistedGroupCache();
+              set({ error: "Cache local inválido. Reinicie a sincronização.", isLoading: false, isRefreshing: false });
+            } else {
             set({
               groupStats: cachedGroup,
               userFullStatsCache: cachedUserFullStats,
@@ -618,6 +656,7 @@ export const useStatsStore = create<StatsState>()(
               isRefreshing: false, // Ensure refreshing is false
             });
             if ((import.meta as any).env?.DEV) console.warn("[fetchGroup] Serving cached MMKV data graciously despite obsolete or fetch failure.");
+            }
           } else {
             set({ error: "Erro na conexão com a API de música." });
           }
@@ -671,10 +710,13 @@ export const useStatsStore = create<StatsState>()(
                 // Merge live data while preserving rich data from /api/group
                 const prevTrackId = existingUser.nowPlaying?.track?.id;
                 const newTrackId = liveUser.nowPlaying?.track?.id;
+                const incomingNowPlaying = isLivePayloadOlder(existingUser.nowPlaying, liveUser.nowPlaying)
+                  ? existingUser.nowPlaying
+                  : liveUser.nowPlaying;
 
                 const mergedUser = {
                   ...existingUser,              // Keep all existing data
-                  nowPlaying: liveUser.nowPlaying,
+                  nowPlaying: incomingNowPlaying,
                   platform: liveUser.platform || existingUser.platform,
                   avatar: liveUser.avatar || existingUser.avatar,
                   name: liveUser.name || existingUser.name,
@@ -688,7 +730,7 @@ export const useStatsStore = create<StatsState>()(
                   newMembers[memberIndex] = mergedUser;
                 }
 
-                if (newTrackId && prevTrackId && prevTrackId !== newTrackId) {
+                if (incomingNowPlaying === liveUser.nowPlaying && newTrackId && prevTrackId && prevTrackId !== newTrackId) {
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('nowPlayingChanged', { detail: { userId: liveUser.id } }));
                   }
@@ -709,7 +751,10 @@ export const useStatsStore = create<StatsState>()(
 
             saveToMMKV('groupStats', newGroupStats);
             mmkv.set('groupStats_timestamp', Date.now());
-            set({ groupStats: newGroupStats });
+            set({
+              groupStats: newGroupStats,
+              lastFetchTime: { ...get().lastFetchTime, group: Date.now() }
+            });
           }
         } catch (e) {
           if ((import.meta as any).env?.DEV) {
@@ -833,6 +878,18 @@ export const useStatsStore = create<StatsState>()(
     {
       name: 'stats-lc-storage', // Nome da chave no localStorage
       storage: createJSONStorage(() => localStorage),
+      merge: (persistedState: any, currentState) => {
+        const nextState = { ...currentState, ...(persistedState || {}) };
+        if (nextState.groupStats && !isValidGroupStats(nextState.groupStats)) {
+          clearPersistedGroupCache();
+          try {
+            localStorage.removeItem('stats-lc-storage');
+          } catch {}
+          nextState.groupStats = null;
+          nextState.error = "Cache local inválido. Sincronize novamente.";
+        }
+        return nextState;
+      },
       partialize: (state) => ({ 
         groupStats: state.groupStats,
         lastFetchTime: state.lastFetchTime,

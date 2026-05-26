@@ -3,38 +3,68 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
+import { statsService, type ReplayPeriodQuery } from '../../services/statsService';
 import { UserStats, TopItem } from '../../types/stats';
 import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Music, Disc, Mic2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Music, Disc, Mic2, ChevronRight } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const FriendsMonthlyHighlights = React.memo(() => {
-  const { groupStats, featuredUserId, hiddenUsers } = useStatsStore();
+export const FriendsMonthlyHighlights = React.memo(({ periodQuery }: { periodQuery?: ReplayPeriodQuery }) => {
+  const { groupStats, hiddenUsers } = useStatsStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  
+  const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
+
   const members = groupStats?.members || [];
   const isWaitingForGroup = !groupStats;
-  const friends = React.useMemo(() => members.filter(m => m.id !== featuredUserId && !hiddenUsers.includes(m.id)), [members, featuredUserId, hiddenUsers]);
+  const visibleMembers = React.useMemo(() => members.filter(m => !hiddenUsers.includes(m.id)), [members, hiddenUsers]);
 
-  const sortedFriends = React.useMemo(() => [...friends].sort((a, b) => {
-    const hasA = a.topItems?.tracks?.[0] || a.topItems?.artists?.[0] || a.topItems?.albums?.[0] ? 1 : 0;
-    const hasB = b.topItems?.tracks?.[0] || b.topItems?.artists?.[0] || b.topItems?.albums?.[0] ? 1 : 0;
+  useEffect(() => {
+    if (!periodQuery || visibleMembers.length === 0) return;
+    let cancelled = false;
+    Promise.allSettled(visibleMembers.map(async (member) => {
+      const [artists, tracks, albums] = await Promise.all([
+        statsService.getTopItems(member.id, 'artists', { ...periodQuery, limit: 1 }).catch(() => []),
+        statsService.getTopItems(member.id, 'tracks', { ...periodQuery, limit: 1 }).catch(() => []),
+        statsService.getTopItems(member.id, 'albums', { ...periodQuery, limit: 1 }).catch(() => [])
+      ]);
+      return { id: member.id, tops: { artists, tracks, albums } };
+    })).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }> = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') next[result.value.id] = result.value.tops;
+      });
+      setPeriodTops(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [periodQuery, visibleMembers]);
+
+  const sortedFriends = React.useMemo(() => [...visibleMembers].sort((a, b) => {
+    const aTops = periodTops[a.id] || a.topItems;
+    const bTops = periodTops[b.id] || b.topItems;
+    const hasA = aTops?.tracks?.[0] || aTops?.artists?.[0] || aTops?.albums?.[0] ? 1 : 0;
+    const hasB = bTops?.tracks?.[0] || bTops?.artists?.[0] || bTops?.albums?.[0] ? 1 : 0;
     return hasB - hasA;
-  }).filter(f => f.topItems?.tracks?.[0] || f.topItems?.artists?.[0] || f.topItems?.albums?.[0]), [friends]);
+  }).filter(f => {
+    const tops = periodTops[f.id] || f.topItems;
+    return tops?.tracks?.[0] || tops?.artists?.[0] || tops?.albums?.[0];
+  }), [visibleMembers, periodTops]);
 
   if (isWaitingForGroup) {
     return (
       <div className="flex flex-col gap-3 mb-3 mt-1">
-        <SectionHeader title="Destaques do Mês" />
+        <SectionHeader title="TOP 1 DO CÍRCULO" />
         <motion.div
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -69,11 +99,11 @@ export const FriendsMonthlyHighlights = React.memo(() => {
 
   return (
     <div className="flex flex-col gap-3 mb-3 mt-1">
-      <SectionHeader 
-        title="Destaques do Mês" 
+      <SectionHeader
+        title="TOP 1 DO CÍRCULO"
       />
-      
-      <motion.div 
+
+      <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
@@ -81,12 +111,13 @@ export const FriendsMonthlyHighlights = React.memo(() => {
       >
         {/* Background Gradients */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
-        
+
         <div className="flex flex-col divide-y divide-white/5 relative z-10">
           {sortedFriends.map((friend, idx) => (
-            <FriendHighlightRow 
-              key={`${friend.id}-${idx}`} 
-              friend={friend} 
+            <FriendHighlightRow
+              key={`${friend.id}-${idx}`}
+              friend={friend}
+              tops={periodTops[friend.id] || friend.topItems}
               isExpanded={expandedId === friend.id}
               onToggle={() => setExpandedId(expandedId === friend.id ? null : friend.id)}
             />
@@ -97,107 +128,82 @@ export const FriendsMonthlyHighlights = React.memo(() => {
   );
 });
 
-const FriendHighlightRow = React.memo(({ 
-  friend, 
-  isExpanded, 
-  onToggle 
-}: { 
-  friend: UserStats; 
+const FriendHighlightRow = React.memo(({
+  friend,
+  tops,
+  isExpanded,
+  onToggle
+}: {
+  friend: UserStats;
+  tops?: { artists?: TopItem[]; tracks?: TopItem[]; albums?: TopItem[] };
   isExpanded: boolean;
   onToggle: () => void;
 }) => {
-  const topArtist = friend.topItems?.artists?.[0];
-  const topTrack = friend.topItems?.tracks?.[0];
-  const topAlbum = friend.topItems?.albums?.[0];
-
-  const totalStreams = friend.streamsMonth || friend.totalStreams || 0;
+  const topArtist = tops?.artists?.[0];
+  const topTrack = tops?.tracks?.[0];
+  const topAlbum = tops?.albums?.[0];
 
   return (
     <div className="flex flex-col py-4 first:pt-0 last:pb-0">
-      <div 
+      <div
         onClick={onToggle}
         className={cn(
-          "flex flex-row items-center justify-between gap-4 group cursor-pointer transition-colors p-2 rounded-xl",
+          "grid grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_18px] items-start gap-2.5 group cursor-pointer transition-colors p-2 rounded-xl",
           isExpanded ? "bg-white/[0.03]" : "hover:bg-white/[0.01]"
         )}
       >
-        {/* Friend Info */}
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="shrink-0 relative">
-            <div className={cn(
-              "h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 overflow-hidden shadow-2xl relative transition-all duration-300",
-              isExpanded ? "border-orange-500/50 scale-105" : "border-white/5"
-            )}>
-              <SmartImage 
-                src={coreUtils.getUserAvatar(friend.id, friend.avatar)} 
-                rounded="full" 
-                className="h-full w-full object-cover" 
-                fallback=""
-              />
-              <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent" />
-            </div>
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
-              {friend.name}
-            </span>
-            <span className="text-[9px] font-medium text-white/40 uppercase tracking-widest mt-0.5">
-              {totalStreams > 0 ? `${totalStreams} streams` : "Destaques"} • Este Mês
-            </span>
+        <div className="flex justify-center pt-0.5">
+          <div className={cn(
+            "h-10 w-10 rounded-full border-2 overflow-hidden shadow-2xl relative transition-all duration-300",
+            isExpanded ? "border-orange-500/50 scale-105" : "border-white/8"
+          )}>
+            <SmartImage
+              src={coreUtils.getUserAvatar(friend.id, friend.avatar)}
+              rounded="full"
+              className="h-full w-full object-cover"
+              fallback=""
+            />
+            <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent" />
           </div>
         </div>
 
-        {/* Cores alinhadas à direita */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <CompactCover item={topArtist} rounded="full" icon={<Mic2 className="h-3 w-3 text-white/20" />} />
-          <CompactCover item={topTrack} rounded="lg" icon={<Music className="h-3 w-3 text-white/20" />} />
-          <CompactCover item={topAlbum} rounded="lg" icon={<Disc className="h-3 w-3 text-white/20" />} />
-          <div className="text-white/20 group-hover:text-white/40 transition-colors pl-1">
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </div>
+        <CompactCover item={topArtist} rounded="full" icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" showName={isExpanded} />
+        <CompactCover item={topTrack} rounded="lg" icon={<Music className="h-3 w-3 text-white/20" />} label="música" showName={isExpanded} />
+        <CompactCover item={topAlbum} rounded="lg" icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" showName={isExpanded} />
+
+        <div className="flex justify-center pt-3 text-white/22 group-hover:text-white/50 transition-colors">
+          <ChevronRight className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-90 text-orange-400/80")} />
         </div>
       </div>
-
-      {/* Expanded details slide down (from the beginning) */}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="pl-14 sm:pl-16 pr-4 pt-3 pb-1 flex flex-col gap-2 border-l border-white/5 ml-7 sm:ml-8 mt-1">
-              <DetailRow item={topArtist} label="Artista Favorito do Mês" icon="🎤" />
-              <DetailRow item={topTrack} label="Faixa Mais Ouvida do Mês" icon="🎵" />
-              <DetailRow item={topAlbum} label="Álbum Top no Período" icon="💿" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 });
 
-const CompactCover = ({ 
-  item, 
+const CompactCover = ({
+  item,
   rounded,
-  icon
-}: { 
-  item?: TopItem; 
+  icon,
+  label,
+  showName
+}: {
+  item?: TopItem;
   rounded: 'full' | 'lg';
   icon: React.ReactNode;
+  label: string;
+  showName: boolean;
 }) => {
   if (!item) {
     return (
-      <div 
-        className={cn(
-          "h-9 w-9 sm:h-11 sm:w-11 bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0",
-          rounded === 'full' ? 'rounded-full' : 'rounded-lg'
-        )}
-      >
-        {icon}
+      <div className="flex flex-col items-center gap-1 min-w-0 opacity-45">
+        <div
+          className={cn(
+            "h-10 w-10 bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0",
+            rounded === 'full' ? 'rounded-full' : 'rounded-lg'
+          )}
+        >
+          {icon}
+        </div>
+        {showName && <span className="text-[7px] font-black uppercase tracking-wider text-white/30 truncate">{label}</span>}
       </div>
     );
   }
@@ -206,68 +212,37 @@ const CompactCover = ({
   const displayCount = playCount >= 1000 ? coreUtils.formatPlayCount(playCount) : playCount;
 
   return (
-    <div className="relative h-9 w-9 sm:h-11 sm:w-11 shrink-0 group-hover:scale-105 duration-300 transition-transform">
-      <SmartImage 
-        src={item.image} 
-        className={cn(
-          "h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border transition-all duration-300", 
-          rounded === 'full' ? 'rounded-full border-white/10' : 'rounded-lg border-white/10'
-        )} 
-        rounded={rounded} 
-        fallback="" 
-      />
-      {playCount > 0 && (
-        <div className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-orange-600 border border-black flex items-center justify-center shadow-lg z-10">
-           <span className="text-[6.5px] font-black text-white leading-none">{displayCount}</span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const DetailRow = ({ 
-  item, 
-  label, 
-  icon 
-}: { 
-  item?: TopItem; 
-  label: string; 
-  icon: string; 
-}) => {
-  if (!item) {
-    return (
-      <div className="flex items-center gap-2.5 py-1 opacity-20 text-left">
-        <span className="text-xs shrink-0 select-none">{icon}</span>
-        <div className="flex flex-col">
-          <span className="text-[7.5px] font-black uppercase tracking-wider text-white/50 leading-none mb-0.5">
-            {label}
-          </span>
-          <span className="text-[10px] font-medium text-white/50 italic">
-            Sem dados disponíveis
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  const playCount = item.playcount || item.streams || 0;
-
-  return (
-    <div className="flex items-center gap-2.5 py-1 text-left min-w-0">
-      <span className="text-xs shrink-0 select-none">{icon}</span>
-      <div className="flex flex-col min-w-0">
-        <span className="text-[7.5px] font-black uppercase tracking-wider text-orange-500/80 leading-none mb-0.5">
-          {label}
-        </span>
-        <span className="text-[11px] font-bold text-white truncate leading-tight">
-          {item.name}
-        </span>
+    <div className="flex flex-col items-center gap-1.5 min-w-0">
+      <div className="relative h-10 w-10 shrink-0 group-hover:scale-105 duration-300 transition-transform">
+        <SmartImage
+          src={item.image}
+          className={cn(
+            "h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border transition-all duration-300",
+            rounded === 'full' ? 'rounded-full border-white/10' : 'rounded-lg border-white/10'
+          )}
+          rounded={rounded}
+          fallback=""
+        />
         {playCount > 0 && (
-          <span className="text-[9px] font-medium text-white/30 truncate mt-0.5">
-            {playCount} reproduções observadas
-          </span>
+          <div className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-orange-600 border border-black flex items-center justify-center shadow-lg z-10">
+            <span className="text-[6.5px] font-black text-white leading-none">{displayCount}</span>
+          </div>
         )}
       </div>
+      <AnimatePresence initial={false}>
+        {showName && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -4 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="flex w-full min-w-0 flex-col text-center"
+          >
+            <span className="text-[6.5px] font-black uppercase tracking-[0.16em] text-white/28 leading-none">{label}</span>
+            <span className="text-[8.5px] font-bold text-white/72 truncate leading-tight">{item.name}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

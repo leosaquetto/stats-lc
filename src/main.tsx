@@ -10,8 +10,15 @@ initAnalytics();
 // Register Service Worker for push notifications
 if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
   window.addEventListener('load', () => {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => {
+        registrations.forEach((registration) => registration.update().catch(() => {}));
+      })
+      .catch(() => {});
+
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
+        registration.update().catch(() => {});
         if ((import.meta as any).env?.DEV) console.log('SW registered successfully:', registration.scope);
       })
       .catch((err) => {
@@ -29,5 +36,11 @@ root.render(
 setTimeout(() => {
   if (window.__SPLASH_READY__ !== undefined) {
     window.__SPLASH_READY__ = true;
+  }
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    splash.style.opacity = '0';
+    splash.style.transition = 'opacity 0.3s ease-out';
+    setTimeout(() => splash.remove(), 300);
   }
 }, 100);

@@ -183,7 +183,7 @@ export const LiveTrackProgress = memo(({
             className="flex flex-col gap-1.5 w-full"
           >
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-1">
-              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] opacity-0">0:00</span>
+              <span className="text-[8px] font-black text-white/35 uppercase tracking-[0.08em] opacity-0">0:00</span>
               <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
                 <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
                 <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
@@ -191,7 +191,7 @@ export const LiveTrackProgress = memo(({
                 </div>
                 <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
               </div>
-              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] opacity-0">0:00</span>
+              <span className="text-[8px] font-black text-white/35 uppercase tracking-[0.08em] opacity-0">0:00</span>
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden relative">
               <motion.div
@@ -206,10 +206,10 @@ export const LiveTrackProgress = memo(({
         <motion.div
           key="playing"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="flex flex-col gap-1.5 w-full"
+          className="flex flex-col gap-1 w-full"
         >
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-1">
-              <span className="text-[6px] font-black text-white/35 uppercase tracking-[0.1em] tabular-nums">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-0.5">
+              <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
               {formatTime(elapsedMs)}
             </span>
             <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
@@ -219,7 +219,7 @@ export const LiveTrackProgress = memo(({
               </div>
               <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
             </div>
-            <span className="text-[6px] font-black text-white/25 uppercase tracking-[0.1em] tabular-nums">
+            <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.08em] tabular-nums">
               {formatTime(durationMs)}
             </span>
           </div>
@@ -465,6 +465,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     !listenAlbumId ||
     (!listenAlbumLoading && (listenAlbumCount || 0) > 0)
   );
+  const liveRingDuration = useMemo(() => 2.7 + (user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 7) * 0.18, [user.id]);
 
   useEffect(() => {
     if (!listenStatsOpen) return;
@@ -593,32 +594,37 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="absolute inset-0 rounded-[inherit]"
+                style={{
+                  background: dominantColor
+                    ? `linear-gradient(135deg, rgba(0,0,0,0.76) 0%, ${withAlpha(dominantColor, 0.24)} 52%, rgba(0,0,0,0.2) 100%)`
+                    : 'linear-gradient(135deg, rgba(0,0,0,0.76) 0%, rgba(88,28,135,0.22) 52%, rgba(0,0,0,0.2) 100%)'
+                }}
               >
                 <motion.div
                   animate={{
-                    opacity: [0.5, 0.8, 0.5]
+                    opacity: [0.62, 0.95, 0.62]
                   }}
                   transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 20% 20%, ${withAlpha(dominantColor, 0.35)} 0%, transparent 60%)`
-                      : "radial-gradient(circle at 20% 20%, rgba(234,88,12,0.35) 0%, transparent 60%)"
+                      ? `radial-gradient(circle at 68% 38%, ${withAlpha(dominantColor, 0.48)} 0%, transparent 64%)`
+                      : "radial-gradient(circle at 68% 38%, rgba(168,85,247,0.42) 0%, transparent 64%)"
                   }}
                 />
                 <motion.div
                   animate={{
-                    opacity: [0.4, 0.7, 0.4]
+                    opacity: [0.34, 0.62, 0.34]
                   }}
                   transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
                   className="absolute inset-0 pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 80% 80%, ${withAlpha(dominantColor, 0.25)} 0%, transparent 60%)`
-                      : "radial-gradient(circle at 80% 80%, rgba(234,179,8,0.25) 0%, transparent 60%)"
+                      ? `radial-gradient(circle at 18% 58%, ${withAlpha(dominantColor, 0.32)} 0%, transparent 58%)`
+                      : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.28) 0%, transparent 58%)"
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/8 to-transparent backdrop-blur-[1px]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/10 to-transparent backdrop-blur-[1px]" />
               </motion.div>
             ) : (
               <motion.div
@@ -720,7 +726,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                         filter: 'brightness(1.5) saturate(1.3)'
                       }}
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                      transition={{ duration: liveRingDuration, repeat: Infinity, ease: 'linear' }}
                     />
                   )}
                     <div className={cn(
@@ -1001,7 +1007,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               >
                                 <BarChart3 className="h-3 w-3 text-orange-300" />
                                 <span className="text-[7px] font-black uppercase tracking-[0.12em] leading-none">
-                                  Repros
+                                  VIEW
                                 </span>
                               </button>
 
@@ -1012,14 +1018,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
                                     transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                                    className="absolute right-0 top-10 z-[120] w-[min(84vw,320px)] rounded-[24px] bg-black/[0.58] px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.9)] backdrop-blur-[42px]"
+                                    className="absolute right-0 top-10 z-[120] w-[min(84vw,320px)] rounded-[24px] border border-white/10 bg-black/55 px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.9)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/40"
                                     onClick={(event) => event.stopPropagation()}
                                   >
                                     <div className="absolute inset-0 rounded-[24px] bg-gradient-to-b from-white/[0.08] via-white/[0.035] to-black/30 pointer-events-none" />
                                     <div className="relative z-10">
                                     <div className="mb-3 flex items-center justify-between gap-3">
                                       <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/82">
-                                        Suas reproduções
+                                        MÚSICA NO TOCADOR
                                       </span>
                                       <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.8)]" />
                                     </div>

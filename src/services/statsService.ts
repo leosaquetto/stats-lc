@@ -252,6 +252,14 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
   return request;
 };
 
+export type ReplayPeriodQuery = {
+  period: 'today' | 'week' | 'month' | 'year' | 'lifetime' | 'all' | '7days';
+  after?: number;
+  before?: number;
+  limit?: number;
+  force?: boolean;
+};
+
 let groupRequestInFlight: Promise<GroupStats> | null = null;
 let liveRequestInFlight: Promise<GroupStats> | null = null;
 
@@ -352,7 +360,7 @@ export const statsService = {
 
     const request = (async () => {
       try {
-        const data = await fetchFromApi<any>('/api/group-live', {}, forceRefresh);
+        const data = await fetchFromApi<any>('/api/group-live', {}, forceRefresh, 1, !forceRefresh);
         if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupLiveData raw response:", data);
 
         return normalizeGroupStats(data);
@@ -591,16 +599,39 @@ export const statsService = {
     return { streams: rankings[userId]?.count || 0 };
   },
 
+  async getReplayData(userId: string, query: ReplayPeriodQuery): Promise<{ totalSongs?: number; totalDurationMs?: number; topArtists: any[]; topTracks: any[]; topAlbums: any[] }> {
+    const userParam = coreUtils.getUserApiParam(userId);
+    const params: any = {
+      user: userParam,
+      period: query.period === 'all' ? 'lifetime' : query.period,
+      limit: query.limit || 12
+    };
+    if (query.after) params.after = query.after;
+    if (query.before) params.before = query.before;
+
+    const res = await fetchFromApi<any>('/api/replay', params, !!query.force);
+    return {
+      totalSongs: res?.totalSongs ?? res?.totalStreams ?? res?.count ?? res?.stats?.streams,
+      totalDurationMs: res?.totalDurationMs ?? res?.durationMs ?? res?.stats?.durationMs,
+      topArtists: res?.topArtists || res?.artists || res?.tops?.artists || [],
+      topTracks: res?.topTracks || res?.tracks || res?.tops?.tracks || [],
+      topAlbums: res?.topAlbums || res?.albums || res?.tops?.albums || []
+    };
+  },
+
   /**
    * Busca top itens via backend Vercel
    */
-  async getTopItems(userId: string, type: 'tracks' | 'artists' | 'albums', period: string = 'month'): Promise<any[]> {
+  async getTopItems(userId: string, type: 'tracks' | 'artists' | 'albums', period: string | ReplayPeriodQuery = 'month'): Promise<any[]> {
     const userParam = coreUtils.getUserApiParam(userId);
-    const cacheKey = `${coreUtils.getUserCacheKey(userId)}:${type}:${period}`;
+    const periodValue = typeof period === 'string' ? period : period.period;
+    const periodKey = typeof period === 'string' ? period : stableStringify(period);
+    const cacheKey = `${coreUtils.getUserCacheKey(userId)}:${type}:${periodKey}`;
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
       const store = useStatsStore.getState();
-      const cachedTopItems = store.getTopItemsFromCache?.(cacheKey);
+      const shouldForce = typeof period !== 'string' && !!period.force;
+      const cachedTopItems = shouldForce ? null : store.getTopItemsFromCache?.(cacheKey);
       if (cachedTopItems) {
         if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached top items for ${cacheKey}`);
         return cachedTopItems;
@@ -616,14 +647,19 @@ export const statsService = {
       }
 
       const params: any = { user: userParam, type };
-      if (period === 'year' || period === 'years') {
+      if (typeof period !== 'string') {
+        if (period.after) params.after = period.after;
+        if (period.before) params.before = period.before;
+        if (period.limit) params.limit = period.limit;
+      }
+      if (periodValue === 'year' || periodValue === 'years') {
         const now = new Date();
         const after = new Date(now.getFullYear(), 0, 1).getTime();
-        params.after = after;
+        params.after = params.after || after;
       } else {
-        params.period = this.mapPeriod(period, 'top');
+        params.period = this.mapPeriod(periodValue, 'top');
       }
-      const res = await fetchFromApi<any>('/api/top', params);
+      const res = await fetchFromApi<any>('/api/top', params, shouldForce);
       const items = res?.items || [];
 
       // Atualiza o cache do store

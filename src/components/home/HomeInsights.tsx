@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
-import { Zap, Heart, Flame, Sparkles } from 'lucide-react';
+import { Zap, Heart, Flame, Sparkles, Trophy, Clock, Disc3, Radio } from 'lucide-react';
 import { SmartImage, SectionHeader } from '../shared/CommonUI';
 
 interface HomeInsightsProps {
@@ -11,6 +11,7 @@ interface HomeInsightsProps {
 
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
   const { groupStats, hiddenUsers } = useStatsStore();
+  const [insightOffset, setInsightOffset] = React.useState(0);
 
   const members = groupStats?.members || [];
   const activeMembers = React.useMemo(() => members.filter(m => !hiddenUsers.includes(m.id)), [members, hiddenUsers]);
@@ -25,9 +26,8 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const match = React.useMemo(() => {
     if (activeMembers.length < 2) return null;
 
-    let bestPair = null;
-    let maxScore = -1;
-    let matchedItemName = "";
+    const candidates: any[] = [];
+    const daySeed = Math.floor(Date.now() / 86400000);
 
     for (let i = 0; i < activeMembers.length; i++) {
       for (let j = i + 1; j < activeMembers.length; j++) {
@@ -61,30 +61,113 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           }
         });
 
-        if (commonScore > maxScore) {
-          maxScore = commonScore;
-          bestPair = { u1, u2 };
-          matchedItemName = sampleMatch;
+        const activityTieBreaker = ((u1.streamsToday || 0) + (u2.streamsToday || 0)) / 100;
+        if (commonScore > 0) {
+          candidates.push({
+            u1,
+            u2,
+            score: commonScore + activityTieBreaker,
+            reason: sampleMatch ? `Curtem ${sampleMatch}` : "Alinhamento sonoro!"
+          });
         }
       }
     }
 
-    if (!bestPair || maxScore === 0) {
+    if (candidates.length === 0) {
       return {
-        u1: activeMembers[0],
-        u2: activeMembers[1] || activeMembers[0],
+        u1: activeMembers[daySeed % activeMembers.length],
+        u2: activeMembers[(daySeed + 1) % activeMembers.length] || activeMembers[0],
         score: 0,
         reason: "Conexão de Ritmo"
       };
     }
 
-    return {
-      u1: bestPair.u1,
-      u2: bestPair.u2,
-      score: maxScore,
-      reason: matchedItemName ? `Curtem ${matchedItemName}` : "Alinhamento sonoro!"
-    };
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[daySeed % Math.min(candidates.length, 4)];
   }, [activeMembers]);
+
+  const insights = React.useMemo(() => {
+    const sortedToday = [...activeMembers].sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0));
+    const topMonth = [...activeMembers].sort((a, b) => (b.streamsMonth || 0) - (a.streamsMonth || 0))[0];
+    const liveUser = activeMembers.find(m => m.nowPlaying?.isNow);
+    const albumUser = [...activeMembers].sort((a, b) => ((b.topItems?.albums?.[0]?.playcount || b.topItems?.albums?.[0]?.streams || 0) - (a.topItems?.albums?.[0]?.playcount || a.topItems?.albums?.[0]?.streams || 0)))[0];
+    const lateUser = [...activeMembers].sort((a, b) => new Date(b.nowPlaying?.timestamp || 0).getTime() - new Date(a.nowPlaying?.timestamp || 0).getTime())[0];
+    const runnerUp = sortedToday[1];
+
+    return [
+      mostActive && {
+        key: 'active',
+        tone: 'orange',
+        icon: <Zap className="h-2.5 w-2.5 text-orange-400" />,
+        title: 'Mais Ativo Hoje',
+        primary: mostActive.name,
+        secondary: `${mostActive.streamsToday || 0} reproduções hoje`,
+        users: [mostActive],
+        onClick: () => onFriendClick(mostActive)
+      },
+      match && {
+        key: 'match',
+        tone: 'red',
+        icon: <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />,
+        title: 'Match do Dia',
+        primary: `${match.u1.name} + ${match.u2.name}`,
+        secondary: match.reason,
+        users: [match.u1, match.u2]
+      },
+      topMonth && {
+        key: 'month',
+        tone: 'white',
+        icon: <Trophy className="h-2.5 w-2.5 text-yellow-300" />,
+        title: 'Líder do Mês',
+        primary: topMonth.name,
+        secondary: `${topMonth.streamsMonth || 0} reproduções no mês`,
+        users: [topMonth],
+        onClick: () => onFriendClick(topMonth)
+      },
+      liveUser && {
+        key: 'live',
+        tone: 'green',
+        icon: <Radio className="h-2.5 w-2.5 text-green-300" />,
+        title: 'No Ar Agora',
+        primary: liveUser.name,
+        secondary: liveUser.nowPlaying?.track?.name || 'tocando neste momento',
+        users: [liveUser],
+        onClick: () => onFriendClick(liveUser)
+      },
+      albumUser && {
+        key: 'album',
+        tone: 'blue',
+        icon: <Disc3 className="h-2.5 w-2.5 text-blue-300" />,
+        title: 'Álbum Dominante',
+        primary: albumUser.topItems?.albums?.[0]?.name || albumUser.name,
+        secondary: albumUser.name,
+        users: [albumUser],
+        onClick: () => onFriendClick(albumUser)
+      },
+      (runnerUp || lateUser) && {
+        key: 'pulse',
+        tone: 'purple',
+        icon: <Clock className="h-2.5 w-2.5 text-violet-300" />,
+        title: runnerUp ? 'Disputa do Dia' : 'Última Sintonia',
+        primary: runnerUp ? `${mostActive?.name} vs ${runnerUp.name}` : lateUser?.name,
+        secondary: runnerUp ? `${Math.abs((mostActive?.streamsToday || 0) - (runnerUp.streamsToday || 0))} de diferença` : lateUser?.nowPlaying?.track?.name,
+        users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : []
+      }
+    ].filter(Boolean) as any[];
+  }, [activeMembers, match, mostActive, onFriendClick]);
+
+  React.useEffect(() => {
+    if (insights.length <= 2) return;
+    const timer = window.setInterval(() => {
+      setInsightOffset((current) => (current + 2) % insights.length);
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, [insights.length]);
+
+  const visibleInsights = React.useMemo(() => {
+    if (insights.length <= 2) return insights;
+    return [insights[insightOffset % insights.length], insights[(insightOffset + 1) % insights.length]];
+  }, [insightOffset, insights]);
 
   if (activeMembers.length < 2) return null;
 
@@ -95,83 +178,47 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon={<Sparkles className="h-3 w-3 text-orange-500" />} 
       />
 
-      {/* Grid containing 2 horizontal cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {/* Card 1: Mais ativo hoje */}
-        {mostActive && (
+        {visibleInsights.map((insight) => (
           <motion.div
+            key={insight.key}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
-            onClick={() => onFriendClick(mostActive)}
+            onClick={insight.onClick}
             className="glass-card bg-white/[0.02] border border-white/5 hover:border-orange-500/20 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors relative overflow-hidden"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-9 w-9 rounded-full overflow-hidden shrink-0 border border-white/10 relative">
-                <SmartImage
-                  src={coreUtils.getUserAvatar(mostActive.id, mostActive.avatar)}
-                  rounded="full"
-                  className="h-full w-full object-cover"
-                  fallback=""
-                />
-                <div className="absolute -bottom-0.5 -right-0.5 bg-orange-600 rounded-full p-0.5 border border-black shadow">
-                  <Zap className="h-2 w-2 text-white" />
-                </div>
+              <div className="flex items-center shrink-0 -space-x-3">
+                {insight.users.slice(0, 2).map((user: any, index: number) => (
+                  <div key={`${insight.key}-${user.id}`} className="h-9 w-9 rounded-full overflow-hidden border border-[#0d0d0d] relative shrink-0" style={{ zIndex: 2 - index }}>
+                    <SmartImage
+                      src={coreUtils.getUserAvatar(user.id, user.avatar)}
+                      rounded="full"
+                      className="h-full w-full object-cover"
+                      fallback=""
+                    />
+                  </div>
+                ))}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-[8.5px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1">
-                  Mais Ativo Hoje
+                  <span className="inline-flex items-center gap-1">{insight.icon}{insight.title}</span>
                 </span>
                 <span className="text-xs font-bold text-white truncate leading-tight">
-                  {mostActive.name}
+                  {insight.primary}
                 </span>
                 <p className="text-[10px] font-medium text-white/40 truncate mt-0.5">
-                  {mostActive.streamsToday || 0} reproduções hoje
+                  {insight.secondary}
                 </p>
               </div>
             </div>
             <div className="shrink-0 text-right pr-1">
-              <span className="text-xs font-black text-white/10 select-none">#1</span>
+              <Flame className="h-3.5 w-3.5 text-white/10" />
             </div>
           </motion.div>
-        )}
-
-        {/* Card 2: Match do dia */}
-        {match && (
-          <div className="glass-card bg-white/[0.02] border border-white/5 rounded-2xl p-3 flex items-center justify-between gap-3 relative overflow-hidden">
-            <div className="flex items-center gap-3 min-w-0">
-              {/* Dual Avatars */}
-              <div className="flex items-center shrink-0 -space-x-4">
-                <div className="h-9 w-9 rounded-full overflow-hidden border border-[#0d0d0d] relative z-10 shrink-0">
-                  <SmartImage
-                    src={coreUtils.getUserAvatar(match.u1.id, match.u1.avatar)}
-                    rounded="full"
-                    className="h-full w-full object-cover"
-                    fallback=""
-                  />
-                </div>
-                <div className="h-9 w-9 rounded-full overflow-hidden border border-[#0d0d0d] relative shrink-0">
-                  <SmartImage
-                    src={coreUtils.getUserAvatar(match.u2.id, match.u2.avatar)}
-                    rounded="full"
-                    className="h-full w-full object-cover"
-                    fallback=""
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8.5px] font-black text-red-400 uppercase tracking-widest leading-none mb-1 flex items-center gap-1">
-                  <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" /> Match do Dia
-                </span>
-                <span className="text-xs font-bold text-white truncate leading-tight">
-                  {match.u1.name} + {match.u2.name}
-                </span>
-                <p className="text-[10px] font-medium text-red-200/50 truncate mt-0.5">
-                  {match.reason}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        ))}
       </div>
     </div>
   );
