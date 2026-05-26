@@ -137,7 +137,7 @@ export default function HomeScreen() {
     );
   }, [groupStats?.members, groupStats?.users]);
   const members = useMemo(() => allMembers.filter(m => !hiddenUsers.includes(m.id)), [allMembers, hiddenUsers]);
-  const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || members[0], [members, featuredUserId]);
+  const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || null, [members, featuredUserId]);
   const FEATURED_ID = primaryUser?.id;
 
   // Mini header vinyl states
@@ -313,15 +313,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!featuredUserId && members.length > 0 && groupStats && !isLoading) {
-      const hasSelectedBefore = typeof localStorage !== 'undefined'
-        && localStorage.getItem('stats-lc-has-selected-user') === '1';
-
-      if (hasSelectedBefore) {
-        setFeaturedUserId(members[0].id);
-        setShowInitialModal(false);
-      } else {
-        setShowInitialModal(true);
-      }
+      setShowInitialModal(true);
     } else if (featuredUserId) {
       // Fecha o modal quando um usuário é selecionado
       setShowInitialModal(false);

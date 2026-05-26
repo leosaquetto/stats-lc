@@ -109,8 +109,10 @@ export const VinylRecord = ({
     opacity: 0.07 + seededValue(textureSeed, i + 271) * 0.18,
   })), [textureSeed]);
 
-  const tonearmRotate = -19 - currentRatio * 8;
-  const tonearmY      = 18 + currentRatio * 4;
+  const tonearmNeedleX = 56 - currentRatio * 3;
+  const tonearmNeedleY = 13 + currentRatio * 4;
+  const tonearmPivotX = 92;
+  const tonearmPivotY = 4;
 
   return (
     <div
@@ -409,97 +411,86 @@ export const VinylRecord = ({
       {/* ── TONEARM ─────────────────────────────────────────────── */}
       <AnimatePresence>
         {!hideTonearm && isPlaying && hasAlbumImage && (
-          <motion.div
-            className="absolute z-40 pointer-events-none"
-            style={{
-              right:           '3%',
-              top:             '7%',
-              width:           '38%',
-              height:          '9%',
-              transformOrigin: '92% 44%',
-              willChange:      'transform, opacity',
-              filter:          'drop-shadow(0 6px 16px rgba(0,0,0,0.9))',
-              zIndex:          50,
-            }}
-            initial={{ opacity: 0, rotate: 8, x: 24, y: -10, scale: 0.96 }}
-            animate={{
-              opacity: 1,
-              rotate: tonearmRotate,
-              x: 0,
-              y: tonearmY,
-              scale: 1,
-            }}
-            exit={{ opacity: 0, rotate: 8, x: 24, y: -10, scale: 0.96 }}
-            transition={{
-              duration: 1.1,
-              ease: [0.16, 1, 0.3, 1],
-            }}
+          <motion.svg
+            className="absolute inset-0 pointer-events-none"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ zIndex: 80, overflow: 'visible', filter: 'drop-shadow(0 7px 16px rgba(0,0,0,0.92))' }}
+            initial={{ opacity: 0, x: 14, y: -8 }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, x: 14, y: -8 }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Corpo do braço */}
-            <div
-              className="absolute rounded-full transition-all duration-700"
-              style={{
-                background: 'linear-gradient(90deg, #1f2937 0%, #d1d5db 18%, #f9fafb 48%, #9ca3af 72%, #111827 100%)',
-                height: '24%',
-                top:    '38%',
-                left:   '8%',
-                right:  '17%',
-                boxShadow: '0 1px 5px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.35)',
-              }}
+            <defs>
+              <linearGradient id="tonearm-metal" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#111827" />
+                <stop offset="24%" stopColor="#f8fafc" />
+                <stop offset="52%" stopColor="#cbd5e1" />
+                <stop offset="100%" stopColor="#030712" />
+              </linearGradient>
+              <radialGradient id="tonearm-head" cx="38%" cy="25%" r="85%">
+                <stop offset="0%" stopColor="#27272a" />
+                <stop offset="62%" stopColor="#09090b" />
+                <stop offset="100%" stopColor="#000000" />
+              </radialGradient>
+            </defs>
+            <line
+              x1={tonearmPivotX}
+              y1={tonearmPivotY}
+              x2={tonearmNeedleX}
+              y2={tonearmNeedleY}
+              stroke="rgba(15,23,42,0.9)"
+              strokeWidth="3.5"
+              strokeLinecap="round"
             />
-            <div
-              className="absolute rounded-full"
-              style={{
-                left: '13%',
-                right: '20%',
-                top: '43%',
-                height: '7%',
-                background: 'rgba(255,255,255,0.5)',
-                filter: 'blur(1px)',
-              }}
+            <line
+              x1={tonearmPivotX - 1}
+              y1={tonearmPivotY + 0.6}
+              x2={tonearmNeedleX + 1}
+              y2={tonearmNeedleY - 0.6}
+              stroke="url(#tonearm-metal)"
+              strokeWidth="1.75"
+              strokeLinecap="round"
             />
-            {/* Pivô circular */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                right:     '-1%',
-                top:       '42%',
-                transform: 'translateY(-50%)',
-                width:     '26%',
-                height:    '290%',
-                background: 'radial-gradient(circle at 42% 35%, rgba(255,255,255,0.14) 0%, rgba(39,39,42,0.78) 38%, rgba(0,0,0,0.78) 100%)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                boxShadow:  '0 2px 12px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.12)',
-              }}
+            <circle
+              cx={tonearmPivotX}
+              cy={tonearmPivotY}
+              r="4.5"
+              fill="url(#tonearm-head)"
+              stroke="rgba(255,255,255,0.18)"
+              strokeWidth="0.5"
             />
-            {/* Headshell */}
-            <div
-              className="absolute rounded-md"
-              style={{
-                left:      '0%',
-                top:       '16%',
-                width:     '18%',
-                height:    '88%',
-                background: 'linear-gradient(135deg, #18181b 0%, #09090b 72%, #27272a 100%)',
-                boxShadow:  '0 2px 7px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08)',
-                transform: 'skewX(-10deg)',
-              }}
+            <circle cx={tonearmPivotX - 1.2} cy={tonearmPivotY - 1.1} r="1.3" fill="rgba(255,255,255,0.25)" />
+            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-28)`}>
+              <rect
+                x="-5.4"
+                y="-4.3"
+                width="9.8"
+                height="7.4"
+                rx="2"
+                fill="url(#tonearm-head)"
+                stroke="rgba(255,255,255,0.12)"
+                strokeWidth="0.45"
+              />
+              <line
+                x1="-0.4"
+                y1="2.5"
+                x2="5.5"
+                y2="8.7"
+                stroke="#fb923c"
+                strokeWidth="1.35"
+                strokeLinecap="round"
+              />
+              <circle cx="5.5" cy="8.7" r="0.9" fill="#fed7aa" />
+            </g>
+            <circle
+              cx={tonearmNeedleX + 4.8}
+              cy={tonearmNeedleY + 7.6}
+              r="3.2"
+              fill="rgba(251,146,60,0.2)"
+              style={{ filter: 'blur(1.8px)' }}
             />
-            {/* Agulha */}
-            <div
-              className="absolute rounded-full"
-              style={{
-                left:      '2%',
-                top:       '86%',
-                transform: 'rotate(-28deg)',
-                transformOrigin: '50% 0%',
-                width:     '3%',
-                height:    '70%',
-                background: '#fb923c',
-                boxShadow:  '0 0 8px rgba(249,115,22,0.72)',
-              }}
-            />
-          </motion.div>
+          </motion.svg>
         )}
       </AnimatePresence>
 

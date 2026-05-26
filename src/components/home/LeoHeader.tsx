@@ -1018,18 +1018,19 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
                                     transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                                    className="absolute right-0 top-10 z-[120] w-[min(84vw,320px)] rounded-[24px] border border-white/10 bg-black/55 px-4 py-3.5 shadow-[0_28px_90px_rgba(0,0,0,0.9)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/40"
+                                    className="absolute right-0 top-10 z-[120] w-[min(86vw,336px)] rounded-[24px] border border-white/14 bg-[#120f0d]/90 px-4 py-3.5 shadow-[0_30px_100px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.04)_inset] backdrop-blur-3xl supports-[backdrop-filter]:bg-[#120f0d]/78"
                                     onClick={(event) => event.stopPropagation()}
                                   >
-                                    <div className="absolute inset-0 rounded-[24px] bg-gradient-to-b from-white/[0.08] via-white/[0.035] to-black/30 pointer-events-none" />
+                                    <div className="absolute inset-0 rounded-[24px] bg-gradient-to-b from-white/[0.1] via-black/30 to-black/70 pointer-events-none" />
+                                    <div className="absolute inset-0 rounded-[24px] border border-orange-400/10 pointer-events-none" />
                                     <div className="relative z-10">
-                                    <div className="mb-3 flex items-center justify-between gap-3">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/82">
+                                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-white/8 pb-2.5">
+                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/92 drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
                                         MÚSICA NO TOCADOR
                                       </span>
                                       <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.8)]" />
                                     </div>
-                                    <div className="grid grid-cols-3 gap-2.5">
+                                    <div className="grid grid-cols-3 gap-3">
                                     {[
                                       { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista', image: listenArtistImage, rounded: 'full' },
                                       { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música', image: albumImage, rounded: 'xl' },
@@ -1040,9 +1041,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         transition={{ delay: index * 0.035 }}
-                                        className="flex min-w-0 flex-col items-center text-center"
+                                        className="flex min-w-0 flex-col items-center rounded-[18px] border border-white/8 bg-black/28 px-2 py-2 text-center shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
                                       >
-                                        <span className="mb-2 text-[6.5px] font-black uppercase tracking-[0.18em] text-white/45">
+                                        <span className="mb-2 text-[6.5px] font-black uppercase tracking-[0.18em] text-white/58">
                                           {item.label}
                                         </span>
                                         <div className="relative h-14 w-14">
@@ -1056,7 +1057,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                             {listenStatsLoading ? '...' : item.count}
                                           </span>
                                         </div>
-                                        <span className="mt-2 line-clamp-2 min-w-0 text-[9px] font-bold leading-[1.1] text-white/88">
+                                        <span className="mt-2 line-clamp-2 min-w-0 text-[9px] font-bold leading-[1.1] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
                                           {item.name}
                                         </span>
                                       </motion.div>
