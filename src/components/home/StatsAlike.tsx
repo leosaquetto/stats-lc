@@ -282,8 +282,8 @@ export const StatsAlike = React.memo(() => {
         }
       />
 
-      <div 
-        className="relative h-[280px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
+      <div
+        className="relative h-[310px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
       >
@@ -314,16 +314,16 @@ export const StatsAlike = React.memo(() => {
               rotateY = 0;
             } else if (position === 1) { // Right Back
               zIndex = 10;
-              scale = 0.75;
-              x = 100;
+              scale = 0.78;
+              x = 108;
               y = -20;
               opacity = 0.4;
               blur = "blur(2px)";
               rotateY = -15;
             } else { // Left Back
               zIndex = 10;
-              scale = 0.75;
-              x = -100;
+              scale = 0.78;
+              x = -108;
               y = -20;
               opacity = 0.4;
               blur = "blur(2px)";
@@ -342,17 +342,17 @@ export const StatsAlike = React.memo(() => {
                   filter: blur,
                   rotateY,
                 }}
-                transition={{ type: "spring", stiffness: 180, damping: 22 }}
-                className="absolute top-1/2 left-1/2 w-[250px]"
+                transition={{ type: "spring", stiffness: 150, damping: 24 }}
+                className="absolute top-1/2 left-1/2 w-[270px]"
                 onClick={() => position !== 0 && setActiveIndex(idx)}
               >
                 <motion.div
                   animate={shouldReduceMotion ? {} : {
-                    x: [0, idx % 2 === 0 ? 7 : -6, 0],
-                    y: [0, idx % 2 === 0 ? -5 : 6, 0],
-                    rotate: [0, idx % 2 === 0 ? 1.2 : -1.2, 0]
+                    x: [0, idx % 2 === 0 ? 10 : -8, idx % 3 === 0 ? -5 : 4, 0],
+                    y: [0, idx % 2 === 0 ? -7 : 8, idx % 3 === 0 ? 5 : -4, 0],
+                    rotate: [0, idx % 2 === 0 ? 0.8 : -0.9, idx % 3 === 0 ? -0.4 : 0.5, 0]
                   }}
-                  transition={{ duration: 9 + idx * 2, repeat: Infinity, ease: "easeInOut", delay: idx * 0.6 }}
+                  transition={{ duration: 15 + idx * 3, repeat: Infinity, ease: "easeInOut", delay: idx * 0.8 }}
                 >
                   <AlikeOrbitalItem
                     connection={conn}
@@ -388,6 +388,8 @@ const AlikeOrbitalItem = ({
     track: 'Música em Comum',
     album: 'Álbum em Comum'
   };
+  const labelBadgeClass = "flex h-7 min-w-[152px] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-4 shadow-sm";
+  const labelTextClass = "block text-center text-[7.5px] font-black uppercase leading-none tracking-[0.16em] text-white/50";
 
   if (isEmpty) {
     return (
@@ -397,14 +399,14 @@ const AlikeOrbitalItem = ({
       )}>
         <motion.div 
           animate={{ opacity: isCentered ? 1 : 0.3 }}
-          className="bg-white/[0.05] px-3 py-1 rounded-full border border-white/10 shadow-sm whitespace-nowrap"
+          className={labelBadgeClass}
         >
-          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50">
+          <span className={labelTextClass}>
              {typeLabels[type]}
           </span>
         </motion.div>
 
-        <div className="relative glass-card p-5 rounded-[32px] shadow-2xl flex flex-col items-center justify-center min-h-[152px] px-7 text-center">
+        <div className="relative rounded-[30px] bg-white/[0.035] p-6 shadow-2xl flex flex-col items-center justify-center min-h-[164px] px-8 text-center backdrop-blur-xl">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
@@ -423,25 +425,25 @@ const AlikeOrbitalItem = ({
       {/* Label Badge */}
       <motion.div 
         animate={{ opacity: isCentered ? 1 : 0.3 }}
-        className="bg-white/[0.05] px-3 py-1 rounded-full border border-white/10 shadow-sm whitespace-nowrap"
+        className={labelBadgeClass}
       >
-        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/50">
+        <span className={labelTextClass}>
            {typeLabels[type]}
         </span>
       </motion.div>
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative glass-card p-7 rounded-[32px] shadow-2xl transition-all duration-700",
+        "relative rounded-[30px] p-8 shadow-2xl transition-all duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-3">
           {/* User (You) */}
-          <div className="relative h-11 w-11 shrink-0">
+          <div className="relative h-12 w-12 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(featuredUserId, featuredUserAvatar)} 
               rounded="full" 
-              className="h-full w-full object-cover rounded-full border-2 border-white/10 shadow-lg"
+              className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
             <div className="absolute -bottom-1 -right-1 bg-orange-500 rounded-full px-1.5 h-4 flex items-center justify-center border border-white/20 shadow-lg z-20">
@@ -456,11 +458,11 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Central Item Image */}
-          <div className="relative h-[84px] w-[84px] flex-shrink-0 group">
+          <div className="relative h-[96px] w-[96px] flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               className={cn(
-                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] border border-white/20 transition-all duration-700",
+                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all duration-700",
                 type === 'artist' ? 'rounded-full' : 'rounded-2xl',
                 isCentered && "group-hover:scale-110",
                 isCentered && (Math.abs(userPosition - friendPosition) >= 15 ? "group-hover:border-red-500/50" : "group-hover:border-orange-500/50")
@@ -484,11 +486,11 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Alike Friend */}
-          <div className="relative h-11 w-11 shrink-0">
+          <div className="relative h-12 w-12 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(alikeUser.id, alikeUser.avatar)} 
               rounded="full" 
-              className="h-full w-full object-cover rounded-full border-2 border-white/10 shadow-lg"
+              className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
             <div className="absolute -bottom-1 -left-1 bg-blue-500 rounded-full px-1.5 h-4 flex items-center justify-center border border-white/20 shadow-lg z-20">

@@ -610,9 +610,10 @@ export const statsService = {
     if (query.before) params.before = query.before;
 
     const res = await fetchFromApi<any>('/api/replay', params, !!query.force);
+    const totalMinutes = res?.totalMinutes ?? res?.playedMinutes ?? res?.minutes ?? res?.stats?.totalMinutes ?? res?.stats?.minutes;
     return {
       totalSongs: res?.totalSongs ?? res?.totalStreams ?? res?.count ?? res?.stats?.streams,
-      totalDurationMs: res?.totalDurationMs ?? res?.durationMs ?? res?.stats?.durationMs,
+      totalDurationMs: res?.totalDurationMs ?? res?.durationMs ?? res?.stats?.durationMs ?? (Number.isFinite(totalMinutes) ? totalMinutes * 60000 : undefined),
       topArtists: res?.topArtists || res?.artists || res?.tops?.artists || [],
       topTracks: res?.topTracks || res?.tracks || res?.tops?.tracks || [],
       topAlbums: res?.topAlbums || res?.albums || res?.tops?.albums || []

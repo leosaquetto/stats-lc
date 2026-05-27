@@ -82,8 +82,9 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
             const trackImage = track?.image || "";
-            const liveBorderDuration = 4.2 + (friend.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 9) * 0.28;
-            const liveBorderDelay = (friend.id.length % 5) * 0.18;
+            const liveSeed = friend.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+            const livePulseDuration = 3.4 + (liveSeed % 7) * 0.34;
+            const livePulseDelay = (liveSeed % 5) * 0.22;
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -105,42 +106,24 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                 onClick={() => onFriendClick(friend)}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className={clsx(
-                  "relative aspect-[4/5] rounded-[22px] overflow-hidden glass border transition-all duration-500 shadow-lg group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]",
-                  isPlaying ? "border-orange-500/30 shadow-[0_0_20px_rgba(249,115,22,0.1)]" : "border-white/10 group-hover:border-orange-500/40"
-                )}>
-                  {/* Traveling Border for active listeners */}
+                <div className="relative">
                   {isPlaying && (
-                    <div className="absolute inset-0 z-20 pointer-events-none">
-                      <svg className="w-full h-full" overflow="visible">
-                        <motion.rect
-                          x="0"
-                          y="0"
-                          width="100%"
-                          height="100%"
-                          rx="22"
-                          fill="transparent"
-                          stroke={`url(#orange-gradient-${friend.id})`}
-                          strokeWidth="2"
-                          initial={{ pathLength: 0.3, pathOffset: 0 }}
-                          animate={{ pathOffset: [0, 1] }}
-                          transition={{ 
-                            duration: liveBorderDuration,
-                            repeat: Infinity, 
-                            ease: "linear",
-                            delay: liveBorderDelay
-                          }}
-                        />
-                        <defs>
-                          <linearGradient id={`orange-gradient-${friend.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#f97316" stopOpacity="0" />
-                            <stop offset="50%" stopColor="#f97316" stopOpacity="1" />
-                            <stop offset="100%" stopColor="#f97316" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                    </div>
+                    <motion.div
+                      className="absolute -inset-3 rounded-[30px] bg-orange-500/18 blur-xl"
+                      animate={{ scale: [0.96, 1.08, 0.96], opacity: [0.26, 0.62, 0.26] }}
+                      transition={{
+                        duration: livePulseDuration,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: livePulseDelay
+                      }}
+                    />
                   )}
+
+                  <div className={clsx(
+                    "relative aspect-[4/5] rounded-[22px] overflow-hidden glass border transition-all duration-500 shadow-lg group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]",
+                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
+                  )}>
 
                   {/* Artwork Background */}
                   <div className="absolute inset-0 z-0">
@@ -224,6 +207,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                   
                   {/* Glass Shimmer */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent pointer-events-none" />
+                  </div>
                 </div>
               </motion.div>
             );

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Share2 } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
@@ -50,7 +50,7 @@ interface ReplaySectionProps {
   topArtists: Artist[];
   topTracks: Track[];
   topAlbums: Album[];
-  totalSongsCount: number;
+  totalMinutesCount: number;
   activeTab: ReplayFilterPeriod;
   selectedSubValues: ReplaySelectedSubValues;
   onActiveTabChange: (tab: ReplayFilterPeriod) => void;
@@ -65,14 +65,56 @@ const MONTHS_SHORT = [
   'jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.',
   'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'
 ];
+const MONTHS_LONG = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+];
 
 const YEARS = [2024, 2025, 2026];
+
+export const getReplayFilterLabel = (activeTab: ReplayFilterPeriod, selectedSubValues: ReplaySelectedSubValues = {}) => {
+  switch (activeTab) {
+    case 'today':
+      return 'hoje';
+    case 'week':
+      return selectedSubValues.weekMode === 'last-7' ? 'ultimos 7 dias' : 'esta semana';
+    case 'month': {
+      const monthIndex = parseInt(selectedSubValues.month || '0');
+      return MONTHS_SHORT[monthIndex] || 'mes';
+    }
+    case 'year':
+      return selectedSubValues.year || String(new Date().getFullYear());
+    case 'all':
+      return 'total';
+    default:
+      return 'hoje';
+  }
+};
+
+export const getReplayFilterSentence = (activeTab: ReplayFilterPeriod, selectedSubValues: ReplaySelectedSubValues = {}) => {
+  switch (activeTab) {
+    case 'today':
+      return 'hoje';
+    case 'week':
+      return selectedSubValues.weekMode === 'last-7' ? 'nos ultimos 7 dias' : 'esta semana';
+    case 'month': {
+      const monthIndex = parseInt(selectedSubValues.month || '0');
+      return `em ${MONTHS_LONG[monthIndex] || 'mes'}`;
+    }
+    case 'year':
+      return `em ${selectedSubValues.year || new Date().getFullYear()}`;
+    case 'all':
+      return 'no total';
+    default:
+      return 'hoje';
+  }
+};
 
 export const ReplaySection: React.FC<ReplaySectionProps> = ({
   topArtists,
   topTracks,
   topAlbums,
-  totalSongsCount,
+  totalMinutesCount,
   activeTab,
   selectedSubValues,
   onActiveTabChange,
@@ -82,61 +124,33 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   onOpenAlbumsModal,
   isLoading = false
 }) => {
-  const [openMenu, setOpenMenu] = useState<ReplayFilterPeriod | null>(null);
-  const filterText = useMemo(() => {
-    switch (activeTab) {
-      case 'today':
-        return 'hoje';
-      case 'week':
-        return selectedSubValues.weekMode === 'last-7'
-          ? 'nos últimos 7 dias'
-          : 'esta semana';
-      case 'month':
-        const monthIndex = parseInt(selectedSubValues.month || '0');
-        return `em ${MONTHS_SHORT[monthIndex] || 'mês'}`;
-      case 'year':
-        return `em ${selectedSubValues.year}`;
-      case 'all':
-        return 'no total';
-      default:
-        return 'hoje';
-    }
-  }, [activeTab, selectedSubValues]);
+  const filterText = useMemo(() => getReplayFilterSentence(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
 
   const limitedArtists = useMemo(() => topArtists.slice(0, 10), [topArtists]);
   const limitedTracks = useMemo(() => topTracks.slice(0, 12), [topTracks]);
   const limitedAlbums = useMemo(() => topAlbums.slice(0, 10), [topAlbums]);
 
-  const hasData = totalSongsCount > 0 && (topArtists.length > 0 || topTracks.length > 0 || topAlbums.length > 0);
+  const hasData = totalMinutesCount > 0 || topArtists.length > 0 || topTracks.length > 0 || topAlbums.length > 0;
 
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT.slice(0, currentMonth + 1);
-  const hasSubmenu = (tab: ReplayFilterPeriod) => tab === 'week' || tab === 'month' || tab === 'year';
   const selectTab = (tab: ReplayFilterPeriod) => {
     onActiveTabChange(tab);
-    setOpenMenu(hasSubmenu(tab) ? (openMenu === tab ? null : tab) : null);
   };
   const selectSubValue = (values: ReplaySelectedSubValues) => {
     onSelectedSubValuesChange(values);
-    setOpenMenu(null);
   };
-
-  if (!hasData) {
-    return (
-      <div className="py-8 px-4 sm:px-6 lg:px-8">
-        <div className="glass-card rounded-3xl p-8 text-center flex flex-col items-center gap-4">
-          <div className="text-6xl">🎵</div>
-          <h2 className="text-2xl font-black text-white">Sem dados para este período</h2>
-          <p className="text-white/50 text-sm">
-            Continue ouvindo para ver seu Replay!
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
+    { key: 'today', label: 'hoje' },
+    { key: 'week', label: 'semana' },
+    { key: 'month', label: 'mês' },
+    { key: 'year', label: 'ano' },
+    { key: 'all', label: 'tudo' }
+  ];
 
   return (
-    <div className="relative w-full overflow-hidden py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="relative w-full overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
+      <div className="pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.55)_0%,rgba(239,92,38,0.28)_36%,rgba(0,0,0,0)_72%)] blur-3xl" />
       {isLoading && (
         <div className="absolute top-2 left-4 right-4 h-px overflow-hidden rounded-full bg-white/5">
           <motion.div
@@ -147,210 +161,147 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {/* HEADER */}
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-4xl font-black text-white">Replay</h2>
+      <div className="relative z-10 space-y-9">
+      <div className="space-y-8">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-[54px] font-black leading-none tracking-[-0.04em] text-white">Replay</h2>
           <button
             onClick={() => {
               console.log('Compartilhar Replay');
             }}
-            className="p-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all active:scale-95"
+            className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all active:scale-95"
             title="Compartilhar Replay"
           >
-            <Share2 className="h-5 w-5 text-white/70 hover:text-white transition-colors" />
+            <Share2 className="h-6 w-6" />
           </button>
+        </div>
+
+        <div className="-mx-1 flex w-full items-center gap-2 overflow-x-auto px-1 hide-scrollbar">
+          {periodTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => selectTab(tab.key)}
+              className={cn(
+                "shrink-0 rounded-full px-4 py-2 text-sm font-black transition-colors",
+                activeTab === tab.key
+                  ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]"
+                  : "text-white/38"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* FILTROS (pills horizontais) - ANTES da frase */}
-      <div>
-        <div className="flex w-full justify-between items-center relative">
-          <button
-            onClick={() => selectTab('today')}
-            className={cn(
-              "text-sm font-medium transition-colors px-3 py-1.5",
-              activeTab === 'today'
-                ? "text-white"
-                : "text-white/40"
-            )}
-          >
-            hoje
-          </button>
-
-          {/* Pill Semana com dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => selectTab('week')}
-              className={cn(
-                "text-sm font-medium transition-colors px-3 py-1.5",
-                activeTab === 'week'
-                  ? "text-white"
-                  : "text-white/40"
-              )}
-            >
-              semana
-            </button>
-
-            {/* Dropdown Semana */}
-            {openMenu === 'week' && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-black/90 border border-white/10 rounded-xl backdrop-blur-lg shadow-2xl overflow-hidden min-w-[160px]"
+      {activeTab === 'week' && (
+        <div className="relative z-10 flex items-center gap-2 overflow-x-auto hide-scrollbar">
+          {[
+            { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
+            { key: 'current' as ReplayWeekMode, label: 'esta semana' }
+          ].map((option) => {
+            const isSelected = selectedSubValues.weekMode === option.key;
+            return (
+              <button
+                key={option.key}
+                onClick={() => selectSubValue({ ...selectedSubValues, weekMode: option.key })}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-2 text-[13px] font-black transition-colors",
+                  isSelected
+                    ? "border-white/18 bg-white/14 text-white"
+                    : "border-white/8 bg-white/[0.03] text-white/42"
+                )}
               >
-                <button
-                  onClick={() => selectSubValue({ ...selectedSubValues, weekMode: 'last-7' })}
-                  className={cn(
-                    "w-full px-4 py-2.5 text-left text-xs transition-colors",
-                    selectedSubValues.weekMode === 'last-7'
-                      ? "bg-white/10 text-white font-medium"
-                      : "text-white/40 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  últimos 7 dias
-                </button>
-                <button
-                  onClick={() => selectSubValue({ ...selectedSubValues, weekMode: 'current' })}
-                  className={cn(
-                    "w-full px-4 py-2.5 text-left text-xs transition-colors",
-                    selectedSubValues.weekMode === 'current'
-                      ? "bg-white/10 text-white font-medium"
-                      : "text-white/40 hover:bg-white/5 hover:text-white"
-                  )}
-                >
-                  esta semana
-                </button>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Pill Mês com dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => selectTab('month')}
-              className={cn(
-                "text-sm font-medium transition-colors px-3 py-1.5",
-                activeTab === 'month'
-                  ? "text-white"
-                  : "text-white/40"
-              )}
-            >
-              mês
-            </button>
-
-            {/* Dropdown Mês */}
-            {openMenu === 'month' && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-black/90 border border-white/10 rounded-xl backdrop-blur-lg shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto"
-              >
-                {availableMonths.map((month, index) => (
-                  <button
-                    key={index}
-                    onClick={() => selectSubValue({ ...selectedSubValues, month: String(index).padStart(2, '0') })}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left text-xs transition-colors whitespace-nowrap",
-                      selectedSubValues.month === String(index).padStart(2, '0')
-                        ? "bg-white/10 text-white font-bold"
-                        : "text-white/40 hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    {month}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </div>
-
-          {/* Pill Ano com dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => selectTab('year')}
-              className={cn(
-                "text-sm font-medium transition-colors px-3 py-1.5",
-                activeTab === 'year'
-                  ? "text-white"
-                  : "text-white/40"
-              )}
-            >
-              ano
-            </button>
-
-            {/* Dropdown Ano */}
-            {openMenu === 'year' && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-black/90 border border-white/10 rounded-xl backdrop-blur-lg shadow-2xl overflow-hidden min-w-[120px]"
-              >
-                {YEARS.map((year) => (
-                  <button
-                    key={year}
-                    onClick={() => selectSubValue({ ...selectedSubValues, year: String(year) })}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left text-xs transition-colors",
-                      selectedSubValues.year === String(year)
-                        ? "bg-white/10 text-white font-medium"
-                        : "text-white/40 hover:bg-white/5 hover:text-white"
-                    )}
-                  >
-                    {year}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </div>
-
-          <button
-            onClick={() => selectTab('all')}
-            className={cn(
-              "text-sm font-medium transition-colors px-3 py-1.5",
-              activeTab === 'all'
-                ? "text-white"
-                : "text-white/40"
-            )}
-          >
-            tudo
-          </button>
+                {option.label}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      )}
 
-      {/* BLOCO DE CONTAGEM - 3 linhas */}
-      <div className={cn("space-y-1 transition-opacity duration-300", isLoading && "opacity-55")}>
-        <p className="text-lg">
-          <span className="text-white/50">Você ouviu </span>
+      {activeTab === 'month' && (
+        <div className="relative z-10 -mx-1 flex items-center gap-8 overflow-x-auto px-1 hide-scrollbar">
+          {availableMonths.map((month, index) => {
+            const isSelected = selectedSubValues.month === String(index).padStart(2, '0');
+            return (
+              <button
+                key={month}
+                onClick={() => selectSubValue({ ...selectedSubValues, month: String(index).padStart(2, '0') })}
+                className={cn(
+                  "shrink-0 text-[24px] font-black tracking-[-0.03em] transition-colors",
+                  isSelected ? "text-white" : "text-white/22"
+                )}
+              >
+                {month}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeTab === 'year' && (
+        <div className="relative z-10 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+          {YEARS.map((year) => {
+            const isSelected = selectedSubValues.year === String(year);
+            return (
+              <button
+                key={year}
+                onClick={() => selectSubValue({ ...selectedSubValues, year: String(year) })}
+                className={cn(
+                  "shrink-0 rounded-full border px-5 py-2 text-[14px] font-black transition-colors",
+                  isSelected
+                    ? "border-white/18 bg-white/14 text-white"
+                    : "border-white/8 bg-white/[0.03] text-white/42"
+                )}
+              >
+                {year}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {!hasData && (
+        <div className="glass-card rounded-3xl p-8 text-center flex flex-col items-center gap-4">
+          <div className="text-6xl">🎵</div>
+          <h2 className="text-2xl font-black text-white">Sem dados para este período</h2>
+          <p className="text-white/50 text-sm">
+            Continue ouvindo para ver seu Replay!
+          </p>
+        </div>
+      )}
+
+      {hasData && <div className={cn("max-w-[340px] transition-opacity duration-300", isLoading && "opacity-55")}>
+        <p className="text-[38px] font-black leading-[1.1] tracking-[-0.045em] text-white/46">
+          <span>Você ouviu </span>
           <motion.span
-            key={totalSongsCount}
+            key={totalMinutesCount}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="text-white"
           >
-            {totalSongsCount.toLocaleString('pt-BR')}
+            {Math.round(totalMinutesCount).toLocaleString('pt-BR')}
           </motion.span>
+          <span className="text-white"> minutos</span>
+          <span> de música {filterText}.</span>
         </p>
-        <p className="text-lg">
-          <span className="text-white">minutos</span>
-          <span className="text-white/50"> de música {filterText}.</span>
-        </p>
-      </div>
+      </div>}
 
       {/* SEÇÃO 1 — ARTISTAS MAIS OUVIDOS */}
       {limitedArtists.length > 0 && (
-        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+        <div className={cn("space-y-5 transition-opacity duration-300", isLoading && "opacity-55")}>
           <div>
             <button
               onClick={onOpenArtistsModal}
-              className="flex items-center gap-2 group"
+              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[18px] font-black text-white truncate flex-1">Seus artistas mais ouvidos</h3>
-              <ChevronRight className="h-5 w-5 text-white/40 group-hover:text-orange-500 transition-colors flex-shrink-0" />
+              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Seus artistas mais ouvidos</h3>
+              <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 -mx-4 px-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedArtists.map((artist, index) => (
               <motion.div
                 key={`${artist.id || artist.name}-${index}`}
@@ -358,9 +309,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="w-44 relative">
-                  {/* Imagem do Artista - aumentado verticalmente */}
-                  <div className="w-44 h-[40vh] rounded-2xl relative overflow-hidden bg-white/5 shadow-xl">
+                <div className="relative w-[48vw] max-w-[196px]">
+                  <div className="relative h-[278px] w-full overflow-hidden rounded-[20px] bg-white/5 shadow-xl">
                     <SmartImage
                       src={artist.image || ''}
                       className="w-full h-full object-cover"
@@ -369,7 +319,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     />
 
                     {/* Número do Ranking - SEM drop-shadow */}
-                    <span className="absolute top-3 left-3 text-white font-black text-5xl z-10">
+                    <span className="absolute left-4 top-3.5 z-10 text-[58px] font-black leading-none tracking-[-0.08em] text-white">
                       {index + 1}
                     </span>
 
@@ -388,16 +338,14 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     />
 
                     {/* Gradiente escuro inferior */}
-                    <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none z-10"
-                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }} />
+                    <div className="absolute inset-x-0 bottom-0 z-10 h-32 pointer-events-none bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-                    {/* Nome e Streams - meio inferior, SEM drop-shadow */}
-                    <div className="absolute bottom-3 left-3 right-3 flex flex-col items-center text-center z-20">
-                      <p className="text-white font-bold text-sm truncate w-full">
+                    <div className="absolute bottom-5 left-3.5 right-3.5 z-20 flex flex-col items-center text-center">
+                      <p className="w-full truncate text-[19px] font-black leading-tight text-white">
                         {artist.name}
                       </p>
-                      <p className="text-white/70 text-xs">
-                        {artist.streams.toLocaleString('pt-BR')} reproduções
+                      <p className="text-[16px] font-medium text-white/78">
+                        {artist.streams.toLocaleString('pt-BR')} minutos
                       </p>
                     </div>
                   </div>
@@ -410,34 +358,31 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {/* SEÇÃO 2 — MÚSICAS MAIS OUVIDAS */}
       {limitedTracks.length > 0 && (
-        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+        <div className={cn("space-y-5 transition-opacity duration-300", isLoading && "opacity-55")}>
           <div>
             <button
               onClick={onOpenSongsModal}
-              className="flex items-center gap-2 group"
+              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[18px] font-black text-white truncate flex-1">Suas músicas mais ouvidas</h3>
-              <ChevronRight className="h-5 w-5 text-white/40 group-hover:text-orange-500 transition-colors flex-shrink-0" />
+              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Suas músicas mais ouvidas</h3>
+              <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          {/* Scroll horizontal com 4 linhas verticais - mostra 12 músicas (3 colunas de 4) */}
-          <div className="overflow-x-auto snap-x hide-scrollbar -mx-4 px-4">
+          <div className="overflow-x-auto snap-x pl-4 pr-6 hide-scrollbar scroll-pl-4">
             <div className="flex gap-6">
-              {/* Cada "página" mostra 4 músicas em coluna */}
               {Array.from({ length: Math.ceil(limitedTracks.length / 4) }).map((_, pageIndex) => (
-                <div key={pageIndex} className="flex flex-col gap-3 snap-start flex-shrink-0">
+                <div key={pageIndex} className="flex flex-col snap-start flex-shrink-0">
                   {limitedTracks.slice(pageIndex * 4, (pageIndex + 1) * 4).map((track, indexInPage) => {
                     const globalIndex = pageIndex * 4 + indexInPage;
                     return (
                       <motion.div
                         key={`${track.id || track.name}-${globalIndex}`}
-                        className="flex items-center gap-3 w-[calc(100vw-56px)] max-w-[360px]"
+                        className="flex h-[66px] w-[calc(100vw-72px)] max-w-[318px] items-center gap-3 border-b border-white/10"
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
                       >
-                        {/* Capa */}
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/5 flex-shrink-0 shadow-lg">
+                        <div className="h-[48px] w-[48px] flex-shrink-0 overflow-hidden rounded-[9px] bg-white/5 shadow-lg">
                           <SmartImage
                             src={track.image || ''}
                             className="w-full h-full object-cover"
@@ -446,26 +391,23 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                           />
                         </div>
 
-                        {/* Número do ranking - BRANCO */}
-                        <span className="text-white font-bold text-sm w-6 text-center flex-shrink-0">
+                        <span className="w-6 flex-shrink-0 text-center text-[20px] font-black text-white">
                           {globalIndex + 1}
                         </span>
 
-                        {/* Coluna de texto */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-white text-sm truncate">{track.name}</p>
-                          <p className="text-xs text-white/50 truncate">
+                          <p className="truncate text-[17px] font-semibold leading-tight text-white">{track.name}</p>
+                          <p className="truncate text-[14px] leading-tight text-white/48">
                             {track.artist} · {track.streams.toLocaleString('pt-BR')} reproduções
                           </p>
                         </div>
 
-                        {/* 3 pontinhos - link para plataforma */}
                         <button
                           onClick={() => {
                             // TODO: Abrir link da plataforma (priorizar Apple Music, fallback Spotify)
                             console.log('Abrir música na plataforma:', track.name);
                           }}
-                          className="text-white/30 hover:text-white/60 text-lg flex-shrink-0 transition-colors"
+                          className="flex-shrink-0 text-[24px] leading-none text-white/70 transition-colors hover:text-white"
                         >
                           ⋯
                         </button>
@@ -481,28 +423,27 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {/* SEÇÃO 3 — ÁLBUNS MAIS OUVIDOS */}
       {limitedAlbums.length > 0 && (
-        <div className={cn("space-y-4 transition-opacity duration-300", isLoading && "opacity-55")}>
+        <div className={cn("space-y-5 transition-opacity duration-300", isLoading && "opacity-55")}>
           <div>
             <button
               onClick={onOpenAlbumsModal}
-              className="flex items-center gap-2 group"
+              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[18px] font-black text-white truncate flex-1">Seus álbuns mais ouvidos</h3>
-              <ChevronRight className="h-5 w-5 text-white/40 group-hover:text-orange-500 transition-colors flex-shrink-0" />
+              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Seus álbuns mais ouvidos</h3>
+              <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 -mx-4 px-4 hide-scrollbar">
+          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedAlbums.map((album, index) => (
               <motion.div
                 key={`${album.id || album.name}-${index}`}
-                className="flex-shrink-0 snap-start w-36"
+                className="flex-shrink-0 snap-start w-[39vw] max-w-[158px]"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="w-full">
-                  {/* Capa do Álbum - quadrada */}
-                  <div className="w-full aspect-square rounded-xl overflow-hidden bg-white/5 shadow-xl">
+                  <div className="w-full aspect-square overflow-hidden rounded-[14px] bg-white/5 shadow-xl">
                     <SmartImage
                       src={album.image || ''}
                       className="w-full h-full object-cover"
@@ -511,12 +452,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     />
                   </div>
 
-                  {/* Informações - 4 linhas */}
-                  <div className="mt-2 space-y-0.5">
-                    <p className="text-white/60 text-xs font-bold">#{index + 1}</p>
-                    <p className="text-white font-semibold text-sm truncate">{album.name}</p>
-                    <p className="text-white/50 text-xs truncate">{album.artist}</p>
-                    <p className="text-white/40 text-xs">{album.streams.toLocaleString('pt-BR')} minutos</p>
+                  <div className="mt-3 space-y-0.5">
+                    <p className="text-[15px] font-black text-white">{index + 1}</p>
+                    <p className="truncate text-[17px] font-black leading-tight text-white">{album.name}</p>
+                    <p className="truncate text-[15px] leading-tight text-white/52">{album.artist}</p>
+                    <p className="text-[15px] leading-tight text-white/52">{album.streams.toLocaleString('pt-BR')} minutos</p>
                   </div>
                 </div>
               </motion.div>
@@ -524,6 +464,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 };

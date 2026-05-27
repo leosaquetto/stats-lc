@@ -12,6 +12,7 @@ import { ReplaySection, type ReplayFilterPeriod, type ReplaySelectedSubValues } 
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { VinylRecord } from '../components/home/VinylRecord';
+import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
 import { coreUtils } from '../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
@@ -42,34 +43,72 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const getStartOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+const REPLAY_MONTHS_LONG = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
+];
 
 const getReplayQuery = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedSubValues): ReplayPeriodQuery => {
   const now = new Date();
   if (activeTab === 'today') {
-    return { period: 'today', after: getStartOfDay(now), limit: 12, force: true };
+    return { period: 'today', after: getStartOfDay(now), limit: 30, force: true };
   }
   if (activeTab === 'week') {
     if (selected.weekMode === 'current') {
       const day = now.getDay();
       const diffToMonday = (day + 6) % 7;
       const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
-      return { period: 'week', after: getStartOfDay(monday), limit: 12, force: true };
+      return { period: 'week', after: getStartOfDay(monday), limit: 30, force: true };
     }
     const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 12, force: true };
+    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 30, force: true };
   }
   if (activeTab === 'month') {
     const month = Number(selected.month ?? now.getMonth());
     const year = now.getFullYear();
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 1);
-    return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 12, force: true };
+    return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 30, force: true };
   }
   if (activeTab === 'year') {
     const year = Number(selected.year || now.getFullYear());
-    return { period: 'year', after: new Date(year, 0, 1).getTime(), before: new Date(year + 1, 0, 1).getTime(), limit: 12, force: true };
+    return { period: 'year', after: new Date(year, 0, 1).getTime(), before: new Date(year + 1, 0, 1).getTime(), limit: 30, force: true };
   }
-  return { period: 'lifetime', limit: 12, force: true };
+  return { period: 'all', limit: 30, force: true };
+};
+
+const getReplayModalPeriod = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedSubValues) => {
+  const now = new Date();
+  if (activeTab === 'today') return 'hoje';
+  if (activeTab === 'week') return selected.weekMode === 'current' ? 'esta semana' : 'últimos 7 dias';
+  if (activeTab === 'month') {
+    const month = Number(selected.month ?? now.getMonth());
+    return `${REPLAY_MONTHS_LONG[month] || 'mês'} de ${now.getFullYear()}`;
+  }
+  if (activeTab === 'year') return selected.year || String(now.getFullYear());
+  return 'total';
+};
+
+const getReplayMinutes = (item: any) => {
+  const durationMs = item?.durationMs ?? item?.totalDurationMs ?? item?.playedDurationMs ?? item?.playDurationMs;
+  if (Number.isFinite(durationMs) && durationMs > 0) return Math.max(1, Math.round(durationMs / 60000));
+  return Math.round(item?.minutes ?? item?.playedMinutes ?? item?.streams ?? item?.playcount ?? item?.playedCount ?? item?.count ?? 0);
+};
+
+const getReplayFallbackTotalMinutes = (user: any, activeTab: ReplayFilterPeriod, totalSongs?: number) => {
+  if (activeTab === 'all' && Number.isFinite(user?.totalDurationMs) && user.totalDurationMs > 0) {
+    return Math.max(1, Math.round(user.totalDurationMs / 60000));
+  }
+
+  if (Number.isFinite(totalSongs) && totalSongs && totalSongs > 0) {
+    return totalSongs;
+  }
+
+  if (activeTab === 'today') return user?.streamsToday || 0;
+  if (activeTab === 'month') return user?.streamsMonth || 0;
+  if (activeTab === 'year') return user?.streamsYear || 0;
+  if (activeTab === 'all') return user?.totalStreams || 0;
+  return user?.streamsWeek || 0;
 };
 
 export default function HomeScreen() {
@@ -119,7 +158,8 @@ export default function HomeScreen() {
     tracks: [],
     albums: []
   });
-  const [replayTotalSongsCount, setReplayTotalSongsCount] = useState(0);
+  const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
+  const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
   const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
   const [replaySelectedSubValues, setReplaySelectedSubValues] = useState<ReplaySelectedSubValues>({
     weekMode: 'last-7',
@@ -312,21 +352,46 @@ export default function HomeScreen() {
   }, [groupStats, isLoading, fetchGroup]);
 
   useEffect(() => {
-    if (!featuredUserId && members.length > 0 && groupStats && !isLoading) {
+    if (!primaryUser && members.length > 0 && groupStats && !isLoading) {
       setShowInitialModal(true);
-    } else if (featuredUserId) {
-      // Fecha o modal quando um usuário é selecionado
+    } else if (primaryUser) {
       setShowInitialModal(false);
     }
 
-    if (featuredUserId) {
-      // Phase 3: Proactive Data Loading
-      // 1. Priority Prefetch for current featured user
+    if (primaryUser?.id) {
       prefetchUserTops(featuredUserId);
-      // 2. Background Warm-up for the next friend in carousel
       prefetchNextFriend(featuredUserId);
     }
-  }, [featuredUserId, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend]);
+  }, [featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend]);
+
+  useEffect(() => {
+    const nowPlaying = primaryUser?.nowPlaying;
+    const track = nowPlaying?.track as any;
+    if (!primaryUser?.id || nowPlaying?.isNow !== true || !track) return;
+
+    const durationMs = Number(nowPlaying.durationMs || track.durationMs || track.duration_ms || 0);
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+
+    const progressMs = Number(nowPlaying.progressMs || track.progressMs || track.progress_ms || 0);
+    const timestampMs = nowPlaying.timestamp ? new Date(nowPlaying.timestamp).getTime() : Date.now();
+    const elapsedSincePayload = Number.isFinite(timestampMs) ? Math.max(0, Date.now() - timestampMs) : 0;
+    const remainingMs = durationMs - Math.max(0, progressMs) - elapsedSincePayload;
+    const delay = Math.min(Math.max(remainingMs + 1500, 1200), 45000);
+
+    const timer = window.setTimeout(() => {
+      fetchGroupLive(true);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    primaryUser?.id,
+    primaryUser?.nowPlaying?.track?.id,
+    primaryUser?.nowPlaying?.timestamp,
+    primaryUser?.nowPlaying?.isNow,
+    primaryUser?.nowPlaying?.progressMs,
+    primaryUser?.nowPlaying?.durationMs,
+    fetchGroupLive
+  ]);
 
   // Mark app as ready when group data is available; the empty-user state renders below.
   useEffect(() => {
@@ -535,7 +600,7 @@ export default function HomeScreen() {
     if (!primaryUser?.id) {
       setReplayState('idle');
       setReplayTopItems({ artists: [], tracks: [], albums: [] });
-      setReplayTotalSongsCount(0);
+      setReplayTotalMinutesCount(0);
       return;
     }
 
@@ -545,7 +610,8 @@ export default function HomeScreen() {
         artists: replay.topArtists,
         tracks: replay.topTracks,
         albums: replay.topAlbums,
-        totalSongs: replay.totalSongs
+        totalSongs: replay.totalSongs,
+        totalDurationMs: replay.totalDurationMs
       }))
       .catch(async () => {
         const [artists, tracks, albums] = await Promise.all([
@@ -553,22 +619,17 @@ export default function HomeScreen() {
           statsService.getTopItems(primaryUser.id, 'tracks', replayPeriodQuery).catch(() => []),
           statsService.getTopItems(primaryUser.id, 'albums', replayPeriodQuery).catch(() => [])
         ]);
-        return { artists, tracks, albums, totalSongs: undefined };
+        return { artists, tracks, albums, totalSongs: undefined, totalDurationMs: undefined };
       })
-      .then(({ artists, tracks, albums, totalSongs }) => {
+      .then(({ artists, tracks, albums, totalSongs, totalDurationMs }) => {
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });
-          setReplayTotalSongsCount(totalSongs ?? (
-            replayActiveTab === 'today'
-              ? primaryUser.streamsToday || 0
-              : replayActiveTab === 'month'
-                ? primaryUser.streamsMonth || 0
-                : replayActiveTab === 'year'
-                  ? primaryUser.streamsYear || 0
-                  : replayActiveTab === 'all'
-                    ? primaryUser.totalStreams || 0
-                    : tracks.length
-          ));
+          const fallbackTotal = getReplayFallbackTotalMinutes(primaryUser, replayActiveTab, totalSongs) || tracks.length;
+          setReplayTotalMinutesCount(
+            Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
+              ? Math.max(1, Math.round(totalDurationMs / 60000))
+              : fallbackTotal
+          );
         setReplayState('ready');
       }
     });
@@ -581,6 +642,7 @@ export default function HomeScreen() {
   const replayArtists = replayTopItems.artists;
   const replayTracks = replayTopItems.tracks;
   const replayAlbums = replayTopItems.albums;
+  const replayModalPeriod = getReplayModalPeriod(replayActiveTab, replaySelectedSubValues);
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
   const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
   const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
@@ -601,8 +663,7 @@ export default function HomeScreen() {
                 setShowInitialModal(false);
               }}
               onClose={() => {
-                // Seleciona o primeiro usuário se fechar sem escolher
-                if (!featuredUserId && members.length > 0) {
+                if (!primaryUser && members.length > 0) {
                   setFeaturedUserId(members[0].id);
                   localStorage.setItem('stats-lc-has-selected-user', '1');
                 }
@@ -653,6 +714,41 @@ export default function HomeScreen() {
                 onClose={() => setViewingAlbumHistoryUser(null)}
               />
             )}
+            <TopArtistsModal
+              isOpen={openReplayModal === 'artists'}
+              onClose={() => setOpenReplayModal(null)}
+              artists={replayArtists.slice(0, 20).map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                image: a.image,
+                streams: getReplayMinutes(a)
+              }))}
+              period={replayModalPeriod}
+            />
+            <TopSongsModal
+              isOpen={openReplayModal === 'songs'}
+              onClose={() => setOpenReplayModal(null)}
+              tracks={replayTracks.slice(0, 30).map((t: any) => ({
+                id: t.id,
+                name: t.name,
+                artist: t.primaryArtistName || (typeof t.artists?.[0] === 'string' ? t.artists[0] : t.artists?.[0]?.name) || t.artistName || 'Artista Desconhecido',
+                image: t.image || t.albumImage,
+                streams: t.playedCount || t.streams || t.playcount || t.count || 0
+              }))}
+              period={replayModalPeriod}
+            />
+            <TopAlbumsModal
+              isOpen={openReplayModal === 'albums'}
+              onClose={() => setOpenReplayModal(null)}
+              albums={replayAlbums.slice(0, 15).map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                artist: a.artist || a.artistName || a.albumArtist || a.primaryArtistName || (typeof a.artists?.[0] === 'string' ? a.artists[0] : a.artists?.[0]?.name) || 'Artista Desconhecido',
+                image: a.image,
+                streams: getReplayMinutes(a)
+              }))}
+              period={replayModalPeriod}
+            />
 
             {/* Explosão contextual de usuários */}
             <UserSelectorExplosion
@@ -1028,26 +1124,7 @@ export default function HomeScreen() {
               </div>
             </motion.div>
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-24 px-6 gap-6 min-h-[60vh] text-center">
-            <div className="h-16 w-16 rounded-[22px] bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-500 shadow-xl shadow-orange-500/5">
-              <Users className="h-7 w-7" />
-            </div>
-            <div className="max-w-md flex flex-col gap-2">
-              <h3 className="text-lg font-black text-white/95 uppercase tracking-wider">Identifique seu Perfil</h3>
-              <p className="text-sm font-medium text-white/50 leading-relaxed">
-                Nenhum usuário ativo foi selecionado ou salvo. Selecione o seu perfil no modal de início para acessar as estatísticas personalizadas da sua Arena do Loop.
-              </p>
-            </div>
-            <button
-              onClick={() => fetchGroup(true)}
-              className="flex items-center gap-2 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-all shadow-[0_10px_20px_rgba(234,88,12,0.25)]"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Sincronizar Loop
-            </button>
-          </div>
-        )}
+        ) : null}
       </AnimatePresence>
 
       {/* Replay Section */}
@@ -1082,34 +1159,34 @@ export default function HomeScreen() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
           <ReplaySection
-            topArtists={replayArtists.slice(0, 10).map((a: any) => ({
+            topArtists={replayArtists.slice(0, 20).map((a: any) => ({
               id: a.id,
               name: a.name,
               image: a.image,
-              streams: a.playedCount || a.streams || a.playcount || a.count || 0
+              streams: getReplayMinutes(a)
             })) || []}
-            topTracks={replayTracks.slice(0, 12).map((t: any) => ({
+            topTracks={replayTracks.slice(0, 30).map((t: any) => ({
               id: t.id,
               name: t.name,
               artist: t.primaryArtistName || (typeof t.artists?.[0] === 'string' ? t.artists[0] : t.artists?.[0]?.name) || t.artistName || 'Artista Desconhecido',
               image: t.image || t.albumImage,
               streams: t.playedCount || t.streams || t.playcount || t.count || 0
             })) || []}
-            topAlbums={replayAlbums.slice(0, 10).map((a: any) => ({
+            topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
               id: a.id,
               name: a.name,
               artist: a.artist || a.artistName || a.albumArtist || a.primaryArtistName || (typeof a.artists?.[0] === 'string' ? a.artists[0] : a.artists?.[0]?.name) || 'Artista Desconhecido',
               image: a.image,
-              streams: a.playedCount || a.streams || a.playcount || a.count || 0
+              streams: getReplayMinutes(a)
             })) || []}
-            totalSongsCount={replayTotalSongsCount}
+            totalMinutesCount={replayTotalMinutesCount}
             activeTab={replayActiveTab}
             selectedSubValues={replaySelectedSubValues}
             onActiveTabChange={setReplayActiveTab}
             onSelectedSubValuesChange={setReplaySelectedSubValues}
-            onOpenArtistsModal={() => console.log('Open artists modal')}
-            onOpenSongsModal={() => console.log('Open songs modal')}
-            onOpenAlbumsModal={() => console.log('Open albums modal')}
+            onOpenArtistsModal={() => setOpenReplayModal('artists')}
+            onOpenSongsModal={() => setOpenReplayModal('songs')}
+            onOpenAlbumsModal={() => setOpenReplayModal('albums')}
             isLoading={isReplayUpdating}
           />
         </motion.div>
@@ -1123,7 +1200,11 @@ export default function HomeScreen() {
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="px-4 sm:px-6 lg:px-8"
       >
-        <FriendsMonthlyHighlights periodQuery={replayPeriodQuery} />
+        <FriendsMonthlyHighlights
+          periodQuery={replayPeriodQuery}
+          activeTab={replayActiveTab}
+          selectedSubValues={replaySelectedSubValues}
+        />
       </motion.div>
       )}
 

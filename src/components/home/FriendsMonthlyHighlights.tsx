@@ -8,19 +8,29 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../../services/statsService';
+import { getReplayFilterLabel, type ReplayFilterPeriod, type ReplaySelectedSubValues } from './ReplaySection';
 import { UserStats, TopItem } from '../../types/stats';
 import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Music, Disc, Mic2, ChevronRight } from 'lucide-react';
+import { Music, Disc, Mic2, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const FriendsMonthlyHighlights = React.memo(({ periodQuery }: { periodQuery?: ReplayPeriodQuery }) => {
+export const FriendsMonthlyHighlights = React.memo(({
+  periodQuery,
+  activeTab = 'month',
+  selectedSubValues = {}
+}: {
+  periodQuery?: ReplayPeriodQuery;
+  activeTab?: ReplayFilterPeriod;
+  selectedSubValues?: ReplaySelectedSubValues;
+}) => {
   const { groupStats, hiddenUsers } = useStatsStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [allExpanded, setAllExpanded] = useState(false);
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
 
   const members = groupStats?.members || [];
@@ -97,10 +107,30 @@ export const FriendsMonthlyHighlights = React.memo(({ periodQuery }: { periodQue
 
   if (sortedFriends.length === 0) return null;
 
+  const periodLabel = getReplayFilterLabel(activeTab, selectedSubValues);
+
   return (
     <div className="flex flex-col gap-3 mb-3 mt-1">
       <SectionHeader
         title="TOP 1 DO CÍRCULO"
+        action={
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.18em] text-white/55 backdrop-blur-xl">
+              {periodLabel}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setAllExpanded(prev => !prev);
+                setExpandedId(null);
+              }}
+              aria-label={allExpanded ? 'Minimizar todos' : 'Expandir todos'}
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/55 backdrop-blur-xl transition-all hover:bg-white/[0.1] hover:text-white active:scale-95"
+            >
+              {allExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+            </button>
+          </div>
+        }
       />
 
       <motion.div
@@ -118,8 +148,15 @@ export const FriendsMonthlyHighlights = React.memo(({ periodQuery }: { periodQue
               key={`${friend.id}-${idx}`}
               friend={friend}
               tops={periodTops[friend.id] || friend.topItems}
-              isExpanded={expandedId === friend.id}
-              onToggle={() => setExpandedId(expandedId === friend.id ? null : friend.id)}
+              isExpanded={allExpanded || expandedId === friend.id}
+              onToggle={() => {
+                if (allExpanded) {
+                  setAllExpanded(false);
+                  setExpandedId(friend.id);
+                  return;
+                }
+                setExpandedId(expandedId === friend.id ? null : friend.id);
+              }}
             />
           ))}
         </div>
@@ -148,13 +185,13 @@ const FriendHighlightRow = React.memo(({
       <div
         onClick={onToggle}
         className={cn(
-          "grid grid-cols-[48px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_18px] items-start gap-2.5 group cursor-pointer transition-colors p-2 rounded-xl",
+          "grid grid-cols-[54px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_18px] items-start gap-2.5 group cursor-pointer transition-colors p-2 rounded-xl",
           isExpanded ? "bg-white/[0.03]" : "hover:bg-white/[0.01]"
         )}
       >
         <div className="flex justify-center pt-0.5">
           <div className={cn(
-            "h-10 w-10 rounded-full border-2 overflow-hidden shadow-2xl relative transition-all duration-300",
+            "h-12 w-12 rounded-full border-2 overflow-hidden shadow-2xl relative transition-all duration-300",
             isExpanded ? "border-orange-500/50 scale-105" : "border-white/8"
           )}>
             <SmartImage
@@ -197,7 +234,7 @@ const CompactCover = ({
       <div className="flex flex-col items-center gap-1 min-w-0 opacity-45">
         <div
           className={cn(
-            "h-10 w-10 bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0",
+            "h-12 w-12 bg-white/[0.02] border border-white/5 flex items-center justify-center shrink-0",
             rounded === 'full' ? 'rounded-full' : 'rounded-lg'
           )}
         >
@@ -209,11 +246,13 @@ const CompactCover = ({
   }
 
   const playCount = item.playcount || item.streams || 0;
-  const displayCount = playCount >= 1000 ? coreUtils.formatPlayCount(playCount) : playCount;
+  const displayCount = playCount >= 1000
+    ? Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(playCount).toLowerCase()
+    : playCount;
 
   return (
     <div className="flex flex-col items-center gap-1.5 min-w-0">
-      <div className="relative h-10 w-10 shrink-0 group-hover:scale-105 duration-300 transition-transform">
+      <div className="relative h-12 w-12 shrink-0 group-hover:scale-105 duration-300 transition-transform">
         <SmartImage
           src={item.image}
           className={cn(
@@ -224,8 +263,8 @@ const CompactCover = ({
           fallback=""
         />
         {playCount > 0 && (
-          <div className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-orange-600 border border-black flex items-center justify-center shadow-lg z-10">
-            <span className="text-[6.5px] font-black text-white leading-none">{displayCount}</span>
+          <div className="absolute -top-1.5 -right-1.5 h-[18px] min-w-[18px] px-1 rounded-full bg-orange-600 border border-black flex items-center justify-center shadow-lg z-10">
+            <span className="text-[7.5px] font-black text-white leading-none">{displayCount}</span>
           </div>
         )}
       </div>
@@ -239,7 +278,7 @@ const CompactCover = ({
             className="flex w-full min-w-0 flex-col text-center"
           >
             <span className="text-[6.5px] font-black uppercase tracking-[0.16em] text-white/28 leading-none">{label}</span>
-            <span className="text-[8.5px] font-bold text-white/72 truncate leading-tight">{item.name}</span>
+            <span className="text-[8.5px] font-bold text-white/72 leading-tight line-clamp-2">{item.name}</span>
           </motion.div>
         )}
       </AnimatePresence>

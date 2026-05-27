@@ -283,6 +283,17 @@ type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
 type ViewMode = 'user' | 'friends';
 
+const getStatsCountValue = (source: any) => Number(source?.count ?? source?.streams ?? source?.c ?? source?.totalStreams ?? 0) || 0;
+const getStatsDurationMsValue = (source: any) => {
+  const durationMs = source?.durationMs ?? source?.playedMs ?? source?.totalDurationMs;
+  if (Number.isFinite(durationMs) && durationMs > 0) return Number(durationMs);
+
+  const minutes = source?.totalMinutes ?? source?.minutes ?? source?.playedMinutes;
+  if (Number.isFinite(minutes) && minutes > 0) return Number(minutes) * 60000;
+
+  return 0;
+};
+
 export default function StatsScreen() {
   const [activeFilter, setActiveFilter] = useState<Filter>('Hoje');
   const [activeType, setActiveType] = useState<ItemType>('artists');
@@ -466,8 +477,8 @@ export default function StatsScreen() {
         if (data && typeof data === 'object') {
           const statsContainer = data.stats || data;
           const sourceObj = statsContainer.items || statsContainer;
-          const countVal = sourceObj.count ?? sourceObj.streams ?? sourceObj.c ?? sourceObj.totalStreams ?? 0;
-          const durationVal = sourceObj.durationMs ?? sourceObj.playedMs ?? sourceObj.totalDurationMs ?? 0;
+          const countVal = getStatsCountValue(sourceObj);
+          const durationVal = getStatsDurationMsValue(sourceObj);
           
           if (countVal > 0 || durationVal > 0) {
             setActiveRangeStats({ count: Number(countVal), durationMs: Number(durationVal) });
@@ -498,7 +509,7 @@ export default function StatsScreen() {
                   return { 
                     date: key, 
                     streams: val.streams || val.count || val.c || val.plays || 0,
-                    durationMs: val.durationMs || val.playedMs || 0
+                    durationMs: getStatsDurationMsValue(val)
                   };
                 }
                 return null;
@@ -621,8 +632,9 @@ export default function StatsScreen() {
           const h = Number(hStr);
           if (h >= 0 && h < 24 && hourlyMap[h]) {
             hourlyMap[h].streams = v.count ?? v.streams ?? 0;
-            hourlyMap[h].duration = v.durationMs || 0;
-            hourlyMap[h].hours = Number(((v.durationMs || 0) / 3600000).toFixed(2));
+            const durationMs = getStatsDurationMsValue(v);
+            hourlyMap[h].duration = durationMs;
+            hourlyMap[h].hours = Number((durationMs / 3600000).toFixed(2));
           }
         });
         return Object.values(hourlyMap);
@@ -652,8 +664,8 @@ export default function StatsScreen() {
              displayLabel: daysLabel[day - 1] || wStr,
              timestamp: Number(wStr),
              streams: v.count ?? v.streams ?? 0,
-             duration: v.durationMs || 0,
-             hours: Number(((v.durationMs || 0) / 3600000).toFixed(2))
+             duration: getStatsDurationMsValue(v),
+             hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
       } else if (historyData && historyData.length > 0) {
@@ -698,8 +710,8 @@ export default function StatsScreen() {
              displayLabel: String(d).padStart(2, '0'),
              timestamp: d,
              streams: v.count ?? v.streams ?? 0,
-             duration: v.durationMs || 0,
-             hours: Number(((v.durationMs || 0) / 3600000).toFixed(2))
+             duration: getStatsDurationMsValue(v),
+             hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
       } else if (historyData && historyData.length > 0) {
@@ -748,8 +760,8 @@ export default function StatsScreen() {
              displayLabel: monthNames[m - 1] || String(mStr),
              timestamp: m,
              streams: v.count ?? v.streams ?? 0,
-             duration: v.durationMs || 0,
-             hours: Number(((v.durationMs || 0) / 3600000).toFixed(2))
+             duration: getStatsDurationMsValue(v),
+             hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
       } else if (historyData && historyData.length > 0) {
@@ -837,7 +849,7 @@ export default function StatsScreen() {
          mapped.push({
            hour: h,
            streams: d.count ?? d.streams ?? 0,
-           duration: d.durationMs || 0
+           duration: getStatsDurationMsValue(d)
          });
       }
       return mapped;
@@ -912,8 +924,8 @@ export default function StatsScreen() {
     // 2. Fallback to fullUserData pre-computed snapshot
     if (currentStats) {
       return {
-        count: currentStats.count || currentStats.streams || currentStats.c || 0,
-        durationMs: currentStats.durationMs || currentStats.playedMs || currentStats.totalDurationMs || 0
+        count: getStatsCountValue(currentStats),
+        durationMs: getStatsDurationMsValue(currentStats)
       };
     }
     

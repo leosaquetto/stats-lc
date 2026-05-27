@@ -72,6 +72,24 @@ const isLivePayloadOlder = (existing?: any, incoming?: any) => {
   return incomingTime + 1500 < existingTime;
 };
 
+const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
+  if (!incoming) return false;
+  if (!existing) return true;
+  if (isLivePayloadOlder(existing, incoming)) return false;
+
+  const existingTrackId = existing?.track?.id;
+  const incomingTrackId = incoming?.track?.id;
+  const existingTime = existing?.timestamp ? new Date(existing.timestamp).getTime() : 0;
+  const incomingTime = incoming?.timestamp ? new Date(incoming.timestamp).getTime() : 0;
+  const hasNewerTimestamp = Number.isFinite(incomingTime) && Number.isFinite(existingTime)
+    ? incomingTime + 1500 >= existingTime
+    : true;
+
+  if (existing?.isNow === true && incoming?.isNow !== true && hasNewerTimestamp) return true;
+  if (incomingTrackId && existingTrackId && incomingTrackId !== existingTrackId && hasNewerTimestamp) return true;
+  return hasNewerTimestamp;
+};
+
 interface StatsState {
   groupStats: GroupStats | null;
   isLoading: boolean;
@@ -668,7 +686,7 @@ export const useStatsStore = create<StatsState>()(
       fetchGroupLive: async (force = false) => {
         const now = Date.now();
         const timeSinceLastFetch = now - get().lastLiveFetchTime;
-        const MIN_FETCH_INTERVAL = 15000; // 15 segundos mínimo entre chamadas
+        const MIN_FETCH_INTERVAL = 6000;
 
         // Throttling: não permite chamadas muito frequentes
         if (!force && timeSinceLastFetch < MIN_FETCH_INTERVAL) {
@@ -710,9 +728,9 @@ export const useStatsStore = create<StatsState>()(
                 // Merge live data while preserving rich data from /api/group
                 const prevTrackId = existingUser.nowPlaying?.track?.id;
                 const newTrackId = liveUser.nowPlaying?.track?.id;
-                const incomingNowPlaying = isLivePayloadOlder(existingUser.nowPlaying, liveUser.nowPlaying)
-                  ? existingUser.nowPlaying
-                  : liveUser.nowPlaying;
+                const incomingNowPlaying = shouldUseIncomingLivePayload(existingUser.nowPlaying, liveUser.nowPlaying)
+                  ? liveUser.nowPlaying
+                  : existingUser.nowPlaying;
 
                 const mergedUser = {
                   ...existingUser,              // Keep all existing data

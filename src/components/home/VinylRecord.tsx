@@ -477,19 +477,12 @@ export const VinylRecord = ({
                 y1="2.5"
                 x2="5.5"
                 y2="8.7"
-                stroke="#fb923c"
-                strokeWidth="1.35"
+                stroke="rgba(251,146,60,0.78)"
+                strokeWidth="0.9"
                 strokeLinecap="round"
               />
-              <circle cx="5.5" cy="8.7" r="0.9" fill="#fed7aa" />
+              <circle cx="5.5" cy="8.7" r="0.55" fill="rgba(254,215,170,0.82)" />
             </g>
-            <circle
-              cx={tonearmNeedleX + 4.8}
-              cy={tonearmNeedleY + 7.6}
-              r="3.2"
-              fill="rgba(251,146,60,0.2)"
-              style={{ filter: 'blur(1.8px)' }}
-            />
           </motion.svg>
         )}
       </AnimatePresence>

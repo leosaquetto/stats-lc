@@ -60,7 +60,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
 
     if (isSmallPhone) {
       const columns = Math.min(2, Math.max(1, count));
-      const gap = 70;
+      const gap = 82;
       const rows = Math.ceil(count / columns);
       const centerX = x < viewportWidth / 2
         ? Math.min(viewportWidth - padding - gap / 2, x + 128)
@@ -162,11 +162,11 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
               className="fixed z-[201] -translate-x-1/2 -translate-y-1/2 cursor-pointer"
             >
               <motion.div
-                className="relative group"
+                className="relative group flex h-[84px] w-[72px] items-center justify-center"
                 animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay }}
               >
-                <div className="h-14 w-14 rounded-full overflow-hidden transition-all shadow-[0_12px_28px_rgba(0,0,0,0.45)] bg-stone-900 ring-1 ring-white/10 group-hover:ring-orange-500/50">
+                <div className="relative z-10 h-14 w-14 overflow-hidden rounded-full bg-stone-900 shadow-[0_12px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10 transition-all group-hover:ring-orange-500/50">
                   <SmartImage
                     src={coreUtils.getUserAvatar(member.id, member.avatar)}
                     className="h-full w-full object-cover"
@@ -176,9 +176,9 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
                 </div>
 
                 {/* Nome em tooltip */}
-                <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-                  <div className="bg-black/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
-                    <span className="text-[10px] font-bold text-white">
+                <div className="pointer-events-none absolute left-1/2 top-0 z-20 w-[92px] -translate-x-1/2 -translate-y-full opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="mx-auto max-w-full rounded-full border border-white/10 bg-black/90 px-2 py-1 text-center shadow-[0_8px_22px_rgba(0,0,0,0.55)] backdrop-blur-md">
+                    <span className="block truncate text-[9px] font-bold leading-none text-white">
                       {member.name}
                     </span>
                   </div>
