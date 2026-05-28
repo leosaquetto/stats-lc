@@ -142,12 +142,15 @@ const normalizeMember = (member: any): UserStats | null => {
 const normalizeGroupStats = (data: any): GroupStats => {
   const users: Record<string, UserStats> = {};
   const members: UserStats[] = [];
+  const seenMemberIds = new Set<string>();
 
   if (data?.members && Array.isArray(data.members)) {
     data.members.forEach((member: any) => {
       const user = normalizeMember(member);
       if (!user) return; // Skip members without id
       users[user.id] = user;
+      if (seenMemberIds.has(user.id)) return;
+      seenMemberIds.add(user.id);
       members.push(user);
     });
   }
@@ -293,7 +296,12 @@ export const statsService = {
   async fetchRecent(userId: string, limit = 20, offset = 0): Promise<any[]> {
     try {
       const userParam = coreUtils.getUserApiParam(userId);
-      const res = await fetchFromApi<any>('/api/user-streams', { user: userParam, limit, offset });
+      const res = await fetchFromApi<any>('/api/user-streams', {
+        user: userParam,
+        limit,
+        offset,
+        resolveAlbums: 1,
+      });
       if ((import.meta as any).env?.DEV) console.log(`[statsService] fetchRecent for ${userId}:`, res);
       return res?.items || [];
     } catch (e) {
@@ -419,6 +427,8 @@ export const statsService = {
    */
   async getRankings(range: 'weeks' | 'months' | 'years' | 'lifetime' | 'today' = 'months'): Promise<Record<string, { count: number, durationMs: number }>> {
     try {
+      let cachedMembers: UserStats[] = [];
+
       // Otimização: Tentar usar dados do store primeiro se estiverem frescos (menos de 5 minutos)
       try {
         const { useStatsStore } = await import('../store/useStatsStore');
@@ -427,11 +437,12 @@ export const statsService = {
         const now = Date.now();
         const CACHE_TTL = 5 * 60 * 1000;
         
+        cachedMembers = state.groupStats?.members || Object.values(state.groupStats?.users || {});
+
         if (state.groupStats && (now - lastFetch < CACHE_TTL || state.isOffline)) {
           const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
-          const members = state.groupStats.members || Object.values(state.groupStats.users);
           
-          members.forEach((m) => {
+          cachedMembers.forEach((m) => {
             let count = 0;
             switch (range) {
               case 'today': count = m.streamsToday || 0; break;
@@ -451,81 +462,37 @@ export const statsService = {
         // Silenciosamente falha e prossegue para a API
       }
 
-      const backendRange = this.mapPeriod(range, 'rankings');
-      const response = await fetchFromApi<any>('/api/group', { range: backendRange });
+      if (!cachedMembers.length) return {};
 
-      // Prioritize pre-calculated rankings from API
-      if (response.rankings) {
-        // If rankings is already in the expected format
-        if (typeof response.rankings === 'object' && !Array.isArray(response.rankings)) {
-          // Check if it's already Record<userId, { count, durationMs }>
-          const firstKey = Object.keys(response.rankings)[0];
-          if (firstKey && typeof response.rankings[firstKey] === 'object' && 'count' in response.rankings[firstKey]) {
-            return response.rankings;
-          }
-        }
-
-        // If rankings come as arrays by period (today, week, month, etc.)
-        if (typeof response.rankings === 'object') {
-          const periodKey = backendRange || range;
-          const periodRankings = response.rankings[periodKey] || response.rankings[range];
-
-          if (Array.isArray(periodRankings)) {
-            const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
-            periodRankings.forEach((item: any) => {
-              const userId = item.id || item.userId || item.user;
-              if (userId) {
-                rankingsResult[userId] = {
-                  count: item.count || item.streams || 0,
-                  durationMs: item.durationMs || item.playedMs || 0
-                };
-              }
-            });
-            if (Object.keys(rankingsResult).length > 0) {
-              return rankingsResult;
-            }
-          }
-        }
-      }
-
-      // Fallback: calculate from members
+      const now = new Date();
+      const afterByRange = {
+        today: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+        weeks: Date.now() - 7 * 24 * 60 * 60 * 1000,
+        months: new Date(now.getFullYear(), now.getMonth(), 1).getTime(),
+        years: new Date(now.getFullYear(), 0, 1).getTime(),
+        lifetime: 0,
+      } as const;
+      const after = afterByRange[range];
+      const results = await Promise.allSettled(
+        cachedMembers.map(async (member) => {
+          const userParam = coreUtils.getUserApiParam(member.id);
+          const stats = await fetchFromApi<any>('/api/stats', { user: userParam, after });
+          return {
+            id: member.id,
+            count: stats?.streams || 0,
+            durationMs: stats?.durationMs || 0,
+          };
+        })
+      );
       const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
 
-      if (response.members) {
-        response.members.forEach((m: any) => {
-          const uid = m.id;
-          if (!uid) return;
-
-          let count = 0;
-          let durationMs = 0;
-
-          switch (range) {
-            case 'today':
-              count = m.stats?.today?.streams || 0;
-              durationMs = m.stats?.today?.durationMs || m.stats?.today?.playedMs || 0;
-              break;
-            case 'weeks':
-              count = m.stats?.week?.streams || 0;
-              durationMs = m.stats?.week?.durationMs || m.stats?.week?.playedMs || 0;
-              break;
-            case 'months':
-              count = m.stats?.month?.streams || 0;
-              durationMs = m.stats?.month?.durationMs || m.stats?.month?.playedMs || 0;
-              break;
-            case 'years':
-              // Tentamos 'year' ou 'current_year' no objeto de stats retornado
-              const yearStats = m.stats?.year || m.stats?.current_year;
-              count = yearStats?.streams || 0;
-              durationMs = yearStats?.durationMs || yearStats?.playedMs || 0;
-              break;
-            case 'lifetime':
-              count = m.stats?.lifetime?.streams || 0;
-              durationMs = m.stats?.lifetime?.durationMs || m.stats?.lifetime?.playedMs || 0;
-              break;
-          }
-          rankingsResult[uid] = { count, durationMs };
-        });
-      }
+      results.forEach((result) => {
+        if (result.status !== 'fulfilled') return;
+        rankingsResult[result.value.id] = {
+          count: result.value.count,
+          durationMs: result.value.durationMs,
+        };
+      });
 
       return rankingsResult;
     } catch (e) {
@@ -691,7 +658,17 @@ export const statsService = {
    */
   async getTrackGlobalHistory(trackId: string): Promise<any[]> {
     try {
-      const res = await fetchFromApi<any>('/api/track-history', { trackId });
+      const { useStatsStore } = await import('../store/useStatsStore');
+      const user = useStatsStore.getState().groupStats?.members?.[0];
+      if (!user?.id) return [];
+
+      const userParam = coreUtils.getUserApiParam(user.id);
+      const res = await fetchFromApi<any>('/api/entity-streams', {
+        user: userParam,
+        type: 'track',
+        id: trackId,
+        limit: 50,
+      });
       return res?.items || [];
     } catch (e) {
       console.error(`Failed to fetch global history for track ${trackId}`, e);
@@ -718,14 +695,7 @@ export const statsService = {
         }
       }
 
-      let res: any;
-      try {
-        // Agora usamos a rota leve e cacheada /api/stats
-        res = await fetchFromApi<any>('/api/stats', { user: userParam, after });
-      } catch (e) {
-        console.warn("[statsService] fetchTimeRangeStats failed, trying fallback...", e);
-        res = await fetchFromApi<any>('/api/history', { user: userParam, after });
-      }
+      const res = await fetchFromApi<any>('/api/stats', { user: userParam, after });
 
       // Atualiza o cache do store
       if (store.setTimeRangeStatsCache) {

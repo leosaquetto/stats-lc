@@ -64,6 +64,10 @@ const clearPersistedGroupCache = () => {
   } catch {}
 };
 
+const HISTORY_CACHE_VERSION = 'album-v2';
+
+const getHistoryCacheKey = (userId: string) => `${userId}:${HISTORY_CACHE_VERSION}`;
+
 const isLivePayloadOlder = (existing?: any, incoming?: any) => {
   if (!existing?.timestamp || !incoming?.timestamp) return false;
   const existingTime = new Date(existing.timestamp).getTime();
@@ -88,6 +92,57 @@ const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
   if (existing?.isNow === true && incoming?.isNow !== true && hasNewerTimestamp) return true;
   if (incomingTrackId && existingTrackId && incomingTrackId !== existingTrackId && hasNewerTimestamp) return true;
   return hasNewerTimestamp;
+};
+
+const dedupeMembersById = (members: any[] = []) => {
+  const seen = new Set<string>();
+  return members.filter((member) => {
+    if (!member?.id || seen.has(member.id)) return false;
+    seen.add(member.id);
+    return true;
+  });
+};
+
+const canonicalizeGroupStats = (groupStats: GroupStats | null) => {
+  if (!groupStats || !isValidGroupStats(groupStats)) return groupStats;
+
+  const users: Record<string, UserStats> = {};
+  const members: UserStats[] = [];
+  const memberIndexById = new Map<string, number>();
+  const sources = [
+    ...(Array.isArray(groupStats.members) ? groupStats.members : []),
+    ...Object.values(groupStats.users || {}),
+  ];
+
+  sources.forEach((candidate: any) => {
+    if (!candidate?.id) return;
+
+    const previous = users[candidate.id];
+    const nowPlaying = shouldUseIncomingLivePayload(previous?.nowPlaying, candidate.nowPlaying)
+      ? candidate.nowPlaying
+      : previous?.nowPlaying ?? candidate.nowPlaying;
+    const next = {
+      ...previous,
+      ...candidate,
+      nowPlaying,
+    };
+
+    users[candidate.id] = next;
+
+    const existingIndex = memberIndexById.get(candidate.id);
+    if (existingIndex == null) {
+      memberIndexById.set(candidate.id, members.length);
+      members.push(next);
+    } else {
+      members[existingIndex] = next;
+    }
+  });
+
+  return {
+    ...groupStats,
+    users,
+    members,
+  };
 };
 
 interface StatsState {
@@ -395,10 +450,11 @@ export const useStatsStore = create<StatsState>()(
 
       // Setter para cache de histórico
       setHistoryCache: (userId: string, items: any[]) => {
+        const cacheKey = getHistoryCacheKey(userId);
         set(state => ({
           historyCache: {
             ...state.historyCache,
-            [userId]: {
+            [cacheKey]: {
               items,
               lastUpdated: Date.now()
             }
@@ -408,7 +464,7 @@ export const useStatsStore = create<StatsState>()(
 
       // Getter para cache de histórico (TTL 5 minutos) - ignorada se offline
       getHistoryCache: (userId: string) => {
-        const cache = get().historyCache[userId];
+        const cache = get().historyCache[getHistoryCacheKey(userId)];
         if (!cache) return null;
         
         const now = Date.now();
@@ -764,13 +820,14 @@ export const useStatsStore = create<StatsState>()(
             });
 
             newGroupStats.users = newUsers;
-            newGroupStats.members = newMembers;
-            newGroupStats.lastUpdated = liveData.lastUpdated;
+            newGroupStats.members = dedupeMembersById(newMembers);
+            const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
+            canonicalGroupStats.lastUpdated = liveData.lastUpdated;
 
-            saveToMMKV('groupStats', newGroupStats);
+            saveToMMKV('groupStats', canonicalGroupStats);
             mmkv.set('groupStats_timestamp', Date.now());
             set({
-              groupStats: newGroupStats,
+              groupStats: canonicalGroupStats,
               lastFetchTime: { ...get().lastFetchTime, group: Date.now() }
             });
           }
@@ -905,6 +962,8 @@ export const useStatsStore = create<StatsState>()(
           } catch {}
           nextState.groupStats = null;
           nextState.error = "Cache local inválido. Sincronize novamente.";
+        } else if (nextState.groupStats) {
+          nextState.groupStats = canonicalizeGroupStats(nextState.groupStats);
         }
         return nextState;
       },

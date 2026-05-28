@@ -661,14 +661,7 @@ export default function HomeScreen() {
         totalSongs: replay.totalSongs,
         totalDurationMs: replay.totalDurationMs
       }))
-      .catch(async () => {
-        const [artists, tracks, albums] = await Promise.all([
-          statsService.getTopItems(primaryUser.id, 'artists', replayPeriodQuery).catch(() => []),
-          statsService.getTopItems(primaryUser.id, 'tracks', replayPeriodQuery).catch(() => []),
-          statsService.getTopItems(primaryUser.id, 'albums', replayPeriodQuery).catch(() => [])
-        ]);
-        return { artists, tracks, albums, totalSongs: undefined, totalDurationMs: undefined };
-      })
+      .catch(() => ({ artists: [], tracks: [], albums: [], totalSongs: undefined, totalDurationMs: undefined }))
       .then(({ artists, tracks, albums, totalSongs, totalDurationMs }) => {
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });

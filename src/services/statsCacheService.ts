@@ -119,8 +119,7 @@ export const statsCacheService = {
         return cached.slice(0, limit);
       }
       if (isOffline) {
-        const rawCache = store.historyCache?.[userId];
-        return rawCache ? rawCache.items.slice(0, limit) : [];
+        return cached ? cached.slice(0, limit) : [];
       }
     }
 
@@ -136,9 +135,9 @@ export const statsCacheService = {
         store.setHistoryCache(userId, enrichedData);
       } else {
         // Se houver cache válido, appenda o novo lote paginado
-        const currentCacheRaw = store.historyCache?.[userId];
-        if (currentCacheRaw) {
-          const combined = [...currentCacheRaw.items, ...enrichedData];
+        const currentCache = store.getHistoryCache(userId);
+        if (currentCache) {
+          const combined = [...currentCache, ...enrichedData];
           store.setHistoryCache(userId, combined);
         }
       }
