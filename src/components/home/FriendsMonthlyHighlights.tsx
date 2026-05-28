@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../../services/statsService';
-import { getReplayFilterLabel, type ReplayFilterPeriod, type ReplaySelectedSubValues } from './ReplaySection';
+import { getReplayFilterLabel, type ReplayFilterPeriod, type ReplaySelectedSubValues } from './replayUtils';
 import { UserStats, TopItem } from '../../types/stats';
 import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';

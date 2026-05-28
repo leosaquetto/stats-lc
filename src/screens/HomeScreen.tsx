@@ -8,7 +8,7 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, In
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
-import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/ReplaySection';
+import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { VinylRecord } from '../components/home/VinylRecord';
