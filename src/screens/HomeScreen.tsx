@@ -39,6 +39,40 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?: string }) => (
+  <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-3 rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+    <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">{label}</span>
+  </div>
+);
+
+const HomeEmptyState = ({ onRetry }: { onRetry: () => void }) => (
+  <motion.div
+    key="empty-group"
+    initial={{ opacity: 0, scale: 0.96, y: 10 }}
+    animate={{ opacity: 1, scale: 1, y: 0 }}
+    className="glass-card mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-5 rounded-[36px] border-white/5 bg-gradient-to-b from-white/[0.03] to-transparent px-7 py-10 text-center shadow-2xl"
+  >
+    <div className="flex h-14 w-14 items-center justify-center rounded-[20px] border border-orange-500/20 bg-orange-500/10">
+      <Users className="h-6 w-6 text-orange-400" />
+    </div>
+    <div className="flex max-w-sm flex-col gap-2">
+      <h2 className="text-sm font-black uppercase tracking-[0.2em] text-white/90">Carregando círculo</h2>
+      <p className="text-xs font-medium leading-relaxed text-white/50">
+        Ainda não encontramos membros válidos para montar a Home. Tente sincronizar novamente.
+      </p>
+    </div>
+    <button
+      type="button"
+      onClick={onRetry}
+      className="flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white shadow-[0_10px_25px_rgba(234,88,12,0.28)] active:scale-95"
+    >
+      <RefreshCcw className="h-4 w-4" />
+      Tentar novamente
+    </button>
+  </motion.div>
+);
+
 const getStartOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 const REPLAY_MONTHS_LONG = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -217,7 +251,16 @@ export default function HomeScreen() {
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
-  const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || null, [members, featuredUserId]);
+  const primaryUser = useMemo(() => {
+    if (!groupStats) return null;
+    return (
+      members.find(m => m.id === featuredUserId) ||
+      members[0] ||
+      allMembers.find(m => m.id === featuredUserId) ||
+      allMembers[0] ||
+      null
+    );
+  }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id;
 
   // Mini header vinyl states
@@ -391,17 +434,37 @@ export default function HomeScreen() {
   }, [groupStats, isLoading, fetchGroup]);
 
   useEffect(() => {
-    if (!primaryUser && members.length > 0 && groupStats && !isLoading) {
+    if (!groupStats || isLoading) return;
+
+    const hasPreviouslySelectedUser =
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('stats-lc-has-selected-user') === '1';
+
+    if (!featuredUserId && members.length > 0 && !hasPreviouslySelectedUser) {
       setShowInitialModal(true);
-    } else if (primaryUser) {
+      return;
+    }
+
+    if (primaryUser?.id && featuredUserId !== primaryUser.id) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn('[HomeScreen] Invalid featuredUserId recovered', {
+          featuredUserId,
+          fallbackUserId: primaryUser.id,
+        });
+      }
+      setFeaturedUserId(primaryUser.id);
       setShowInitialModal(false);
+      return;
     }
 
     if (primaryUser?.id) {
-      prefetchUserTops(featuredUserId);
-      prefetchNextFriend(featuredUserId);
+      setShowInitialModal(false);
+      prefetchUserTops(primaryUser.id);
+      prefetchNextFriend(primaryUser.id);
+    } else if (allMembers.length > 0) {
+      setShowInitialModal(true);
     }
-  }, [featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend]);
+  }, [allMembers.length, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
 
   useEffect(() => {
     const nowPlaying = primaryUser?.nowPlaying;
@@ -703,7 +766,7 @@ export default function HomeScreen() {
               }}
             />
 
-            <React.Suspense fallback={null}>
+            <React.Suspense fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
               <CircleActivityModal
                 isOpen={showCircleActivity}
                 onClose={() => setShowCircleActivity(false)}
@@ -1162,7 +1225,11 @@ export default function HomeScreen() {
               </div>
             </motion.div>
           </div>
-        ) : null}
+        ) : groupStats && !isLoading ? (
+          <HomeEmptyState onRetry={() => fetchGroup(true)} />
+        ) : (
+          <HomeSectionLoader />
+        )}
       </AnimatePresence>
 
       {/* Replay Section */}
@@ -1196,7 +1263,7 @@ export default function HomeScreen() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <React.Suspense fallback={null}>
+          <React.Suspense fallback={<HomeSectionLoader label="Carregando replay" />}>
             <ReplaySection
               topArtists={replayArtists.slice(0, 20).map((a: any) => ({
                 id: a.id,

@@ -296,7 +296,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   };
 
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
-  const storeUser = useStatsStore(s => getCanonicalMembers(s.groupStats).find(u => u.id === user.id));
+  const groupStatsForUser = useStatsStore(s => s.groupStats);
+  const storeUser = useMemo(
+    () => getCanonicalMembers(groupStatsForUser).find(u => u.id === user.id),
+    [groupStatsForUser, user.id]
+  );
   const activeUser = storeUser || user;
   const nowPlaying = activeUser.nowPlaying;
   const track = nowPlaying?.track as any;

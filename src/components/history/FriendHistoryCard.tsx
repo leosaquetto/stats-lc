@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShimmerOverlay, Skeleton, SmartImage } from '../shared/CommonUI';
 import { cn } from '../../lib/utils';
@@ -70,7 +70,11 @@ export const FriendHistoryCard = memo(({
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<any>(null);
 
-  const storeUser = useStatsStore(state => getCanonicalMembers(state.groupStats).find(m => m.id === user.id)) || user;
+  const groupStats = useStatsStore(state => state.groupStats);
+  const storeUser = useMemo(
+    () => getCanonicalMembers(groupStats).find(m => m.id === user.id) || user,
+    [groupStats, user]
+  );
   const animationDuration = useStatsStore(state => state.animationDuration) || 0.5;
   const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
 

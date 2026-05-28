@@ -26,6 +26,8 @@ export const getVisibleMembers = (
   groupStats: GroupStats | null | undefined,
   hiddenUsers: string[] = []
 ): UserStats[] => {
+  const canonicalMembers = getCanonicalMembers(groupStats);
   const hidden = new Set(uniqueIds(hiddenUsers));
-  return getCanonicalMembers(groupStats).filter((member) => !hidden.has(member.id));
+  const visibleMembers = canonicalMembers.filter((member) => !hidden.has(member.id));
+  return visibleMembers.length > 0 ? visibleMembers : canonicalMembers;
 };

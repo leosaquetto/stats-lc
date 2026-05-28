@@ -4,7 +4,7 @@
  */
 
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense, useEffect } from 'react';
+import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import HomeScreen from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
@@ -23,6 +23,45 @@ const RouteLoader = () => (
     <span className="text-[10px] font-black uppercase tracking-[0.26em] text-white/55">Carregando seção</span>
   </div>
 );
+
+class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    if ((import.meta as any).env?.DEV) {
+      console.warn('[RouteErrorBoundary] route render failed', error, info.componentStack);
+    }
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-5 bg-[#050505] px-6 text-center">
+        <div className="relative h-14 w-14 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
+          <RefreshCcw className="h-5 w-5 text-orange-400" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white/85">Não foi possível abrir a seção</h1>
+          <p className="max-w-xs text-xs font-medium leading-relaxed text-white/45">
+            Recarregue o app para tentar montar a tela novamente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="rounded-2xl bg-orange-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-[0_10px_25px_rgba(234,88,12,0.28)] active:scale-95"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+}
 
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
@@ -80,16 +119,18 @@ export default function App() {
   return (
     <HashRouter>
       <Layout>
-        <Suspense fallback={<RouteLoader />}>
-          <Routes>
-            <Route path="/" element={<HomeScreen />} />
-            <Route path="/highlights" element={<StatsScreen />} />
-            <Route path="/ranking" element={<RankingScreen />} />
-            <Route path="/alike" element={<AlikeScreen />} />
-            <Route path="/settings" element={<SettingsScreen />} />
-            <Route path="*" element={<HomeScreen />} />
-          </Routes>
-        </Suspense>
+        <RouteErrorBoundary>
+          <Suspense fallback={<RouteLoader />}>
+            <Routes>
+              <Route path="/" element={<HomeScreen />} />
+              <Route path="/highlights" element={<StatsScreen />} />
+              <Route path="/ranking" element={<RankingScreen />} />
+              <Route path="/alike" element={<AlikeScreen />} />
+              <Route path="/settings" element={<SettingsScreen />} />
+              <Route path="*" element={<HomeScreen />} />
+            </Routes>
+          </Suspense>
+        </RouteErrorBoundary>
       </Layout>
     </HashRouter>
   );
