@@ -21,6 +21,11 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const replayItemKey = (type: string, item: any, index: number) => {
+  const stableId = item?.id || item?.name || item?.artist || 'unknown';
+  return `${type}-${stableId}-${index}`;
+};
+
 interface Artist {
   id: string;
   name: string;
@@ -255,7 +260,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedArtists.map((artist, index) => (
               <motion.div
-                key={`${artist.id || artist.name}-${index}`}
+                key={replayItemKey('artist', artist, index)}
                 className="flex-shrink-0 snap-start"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -328,7 +333,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     const globalIndex = pageIndex * 4 + indexInPage;
                     return (
                       <motion.div
-                        key={`${track.id || track.name}-${globalIndex}`}
+                        key={replayItemKey('track', track, globalIndex)}
                         className="flex h-[58px] w-[calc(100vw-72px)] max-w-[318px] items-center gap-3 border-b border-white/10"
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
@@ -388,7 +393,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedAlbums.map((album, index) => (
               <motion.div
-                key={`${album.id || album.name}-${index}`}
+                key={replayItemKey('album', album, index)}
                 className="flex-shrink-0 snap-start w-[39vw] max-w-[158px]"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

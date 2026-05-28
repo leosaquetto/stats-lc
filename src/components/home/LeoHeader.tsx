@@ -828,7 +828,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                             <>
                               <span className="text-white/40">·</span>
                               {secondaryArtists.map((sec, idx) => (
-                                <React.Fragment key={sec.id || idx}>
+                                <React.Fragment key={`secondary-${sec.id || sec.name || 'artist'}-${idx}`}>
                                   {idx > 0 && <span className="text-white/40">·</span>}
                                   <span
                                     onClick={(e) => {

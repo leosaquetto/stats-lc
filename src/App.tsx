@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import HomeScreen from './screens/HomeScreen';
@@ -11,9 +11,23 @@ import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
 
 const StatsScreen = lazy(() => import('./screens/StatsScreen'));
-const RankingScreen = lazy(() => import('./screens/RankingScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
-const AlikeScreen = lazy(() => import('./screens/AlikeScreen'));
+const CircleScreen = lazy(() => import('./screens/CircleScreen'));
+
+const CHUNK_RELOAD_KEY = 'stats-lc-chunk-reload-attempted';
+
+const isChunkLoadError = (error: unknown) => {
+  const message = [
+    error instanceof Error ? error.message : String(error || ''),
+    error instanceof Error ? error.stack : '',
+  ].join(' ');
+
+  return [
+    'Failed to fetch dynamically imported module',
+    'Importing a module script failed',
+    'Loading chunk failed',
+  ].some((needle) => message.includes(needle));
+};
 
 const RouteLoader = () => (
   <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-center">
@@ -24,14 +38,25 @@ const RouteLoader = () => (
   </div>
 );
 
-class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
-  state = { hasError: false };
+class RouteErrorBoundary extends Component<
+  { children: ReactNode; routeKey: string },
+  { hasError: boolean; chunkError: boolean }
+> {
+  state = { hasError: false, chunkError: false };
 
   static getDerivedStateFromError() {
     return { hasError: true };
   }
 
+  componentDidUpdate(prevProps: { routeKey: string }) {
+    if (prevProps.routeKey !== this.props.routeKey && this.state.hasError) {
+      this.setState({ hasError: false, chunkError: false });
+    }
+  }
+
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const chunkError = isChunkLoadError(error);
+
     if ((import.meta as any).env?.DEV) {
       console.error('[RouteErrorBoundary] original route render error', {
         error,
@@ -40,6 +65,17 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
         componentStack: info.componentStack,
       });
     }
+
+    if (chunkError) {
+      const hasTriedReload = sessionStorage.getItem(CHUNK_RELOAD_KEY) === '1';
+      if (!hasTriedReload) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        return;
+      }
+    }
+
+    this.setState({ chunkError });
   }
 
   render() {
@@ -51,9 +87,13 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
           <RefreshCcw className="h-5 w-5 text-orange-400" />
         </div>
         <div className="flex flex-col gap-2">
-          <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white/85">Não foi possível abrir a seção</h1>
+          <h1 className="text-sm font-black uppercase tracking-[0.2em] text-white/85">
+            {this.state.chunkError ? 'Atualize para abrir a seção' : 'Não foi possível abrir a seção'}
+          </h1>
           <p className="max-w-xs text-xs font-medium leading-relaxed text-white/45">
-            Recarregue o app para tentar montar a tela novamente.
+            {this.state.chunkError
+              ? 'A versão do app mudou enquanto esta seção carregava.'
+              : 'Recarregue o app para tentar montar a tela novamente.'}
           </p>
         </div>
         <button
@@ -61,11 +101,31 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
           onClick={() => window.location.reload()}
           className="rounded-2xl bg-orange-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-[0_10px_25px_rgba(234,88,12,0.28)] active:scale-95"
         >
-          Tentar novamente
+          {this.state.chunkError ? 'Atualizar app' : 'Tentar novamente'}
         </button>
       </div>
     );
   }
+}
+
+function AppRoutes() {
+  const location = useLocation();
+
+  return (
+    <RouteErrorBoundary routeKey={location.pathname} key={location.pathname}>
+      <Suspense fallback={<RouteLoader />}>
+        <Routes>
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/highlights" element={<StatsScreen />} />
+          <Route path="/circle" element={<CircleScreen initialTab="ranking" />} />
+          <Route path="/ranking" element={<CircleScreen initialTab="ranking" />} />
+          <Route path="/alike" element={<CircleScreen initialTab="affinity" />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="*" element={<HomeScreen />} />
+        </Routes>
+      </Suspense>
+    </RouteErrorBoundary>
+  );
 }
 
 export default function App() {
@@ -124,18 +184,7 @@ export default function App() {
   return (
     <HashRouter>
       <Layout>
-        <RouteErrorBoundary>
-          <Suspense fallback={<RouteLoader />}>
-            <Routes>
-              <Route path="/" element={<HomeScreen />} />
-              <Route path="/highlights" element={<StatsScreen />} />
-              <Route path="/ranking" element={<RankingScreen />} />
-              <Route path="/alike" element={<AlikeScreen />} />
-              <Route path="/settings" element={<SettingsScreen />} />
-              <Route path="*" element={<HomeScreen />} />
-            </Routes>
-          </Suspense>
-        </RouteErrorBoundary>
+        <AppRoutes />
       </Layout>
     </HashRouter>
   );

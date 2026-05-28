@@ -9,6 +9,13 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { ExternalLink } from 'lucide-react';
 import { getCanonicalMembers } from '../../lib/memberSelectors';
 
+const historyItemKey = (item: any, index: number) => {
+  const track = item?.track || {};
+  const stableId = track.id || track.name || 'track';
+  const time = item?.playedAt || item?.endTime || item?.timestamp || item?.played_at || 'unknown-time';
+  return `history-${stableId}-${time}-${index}`;
+};
+
 interface FriendHistoryCardProps {
   user: any;
   onTrackClick: (track: any) => void;
@@ -334,7 +341,7 @@ export const FriendHistoryCard = memo(({
               <AnimatePresence>
                 {historyList.map((item, idx) => (
                   <motion.div
-                    key={`${item.track?.id}-${idx}`}
+                    key={historyItemKey(item, idx)}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     style={{ willChange: "transform, opacity" }}

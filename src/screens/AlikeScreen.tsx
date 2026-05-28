@@ -7,7 +7,7 @@ import { TopItem, UserStats } from '../types/stats';
 import { HeartHandshake, Users, Sparkles, UserCircle2, Clock, PlayCircle, Flame } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getCanonicalMembers } from '../lib/memberSelectors';
+import { getVisibleMembers } from '../lib/memberSelectors';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -92,12 +92,21 @@ function getIntersection(user: UserStats, friend: UserStats, type: 'artists' | '
 }
 
 export default function AlikeScreen() {
-  const { groupStats, featuredUserId } = useStatsStore();
-  const members = getCanonicalMembers(groupStats);
-  const featuredUser = members.find(m => m.id === featuredUserId);
-  const friends = members.filter(m => m.id !== featuredUserId);
+  const groupStats = useStatsStore(state => state.groupStats);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const featuredUser = useMemo(
+    () => members.find(m => m.id === featuredUserId) || members[0] || null,
+    [members, featuredUserId]
+  );
+  const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
+  const friends = useMemo(
+    () => members.filter(m => m.id !== effectiveFeaturedUserId),
+    [members, effectiveFeaturedUserId]
+  );
 
-  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(friends[0]?.id || null);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
 
   const friendAffinities = useMemo(() => {
     if (!featuredUser) return [];
@@ -109,12 +118,20 @@ export default function AlikeScreen() {
 
   // If no initial friend is selected, pick highest affinity
   useEffect(() => {
-    if (!selectedFriendId && friendAffinities.length > 0) {
-      setSelectedFriendId(friendAffinities[0].friend.id);
-    }
-  }, [selectedFriendId, friendAffinities]);
+    const selectedExists = selectedFriendId
+      ? friends.some(friend => friend.id === selectedFriendId)
+      : false;
+    const nextFriendId = friendAffinities[0]?.friend.id || friends[0]?.id || null;
 
-  const selectedFriend = friends.find(f => f.id === selectedFriendId);
+    if ((!selectedFriendId || !selectedExists) && selectedFriendId !== nextFriendId) {
+      setSelectedFriendId(nextFriendId);
+    }
+  }, [selectedFriendId, friendAffinities, friends]);
+
+  const selectedFriend = useMemo(
+    () => friends.find(f => f.id === selectedFriendId) || friends[0] || null,
+    [friends, selectedFriendId]
+  );
 
   const compareStats = useMemo(() => {
     if (!featuredUser || !selectedFriend) return null;
@@ -227,10 +244,10 @@ export default function AlikeScreen() {
             <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
 
             <div className="flex flex-col items-center gap-3 z-10">
-              <SmartImage 
-                src={coreUtils.getUserAvatar(featuredUserId, featuredUser.avatar)} 
-                fallback={featuredUser.name?.charAt(0)} 
-                rounded="full" 
+                <SmartImage
+                  src={coreUtils.getUserAvatar(effectiveFeaturedUserId, featuredUser.avatar)}
+                  fallback={featuredUser.name?.charAt(0)}
+                  rounded="full"
                 className="h-20 w-20 border-4 border-white/10 shadow-2xl bg-black"
               />
               <span className="text-sm font-bold text-white/90">{featuredUser.name}</span>

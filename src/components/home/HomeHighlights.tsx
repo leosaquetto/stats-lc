@@ -27,6 +27,20 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const topItemKey = (type: string, item: any, index: number) => {
+  const stableId =
+    item?.id ||
+    item?.artist?.id ||
+    item?.track?.id ||
+    item?.album?.id ||
+    item?.name ||
+    item?.artist?.name ||
+    item?.track?.name ||
+    item?.album?.name ||
+    'unknown';
+  return `${type}-${stableId}-${index}`;
+};
+
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const totalStreams = users.reduce((sum, u) => sum + (u.streamsToday || 0), 0);
   const sortedParticipants = [...users]
@@ -468,7 +482,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.artists.map((artist, idx) => (
                 <motion.div 
-                  key={artist.id || artist.name || idx} 
+                  key={topItemKey('artist', artist, idx)}
                   initial={{ opacity: 0, scale: 0.8, x: 20 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
                   transition={{ 
@@ -506,7 +520,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.tracks.map((track, idx) => (
                 <motion.div 
-                  key={track.id || track.name || idx} 
+                  key={topItemKey('track', track, idx)}
                   initial={{ opacity: 0, scale: 0.8, x: 20 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
                   transition={{ 
@@ -544,7 +558,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.albums.map((album, idx) => (
                 <motion.div 
-                  key={album.id || album.name || idx} 
+                  key={topItemKey('album', album, idx)}
                   initial={{ opacity: 0, scale: 0.8, x: 20 }}
                   animate={{ opacity: 1, scale: 1, x: 0 }}
                   transition={{ 

@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, Trophy, Medal, Settings, WifiOff, Clock, X, HeartHandshake } from 'lucide-react';
+import { Home, BarChart3, Settings, WifiOff, Clock, X, HeartHandshake } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -123,11 +123,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const shouldShowExpanded = isSyncInfoExpanded;
   
   const navItems = [
-    { label: 'Home', icon: Home, path: '/' },
-    { label: 'Stats', icon: BarChart3, path: '/highlights' },
-    { label: 'Arena', icon: Medal, path: '/ranking' },
-    { label: 'Alike', icon: HeartHandshake, path: '/alike' },
-    { label: 'Ajustes', icon: Settings, path: '/settings' },
+    { label: 'Home', icon: Home, path: '/', activePaths: ['/'] },
+    { label: 'Stats', icon: BarChart3, path: '/highlights', activePaths: ['/highlights'] },
+    { label: 'Circle', icon: HeartHandshake, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
+    { label: 'Ajustes', icon: Settings, path: '/settings', activePaths: ['/settings'] },
   ];
 
   const lastUpdate = groupStats?.lastUpdated;
@@ -375,7 +374,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
             
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path;
+              const isActive = item.activePaths.includes(location.pathname);
               const Icon = item.icon;
               
               return (

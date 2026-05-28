@@ -49,6 +49,11 @@ interface TopAlbumsModalProps extends BaseModalProps {
   albums: Album[];
 }
 
+const replayModalItemKey = (type: string, item: any, index: number) => {
+  const stableId = item?.id || item?.name || item?.artist || 'unknown';
+  return `${type}-${stableId}-${index}`;
+};
+
 const ReplayModalShell = ({
   isOpen,
   onClose,
@@ -114,7 +119,7 @@ export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClos
       <div className="space-y-1">
         {limitedArtists.map((artist, index) => (
           <div
-            key={`${artist.id || artist.name}-${index}`}
+            key={replayModalItemKey('artist', artist, index)}
             className="grid min-h-[72px] grid-cols-[20px_64px_30px_1fr_20px] items-center gap-3"
           >
             <Star className="h-5 w-5 fill-[#ff4056] text-[#ff4056]" />
@@ -147,7 +152,7 @@ export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, t
       <div>
         {limitedTracks.map((track, index) => (
           <div
-            key={`${track.id || track.name}-${index}`}
+            key={replayModalItemKey('track', track, index)}
             className="grid min-h-[64px] grid-cols-[20px_52px_30px_1fr_28px] items-center gap-3 border-b border-white/10"
           >
             <Star className="h-5 w-5 fill-[#ff4056] text-[#ff4056]" />
@@ -179,7 +184,7 @@ export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose,
     <ReplayModalShell isOpen={isOpen} onClose={onClose} title="Álbuns mais ouvidos" period={period}>
       <div className="grid grid-cols-2 gap-x-5 gap-y-7">
         {limitedAlbums.map((album, index) => (
-          <div key={`${album.id || album.name}-${index}`} className="min-w-0">
+          <div key={replayModalItemKey('album', album, index)} className="min-w-0">
             <SmartImage
               src={album.image || ''}
               className="aspect-square w-full rounded-[12px] shadow-[0_18px_45px_rgba(0,0,0,0.45)]"

@@ -129,7 +129,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
           {/* Avatares em órbita (sem mostrar o usuário principal) */}
           {positions.map(({ member, x, y, delay }, index) => (
             <motion.button
-              key={`${member.id}-${index}`}
+              key={member.id}
               onClick={() => {
                 onSelectUser(member.id);
                 onClose();

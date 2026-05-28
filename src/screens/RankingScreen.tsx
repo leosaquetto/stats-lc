@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { lazy, Suspense, useState, useEffect, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, Swords, Share2 } from 'lucide-react';
@@ -123,22 +123,35 @@ const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index,
 type Range = 'today' | 'weeks' | 'months' | 'years' | 'lifetime';
 
 export default function RankingScreen() {
-  const { groupStats, isLoading: isGlobalLoading, isOffline, fetchGroup, fetchGroupLive } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const isGlobalLoading = useStatsStore(state => state.isLoading);
+  const isOffline = useStatsStore(state => state.isOffline);
+  const fetchGroup = useStatsStore(state => state.fetchGroup);
+  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const [activeRange, setActiveRange] = useState<Range>('months');
   const [rankingType, setRankingType] = useState<'streams' | 'duration'>('streams');
   const [rankingsData, setRankingsData] = useState<Record<string, { count: number, durationMs: number }>>({});
   const [weeklyRankings, setWeeklyRankings] = useState<Record<string, { count: number, durationMs: number }>>({});
   const [isLocalLoading, setIsLocalLoading] = useState(false);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const LEO_ID = "leo";
-  const { setFeaturedUserId, featuredUserId } = useStatsStore();
   const podiumRef = useRef<HTMLDivElement>(null);
   
   const [sortVersion, setSortVersion] = useState(0);
   const prevRankings = useRef<Record<string, number>>({});
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const featuredUser = useMemo(
+    () => members.find(m => m.id === featuredUserId) || members[0] || null,
+    [members, featuredUserId]
+  );
+  const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
   
   useEffect(() => {
     async function loadWeeklyRankings() {
@@ -150,7 +163,7 @@ export default function RankingScreen() {
       }
     }
     loadWeeklyRankings();
-  }, [groupStats]);
+  }, []);
 
   useEffect(() => {
     async function loadRankings() {
@@ -169,76 +182,84 @@ export default function RankingScreen() {
       }
     }
     loadRankings();
-  }, [activeRange]);
+  }, [activeRange, refreshNonce]);
+
+  useEffect(() => {
+    if (featuredUser?.id && featuredUserId !== featuredUser.id) {
+      setFeaturedUserId(featuredUser.id);
+    }
+  }, [featuredUser?.id, featuredUserId, setFeaturedUserId]);
 
   // Trigger flip animation when sorting type changes
   useEffect(() => {
     setSortVersion(v => v + 1);
   }, [rankingType]);
   
-  const hiddenUsers = useStatsStore(s => s.hiddenUsers);
-  const members = getVisibleMembers(groupStats, hiddenUsers);
-  
   // Prioriza os dados do ranking específico se disponível
-  const displayUsers = members.map(user => {
+  const displayUsers = useMemo(() => members.map(user => {
     const stats: any = rankingsData[user.id] || {};
     return {
       ...user,
       displayCount: stats.count || 0,
       displayDuration: stats.durationMs || 0
     };
-  });
+  }), [members, rankingsData]);
 
-  const sortedUsers = [...displayUsers]
-    .filter(u => rankingType === 'streams' ? u.displayCount > 0 : u.displayDuration > 0)
-    .sort((a, b) => {
-      if (rankingType === 'streams') return b.displayCount - a.displayCount;
-      return b.displayDuration - a.displayDuration;
-    });
+  const sortedUsers = useMemo(() => {
+    return [...displayUsers]
+      .filter(u => rankingType === 'streams' ? u.displayCount > 0 : u.displayDuration > 0)
+      .sort((a, b) => {
+        if (rankingType === 'streams') return b.displayCount - a.displayCount;
+        return b.displayDuration - a.displayDuration;
+      });
+  }, [displayUsers, rankingType]);
 
   // Rivalidade da Semana
-  const weeklyUsers = members.map(user => {
+  const weeklyUsers = useMemo(() => members.map(user => {
     const stats: any = weeklyRankings[user.id] || {};
     return {
       ...user,
       displayCount: stats.count || 0,
       displayDuration: stats.durationMs || 0
     };
-  });
+  }), [members, weeklyRankings]);
 
-  const sortedWeeklyUsers = [...weeklyUsers].sort((a, b) => b.displayCount - a.displayCount);
-  
-  const featuredIndex = sortedWeeklyUsers.findIndex(u => u.id === featuredUserId);
-  let rival: any = null;
-  let featuredIsAhead = false;
-  let diffStreams = 0;
-  let diffDurationMs = 0;
+  const sortedWeeklyUsers = useMemo(
+    () => [...weeklyUsers].sort((a, b) => b.displayCount - a.displayCount),
+    [weeklyUsers]
+  );
 
-  if (featuredIndex !== -1 && sortedWeeklyUsers.length > 1) {
-    const featuredUser = sortedWeeklyUsers[featuredIndex];
-    if (featuredIndex === 0) {
-      rival = sortedWeeklyUsers[1];
-    } else if (featuredIndex === sortedWeeklyUsers.length - 1) {
-      rival = sortedWeeklyUsers[featuredIndex - 1];
-    } else {
-      const neighborAbove = sortedWeeklyUsers[featuredIndex - 1];
-      const neighborBelow = sortedWeeklyUsers[featuredIndex + 1];
-      const diffAbove = Math.abs(neighborAbove.displayCount - featuredUser.displayCount);
-      const diffBelow = Math.abs(neighborBelow.displayCount - featuredUser.displayCount);
-      
-      if (diffAbove <= diffBelow) {
-        rival = neighborAbove;
+  const rivalry = useMemo(() => {
+    const featuredIndex = sortedWeeklyUsers.findIndex(u => u.id === effectiveFeaturedUserId);
+    let rival: any = null;
+    let featuredIsAhead = false;
+    let diffStreams = 0;
+    let diffDurationMs = 0;
+
+    if (featuredIndex !== -1 && sortedWeeklyUsers.length > 1) {
+      const weeklyFeaturedUser = sortedWeeklyUsers[featuredIndex];
+      if (featuredIndex === 0) {
+        rival = sortedWeeklyUsers[1];
+      } else if (featuredIndex === sortedWeeklyUsers.length - 1) {
+        rival = sortedWeeklyUsers[featuredIndex - 1];
       } else {
-        rival = neighborBelow;
+        const neighborAbove = sortedWeeklyUsers[featuredIndex - 1];
+        const neighborBelow = sortedWeeklyUsers[featuredIndex + 1];
+        const diffAbove = Math.abs(neighborAbove.displayCount - weeklyFeaturedUser.displayCount);
+        const diffBelow = Math.abs(neighborBelow.displayCount - weeklyFeaturedUser.displayCount);
+        rival = diffAbove <= diffBelow ? neighborAbove : neighborBelow;
+      }
+
+      if (rival) {
+        featuredIsAhead = weeklyFeaturedUser.displayCount >= rival.displayCount;
+        diffStreams = Math.abs(weeklyFeaturedUser.displayCount - rival.displayCount);
+        diffDurationMs = Math.abs(weeklyFeaturedUser.displayDuration - rival.displayDuration);
       }
     }
-    
-    if (rival) {
-      featuredIsAhead = featuredUser.displayCount >= rival.displayCount;
-      diffStreams = Math.abs(featuredUser.displayCount - rival.displayCount);
-      diffDurationMs = Math.abs(featuredUser.displayDuration - rival.displayDuration);
-    }
-  }
+
+    return { rival, featuredIsAhead, diffStreams, diffDurationMs };
+  }, [sortedWeeklyUsers, effectiveFeaturedUserId]);
+  const { rival, featuredIsAhead, diffStreams, diffDurationMs } = rivalry;
 
   // Track rank changes
   useEffect(() => {
@@ -262,7 +283,7 @@ export default function RankingScreen() {
         <AlertTriangle className="h-12 w-12 text-orange-500" />
         <p className="text-white/60">{errorLocal}</p>
         <button 
-          onClick={() => setActiveRange(activeRange)}
+          onClick={() => setRefreshNonce(n => n + 1)}
           className="px-4 py-2 bg-white/10 rounded-xl text-white text-sm"
         >
           Tentar Novamente
@@ -290,6 +311,12 @@ export default function RankingScreen() {
       <div className="flex flex-col items-center justify-center h-64 gap-4 px-4 text-center">
         <Trophy className="h-12 w-12 text-white/20" />
         <p className="text-white/40">Nenhum dado da arena disponível</p>
+        <button
+          onClick={() => fetchGroup(true)}
+          className="px-4 py-2 bg-white/10 rounded-xl text-white text-sm"
+        >
+          Sincronizar
+        </button>
       </div>
     );
   }
@@ -313,11 +340,13 @@ export default function RankingScreen() {
             />
           )}
           {battleOpponent && (
-            <StatsBattleModal 
-              userA={members.find(m => m.id === featuredUserId)!}
-              userB={battleOpponent}
-              onClose={() => setBattleOpponent(null)}
-            />
+            featuredUser ? (
+              <StatsBattleModal
+                userA={featuredUser}
+                userB={battleOpponent}
+                onClose={() => setBattleOpponent(null)}
+              />
+            ) : null
           )}
         </AnimatePresence>
       </Suspense>
@@ -370,8 +399,8 @@ export default function RankingScreen() {
                         }}
                         className={clsx(
                           "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
-                          featuredUserId === u.id 
-                            ? "bg-white/10 border border-white/10" 
+                          effectiveFeaturedUserId === u.id
+                            ? "bg-white/10 border border-white/10"
                             : "hover:bg-white/5"
                         )}
                       >
@@ -382,13 +411,13 @@ export default function RankingScreen() {
                              fallback={u.name}
                              rounded="full" 
                            />
-                           {featuredUserId === u.id && (
+                           {effectiveFeaturedUserId === u.id && (
                              <div className="absolute inset-0 bg-orange-500/20" />
                            )}
                         </div>
                         <span className={clsx(
                           "text-xs font-medium transition-colors",
-                          featuredUserId === u.id ? "text-white" : "text-white/60"
+                          effectiveFeaturedUserId === u.id ? "text-white" : "text-white/60"
                         )}>
                           {u.name}
                         </span>
@@ -456,11 +485,11 @@ export default function RankingScreen() {
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="flex items-center -space-x-4">
               <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-orange-500 bg-black/40 shadow-xl p-0.5">
-                <SmartImage 
-                  src={coreUtils.getUserAvatar(featuredUserId, members.find(m => m.id === featuredUserId)?.avatar)} 
-                  className="h-full w-full" 
-                  fallback={members.find(m => m.id === featuredUserId)?.name || ""} 
-                  rounded="full" 
+                <SmartImage
+                  src={coreUtils.getUserAvatar(effectiveFeaturedUserId, featuredUser?.avatar)}
+                  className="h-full w-full"
+                  fallback={featuredUser?.name || ""}
+                  rounded="full"
                 />
               </div>
               <div className="z-10 h-10 w-10 rounded-full flex items-center justify-center bg-[#111] border border-orange-500/30 shadow-md">
