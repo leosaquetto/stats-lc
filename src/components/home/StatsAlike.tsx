@@ -12,6 +12,7 @@ import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/C
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getCanonicalMembers } from '../../lib/memberSelectors';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -36,9 +37,9 @@ export const StatsAlike = React.memo(() => {
   const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
-  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 
-  const members = groupStats?.members || [];
+  const members = getCanonicalMembers(groupStats);
   const featuredUser = members.find(m => m.id === featuredUserId) || members[0];
   const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
   const topItemsSignature = useMemo(() => {
@@ -262,8 +263,20 @@ export const StatsAlike = React.memo(() => {
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY, intent: 'pending' };
     setIsAutoRotating(false);
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    if (!start) return;
+
+    const touch = event.touches[0];
+    const diffX = Math.abs(touch.clientX - start.x);
+    const diffY = Math.abs(touch.clientY - start.y);
+    if (start.intent === 'pending' && Math.max(diffX, diffY) > 8) {
+      start.intent = diffX > diffY * 1.25 ? 'horizontal' : 'vertical';
+    }
   };
 
   const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -274,7 +287,7 @@ export const StatsAlike = React.memo(() => {
     const touch = event.changedTouches[0];
     const diffX = touch.clientX - start.x;
     const diffY = touch.clientY - start.y;
-    if (Math.abs(diffX) < 42 || Math.abs(diffX) < Math.abs(diffY) * 1.2) {
+    if (start.intent === 'vertical' || Math.abs(diffX) < 42 || Math.abs(diffX) < Math.abs(diffY) * 1.25) {
       setIsAutoRotating(true);
       return;
     }
@@ -308,10 +321,11 @@ export const StatsAlike = React.memo(() => {
       />
 
       <div
-        className="relative h-[292px] w-full touch-pan-x select-none flex items-center justify-center overflow-visible [perspective:1200px]"
+        className="relative h-[292px] w-full select-none flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => {
           touchStartRef.current = null;

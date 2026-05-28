@@ -4,19 +4,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, Swords, Share2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
-import { UserDetailModal, StatsBattleModal } from '../components/MusicUI';
 import { GlobalStatsComparer } from '../components/stats/GlobalStatsComparer';
 import { MonthlyGroupLeaderboard } from '../components/home/HomeHighlights';
 import { GROUP_USERS, coreUtils } from '../services/statsCore';
 import { UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { ShareButton } from '../components/shared/ShareButton';
+import { getVisibleMembers } from '../lib/memberSelectors';
+
+const UserDetailModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.UserDetailModal })));
+const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
 
 const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index, trend }: any) => {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -174,7 +177,7 @@ export default function RankingScreen() {
   }, [rankingType]);
   
   const hiddenUsers = useStatsStore(s => s.hiddenUsers);
-  const members = (groupStats?.members || Object.values(groupStats?.users || {})).filter((m: any) => !hiddenUsers.includes(m.id));
+  const members = getVisibleMembers(groupStats, hiddenUsers);
   
   // Prioriza os dados do ranking específico se disponível
   const displayUsers = members.map(user => {
@@ -301,21 +304,23 @@ export default function RankingScreen() {
 
   return (
     <div className="flex flex-col gap-6 pb-32 px-4">
-      <AnimatePresence>
-        {selectedUser && (
-          <UserDetailModal 
-            user={selectedUser}
-            onClose={() => setSelectedUser(null)}
-          />
-        )}
-        {battleOpponent && (
-          <StatsBattleModal 
-            userA={members.find(m => m.id === featuredUserId)!}
-            userB={battleOpponent}
-            onClose={() => setBattleOpponent(null)}
-          />
-        )}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {selectedUser && (
+            <UserDetailModal 
+              user={selectedUser}
+              onClose={() => setSelectedUser(null)}
+            />
+          )}
+          {battleOpponent && (
+            <StatsBattleModal 
+              userA={members.find(m => m.id === featuredUserId)!}
+              userB={battleOpponent}
+              onClose={() => setBattleOpponent(null)}
+            />
+          )}
+        </AnimatePresence>
+      </Suspense>
 
       <header className="px-1 flex justify-between items-start">
         <div>
@@ -630,4 +635,3 @@ export default function RankingScreen() {
     </div>
   );
 }
-

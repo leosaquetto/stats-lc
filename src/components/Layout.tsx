@@ -11,6 +11,7 @@ import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
 import { SmartImage } from './shared/CommonUI';
+import { getCanonicalMembers } from '../lib/memberSelectors';
 
 const EqualizerIcon = () => {
   return (
@@ -39,10 +40,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const { isOffline, groupStats, featuredUserId } = useStatsStore();
   
   const allUsers = React.useMemo(() => {
-    return Object.values(groupStats?.users || {}).filter((user, index, list) =>
-      user?.id && list.findIndex(candidate => candidate?.id === user.id) === index
-    );
-  }, [groupStats?.users]);
+    return getCanonicalMembers(groupStats);
+  }, [groupStats]);
 
   const activeMembersSorted = React.useMemo(() => {
     const list = allUsers.filter(u => {

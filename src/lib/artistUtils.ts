@@ -4,7 +4,7 @@
 const getArtistName = (artist: any): string => {
   if (!artist) return '';
   if (typeof artist === 'string') return artist;
-  return artist.name || artist.artistName || artist.displayName || '';
+  return artist.name || artist.artistName || artist.displayName || artist.primaryArtistName || '';
 };
 
 const getArtistId = (artist: any): string => {
@@ -23,19 +23,6 @@ const sameArtist = (a: any, b: any) => {
 
 export const getMainArtist = (track: any): any => {
   if (!track) return null;
-  // Prioridade 0: albumArtist corrige singles/feats quando a API ordena artistas de forma instável.
-  if (track.albumArtist) {
-    return track.albumArtist;
-  }
-  if (track.album?.artist) {
-    return track.album.artist;
-  }
-  if (track.albumArtistName || track.album?.artistName || track.album?.primaryArtistName) {
-    const name = track.albumArtistName || track.album?.artistName || track.album?.primaryArtistName;
-    return { id: track.albumArtistId || track.album?.artistId || track.album?.primaryArtistId, name, artistName: name };
-  }
-
-  // Prioridade 1: Novos campos da API
   if (track.primaryArtist) {
     return track.primaryArtist;
   }
@@ -46,24 +33,41 @@ export const getMainArtist = (track: any): any => {
       artistName: track.primaryArtistName
     };
   }
-  
-  // Prioridade 2: artista marcado como main no array
+
+  if (track.artist) {
+    return track.artist;
+  }
+  if (track.artistId || track.artistName) {
+    return { id: track.artistId, name: track.artistName, artistName: track.artistName };
+  }
+
+  if (track.albumArtist) {
+    return track.albumArtist;
+  }
+  if (track.albumArtistName) {
+    return { id: track.albumArtistId, name: track.albumArtistName, artistName: track.albumArtistName };
+  }
+
   if (Array.isArray(track.artists) && track.artists.length > 0) {
     const mainArtist = track.artists.find((a: any) => a.isMainArtist === true);
     if (mainArtist) return mainArtist;
-    
-    // Fallback: primeiro artista
     return track.artists[0];
   }
-  
-  // Prioridade 3: artist object ou artistName
-  return track.artist || { id: track.artistId, name: track.artistName };
+
+  if (track.album?.primaryArtist) return track.album.primaryArtist;
+  if (track.album?.artist) return track.album.artist;
+  if (track.album?.primaryArtistName || track.album?.artistName) {
+    const name = track.album.primaryArtistName || track.album.artistName;
+    return { id: track.album.primaryArtistId || track.album.artistId, name, artistName: name };
+  }
+
+  return null;
 };
 
 export const getMainArtistName = (track: any): string => {
   const artist = getMainArtist(track);
   if (typeof artist === 'string') return artist;
-  return artist?.name || artist?.artistName || 'Artista Desconhecido';
+  return getArtistName(artist) || '';
 };
 
 export const getSecondaryArtists = (track: any): any[] => {
@@ -104,7 +108,7 @@ export const formatArtistJSX = (track: any) => {
   // Retorna objeto com main e secondary pra renderizar com JSX
   return {
     main: getMainArtist(track),
-    mainName: getMainArtistName(track),
+    mainName: getMainArtistName(track) || 'Artista',
     secondary: getSecondaryArtists(track)
   };
 };

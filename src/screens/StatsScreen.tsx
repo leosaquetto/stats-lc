@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -35,40 +35,82 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
-import { SectionHeader, Skeleton, SmartImage, TrackHistoryModal } from '../components/MusicUI';
-import { MonthlyGroupLeaderboard } from '../components/MusicUI';
-import { StatsBattleModal, TrackLeaderboardModal } from '../components/MusicUI';
+import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
+import { MonthlyGroupLeaderboard } from '../components/home/HomeHighlights';
 import { FriendsStatsComparer } from '../components/stats/FriendsStatsComparer';
-import { UserQuickStats } from '../components/stats/UserQuickStats';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { ShareButton } from '../components/shared/ShareButton';
-import { WeeklyReportGenerator } from '../components/stats/WeeklyReportGenerator';
-import { DailyActivityHeatmap } from '../components/stats/DailyActivityHeatmap';
-
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area
-} from 'recharts';
-
 import { FixedSizeList as List } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
 
 const AutoSizerAny = AutoSizer as any;
 
 import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP, getHourSP, formatDateSP } from '../lib/time';
+import { getVisibleMembers } from '../lib/memberSelectors';
+
+const DailyActivityHeatmap = lazy(() => import('../components/stats/DailyActivityHeatmap').then(module => ({ default: module.DailyActivityHeatmap })));
+const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
+const TrackLeaderboardModal = lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
+const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
+
+const ActivityAreaChart = lazy(async () => {
+  const {
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+  } = await import('recharts');
+
+  return {
+    default: ({ data, chartMetric, accentColor }: { data: any[]; chartMetric: 'streams' | 'hours'; accentColor: string }) => (
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
+          <defs>
+            <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={accentColor} stopOpacity={0.25}/>
+              <stop offset="95%" stopColor={accentColor} stopOpacity={0.01}/>
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+          <XAxis dataKey="displayLabel" axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} minTickGap={20} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} />
+          <Tooltip
+            content={({ active, payload, label }) => {
+              if (active && payload && payload.length) {
+                const val = payload[0].value;
+                const displayLabel = label || payload[0].payload.displayLabel;
+                const isHours = chartMetric === 'hours';
+                return (
+                  <div className="glass-card p-3 border border-orange-500/10 bg-black/95 backdrop-blur-xl flex flex-col gap-1.5 shadow-2xl rounded-2xl">
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none">{displayLabel}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <span className="text-sm font-black text-white">
+                        {isHours ? `${Number(val).toFixed(2)}` : val}{' '}
+                        <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
+                          {isHours ? 'HORAS' : 'STREAMS'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }}
+            cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }}
+          />
+          <Area type="monotone" dataKey={chartMetric} stroke={accentColor} strokeWidth={3} fill="url(#colorMetric)" dot={{ r: 2, strokeWidth: 1, fill: '#050505', stroke: accentColor }} activeDot={{ r: 6, stroke: accentColor, strokeWidth: 2, fill: '#050505' }} animationDuration={1500} />
+        </AreaChart>
+      </ResponsiveContainer>
+    ),
+  };
+});
 
 interface VirtualRowProps {
   index: number;
@@ -357,7 +399,7 @@ export default function StatsScreen() {
     setFeaturedUserId
   } = useStatsStore();
   
-  const members = (groupStats?.members || Object.values(groupStats?.users || {})).filter((m: any) => !hiddenUsers.includes(m.id));
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const selectedUserId = featuredUserId || members[0]?.id || '';
   const user = groupStats?.users[selectedUserId] || members.find(m => m.id === selectedUserId) || members[0];
   const CURRENT_USER_ID = user?.id || selectedUserId;
@@ -412,6 +454,7 @@ export default function StatsScreen() {
   }, [showFusionSelector]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadFullData() {
       if (!CURRENT_USER_ID) {
         setFullUserData(null);
@@ -422,20 +465,24 @@ export default function StatsScreen() {
       setIsLocalLoading(true);
       try {
         const fullData = await statsService.getUserFullStats(CURRENT_USER_ID);
-        setFullUserData(fullData);
+        if (!cancelled) setFullUserData(fullData);
       } catch (e) {
-        console.error("Failed to load full user data", e);
+        if (!cancelled) console.error("Failed to load full user data", e);
       } finally {
-        setIsLocalLoading(false);
+        if (!cancelled) setIsLocalLoading(false);
       }
     }
     loadFullData();
+    return () => {
+      cancelled = true;
+    };
   }, [CURRENT_USER_ID]);
 
   const [datesData, setDatesData] = useState<any>(null);
   const [cardinalityData, setCardinalityData] = useState<any>(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadChartData() {
       if (!CURRENT_USER_ID) {
         setDatesData(null);
@@ -469,6 +516,7 @@ export default function StatsScreen() {
         ]);
 
         const data = statsRes;
+        if (cancelled) return;
         setDatesData(datesRes);
         // Cardinality can be in stats endpoint directly (data.items.cardinality) or in a separate cardinalityRes
         setCardinalityData(cardRes?.items?.cardinality || cardRes?.cardinality ? cardRes : data);
@@ -596,14 +644,17 @@ export default function StatsScreen() {
           }
         }
 
-        setHistoryData(formatted);
+        if (!cancelled) setHistoryData(formatted);
       } catch (e) {
-        console.error("Failed to load chart data", e);
+        if (!cancelled) console.error("Failed to load chart data", e);
       } finally {
-        setIsChartLoading(false);
+        if (!cancelled) setIsChartLoading(false);
       }
     }
     loadChartData();
+    return () => {
+      cancelled = true;
+    };
   }, [CURRENT_USER_ID, activeFilter, fullUserData]);
 
   const dailyEvolutionData = useMemo(() => {
@@ -1107,6 +1158,7 @@ export default function StatsScreen() {
   }, [currentInsightIndex, insights.length]);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadAllPeriodData() {
       if (viewMode === 'friends' || !CURRENT_USER_ID) return;
       setIsTopItemsLoading(true);
@@ -1117,16 +1169,20 @@ export default function StatsScreen() {
           statsService.getTopItems(CURRENT_USER_ID, 'tracks', period),
           statsService.getTopItems(CURRENT_USER_ID, 'albums', period)
         ]);
+        if (cancelled) return;
         setActivePeriodArtists(artists || []);
         setActivePeriodTracks(tracks || []);
         setActivePeriodAlbums(albums || []);
       } catch (e) {
-        console.error("Failed to load period top items for StatsScreen", e);
+        if (!cancelled) console.error("Failed to load period top items for StatsScreen", e);
       } finally {
-        setIsTopItemsLoading(false);
+        if (!cancelled) setIsTopItemsLoading(false);
       }
     }
     loadAllPeriodData();
+    return () => {
+      cancelled = true;
+    };
   }, [CURRENT_USER_ID, activeFilter, viewMode]);
 
   const topItems = useMemo(() => {
@@ -1752,66 +1808,12 @@ export default function StatsScreen() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <RefreshCcw className="h-6 w-6 text-white/10 animate-spin" />
                 </div>
-              ) : dailyEvolutionData.length > 0 ? (
-                <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={dailyEvolutionData} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
-                      <defs>
-                        <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={accentColor} stopOpacity={0.25}/>
-                          <stop offset="95%" stopColor={accentColor} stopOpacity={0.01}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-                      <XAxis 
-                        dataKey="displayLabel" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
-                        minTickGap={20}
-                      />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} />
-                      <Tooltip 
-                        content={({ active, payload, label }) => {
-                          if (active && payload && payload.length) {
-                            const val = payload[0].value;
-                            const displayLabel = label || payload[0].payload.displayLabel;
-                            const isHours = chartMetric === 'hours';
-                            
-                            return (
-                              <div className="glass-card p-3 border border-orange-500/10 bg-black/95 backdrop-blur-xl flex flex-col gap-1.5 shadow-2xl rounded-2xl">
-                                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none">{displayLabel}</span>
-                                <div className="flex flex-col gap-0.5">
-                                  <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
-                                    <span className="text-sm font-black text-white">
-                                      {isHours ? `${Number(val).toFixed(2)}` : val}{' '}
-                                      <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
-                                        {isHours ? 'HORAS' : 'STREAMS'}
-                                      </span>
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                        cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey={chartMetric} 
-                        stroke={accentColor} 
-                        strokeWidth={3}
-                        fill="url(#colorMetric)"
-                        dot={{ r: 2, strokeWidth: 1, fill: '#050505', stroke: accentColor }}
-                        activeDot={{ r: 6, stroke: accentColor, strokeWidth: 2, fill: '#050505' }}
-                        animationDuration={1500}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+	              ) : dailyEvolutionData.length > 0 ? (
+	                <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
+	                  <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
+	                    <ActivityAreaChart data={dailyEvolutionData} chartMetric={chartMetric} accentColor={accentColor} />
+	                  </Suspense>
+	                </div>
               ) : (
                 <div className="h-full w-full flex flex-col items-center justify-center opacity-30 gap-3">
                   <TrendingUp className="h-8 w-8" />
@@ -1846,13 +1848,15 @@ export default function StatsScreen() {
                   </div>
                 </div>
               </div>
-            ) : (hourlyDistributionData && hourlyDistributionData.length > 0 && hourlyDistributionData.some(d => d.streams > 0)) ? (
-              <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
-                <DailyActivityHeatmap 
-                  data={hourlyDistributionData} 
-                  accentColor={accentColor} 
-                />
-              </div>
+	            ) : (hourlyDistributionData && hourlyDistributionData.length > 0 && hourlyDistributionData.some(d => d.streams > 0)) ? (
+	              <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
+	                <Suspense fallback={<div className="glass-card p-6 border-white/5 mt-4 h-36 animate-pulse" />}>
+	                  <DailyActivityHeatmap 
+	                    data={hourlyDistributionData} 
+	                    accentColor={accentColor} 
+	                  />
+	                </Suspense>
+	              </div>
             ) : (
               // Empty state with reduced vertical space (p-4 instead of p-8 to reduce empty vertical space)
               <div className="glass-card p-4 border-white/5 flex flex-col items-center justify-center gap-2 mt-4 opacity-30">
@@ -1889,27 +1893,29 @@ export default function StatsScreen() {
       )}
 
       {/* MODALS PERSISTENCE LAYER */}
-      <AnimatePresence>
-        {battleOpponent && user && (
-          <StatsBattleModal 
-            userA={user}
-            userB={battleOpponent}
-            onClose={() => setBattleOpponent(null)}
-          />
-        )}
-        {selectedTrackHistory && (
-          <TrackHistoryModal 
-            track={selectedTrackHistory}
-            onClose={() => setSelectedTrackHistory(null)}
-          />
-        )}
-        {selectedTrack && (
-          <TrackLeaderboardModal 
-            track={selectedTrack} 
-            onClose={() => setSelectedTrack(null)} 
-          />
-        )}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {battleOpponent && user && (
+            <StatsBattleModal 
+              userA={user}
+              userB={battleOpponent}
+              onClose={() => setBattleOpponent(null)}
+            />
+          )}
+          {selectedTrackHistory && (
+            <TrackHistoryModal 
+              track={selectedTrackHistory}
+              onClose={() => setSelectedTrackHistory(null)}
+            />
+          )}
+          {selectedTrack && (
+            <TrackLeaderboardModal 
+              track={selectedTrack} 
+              onClose={() => setSelectedTrack(null)} 
+            />
+          )}
+        </AnimatePresence>
+      </Suspense>
 
       <AnimatePresence>
         {showScrollTop && (

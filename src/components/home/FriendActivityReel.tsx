@@ -6,6 +6,7 @@ import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { clsx } from 'clsx';
 import { Music, Clock, Play } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 
 interface FriendActivityReelProps {
   onTrackClick: (track: any) => void;
@@ -42,9 +43,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 }) => {
   const { groupStats, hiddenUsers } = useStatsStore();
   
-  const allMembers = groupStats?.members || [];
-  const members = allMembers.filter(m => 
-    !hiddenUsers.includes(m.id) && 
+  const members = getVisibleMembers(groupStats, hiddenUsers).filter(m => 
     String(m.id).trim() !== String(excludeUserId).trim()
   );
   
@@ -76,7 +75,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div className="flex h-[184px] touch-pan-x gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none no-scrollbar -mx-4 px-4 pb-2 scroll-fade-h scrolling-touch">
+      <div className="flex h-[184px] gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain no-scrollbar -mx-4 px-4 pb-2 scroll-fade-h scrolling-touch">
         <AnimatePresence>
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;

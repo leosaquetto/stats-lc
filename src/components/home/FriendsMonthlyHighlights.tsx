@@ -14,6 +14,7 @@ import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/C
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Music, Disc, Mic2, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,9 +34,8 @@ export const FriendsMonthlyHighlights = React.memo(({
   const [allExpanded, setAllExpanded] = useState(false);
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
 
-  const members = groupStats?.members || [];
   const isWaitingForGroup = !groupStats;
-  const visibleMembers = React.useMemo(() => members.filter(m => !hiddenUsers.includes(m.id)), [members, hiddenUsers]);
+  const visibleMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
 
   useEffect(() => {
     if (!periodQuery || visibleMembers.length === 0) return;

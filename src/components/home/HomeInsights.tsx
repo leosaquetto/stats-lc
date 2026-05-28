@@ -4,6 +4,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { Zap, Heart, Flame, Sparkles, Trophy, Clock, Disc3, Radio } from 'lucide-react';
 import { SmartImage, SectionHeader } from '../shared/CommonUI';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 
 interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
@@ -13,8 +14,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const { groupStats, hiddenUsers } = useStatsStore();
   const [insightOffset, setInsightOffset] = React.useState(0);
 
-  const members = groupStats?.members || [];
-  const activeMembers = React.useMemo(() => members.filter(m => !hiddenUsers.includes(m.id)), [members, hiddenUsers]);
+  const activeMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
 
   const mostActive = React.useMemo(() => {
     if (activeMembers.length === 0) return null;

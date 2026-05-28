@@ -7,6 +7,7 @@ import { getArtistListString } from '../../lib/artistUtils';
 import { statsCacheService } from '../../services/statsCacheService';
 import { useStatsStore } from '../../store/useStatsStore';
 import { ExternalLink } from 'lucide-react';
+import { getCanonicalMembers } from '../../lib/memberSelectors';
 
 interface FriendHistoryCardProps {
   user: any;
@@ -69,7 +70,7 @@ export const FriendHistoryCard = memo(({
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<any>(null);
 
-  const storeUser = useStatsStore(state => state.groupStats?.members?.find(m => m.id === user.id)) || user;
+  const storeUser = useStatsStore(state => getCanonicalMembers(state.groupStats).find(m => m.id === user.id)) || user;
   const animationDuration = useStatsStore(state => state.animationDuration) || 0.5;
   const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
 

@@ -8,11 +8,21 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import HomeScreen from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
+import { RefreshCcw } from 'lucide-react';
 
 const StatsScreen = lazy(() => import('./screens/StatsScreen'));
 const RankingScreen = lazy(() => import('./screens/RankingScreen'));
 const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
 const AlikeScreen = lazy(() => import('./screens/AlikeScreen'));
+
+const RouteLoader = () => (
+  <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-center">
+    <div className="relative h-14 w-14 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
+      <RefreshCcw className="h-5 w-5 text-orange-400 animate-spin" />
+    </div>
+    <span className="text-[10px] font-black uppercase tracking-[0.26em] text-white/55">Carregando seção</span>
+  </div>
+);
 
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
@@ -70,7 +80,7 @@ export default function App() {
   return (
     <HashRouter>
       <Layout>
-        <Suspense fallback={<div className="min-h-screen bg-black" />}>
+        <Suspense fallback={<RouteLoader />}>
           <Routes>
             <Route path="/" element={<HomeScreen />} />
             <Route path="/highlights" element={<StatsScreen />} />

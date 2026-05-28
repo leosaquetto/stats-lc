@@ -20,6 +20,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getDominantColor, withAlpha, ensureVisibility } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
+import { getCanonicalMembers, getVisibleMembers } from '../../lib/memberSelectors';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -295,7 +296,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   };
 
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
-  const storeUser = useStatsStore(s => s.groupStats?.members?.find(u => u.id === user.id));
+  const storeUser = useStatsStore(s => getCanonicalMembers(s.groupStats).find(u => u.id === user.id));
   const activeUser = storeUser || user;
   const nowPlaying = activeUser.nowPlaying;
   const track = nowPlaying?.track as any;
@@ -409,7 +410,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const hideRankingBadge = useStatsStore(state => state.hideRankingBadge);
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers) || [];
-  const membersData = groupStats?.users || {};
 
   const trackStatsKey = `${user.id}:${track?.id}`;
   const playCount = userTrackStats[trackStatsKey];
@@ -422,8 +422,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
-    return Object.values(membersData)
-      .filter(u => !hiddenUsers.includes(u.id))
+    return getVisibleMembers(groupStats, hiddenUsers)
       .map(u => ({
         id: u.id,
         name: u.name,
@@ -432,7 +431,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       }))
       .filter(u => u.plays > 0)
       .sort((a, b) => b.plays - a.plays);
-  }, [membersData, userTrackStats, track?.id, hiddenUsers]);
+  }, [groupStats, userTrackStats, track?.id, hiddenUsers]);
 
   const trackArenaUsers = useMemo(() =>
     arenaExpanded ? allTrackArenaUsers : allTrackArenaUsers.slice(0, 5)
@@ -539,8 +538,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [canShowListenStats, user.id, listenAlbumId]);
 
   const filteredMembers = useMemo(() => {
-    const list = groupStats?.members || Object.values(groupStats?.users || {}).map(u => ({ id: u.id }));
-    return list.filter(m => !hiddenUsers.includes(m.id));
+    return getVisibleMembers(groupStats, hiddenUsers);
   }, [groupStats, hiddenUsers]);
 
   const containerVariants = {

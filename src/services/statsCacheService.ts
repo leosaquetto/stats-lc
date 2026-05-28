@@ -1,5 +1,6 @@
 import { statsService } from './statsService';
 import { useStatsStore } from '../store/useStatsStore';
+import { getCanonicalMembers } from '../lib/memberSelectors';
 
 const ENTITY_STATS_TTL_MS = 5 * 60 * 1000;
 const TRACK_HISTORY_TTL_MS = 5 * 60 * 1000;
@@ -61,7 +62,7 @@ export const statsCacheService = {
     const store = useStatsStore.getState();
     
     // Tenta extrair dos dados do grupo (groupStats) PRIMEIRO, pois ele é a fonte original da verdade
-    const userFromGroup = store.groupStats?.users?.[userId] || store.groupStats?.members?.find((m: any) => m.id === userId);
+    const userFromGroup = store.groupStats?.users?.[userId] || getCanonicalMembers(store.groupStats).find((m: any) => m.id === userId);
     if (userFromGroup && userFromGroup.streamsYear !== undefined) {
       const stats = {
         streamsToday: userFromGroup.streamsToday || 0,
@@ -174,7 +175,7 @@ export const statsCacheService = {
     if (cached) return cached;
     
     // Fallback para groupStats se o cache específico não estiver pronto
-    const userFromGroup = store.groupStats?.users?.[userId] || store.groupStats?.members?.find(m => m.id === userId);
+    const userFromGroup = store.groupStats?.users?.[userId] || getCanonicalMembers(store.groupStats).find(m => m.id === userId);
     if (userFromGroup) {
       return {
         streamsToday: userFromGroup.streamsToday || 0,

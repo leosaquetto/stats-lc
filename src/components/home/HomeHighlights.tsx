@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 import { statsService } from '../../services/statsService';
 import { UserStats } from '../../types/stats';
 import { 
@@ -236,8 +237,8 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
 export const FriendsLiveCarousel = React.memo(() => {
   const { groupStats, hiddenUsers, featuredUserId } = useStatsStore();
   
-  const members = (groupStats?.members || Object.values(groupStats?.users || {}))
-    .filter((u: UserStats) => !hiddenUsers.includes(u.id) && u.id !== featuredUserId);
+  const members = getVisibleMembers(groupStats, hiddenUsers)
+    .filter((u: UserStats) => u.id !== featuredUserId);
 
   const friendsNowPlaying = members.filter(user => {
     const isNow = user.nowPlaying?.isNow;

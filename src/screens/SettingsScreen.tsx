@@ -7,6 +7,7 @@ import { notificationService } from '../services/notificationService';
 import { clsx } from 'clsx';
 import { SectionHeader, SmartImage } from '../components/shared/CommonUI';
 import { SnapshotHistoryModal } from '../components/shared/SnapshotHistoryModal';
+import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
 
 interface ToastItem {
   id: string;
@@ -52,7 +53,7 @@ export default function SettingsScreen() {
     setHistoryCustomOrder
   } = useStatsStore();
   
-  const members = groupStats?.members || Object.values(groupStats?.users || {});
+  const members = getCanonicalMembers(groupStats);
 
   const customSortedMembers = [...members].sort((a: any, b: any) => {
     const arr = historyCustomOrder || [];
@@ -82,14 +83,14 @@ export default function SettingsScreen() {
 
   const toggleHideUser = (id: string, name: string) => {
     if (hiddenUsers.includes(id)) {
-      setHiddenUsers(hiddenUsers.filter(u => u !== id));
+      setHiddenUsers(dedupeIds(hiddenUsers.filter(u => u !== id)));
       showToast(
         'Privacidade Atualizada', 
         `O membro ${name} agora está visível e será contabilizado no ranking global da Arena.`, 
         'success'
       );
     } else {
-      setHiddenUsers([...hiddenUsers, id]);
+      setHiddenUsers(dedupeIds([...hiddenUsers, id]));
       showToast(
         'Privacidade Atualizada', 
         `O membro ${name} foi ocultado. Seus dados não aparecerão mais no ranking para você.`, 
@@ -296,7 +297,7 @@ export default function SettingsScreen() {
                     onClick={() => {
                       setHistoryOrder(opt.id as any);
                       if (opt.id === 'custom' && (!historyCustomOrder || historyCustomOrder.length === 0)) {
-                        setHistoryCustomOrder(members.map((m: any) => m.id));
+                        setHistoryCustomOrder(dedupeIds(members.map((m: any) => m.id)));
                       }
                       showToast(
                         'Preferência de Ordem',
@@ -343,7 +344,7 @@ export default function SettingsScreen() {
                           items.splice(fromIndex, 1);
                           items.splice(idx, 0, draggedItem);
                           
-                          setHistoryCustomOrder(items.map((m: any) => m.id));
+                          setHistoryCustomOrder(dedupeIds(items.map((m: any) => m.id)));
                           (window as any)._draggedIndex = null;
                           showToast(
                             'Ordem Atualizada',

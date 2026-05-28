@@ -9,6 +9,7 @@ import { GroupStats, UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { notificationService } from '../services/notificationService';
 import { coreUtils } from '../services/statsCore';
+import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -342,7 +343,7 @@ export const useStatsStore = create<StatsState>()(
         }
         set({ featuredUserId: userId });
       },
-      setHiddenUsers: (users: string[]) => set({ hiddenUsers: users }),
+      setHiddenUsers: (users: string[]) => set({ hiddenUsers: dedupeIds(users) }),
       setHideRankingBadge: (hide: boolean) => set({ hideRankingBadge: hide }),
       
       setUserFullStatsCache: (userId: string, data: any) => {
@@ -398,7 +399,7 @@ export const useStatsStore = create<StatsState>()(
       },
 
       prefetchNextFriend: (currentUserId: string) => {
-        const members = get().groupStats?.members || [];
+        const members = getCanonicalMembers(get().groupStats);
         if (members.length <= 1) return;
 
         const currentIndex = members.findIndex(m => m.id === currentUserId);
@@ -453,7 +454,7 @@ export const useStatsStore = create<StatsState>()(
       setArenaName: (name: string) => set({ arenaName: name }),
       setPollingFrequency: (frequency: number) => set({ pollingFrequency: frequency }),
       setHistoryOrder: (order: 'lastPlayed' | 'alphabetical' | 'custom') => set({ historyOrder: order }),
-      setHistoryCustomOrder: (order: string[]) => set({ historyCustomOrder: order }),
+      setHistoryCustomOrder: (order: string[]) => set({ historyCustomOrder: dedupeIds(order) }),
       setAnimationDuration: (duration: number) => set({ animationDuration: duration }),
       setAnimationDelay: (delay: number) => set({ animationDelay: delay }),
       setShimmerDuration: (duration: number) => set({ shimmerDuration: duration }),
@@ -895,7 +896,7 @@ export const useStatsStore = create<StatsState>()(
       },
 
       fetchTrackStatsForAll: async (trackId: string) => {
-        const users = get().groupStats?.members || [];
+        const users = getCanonicalMembers(get().groupStats);
         try {
           const newStats = { ...get().userTrackStats };
           const groupStats = await statsService.fetchEntityGroupStats('track', trackId);

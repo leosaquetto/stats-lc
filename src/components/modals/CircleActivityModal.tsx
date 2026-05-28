@@ -6,6 +6,8 @@ import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { BassPulseIcon } from '../shared/BassPulseIcon';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
+import { getVisibleMembers } from '../../lib/memberSelectors';
+import { getMainArtistName } from '../../lib/artistUtils';
 
 interface CircleActivityModalProps {
   isOpen: boolean;
@@ -22,8 +24,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
 }) => {
   const { groupStats, hiddenUsers } = useStatsStore();
   
-  const allMembers = groupStats?.members || [];
-  const members = allMembers.filter(m => !hiddenUsers.includes(m.id));
+  const members = getVisibleMembers(groupStats, hiddenUsers);
   
   // Ordenar por quem está ouvindo agora ou por timestamp mais recente
   const sortedFriends = [...members].sort((a, b) => {
@@ -145,11 +146,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                                 {friend.nowPlaying.track.name}
                               </span>
                               <span className="text-[9px] font-medium text-white/30 truncate">
-                                {friend.nowPlaying.track.artists?.[0] ? (
-                                  typeof friend.nowPlaying.track.artists[0] === 'string'
-                                    ? friend.nowPlaying.track.artists[0]
-                                    : (friend.nowPlaying.track.artists[0] as any).name
-                                ) : "Artista Desconhecido"}
+                                {getMainArtistName(friend.nowPlaying.track) || "Artista"}
                               </span>
                             </>
                           ) : (

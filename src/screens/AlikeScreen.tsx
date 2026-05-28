@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
@@ -7,6 +7,7 @@ import { TopItem, UserStats } from '../types/stats';
 import { HeartHandshake, Users, Sparkles, UserCircle2, Clock, PlayCircle, Flame } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getCanonicalMembers } from '../lib/memberSelectors';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -92,7 +93,7 @@ function getIntersection(user: UserStats, friend: UserStats, type: 'artists' | '
 
 export default function AlikeScreen() {
   const { groupStats, featuredUserId } = useStatsStore();
-  const members = groupStats?.members || [];
+  const members = getCanonicalMembers(groupStats);
   const featuredUser = members.find(m => m.id === featuredUserId);
   const friends = members.filter(m => m.id !== featuredUserId);
 
@@ -107,7 +108,7 @@ export default function AlikeScreen() {
   }, [featuredUser, friends]);
 
   // If no initial friend is selected, pick highest affinity
-  useMemo(() => {
+  useEffect(() => {
     if (!selectedFriendId && friendAffinities.length > 0) {
       setSelectedFriendId(friendAffinities[0].friend.id);
     }

@@ -25,6 +25,7 @@ import { StatsAlike } from '../components/home/StatsAlike';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
+import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
 
 const ReplaySection = React.lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
 const CircleActivityModal = React.lazy(() => import('../components/modals/CircleActivityModal').then(module => ({ default: module.CircleActivityModal })));
@@ -214,13 +215,8 @@ export default function HomeScreen() {
   const liveRefreshActive = isManualLiveRefresh;
   const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
-  const allMembers = useMemo(() => {
-    const source = groupStats?.members || Object.values(groupStats?.users || {});
-    return source.filter((member, index, list) =>
-      member?.id && list.findIndex(candidate => candidate?.id === member.id) === index
-    );
-  }, [groupStats?.members, groupStats?.users]);
-  const members = useMemo(() => allMembers.filter(m => !hiddenUsers.includes(m.id)), [allMembers, hiddenUsers]);
+  const allMembers = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const primaryUser = useMemo(() => members.find(m => m.id === featuredUserId) || null, [members, featuredUserId]);
   const FEATURED_ID = primaryUser?.id;
 
@@ -251,8 +247,7 @@ export default function HomeScreen() {
   const visibleMembersCount = members.length || 1;
   const currentTrackId = (primaryTrack as any)?.id;
   const currentTrackArenaPlayCount = currentTrackId
-    ? Object.values(groupStats?.users || {})
-        .filter(member => !hiddenUsers.includes(member.id))
+    ? members
         .reduce((total, member) => total + (userTrackStatsForLayout[`${member.id}:${currentTrackId}`] || 0), 0)
     : 0;
   const friendActivityOffset = primaryIsPlaying
@@ -889,23 +884,27 @@ export default function HomeScreen() {
       <PullToRefresh 
       onRefresh={handleRefresh}
       pullingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-9 gap-3 border-b border-orange-500/10 select-none bg-black/70 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.35)]">
-          <div className="h-11 w-11 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_24px_rgba(249,115,22,0.18)]">
-            <RefreshCcw className="h-4 w-4 text-orange-300" />
+        <div className="flex flex-col items-center justify-center pt-[calc(1.8rem+env(safe-area-inset-top,0px))] pb-10 gap-3 border-b border-orange-500/15 select-none bg-black/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+          <div className="relative h-14 w-14 rounded-full border border-orange-500/30 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
+            <div className="absolute inset-1 rounded-full border border-orange-400/20" />
+            <RefreshCcw className="h-5 w-5 text-orange-300" />
           </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/55">
-            Puxe para atualizar
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">Puxe para atualizar</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-orange-300/70">Sincronizar círculo</span>
+          </div>
         </div>
       }
       refreshingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-9 gap-3 border-b border-orange-500/10 select-none bg-black/75 backdrop-blur-2xl shadow-[0_18px_50px_rgba(0,0,0,0.45)]">
-          <div className="h-11 w-11 rounded-full border border-orange-500/30 bg-orange-500/12 flex items-center justify-center shadow-[0_0_28px_rgba(249,115,22,0.24)]">
-            <RefreshCcw className="h-4 w-4 text-orange-500 animate-spin" />
+        <div className="flex flex-col items-center justify-center pt-[calc(1.8rem+env(safe-area-inset-top,0px))] pb-10 gap-3 border-b border-orange-500/15 select-none bg-black/90 backdrop-blur-2xl shadow-[0_20px_70px_rgba(0,0,0,0.55)]">
+          <div className="relative h-14 w-14 rounded-full border border-orange-500/40 bg-orange-500/15 flex items-center justify-center shadow-[0_0_34px_rgba(249,115,22,0.30)]">
+            <motion.div className="absolute inset-0 rounded-full border-2 border-orange-500/30 border-t-orange-300" animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} />
+            <RefreshCcw className="h-5 w-5 text-orange-400 animate-spin" />
           </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/60">
-            Atualizando agora
-          </span>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/80">Atualizando</span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-orange-300/75">Buscando atividade recente</span>
+          </div>
         </div>
       }
     >

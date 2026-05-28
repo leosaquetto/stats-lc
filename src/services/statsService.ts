@@ -7,6 +7,7 @@
 import axios from 'axios';
 import { UserStats, GroupStats } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
+import { getCanonicalMembers } from '../lib/memberSelectors';
 
 const getBaseUrl = () => {
   const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
@@ -448,7 +449,7 @@ export const statsService = {
         const now = Date.now();
         const CACHE_TTL = 5 * 60 * 1000;
         
-        cachedMembers = state.groupStats?.members || Object.values(state.groupStats?.users || {});
+        cachedMembers = getCanonicalMembers(state.groupStats);
 
         if (state.groupStats && (now - lastFetch < CACHE_TTL || state.isOffline)) {
           const rankingsResult: Record<string, { count: number, durationMs: number }> = {};
@@ -670,7 +671,7 @@ export const statsService = {
   async getTrackGlobalHistory(trackId: string): Promise<any[]> {
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
-      const user = useStatsStore.getState().groupStats?.members?.[0];
+      const user = getCanonicalMembers(useStatsStore.getState().groupStats)[0];
       if (!user?.id) return [];
 
       const userParam = coreUtils.getUserApiParam(user.id);
