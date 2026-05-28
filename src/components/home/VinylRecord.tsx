@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo, useId } from 'react';
+import { useEffect, useMemo, useId, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -62,15 +62,21 @@ export const VinylRecord = ({
   hideTonearm = false
 }: VinylRecordProps) => {
   const uniqueId = useId();
-  const heartbeat = useStatsStore(state => state.heartbeat);
+  const [progressTick, setProgressTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const id = window.setInterval(() => setProgressTick(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [isPlaying, progressMs, durationMs]);
 
   const realTimeProgress = useMemo(() => {
     if (!isPlaying || !progressMs || !durationMs) return progressMs || 0;
-    const now = Date.now();
+    const now = progressTick;
     const elapsedSinceLastUpdate = Math.max(0, now - (useStatsStore.getState().lastFetchTime.group || now));
     const next = (progressMs || 0) + elapsedSinceLastUpdate;
     return next > durationMs ? durationMs : next;
-  }, [progressMs, durationMs, isPlaying, heartbeat]);
+  }, [progressMs, durationMs, isPlaying, progressTick]);
 
   const currentRatio = useMemo(() => {
     if (!durationMs || !realTimeProgress) return 0.5;

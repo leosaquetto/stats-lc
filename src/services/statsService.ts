@@ -181,7 +181,18 @@ const getApiCacheKey = (endpoint: string, params: Record<string, any>, forceRefr
   return `${endpoint}|force=${forceRefresh ? '1' : '0'}|${stableStringify(params)}`;
 };
 
-const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {}, forceRefresh = false, retries = 1, useDedupe = true): Promise<T> => {
+type ApiRequestOptions = {
+  signal?: AbortSignal;
+};
+
+const fetchFromApi = async <T>(
+  endpoint: string,
+  params: Record<string, any> = {},
+  forceRefresh = false,
+  retries = 1,
+  useDedupe = true,
+  requestOptions: ApiRequestOptions = {}
+): Promise<T> => {
   const finalParams = { ...params };
   if (forceRefresh) finalParams.force = '1';
 
@@ -202,7 +213,7 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
 
   const request = (async (): Promise<T> => {
     try {
-      const response = await api.get(endpoint, { params: finalParams });
+      const response = await api.get(endpoint, { params: finalParams, signal: requestOptions.signal });
       if (!forceRefresh) {
         apiResponseCache.set(cacheKey, {
           data: response.data,
@@ -237,7 +248,7 @@ const fetchFromApi = async <T>(endpoint: string, params: Record<string, any> = {
       if (isRetryable && retries > 0) {
         if ((import.meta as any).env?.DEV) console.warn(`Retryable error [${status || error.code}] on ${endpoint}. Retrying...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        return fetchFromApi(endpoint, params, forceRefresh, retries - 1, false);
+        return fetchFromApi(endpoint, params, forceRefresh, retries - 1, false, requestOptions);
       }
 
       throw error;
@@ -504,7 +515,7 @@ export const statsService = {
   /**
    * Busca dados completos de um usuário específico via backend Vercel
    */
-  async getUserFullStats(userId: string): Promise<any> {
+  async getUserFullStats(userId: string, options: ApiRequestOptions = {}): Promise<any> {
     const userParam = coreUtils.getUserApiParam(userId);
     try {
       const { useStatsStore } = await import('../store/useStatsStore');
@@ -519,7 +530,7 @@ export const statsService = {
         }
       }
       
-      const res = await fetchFromApi<any>('/api/user', { user: userParam });
+      const res = await fetchFromApi<any>('/api/user', { user: userParam }, false, 1, true, options);
       
       // Atualiza o cache do store
       if (store.setUserFullStatsCache) {

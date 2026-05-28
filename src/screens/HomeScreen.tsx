@@ -8,7 +8,7 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, In
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
-import { ReplaySection, type ReplayFilterPeriod, type ReplaySelectedSubValues } from '../components/home/ReplaySection';
+import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/ReplaySection';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { VinylRecord } from '../components/home/VinylRecord';
@@ -18,25 +18,21 @@ import { statsService, type ReplayPeriodQuery } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { getDominantColor } from '../lib/colorUtils';
 
-// Novos componentes modulares
-import {
-  LeoHeader,
-  LiveGroupOverview,
-  LiveGroupOverviewSkeleton,
-  FriendHistoryCard,
-  UserHistoryModal,
-  TrackLeaderboardModal,
-  UserAlbumHistoryModal,
-  CircleActivityModal,
-  TrackHistoryModal,
-  SectionHeader,
-  SmartImage,
-  FriendsMonthlyHighlights,
-  StatsAlike,
-  ShimmerOverlay
-} from '../components/MusicUI';
-import { AlbumDetailModal } from '../components/modals/AlbumDetailModal';
+import { LeoHeader } from '../components/home/LeoHeader';
+import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
+import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
+import { StatsAlike } from '../components/home/StatsAlike';
+import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
+import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
+
+const ReplaySection = React.lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
+const CircleActivityModal = React.lazy(() => import('../components/modals/CircleActivityModal').then(module => ({ default: module.CircleActivityModal })));
+const UserHistoryModal = React.lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
+const TrackLeaderboardModal = React.lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
+const TrackHistoryModal = React.lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
+const AlbumDetailModal = React.lazy(() => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal })));
+const UserAlbumHistoryModal = React.lazy(() => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal })));
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -712,49 +708,51 @@ export default function HomeScreen() {
               }}
             />
 
-            <CircleActivityModal
-              isOpen={showCircleActivity}
-              onClose={() => setShowCircleActivity(false)}
-              onTrackClick={(track) => setSelectedTrack(track)}
-              onFriendClick={(friend) => {
-                setShowCircleActivity(false);
-                setViewingFullHistoryUser(friend);
-              }}
-            />
-
-            {viewingFullHistoryUser && (
-              <UserHistoryModal 
-                user={viewingFullHistoryUser} 
-                onClose={() => setViewingFullHistoryUser(null)}
+            <React.Suspense fallback={null}>
+              <CircleActivityModal
+                isOpen={showCircleActivity}
+                onClose={() => setShowCircleActivity(false)}
                 onTrackClick={(track) => setSelectedTrack(track)}
-                groupStats={groupStats}
+                onFriendClick={(friend) => {
+                  setShowCircleActivity(false);
+                  setViewingFullHistoryUser(friend);
+                }}
               />
-            )}
-            {selectedTrack && (
-              <TrackLeaderboardModal 
-                track={selectedTrack} 
-                onClose={() => setSelectedTrack(null)} 
-              />
-            )}
-            {selectedTrackHistory && (
-              <TrackHistoryModal 
-                track={selectedTrackHistory}
-                onClose={() => setSelectedTrackHistory(null)}
-              />
-            )}
-            {selectedAlbum && (
-               <AlbumDetailModal 
-                 user={primaryUser}
-                 album={selectedAlbum}
-                 onClose={() => setSelectedAlbum(null)}
-               />
-            )}
-            {viewingAlbumHistoryUser && (
-              <UserAlbumHistoryModal 
-                user={viewingAlbumHistoryUser}
-                onClose={() => setViewingAlbumHistoryUser(null)}
-              />
-            )}
+
+              {viewingFullHistoryUser && (
+                <UserHistoryModal 
+                  user={viewingFullHistoryUser} 
+                  onClose={() => setViewingFullHistoryUser(null)}
+                  onTrackClick={(track) => setSelectedTrack(track)}
+                  groupStats={groupStats}
+                />
+              )}
+              {selectedTrack && (
+                <TrackLeaderboardModal 
+                  track={selectedTrack} 
+                  onClose={() => setSelectedTrack(null)} 
+                />
+              )}
+              {selectedTrackHistory && (
+                <TrackHistoryModal 
+                  track={selectedTrackHistory}
+                  onClose={() => setSelectedTrackHistory(null)}
+                />
+              )}
+              {selectedAlbum && (
+                 <AlbumDetailModal 
+                   user={primaryUser}
+                   album={selectedAlbum}
+                   onClose={() => setSelectedAlbum(null)}
+                 />
+              )}
+              {viewingAlbumHistoryUser && (
+                <UserAlbumHistoryModal 
+                  user={viewingAlbumHistoryUser}
+                  onClose={() => setViewingAlbumHistoryUser(null)}
+                />
+              )}
+            </React.Suspense>
             <TopArtistsModal
               isOpen={openReplayModal === 'artists'}
               onClose={() => setOpenReplayModal(null)}
@@ -1199,37 +1197,39 @@ export default function HomeScreen() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <ReplaySection
-            topArtists={replayArtists.slice(0, 20).map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              image: a.image,
-              streams: getReplayMinutes(a)
-            })) || []}
-            topTracks={replayTracks.slice(0, 30).map((t: any) => ({
-              id: t.id,
-              name: t.name,
-              artist: getReplayArtistName(t),
-              image: t.image || t.albumImage,
-              streams: t.playedCount || t.streams || t.playcount || t.count || 0
-            })) || []}
-            topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
-              id: a.id,
-              name: a.name,
-              artist: getReplayAlbumArtistName(a, replayTracks),
-              image: a.image,
-              streams: getReplayMinutes(a)
-            })) || []}
-            totalMinutesCount={replayTotalMinutesCount}
-            activeTab={replayActiveTab}
-            selectedSubValues={replaySelectedSubValues}
-            onActiveTabChange={setReplayActiveTab}
-            onSelectedSubValuesChange={setReplaySelectedSubValues}
-            onOpenArtistsModal={() => setOpenReplayModal('artists')}
-            onOpenSongsModal={() => setOpenReplayModal('songs')}
-            onOpenAlbumsModal={() => setOpenReplayModal('albums')}
-            isLoading={isReplayUpdating}
-          />
+          <React.Suspense fallback={null}>
+            <ReplaySection
+              topArtists={replayArtists.slice(0, 20).map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                image: a.image,
+                streams: getReplayMinutes(a)
+              })) || []}
+              topTracks={replayTracks.slice(0, 30).map((t: any) => ({
+                id: t.id,
+                name: t.name,
+                artist: getReplayArtistName(t),
+                image: t.image || t.albumImage,
+                streams: t.playedCount || t.streams || t.playcount || t.count || 0
+              })) || []}
+              topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
+                id: a.id,
+                name: a.name,
+                artist: getReplayAlbumArtistName(a, replayTracks),
+                image: a.image,
+                streams: getReplayMinutes(a)
+              })) || []}
+              totalMinutesCount={replayTotalMinutesCount}
+              activeTab={replayActiveTab}
+              selectedSubValues={replaySelectedSubValues}
+              onActiveTabChange={setReplayActiveTab}
+              onSelectedSubValuesChange={setReplaySelectedSubValues}
+              onOpenArtistsModal={() => setOpenReplayModal('artists')}
+              onOpenSongsModal={() => setOpenReplayModal('songs')}
+              onOpenAlbumsModal={() => setOpenReplayModal('albums')}
+              isLoading={isReplayUpdating}
+            />
+          </React.Suspense>
         </motion.div>
       )}
 

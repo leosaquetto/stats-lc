@@ -4,19 +4,19 @@
  */
 
 import { HashRouter, Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import HomeScreen from './screens/HomeScreen';
-import StatsScreen from './screens/StatsScreen';
-import RankingScreen from './screens/RankingScreen';
-import SettingsScreen from './screens/SettingsScreen';
-import AlikeScreen from './screens/AlikeScreen';
 import { useStatsStore } from './store/useStatsStore';
+
+const StatsScreen = lazy(() => import('./screens/StatsScreen'));
+const RankingScreen = lazy(() => import('./screens/RankingScreen'));
+const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
+const AlikeScreen = lazy(() => import('./screens/AlikeScreen'));
 
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
-  const startHeartbeat = useStatsStore(s => s.startHeartbeat);
   const setOffline = useStatsStore(s => s.setOffline);
   const pushNotificationsEnabled = useStatsStore(s => s.pushNotificationsEnabled);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
@@ -36,14 +36,13 @@ export default function App() {
     window.addEventListener('storage', handleStorage);
 
     fetchStats();
-    startHeartbeat();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [fetchStats, setOffline, startHeartbeat]);
+  }, [fetchStats, setOffline]);
 
   useEffect(() => {
     const safePollingFrequency = Math.max(8, pollingFrequency);
@@ -71,14 +70,16 @@ export default function App() {
   return (
     <HashRouter>
       <Layout>
-        <Routes>
-          <Route path="/" element={<HomeScreen />} />
-          <Route path="/highlights" element={<StatsScreen />} />
-          <Route path="/ranking" element={<RankingScreen />} />
-          <Route path="/alike" element={<AlikeScreen />} />
-          <Route path="/settings" element={<SettingsScreen />} />
-          <Route path="*" element={<HomeScreen />} />
-        </Routes>
+        <Suspense fallback={<div className="min-h-screen bg-black" />}>
+          <Routes>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/highlights" element={<StatsScreen />} />
+            <Route path="/ranking" element={<RankingScreen />} />
+            <Route path="/alike" element={<AlikeScreen />} />
+            <Route path="/settings" element={<SettingsScreen />} />
+            <Route path="*" element={<HomeScreen />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </HashRouter>
   );

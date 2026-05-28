@@ -65,8 +65,40 @@ const clearPersistedGroupCache = () => {
 };
 
 const HISTORY_CACHE_VERSION = 'album-v2';
+const MAX_HISTORY_CACHE_ITEMS = 200;
+const MAX_DETAIL_CACHE_ENTRIES = 40;
+const MAX_TOP_CACHE_ENTRIES = 80;
 
 const getHistoryCacheKey = (userId: string) => `${userId}:${HISTORY_CACHE_VERSION}`;
+
+const trimCacheByMeta = <T>(
+  cache: Record<string, T>,
+  meta: Record<string, number>,
+  maxEntries: number
+) => {
+  const keys = Object.keys(cache);
+  if (keys.length <= maxEntries) return { cache, meta };
+
+  const keep = new Set(
+    keys
+      .sort((a, b) => (meta[b] || 0) - (meta[a] || 0))
+      .slice(0, maxEntries)
+  );
+  const nextCache: Record<string, T> = {};
+  const nextMeta: Record<string, number> = {};
+
+  keys.forEach((key) => {
+    if (!keep.has(key)) return;
+    nextCache[key] = cache[key];
+    nextMeta[key] = meta[key] || 0;
+  });
+
+  return { cache: nextCache, meta: nextMeta };
+};
+
+const FRIEND_PREFETCH_DELAY_MS = 1500;
+let friendPrefetchTimer: ReturnType<typeof setTimeout> | null = null;
+let friendPrefetchController: AbortController | null = null;
 
 const isLivePayloadOlder = (existing?: any, incoming?: any) => {
   if (!existing?.timestamp || !incoming?.timestamp) return false;
@@ -205,8 +237,6 @@ interface StatsState {
   setTopItemsCache: (key: string, data: any) => void;
   prefetchUserTops: (userId: string, period?: string) => Promise<void>;
   prefetchNextFriend: (currentUserId: string) => void;
-  heartbeat: number;
-  startHeartbeat: () => void;
   lastLiveFetchTime: number;
 
   // Push Notification settings
@@ -316,42 +346,45 @@ export const useStatsStore = create<StatsState>()(
       setHideRankingBadge: (hide: boolean) => set({ hideRankingBadge: hide }),
       
       setUserFullStatsCache: (userId: string, data: any) => {
-        const nextCache = {
+        const rawCache = {
           ...get().userFullStatsCache,
           [userId]: data
         };
-        const nextMeta = {
+        const rawMeta = {
           ...get().userFullStatsCacheMeta,
           [userId]: Date.now()
         };
+        const { cache: nextCache, meta: nextMeta } = trimCacheByMeta(rawCache, rawMeta, MAX_DETAIL_CACHE_ENTRIES);
         saveToMMKV('userFullStatsCache', nextCache);
         saveToMMKV('userFullStatsCacheMeta', nextMeta);
         set({ userFullStatsCache: nextCache, userFullStatsCacheMeta: nextMeta });
       },
 
       setTimeRangeStatsCache: (key: string, data: any) => {
-        const nextCache = {
+        const rawCache = {
           ...get().timeRangeStatsCache,
           [key]: data
         };
-        const nextMeta = {
+        const rawMeta = {
           ...get().timeRangeStatsCacheMeta,
           [key]: Date.now()
         };
+        const { cache: nextCache, meta: nextMeta } = trimCacheByMeta(rawCache, rawMeta, MAX_DETAIL_CACHE_ENTRIES);
         saveToMMKV('timeRangeStatsCache', nextCache);
         saveToMMKV('timeRangeStatsCacheMeta', nextMeta);
         set({ timeRangeStatsCache: nextCache, timeRangeStatsCacheMeta: nextMeta });
       },
 
       setTopItemsCache: (key: string, data: any) => {
-        const nextCache = {
+        const rawCache = {
           ...get().topItemsCache,
           [key]: data
         };
-        const nextMeta = {
+        const rawMeta = {
           ...get().topItemsCacheMeta,
           [key]: Date.now()
         };
+        const { cache: nextCache, meta: nextMeta } = trimCacheByMeta(rawCache, rawMeta, MAX_TOP_CACHE_ENTRIES);
         saveToMMKV('topItemsCache', nextCache);
         saveToMMKV('topItemsCacheMeta', nextMeta);
         set({ topItemsCache: nextCache, topItemsCacheMeta: nextMeta });
@@ -359,9 +392,9 @@ export const useStatsStore = create<StatsState>()(
 
       prefetchUserTops: async (userId: string, period: string = 'month') => {
         const types: ('tracks' | 'artists' | 'albums')[] = ['tracks', 'artists', 'albums'];
-        await Promise.allSettled(types.map(type => 
-          statsService.getTopItems(userId, type, period)
-        ));
+        for (const type of types) {
+          await statsService.getTopItems(userId, type, period).catch(() => []);
+        }
       },
 
       prefetchNextFriend: (currentUserId: string) => {
@@ -374,24 +407,29 @@ export const useStatsStore = create<StatsState>()(
         const nextIndex = (currentIndex + 1) % members.length;
         const nextFriend = members[nextIndex];
 
-        if (!get().isLoading && !get().isRefreshing) {
-          setTimeout(() => {
-            get().prefetchUserTops(nextFriend.id);
-            statsService.getUserFullStats(nextFriend.id).catch(() => {});
-          }, 1500);
-        }
+        if (friendPrefetchTimer) clearTimeout(friendPrefetchTimer);
+        friendPrefetchController?.abort();
+
+        if (get().isLoading || get().isRefreshing) return;
+
+        friendPrefetchController = new AbortController();
+        const signal = friendPrefetchController.signal;
+
+        friendPrefetchTimer = setTimeout(async () => {
+          try {
+            await get().prefetchUserTops(nextFriend.id);
+            if (!signal.aborted) {
+              await statsService.getUserFullStats(nextFriend.id, { signal });
+            }
+          } catch (error: any) {
+            if (error?.name !== 'CanceledError' && error?.code !== 'ERR_CANCELED') {
+              return;
+            }
+          }
+        }, FRIEND_PREFETCH_DELAY_MS);
       },
 
-      heartbeat: Date.now(),
       lastLiveFetchTime: 0,
-      startHeartbeat: () => {
-        if ((window as any)._heartbeatStarted) return;
-        (window as any)._heartbeatStarted = true;
-        
-        setInterval(() => {
-          set({ heartbeat: Date.now() });
-        }, 1000);
-      },
 
       pushNotificationsEnabled: false,
       notifyOnNewStreams: true,
@@ -451,11 +489,12 @@ export const useStatsStore = create<StatsState>()(
       // Setter para cache de histórico
       setHistoryCache: (userId: string, items: any[]) => {
         const cacheKey = getHistoryCacheKey(userId);
+        const boundedItems = items.slice(0, MAX_HISTORY_CACHE_ITEMS);
         set(state => ({
           historyCache: {
             ...state.historyCache,
             [cacheKey]: {
-              items,
+              items: boundedItems,
               lastUpdated: Date.now()
             }
           }

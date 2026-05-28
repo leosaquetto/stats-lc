@@ -48,8 +48,8 @@ export const LiveTrackProgress = memo(({
   compact = false,
   dominantColor
 }: LiveTrackProgressProps) => {
-  const heartbeat = useStatsStore(state => state.heartbeat);
   const lastGroupFetchTime = useStatsStore(state => state.lastFetchTime.group);
+  const [progressTime, setProgressTime] = useState(() => Date.now());
   const [currentProgress, setCurrentProgress] = useState(0);
   const [minPlayTime, setMinPlayTime] = useState(false);
   const completedRef = React.useRef(false);
@@ -98,6 +98,12 @@ export const LiveTrackProgress = memo(({
   }, [timestamp, durationMs, progressMs, playedMs, isNowPlaying]);
 
   useEffect(() => {
+    if (!isNowPlaying) return;
+    const id = window.setInterval(() => setProgressTime(Date.now()), 250);
+    return () => window.clearInterval(id);
+  }, [isNowPlaying, timestamp]);
+
+  useEffect(() => {
     if (!isNowPlaying) {
       setCurrentProgress(100);
       return;
@@ -134,7 +140,7 @@ export const LiveTrackProgress = memo(({
     };
 
     calculateProgress();
-  }, [heartbeat, isNowPlaying, platform, durationMs, progressMs, playedMs, timestamp, onComplete, lastGroupFetchTime]);
+  }, [progressTime, isNowPlaying, platform, durationMs, progressMs, playedMs, timestamp, onComplete, lastGroupFetchTime]);
 
   const elapsedMs = useMemo(() => (currentProgress / 100) * (durationMs || 0), [currentProgress, durationMs]);
 
