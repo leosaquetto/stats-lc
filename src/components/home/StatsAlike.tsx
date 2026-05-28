@@ -39,8 +39,11 @@ export const StatsAlike = React.memo(() => {
   const [isAutoRotating, setIsAutoRotating] = useState(true);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 
-  const members = getCanonicalMembers(groupStats);
-  const featuredUser = members.find(m => m.id === featuredUserId) || members[0];
+  const members = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const featuredUser = useMemo(
+    () => members.find(m => m.id === featuredUserId) || members[0],
+    [members, featuredUserId]
+  );
   const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
   const topItemsSignature = useMemo(() => {
     return members.map((member) => {

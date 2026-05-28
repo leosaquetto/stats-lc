@@ -191,22 +191,20 @@ const getReplayAlbumArtistName = (album: any, tracks: any[]) => {
 };
 
 export default function HomeScreen() {
-  const {
-    groupStats,
-    isLoading,
-    isRefreshing,
-    isOffline,
-    error,
-    fetchGroup,
-    fetchGroupLive,
-    prefetchUserTops,
-    prefetchNextFriend,
-    featuredUserId, 
-    setFeaturedUserId,
-    hiddenUsers,
-    historyOrder,
-    historyCustomOrder
-  } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const isLoading = useStatsStore(state => state.isLoading);
+  const isRefreshing = useStatsStore(state => state.isRefreshing);
+  const isOffline = useStatsStore(state => state.isOffline);
+  const error = useStatsStore(state => state.error);
+  const fetchGroup = useStatsStore(state => state.fetchGroup);
+  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
+  const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
+  const prefetchNextFriend = useStatsStore(state => state.prefetchNextFriend);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const historyOrder = useStatsStore(state => state.historyOrder);
+  const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
@@ -261,7 +259,7 @@ export default function HomeScreen() {
       null
     );
   }, [allMembers, featuredUserId, groupStats, members]);
-  const FEATURED_ID = primaryUser?.id;
+  const FEATURED_ID = primaryUser?.id || '';
 
   // Mini header vinyl states
   const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
@@ -1404,7 +1402,7 @@ export default function HomeScreen() {
               {recentTracks.slice(0, visibleHistory).map((user, idx) => (
                 <motion.div
                   layout
-                  key={`${user.id || 'hist'}-${idx}`}
+                  key={user.id || `hist-${idx}`}
                   initial={{ opacity: 0, scale: 0.95, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}

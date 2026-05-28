@@ -127,49 +127,14 @@ const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
   return hasNewerTimestamp;
 };
 
-const dedupeMembersById = (members: any[] = []) => {
-  const seen = new Set<string>();
-  return members.filter((member) => {
-    if (!member?.id || seen.has(member.id)) return false;
-    seen.add(member.id);
-    return true;
-  });
-};
-
 const canonicalizeGroupStats = (groupStats: GroupStats | null) => {
   if (!groupStats || !isValidGroupStats(groupStats)) return groupStats;
 
-  const users: Record<string, UserStats> = {};
-  const members: UserStats[] = [];
-  const memberIndexById = new Map<string, number>();
-  const sources = [
-    ...(Array.isArray(groupStats.members) ? groupStats.members : []),
-    ...Object.values(groupStats.users || {}),
-  ];
-
-  sources.forEach((candidate: any) => {
-    if (!candidate?.id) return;
-
-    const previous = users[candidate.id];
-    const nowPlaying = shouldUseIncomingLivePayload(previous?.nowPlaying, candidate.nowPlaying)
-      ? candidate.nowPlaying
-      : previous?.nowPlaying ?? candidate.nowPlaying;
-    const next = {
-      ...previous,
-      ...candidate,
-      nowPlaying,
-    };
-
-    users[candidate.id] = next;
-
-    const existingIndex = memberIndexById.get(candidate.id);
-    if (existingIndex == null) {
-      memberIndexById.set(candidate.id, members.length);
-      members.push(next);
-    } else {
-      members[existingIndex] = next;
-    }
-  });
+  const members = getCanonicalMembers(groupStats);
+  const users = members.reduce<Record<string, UserStats>>((acc, member) => {
+    acc[member.id] = member;
+    return acc;
+  }, {});
 
   return {
     ...groupStats,
@@ -279,6 +244,8 @@ const migrateStateToCanonicalIds = (state: StatsState, groupStats: GroupStats | 
 
   const updates: Partial<StatsState> = {};
   const idMap = new Map<string, string>();
+  const canonicalMembers = getCanonicalMembers(groupStats);
+  const validIds = new Set(canonicalMembers.map(user => user.id));
 
   // Build alias -> id mapping
   Object.values(groupStats.users).forEach(user => {
@@ -291,15 +258,19 @@ const migrateStateToCanonicalIds = (state: StatsState, groupStats: GroupStats | 
   if (state.featuredUserId && idMap.has(state.featuredUserId)) {
     updates.featuredUserId = idMap.get(state.featuredUserId)!;
   }
+  const nextFeaturedUserId = updates.featuredUserId ?? state.featuredUserId;
+  if (nextFeaturedUserId && !validIds.has(nextFeaturedUserId)) {
+    updates.featuredUserId = canonicalMembers[0]?.id || "";
+  }
 
   // Migrate hiddenUsers
   if (state.hiddenUsers.length > 0) {
-    updates.hiddenUsers = state.hiddenUsers.map(id => idMap.get(id) || id);
+    updates.hiddenUsers = dedupeIds(state.hiddenUsers.map(id => idMap.get(id) || id));
   }
 
   // Migrate historyCustomOrder
   if (state.historyCustomOrder.length > 0) {
-    updates.historyCustomOrder = state.historyCustomOrder.map(id => idMap.get(id) || id);
+    updates.historyCustomOrder = dedupeIds(state.historyCustomOrder.map(id => idMap.get(id) || id));
   }
 
   return updates;
@@ -314,7 +285,7 @@ export const useStatsStore = create<StatsState>()(
           clearPersistedGroupCache();
           return null;
         }
-        return cached;
+        return canonicalizeGroupStats(cached);
       })(),
       isLoading: false,
       isRefreshing: false,
@@ -658,15 +629,16 @@ export const useStatsStore = create<StatsState>()(
             if (!isValidGroupStats(cachedGroup)) {
               clearPersistedGroupCache();
             } else {
-            set({
-              groupStats: cachedGroup,
-              userFullStatsCache: cachedUserFullStats,
-              isLoading: false,
-              isRefreshing: false,
-              error: null,
-            });
-            if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Serving valid MMKV cache, skipping fetch.");
-            return;
+              const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
+              set({
+                groupStats: canonicalCachedGroup,
+                userFullStatsCache: cachedUserFullStats,
+                isLoading: false,
+                isRefreshing: false,
+                error: null,
+              });
+              if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Serving valid MMKV cache, skipping fetch.");
+              return;
             }
           }
         }
@@ -691,22 +663,24 @@ export const useStatsStore = create<StatsState>()(
               if (!isValidGroupStats(cachedGroup)) {
                 clearPersistedGroupCache();
               } else {
-              set({
-                groupStats: cachedGroup,
-                userFullStatsCache: cachedUserFullStats,
-                isLoading: false,
-                isRefreshing: false,
-                isOffline: true,
-                error: null,
-              });
-              clearTimeout(safetyTimer);
-              if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
-              return;
+                const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
+                set({
+                  groupStats: canonicalCachedGroup,
+                  userFullStatsCache: cachedUserFullStats,
+                  isLoading: false,
+                  isRefreshing: false,
+                  isOffline: true,
+                  error: null,
+                });
+                clearTimeout(safetyTimer);
+                if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
+                return;
               }
             }
           }
 
-          const data = await statsService.getGroupData(force);
+          const rawData = await statsService.getGroupData(force);
+          const data = canonicalizeGroupStats(rawData) || rawData;
           
           // Salva os novos dados obtidos em cache via MMKV
           saveToMMKV('groupStats', data);
@@ -762,14 +736,15 @@ export const useStatsStore = create<StatsState>()(
               clearPersistedGroupCache();
               set({ error: "Cache local inválido. Reinicie a sincronização.", isLoading: false, isRefreshing: false });
             } else {
-            set({
-              groupStats: cachedGroup,
-              userFullStatsCache: cachedUserFullStats,
-              error: null, // Sem falhar: limpa erro para exibir o cache de forma suave
-              isLoading: false, // Ensure loading is false
-              isRefreshing: false, // Ensure refreshing is false
-            });
-            if ((import.meta as any).env?.DEV) console.warn("[fetchGroup] Serving cached MMKV data graciously despite obsolete or fetch failure.");
+              const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
+              set({
+                groupStats: canonicalCachedGroup,
+                userFullStatsCache: cachedUserFullStats,
+                error: null, // Sem falhar: limpa erro para exibir o cache de forma suave
+                isLoading: false, // Ensure loading is false
+                isRefreshing: false, // Ensure refreshing is false
+              });
+              if ((import.meta as any).env?.DEV) console.warn("[fetchGroup] Serving cached MMKV data graciously despite obsolete or fetch failure.");
             }
           } else {
             set({ error: "Erro na conexão com a API de música." });
@@ -860,7 +835,7 @@ export const useStatsStore = create<StatsState>()(
             });
 
             newGroupStats.users = newUsers;
-            newGroupStats.members = dedupeMembersById(newMembers);
+            newGroupStats.members = newMembers;
             const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
             canonicalGroupStats.lastUpdated = liveData.lastUpdated;
 
@@ -952,8 +927,9 @@ export const useStatsStore = create<StatsState>()(
             statsService.getGroupData(false)
               .then(data => {
                 if (data) {
+                  const canonicalData = canonicalizeGroupStats(data) || data;
                   set({
-                    groupStats: data,
+                    groupStats: canonicalData,
                     isOffline: false,
                     error: null,
                     lastFetchTime: { ...get().lastFetchTime, group: Date.now() }

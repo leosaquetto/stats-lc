@@ -4,6 +4,54 @@ const uniqueIds = (ids: string[] = []) => Array.from(new Set(ids.filter(Boolean)
 
 export const dedupeIds = uniqueIds;
 
+const hasValue = (value: any) => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === 'object') return Object.keys(value).length > 0;
+  return value !== undefined && value !== null && value !== '';
+};
+
+const preferRichValue = (incoming: any, existing: any) => (
+  hasValue(incoming) ? incoming : existing
+);
+
+const shouldUseIncomingNowPlaying = (existing?: any, incoming?: any) => {
+  if (!hasValue(incoming)) return false;
+  if (!hasValue(existing)) return true;
+
+  const existingTrackId = existing?.track?.id;
+  const incomingTrackId = incoming?.track?.id;
+  const existingTime = existing?.timestamp ? new Date(existing.timestamp).getTime() : 0;
+  const incomingTime = incoming?.timestamp ? new Date(incoming.timestamp).getTime() : 0;
+  const hasNewerTimestamp = Number.isFinite(incomingTime) && Number.isFinite(existingTime)
+    ? incomingTime + 1500 >= existingTime
+    : true;
+
+  if (existing?.isNow === true && incoming?.isNow !== true && hasNewerTimestamp) return false;
+  if (incomingTrackId && existingTrackId && incomingTrackId !== existingTrackId && hasNewerTimestamp) return true;
+  return hasNewerTimestamp;
+};
+
+const mergeMember = (existing: UserStats | undefined, incoming: UserStats): UserStats => {
+  if (!existing) return incoming;
+
+  const merged = {
+    ...existing,
+    ...incoming,
+  };
+
+  return {
+    ...merged,
+    name: preferRichValue(incoming.name, existing.name),
+    avatar: preferRichValue(incoming.avatar, existing.avatar),
+    nowPlaying: shouldUseIncomingNowPlaying(existing.nowPlaying, incoming.nowPlaying)
+      ? incoming.nowPlaying
+      : existing.nowPlaying,
+    stats: preferRichValue((incoming as any).stats, (existing as any).stats),
+    recent: preferRichValue((incoming as any).recent, (existing as any).recent),
+    topItems: preferRichValue((incoming as any).topItems, (existing as any).topItems),
+  } as UserStats;
+};
+
 export const getCanonicalMembers = (groupStats: GroupStats | null | undefined): UserStats[] => {
   const usersById = new Map<string, UserStats>();
   const sources = [
@@ -13,10 +61,7 @@ export const getCanonicalMembers = (groupStats: GroupStats | null | undefined): 
 
   sources.forEach((member: any) => {
     if (!member?.id) return;
-    usersById.set(member.id, {
-      ...usersById.get(member.id),
-      ...member,
-    });
+    usersById.set(member.id, mergeMember(usersById.get(member.id), member));
   });
 
   return Array.from(usersById.values());

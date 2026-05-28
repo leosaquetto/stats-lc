@@ -235,20 +235,25 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
 });
 
 export const FriendsLiveCarousel = React.memo(() => {
-  const { groupStats, hiddenUsers, featuredUserId } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
   
-  const members = getVisibleMembers(groupStats, hiddenUsers)
-    .filter((u: UserStats) => u.id !== featuredUserId);
+  const members = React.useMemo(
+    () => getVisibleMembers(groupStats, hiddenUsers)
+      .filter((u: UserStats) => u.id !== featuredUserId),
+    [groupStats, hiddenUsers, featuredUserId]
+  );
 
-  const friendsNowPlaying = members.filter(user => {
-    const isNow = user.nowPlaying?.isNow;
-    if (!isNow) return false;
-    
-    // Check if it's recently playing (last 10 mins) to avoid stale "now playing"
-    const timestamp = new Date(user.nowPlaying?.timestamp || 0).getTime();
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
-    return timestamp > tenMinutesAgo;
-  });
+  const friendsNowPlaying = React.useMemo(() => members.filter(user => {
+      const isNow = user.nowPlaying?.isNow;
+      if (!isNow) return false;
+
+      // Check if it's recently playing (last 10 mins) to avoid stale "now playing"
+      const timestamp = new Date(user.nowPlaying?.timestamp || 0).getTime();
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+      return timestamp > tenMinutesAgo;
+    }), [members]);
 
   if (friendsNowPlaying.length === 0) return null;
 

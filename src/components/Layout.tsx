@@ -37,7 +37,9 @@ const EqualizerIcon = () => {
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const { isOffline, groupStats, featuredUserId } = useStatsStore();
+  const isOffline = useStatsStore(state => state.isOffline);
+  const groupStats = useStatsStore(state => state.groupStats);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
   
   const allUsers = React.useMemo(() => {
     return getCanonicalMembers(groupStats);
@@ -233,7 +235,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     return (
                       <motion.div 
                         layout 
-                        key={`${user.id}-${index}`}
+                        key={user.id}
                         animate={isBubbleHighlighted ? {
                           scale: [1, 1.2, 1],
                           filter: [

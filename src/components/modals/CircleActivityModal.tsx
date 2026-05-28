@@ -22,21 +22,22 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
   onTrackClick,
   onFriendClick
 }) => {
-  const { groupStats, hiddenUsers } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   
-  const members = getVisibleMembers(groupStats, hiddenUsers);
+  const members = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   
   // Ordenar por quem está ouvindo agora ou por timestamp mais recente
-  const sortedFriends = [...members].sort((a, b) => {
-    const isPlayingA = a.nowPlaying?.isNow ? 1 : 0;
-    const isPlayingB = b.nowPlaying?.isNow ? 1 : 0;
-    
-    if (isPlayingA !== isPlayingB) return isPlayingB - isPlayingA;
-    
-    const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
-    const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
-    return timeB - timeA;
-  });
+  const sortedFriends = React.useMemo(() => [...members].sort((a, b) => {
+      const isPlayingA = a.nowPlaying?.isNow ? 1 : 0;
+      const isPlayingB = b.nowPlaying?.isNow ? 1 : 0;
+
+      if (isPlayingA !== isPlayingB) return isPlayingB - isPlayingA;
+
+      const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
+      const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
+      return timeB - timeA;
+    }), [members]);
 
   const handleAvatarClick = (e: React.MouseEvent, friend: any) => {
     e.stopPropagation();
@@ -88,7 +89,7 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
                   
                   return (
                     <motion.div
-                      key={`${friend.id}-${idx}`}
+                      key={friend.id}
                       initial={{ opacity: 0, scale: 0.9, y: 15 }}
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       transition={{ 

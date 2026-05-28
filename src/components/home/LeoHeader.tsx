@@ -413,7 +413,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const hideRankingBadge = useStatsStore(state => state.hideRankingBadge);
   const groupStats = useStatsStore(state => state.groupStats);
-  const hiddenUsers = useStatsStore(state => state.hiddenUsers) || [];
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
 
   const trackStatsKey = `${user.id}:${track?.id}`;
   const playCount = userTrackStats[trackStatsKey];
@@ -913,7 +913,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               <div className="flex -space-x-2 mr-1 shrink-0">
                                 {trackArenaUsers.map((u, i) => (
                                   <motion.div
-                                    key={`${u.id}-${i}`}
+                                    key={u.id}
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: i * 0.05 }}

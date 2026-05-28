@@ -33,7 +33,12 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     if ((import.meta as any).env?.DEV) {
-      console.warn('[RouteErrorBoundary] route render failed', error, info.componentStack);
+      console.error('[RouteErrorBoundary] original route render error', {
+        error,
+        cause: (error as any)?.cause,
+        stack: error?.stack,
+        componentStack: info.componentStack,
+      });
     }
   }
 

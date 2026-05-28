@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
@@ -41,23 +41,29 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   onViewAll,
   excludeUserId
 }) => {
-  const { groupStats, hiddenUsers } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   
-  const members = getVisibleMembers(groupStats, hiddenUsers).filter(m => 
-    String(m.id).trim() !== String(excludeUserId).trim()
+  const members = useMemo(
+    () => getVisibleMembers(groupStats, hiddenUsers).filter(m =>
+      String(m.id).trim() !== String(excludeUserId).trim()
+    ),
+    [groupStats, hiddenUsers, excludeUserId]
   );
   
   // Amigos ordenados por atividade recente (isNow primeiro, depois timestamp)
-  const sortedFriends = [...members].sort((a, b) => {
-    const isPlayingA = a.nowPlaying?.isNow ? 1 : 0;
-    const isPlayingB = b.nowPlaying?.isNow ? 1 : 0;
-    if (isPlayingA !== isPlayingB) return isPlayingB - isPlayingA;
-    
-    return new Date(b.nowPlaying?.timestamp || 0).getTime() - new Date(a.nowPlaying?.timestamp || 0).getTime();
-  });
+  const sortedFriends = useMemo(() => {
+    return [...members].sort((a, b) => {
+      const isPlayingA = a.nowPlaying?.isNow ? 1 : 0;
+      const isPlayingB = b.nowPlaying?.isNow ? 1 : 0;
+      if (isPlayingA !== isPlayingB) return isPlayingB - isPlayingA;
+
+      return new Date(b.nowPlaying?.timestamp || 0).getTime() - new Date(a.nowPlaying?.timestamp || 0).getTime();
+    });
+  }, [members]);
 
   // Take top 5 friends
-  const topFriends = sortedFriends.slice(0, 5);
+  const topFriends = useMemo(() => sortedFriends.slice(0, 5), [sortedFriends]);
 
   if (topFriends.length === 0) return null;
 
@@ -91,7 +97,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
             return (
               <motion.div
-                key={`${friend.id}-${idx}`}
+                key={friend.id}
                 initial={{ opacity: 0, scale: 0.95, x: 15 }}
                 whileInView={{ opacity: 1, scale: 1, x: 0 }}
                 viewport={{ once: true, margin: "-20px" }}

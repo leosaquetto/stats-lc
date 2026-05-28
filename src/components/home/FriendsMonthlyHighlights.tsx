@@ -29,7 +29,8 @@ export const FriendsMonthlyHighlights = React.memo(({
   activeTab?: ReplayFilterPeriod;
   selectedSubValues?: ReplaySelectedSubValues;
 }) => {
-  const { groupStats, hiddenUsers } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
@@ -145,7 +146,7 @@ export const FriendsMonthlyHighlights = React.memo(({
         <div className="flex flex-col divide-y divide-white/5 relative z-10">
           {sortedFriends.map((friend, idx) => (
             <FriendHighlightRow
-              key={`${friend.id}-${idx}`}
+              key={friend.id}
               friend={friend}
               tops={periodTops[friend.id] || friend.topItems}
               isExpanded={allExpanded || expandedId === friend.id}

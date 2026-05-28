@@ -11,7 +11,8 @@ interface HomeInsightsProps {
 }
 
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
-  const { groupStats, hiddenUsers } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const [insightOffset, setInsightOffset] = React.useState(0);
 
   const activeMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
