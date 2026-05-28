@@ -149,7 +149,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   ];
 
   return (
-    <div className="relative w-full overflow-hidden px-4 py-10 sm:px-6 lg:px-8">
+    <div className="relative w-full overflow-hidden px-4 py-7 sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.55)_0%,rgba(239,92,38,0.28)_36%,rgba(0,0,0,0)_72%)] blur-3xl" />
       {isLoading && (
         <div className="absolute top-2 left-4 right-4 h-px overflow-hidden rounded-full bg-white/5">
@@ -161,10 +161,10 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      <div className="relative z-10 space-y-9">
-      <div className="space-y-8">
+      <div className="relative z-10 space-y-7">
+      <div className="space-y-6">
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-[54px] font-black leading-none tracking-[-0.04em] text-white">Replay</h2>
+          <h2 className="text-[44px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
           <button
             onClick={() => {
               console.log('Compartilhar Replay');
@@ -182,7 +182,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               key={tab.key}
               onClick={() => selectTab(tab.key)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-sm font-black transition-colors",
+                "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-black transition-colors",
                 activeTab === tab.key
                   ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]"
                   : "text-white/38"
@@ -220,7 +220,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {activeTab === 'month' && (
-        <div className="relative z-10 -mx-1 flex items-center gap-8 overflow-x-auto px-1 hide-scrollbar">
+        <div className="relative z-10 -mx-1 flex items-center gap-6 overflow-x-auto px-1 hide-scrollbar">
           {availableMonths.map((month, index) => {
             const isSelected = selectedSubValues.month === String(index).padStart(2, '0');
             return (
@@ -228,7 +228,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 key={month}
                 onClick={() => selectSubValue({ ...selectedSubValues, month: String(index).padStart(2, '0') })}
                 className={cn(
-                  "shrink-0 text-[24px] font-black tracking-[-0.03em] transition-colors",
+                  "shrink-0 text-[20px] font-black tracking-[-0.02em] transition-colors",
                   isSelected ? "text-white" : "text-white/22"
                 )}
               >
@@ -271,8 +271,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {hasData && <div className={cn("max-w-[340px] transition-opacity duration-300", isLoading && "opacity-55")}>
-        <p className="text-[38px] font-black leading-[1.1] tracking-[-0.045em] text-white/46">
+      {hasData && <div className={cn("max-w-[328px] transition-opacity duration-300", isLoading && "opacity-55")}>
+        <p className="text-[30px] font-black leading-[1.12] tracking-[-0.035em] text-white/46">
           <span>Você ouviu </span>
           <motion.span
             key={totalMinutesCount}
@@ -296,7 +296,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenArtistsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Seus artistas mais ouvidos</h3>
+              <h3 className="text-[21px] font-black leading-none tracking-[-0.025em] text-white">Seus artistas mais ouvidos</h3>
               <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
@@ -364,7 +364,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenSongsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Suas músicas mais ouvidas</h3>
+              <h3 className="text-[21px] font-black leading-none tracking-[-0.025em] text-white">Suas músicas mais ouvidas</h3>
               <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
@@ -378,11 +378,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     return (
                       <motion.div
                         key={`${track.id || track.name}-${globalIndex}`}
-                        className="flex h-[66px] w-[calc(100vw-72px)] max-w-[318px] items-center gap-3 border-b border-white/10"
+                        className="flex h-[58px] w-[calc(100vw-72px)] max-w-[318px] items-center gap-3 border-b border-white/10"
                         whileHover={{ scale: 1.01 }}
                         whileTap={{ scale: 0.99 }}
                       >
-                        <div className="h-[48px] w-[48px] flex-shrink-0 overflow-hidden rounded-[9px] bg-white/5 shadow-lg">
+                        <div className="h-[42px] w-[42px] flex-shrink-0 overflow-hidden rounded-[9px] bg-white/5 shadow-lg">
                           <SmartImage
                             src={track.image || ''}
                             className="w-full h-full object-cover"
@@ -391,13 +391,13 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                           />
                         </div>
 
-                        <span className="w-6 flex-shrink-0 text-center text-[20px] font-black text-white">
+                        <span className="w-6 flex-shrink-0 text-center text-[18px] font-black text-white">
                           {globalIndex + 1}
                         </span>
 
                         <div className="flex-1 min-w-0">
-                          <p className="truncate text-[17px] font-semibold leading-tight text-white">{track.name}</p>
-                          <p className="truncate text-[14px] leading-tight text-white/48">
+                          <p className="truncate text-[15px] font-semibold leading-tight text-white">{track.name}</p>
+                          <p className="truncate text-[12px] leading-tight text-white/48">
                             {track.artist} · {track.streams.toLocaleString('pt-BR')} reproduções
                           </p>
                         </div>
@@ -407,7 +407,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                             // TODO: Abrir link da plataforma (priorizar Apple Music, fallback Spotify)
                             console.log('Abrir música na plataforma:', track.name);
                           }}
-                          className="flex-shrink-0 text-[24px] leading-none text-white/70 transition-colors hover:text-white"
+                          className="flex-shrink-0 text-[20px] leading-none text-white/70 transition-colors hover:text-white"
                         >
                           ⋯
                         </button>
@@ -429,7 +429,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenAlbumsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[24px] font-black leading-none tracking-[-0.035em] text-white">Seus álbuns mais ouvidos</h3>
+              <h3 className="text-[21px] font-black leading-none tracking-[-0.025em] text-white">Seus álbuns mais ouvidos</h3>
               <ChevronRight className="h-6 w-6 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>

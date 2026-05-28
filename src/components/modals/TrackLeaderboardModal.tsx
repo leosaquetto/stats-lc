@@ -175,18 +175,19 @@ export const TrackLeaderboardModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-2xl p-4"
       onClick={onClose}
     >
       <motion.div 
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="bg-[#0c0c0c] w-full max-w-sm max-h-[85vh] rounded-[48px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden relative"
+        className="glass premium-gradient w-full max-w-sm max-h-[85vh] rounded-[38px] border-white/15 bg-black/45 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-3xl flex flex-col overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
         <div 
-          className="absolute top-0 left-0 w-full h-40 opacity-20 blur-[80px] pointer-events-none"
+          className="absolute top-0 left-0 w-full h-40 opacity-25 blur-[78px] pointer-events-none"
           style={{ backgroundColor: "#FF9F0A" }}
         />
 
@@ -472,7 +473,7 @@ export const TrackLeaderboardModal = ({
             </div>
         </div>
 
-        <div className="p-6 pt-2 pb-8 bg-gradient-to-t from-[#0c0c0c] via-[#0c0c0c] to-transparent shrink-0">
+        <div className="p-6 pt-2 pb-8 bg-gradient-to-t from-black/75 via-black/55 to-transparent shrink-0">
           <button 
             onClick={onClose}
             className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 active:scale-95 transition-all hover:bg-white/10"

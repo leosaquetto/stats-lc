@@ -36,6 +36,7 @@ export const StatsAlike = React.memo(() => {
   const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
+  const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const members = groupStats?.members || [];
   const featuredUser = members.find(m => m.id === featuredUserId) || members[0];
@@ -259,6 +260,30 @@ export const StatsAlike = React.memo(() => {
     setActiveIndex(prev => (prev - 1 + alikeConnections.length) % alikeConnections.length);
   };
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    setIsAutoRotating(false);
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!start) return;
+
+    const touch = event.changedTouches[0];
+    const diffX = touch.clientX - start.x;
+    const diffY = touch.clientY - start.y;
+    if (Math.abs(diffX) < 42 || Math.abs(diffX) < Math.abs(diffY) * 1.2) {
+      setIsAutoRotating(true);
+      return;
+    }
+
+    if (diffX < 0) handleNext();
+    else handlePrev();
+    window.setTimeout(() => setIsAutoRotating(true), 2200);
+  };
+
   return (
     <div className="flex flex-col gap-3 mb-4 mt-1">
       <SectionHeader 
@@ -283,9 +308,15 @@ export const StatsAlike = React.memo(() => {
       />
 
       <div
-        className="relative h-[310px] w-full flex items-center justify-center overflow-visible [perspective:1200px]"
+        className="relative h-[292px] w-full touch-pan-x select-none flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          touchStartRef.current = null;
+          setIsAutoRotating(true);
+        }}
       >
         {/* Orbital Background - Glass Stage */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 rounded-full border border-white/[0.03] bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
@@ -315,7 +346,7 @@ export const StatsAlike = React.memo(() => {
             } else if (position === 1) { // Right Back
               zIndex = 10;
               scale = 0.78;
-              x = 108;
+              x = 118;
               y = -20;
               opacity = 0.4;
               blur = "blur(2px)";
@@ -323,7 +354,7 @@ export const StatsAlike = React.memo(() => {
             } else { // Left Back
               zIndex = 10;
               scale = 0.78;
-              x = -108;
+              x = -118;
               y = -20;
               opacity = 0.4;
               blur = "blur(2px)";
@@ -343,7 +374,7 @@ export const StatsAlike = React.memo(() => {
                   rotateY,
                 }}
                 transition={{ type: "spring", stiffness: 150, damping: 24 }}
-                className="absolute top-1/2 left-1/2 w-[270px]"
+                className="absolute top-1/2 left-1/2 w-[300px]"
                 onClick={() => position !== 0 && setActiveIndex(idx)}
               >
                 <motion.div
@@ -388,13 +419,13 @@ const AlikeOrbitalItem = ({
     track: 'Música em Comum',
     album: 'Álbum em Comum'
   };
-  const labelBadgeClass = "flex h-7 min-w-[152px] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-4 shadow-sm";
-  const labelTextClass = "block text-center text-[7.5px] font-black uppercase leading-none tracking-[0.16em] text-white/50";
+  const labelBadgeClass = "flex h-8 min-w-[168px] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-4 shadow-sm";
+  const labelTextClass = "block text-center text-[8px] font-black uppercase leading-none tracking-[0.16em] text-white/50";
 
   if (isEmpty) {
     return (
       <div className={cn(
-        "flex flex-col items-center gap-4 transition-all duration-500",
+        "flex flex-col items-center gap-3 transition-all duration-500",
         isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
       )}>
         <motion.div 
@@ -419,7 +450,7 @@ const AlikeOrbitalItem = ({
 
   return (
     <div className={cn(
-      "flex flex-col items-center gap-4 transition-all duration-500",
+        "flex flex-col items-center gap-3 transition-all duration-500",
       isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
     )}>
       {/* Label Badge */}
@@ -434,12 +465,12 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[30px] p-8 shadow-2xl transition-all duration-700 backdrop-blur-xl",
+        "relative rounded-[30px] p-7 shadow-2xl transition-all duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-3">
           {/* User (You) */}
-          <div className="relative h-12 w-12 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(featuredUserId, featuredUserAvatar)} 
               rounded="full" 
@@ -458,7 +489,7 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Central Item Image */}
-          <div className="relative h-[96px] w-[96px] flex-shrink-0 group">
+          <div className="relative h-[112px] w-[112px] flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               className={cn(
@@ -486,7 +517,7 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Alike Friend */}
-          <div className="relative h-12 w-12 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(alikeUser.id, alikeUser.avatar)} 
               rounded="full" 
@@ -511,9 +542,9 @@ const AlikeOrbitalItem = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex flex-col items-center text-center max-w-[200px]"
+            className="flex flex-col items-center text-center max-w-[230px]"
           >
-            <span className="text-sm font-black text-white px-2 tracking-tight line-clamp-1">
+            <span className="text-[15px] font-black text-white px-2 tracking-tight line-clamp-1">
               {item.name}
             </span>
             <div className="flex flex-wrap justify-center items-center gap-1.5 mt-1">

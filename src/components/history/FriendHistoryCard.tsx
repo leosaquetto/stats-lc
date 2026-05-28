@@ -48,6 +48,14 @@ const LiveWaveIcon = () => (
   </div>
 );
 
+const firstFiniteNumber = (...values: any[]) => {
+  for (const value of values) {
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue)) return numberValue;
+  }
+  return 0;
+};
+
 export const FriendHistoryCard = memo(({
   user,
   onTrackClick,
@@ -143,11 +151,37 @@ export const FriendHistoryCard = memo(({
 
   const historyList = getHistoryList();
 
-  const currentStats = userStats || {
-    streamsToday: user.streamsToday || storeUser.streamsToday || 0,
-    totalStreamsThisMonth: user.streamsMonth || storeUser.streamsMonth || 0,
-    totalStreamsThisYear: user.streamsYear || storeUser.streamsYear || user.stats?.year?.streams || storeUser.stats?.year?.streams || 0,
-    lifetime: user.totalStreams || storeUser.totalStreams || 0
+  const currentStats = {
+    streamsToday: firstFiniteNumber(
+      storeUser.streamsToday,
+      user.streamsToday,
+      storeUser.stats?.today?.streams,
+      user.stats?.today?.streams,
+      userStats?.streamsToday
+    ),
+    totalStreamsThisMonth: firstFiniteNumber(
+      storeUser.streamsMonth,
+      user.streamsMonth,
+      storeUser.stats?.month?.streams,
+      user.stats?.month?.streams,
+      userStats?.totalStreamsThisMonth
+    ),
+    totalStreamsThisYear: firstFiniteNumber(
+      storeUser.streamsYear,
+      user.streamsYear,
+      storeUser.stats?.year?.streams,
+      storeUser.stats?.current_year?.streams,
+      user.stats?.year?.streams,
+      user.stats?.current_year?.streams,
+      userStats?.totalStreamsThisYear
+    ),
+    lifetime: firstFiniteNumber(
+      storeUser.totalStreams,
+      user.totalStreams,
+      storeUser.stats?.lifetime?.streams,
+      user.stats?.lifetime?.streams,
+      userStats?.lifetime
+    )
   };
 
   const fmt = (n: number) => coreUtils.formatNumber(n || 0);
@@ -270,7 +304,7 @@ export const FriendHistoryCard = memo(({
           )}
         </AnimatePresence>
 
-        {showInlineHistory && (
+        {showInlineHistory && isStatsExpanded && (
         <div className="border-t border-white/5">
           {loading && recents.length === 0 ? (
             <div className="p-3 flex flex-col gap-2">

@@ -76,7 +76,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scroll-fade-h scrolling-touch">
+      <div className="flex h-[184px] touch-pan-x gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none no-scrollbar -mx-4 px-4 pb-2 scroll-fade-h scrolling-touch">
         <AnimatePresence>
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;

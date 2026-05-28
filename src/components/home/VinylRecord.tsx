@@ -63,7 +63,6 @@ export const VinylRecord = ({
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const heartbeat = useStatsStore(state => state.heartbeat);
-  const hasAlbumImage = typeof albumImage === 'string' && albumImage.trim().length > 5;
 
   const realTimeProgress = useMemo(() => {
     if (!isPlaying || !progressMs || !durationMs) return progressMs || 0;
@@ -96,17 +95,17 @@ export const VinylRecord = ({
   const textureVariant    = textureProfile.variant;
   const splatters = useMemo(() => Array.from({ length: 28 }, (_, i) => ({
     angle: seededValue(textureSeed, i) * 360,
-    length: 8 + seededValue(textureSeed, i + 31) * 22,
-    width: 0.5 + seededValue(textureSeed, i + 61) * 1.2,
-    radius: 24 + seededValue(textureSeed, i + 91) * 22,
-    opacity: 0.25 + seededValue(textureSeed, i + 121) * 0.55,
+    length: 4 + seededValue(textureSeed, i + 31) * 11,
+    width: 0.6 + seededValue(textureSeed, i + 61) * 1.4,
+    radius: 25 + seededValue(textureSeed, i + 91) * 20,
+    opacity: 0.18 + seededValue(textureSeed, i + 121) * 0.38,
   })), [textureSeed]);
   const wisps = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
     angle: seededValue(textureSeed, i + 151) * 360,
     radius: 18 + seededValue(textureSeed, i + 181) * 32,
-    width: 10 + seededValue(textureSeed, i + 211) * 18,
-    height: 1.6 + seededValue(textureSeed, i + 241) * 4,
-    opacity: 0.07 + seededValue(textureSeed, i + 271) * 0.18,
+    width: 8 + seededValue(textureSeed, i + 211) * 14,
+    height: 1.2 + seededValue(textureSeed, i + 241) * 2.4,
+    opacity: 0.05 + seededValue(textureSeed, i + 271) * 0.13,
   })), [textureSeed]);
 
   const tonearmNeedleX = 56 - currentRatio * 3;
@@ -119,10 +118,7 @@ export const VinylRecord = ({
       className="relative w-full aspect-square flex items-center justify-center cursor-pointer"
       onClick={onClick}
     >
-      {!hasAlbumImage ? (
-        <div className="absolute inset-[22%] rounded-full bg-black/30" />
-      ) : (
-        <>
+      <>
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
@@ -405,12 +401,11 @@ export const VinylRecord = ({
         </AnimatePresence>
 
       </motion.div>
-        </>
-      )}
+      </>
 
       {/* ── TONEARM ─────────────────────────────────────────────── */}
       <AnimatePresence>
-        {!hideTonearm && isPlaying && hasAlbumImage && (
+        {!hideTonearm && isPlaying && (
           <motion.svg
             className="absolute inset-0 pointer-events-none"
             viewBox="0 0 100 100"

@@ -95,20 +95,68 @@ const getReplayMinutes = (item: any) => {
   return Math.round(item?.minutes ?? item?.playedMinutes ?? item?.streams ?? item?.playcount ?? item?.playedCount ?? item?.count ?? 0);
 };
 
-const getReplayFallbackTotalMinutes = (user: any, activeTab: ReplayFilterPeriod, totalSongs?: number) => {
-  if (activeTab === 'all' && Number.isFinite(user?.totalDurationMs) && user.totalDurationMs > 0) {
-    return Math.max(1, Math.round(user.totalDurationMs / 60000));
-  }
+const getReplayDurationMs = (item: any) => {
+  const durationMs = item?.durationMs ?? item?.totalDurationMs ?? item?.playedDurationMs ?? item?.playDurationMs;
+  return Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
+};
 
+const getReplayFallbackTotalMinutes = (tracks: any[], totalSongs?: number) => {
+  const summedTrackDuration = tracks.reduce((total, track) => total + getReplayDurationMs(track), 0);
+  if (summedTrackDuration > 0) return Math.max(1, Math.round(summedTrackDuration / 60000));
   if (Number.isFinite(totalSongs) && totalSongs && totalSongs > 0) {
     return totalSongs;
   }
+  return tracks.reduce((total, track) => total + getReplayMinutes(track), 0);
+};
 
-  if (activeTab === 'today') return user?.streamsToday || 0;
-  if (activeTab === 'month') return user?.streamsMonth || 0;
-  if (activeTab === 'year') return user?.streamsYear || 0;
-  if (activeTab === 'all') return user?.totalStreams || 0;
-  return user?.streamsWeek || 0;
+const getReplayArtistName = (item: any) => {
+  const candidates = [
+    item?.albumArtist,
+    item?.albumArtistName,
+    item?.album?.artist,
+    item?.album?.artistName,
+    item?.album?.primaryArtist,
+    item?.album?.primaryArtistName,
+    item?.primaryArtist,
+    item?.primaryArtistName,
+    item?.artistName,
+    item?.artist,
+    Array.isArray(item?.artists) ? item.artists[0] : undefined,
+    item?.track?.primaryArtist,
+    item?.track?.primaryArtistName,
+    item?.track?.artistName,
+    Array.isArray(item?.track?.artists) ? item.track.artists[0] : undefined
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    if (candidate && typeof candidate === 'object') {
+      const name = candidate.name || candidate.artistName || candidate.displayName;
+      if (typeof name === 'string' && name.trim()) return name;
+    }
+  }
+  return 'Artista Desconhecido';
+};
+
+const getReplayAlbumArtistName = (album: any, tracks: any[]) => {
+  const directArtist = getReplayArtistName(album);
+  if (directArtist !== 'Artista Desconhecido') return directArtist;
+
+  const albumName = coreUtils.normalizeText(album?.name);
+  const albumImage = album?.image || album?.albumImage;
+  const albumId = album?.id || album?.albumId || album?.album?.id;
+  const matchingTrack = tracks.find((track) => {
+    const trackAlbumId = track?.albumId || track?.album?.id;
+    const trackAlbumName = coreUtils.normalizeText(track?.albumName || track?.album?.name);
+    const trackAlbumImage = track?.albumImage || track?.album?.image || track?.image;
+    return (
+      (albumId && trackAlbumId && String(albumId) === String(trackAlbumId)) ||
+      (albumName && trackAlbumName && albumName === trackAlbumName) ||
+      (albumImage && trackAlbumImage && albumImage === trackAlbumImage)
+    );
+  });
+
+  return matchingTrack ? getReplayArtistName(matchingTrack) : directArtist;
 };
 
 export default function HomeScreen() {
@@ -624,7 +672,7 @@ export default function HomeScreen() {
       .then(({ artists, tracks, albums, totalSongs, totalDurationMs }) => {
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });
-          const fallbackTotal = getReplayFallbackTotalMinutes(primaryUser, replayActiveTab, totalSongs) || tracks.length;
+          const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
           setReplayTotalMinutesCount(
             Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
               ? Math.max(1, Math.round(totalDurationMs / 60000))
@@ -731,7 +779,7 @@ export default function HomeScreen() {
               tracks={replayTracks.slice(0, 30).map((t: any) => ({
                 id: t.id,
                 name: t.name,
-                artist: t.primaryArtistName || (typeof t.artists?.[0] === 'string' ? t.artists[0] : t.artists?.[0]?.name) || t.artistName || 'Artista Desconhecido',
+                artist: getReplayArtistName(t),
                 image: t.image || t.albumImage,
                 streams: t.playedCount || t.streams || t.playcount || t.count || 0
               }))}
@@ -743,7 +791,7 @@ export default function HomeScreen() {
               albums={replayAlbums.slice(0, 15).map((a: any) => ({
                 id: a.id,
                 name: a.name,
-                artist: a.artist || a.artistName || a.albumArtist || a.primaryArtistName || (typeof a.artists?.[0] === 'string' ? a.artists[0] : a.artists?.[0]?.name) || 'Artista Desconhecido',
+                artist: getReplayAlbumArtistName(a, replayTracks),
                 image: a.image,
                 streams: getReplayMinutes(a)
               }))}
@@ -1168,14 +1216,14 @@ export default function HomeScreen() {
             topTracks={replayTracks.slice(0, 30).map((t: any) => ({
               id: t.id,
               name: t.name,
-              artist: t.primaryArtistName || (typeof t.artists?.[0] === 'string' ? t.artists[0] : t.artists?.[0]?.name) || t.artistName || 'Artista Desconhecido',
+              artist: getReplayArtistName(t),
               image: t.image || t.albumImage,
               streams: t.playedCount || t.streams || t.playcount || t.count || 0
             })) || []}
             topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
               id: a.id,
               name: a.name,
-              artist: a.artist || a.artistName || a.albumArtist || a.primaryArtistName || (typeof a.artists?.[0] === 'string' ? a.artists[0] : a.artists?.[0]?.name) || 'Artista Desconhecido',
+              artist: getReplayAlbumArtistName(a, replayTracks),
               image: a.image,
               streams: getReplayMinutes(a)
             })) || []}
@@ -1312,7 +1360,7 @@ export default function HomeScreen() {
                     onTrackClick={setSelectedTrackHistory}
                     onFullHistoryClick={(u) => setViewingFullHistoryUser(u)}
                     showFullHistoryButton={timelineExpanded}
-                    showInlineHistory={false}
+                    showInlineHistory
                   />
                 </motion.div>
               ))}
