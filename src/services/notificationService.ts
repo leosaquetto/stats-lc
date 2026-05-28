@@ -3,6 +3,7 @@
  */
 
 import { UserStats } from '../types/stats';
+import { getArtistListString } from '../lib/artistUtils';
 
 // Store previous now playing states in memory during session
 const previousNowPlaying: Record<string, string> = {};
@@ -147,10 +148,7 @@ export const notificationService = {
         const currentPlayingKey = `${userId}:${trackId}`;
         const previousKey = previousNowPlaying[userId];
 
-        // Format artist string
-        const artistName = Array.isArray(nowPlaying.track.artists)
-          ? nowPlaying.track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')
-          : 'Artista Desconhecido';
+        const artistName = getArtistListString(nowPlaying.track) || 'Artista';
 
         if (previousKey !== undefined && previousKey !== currentPlayingKey) {
           // Track changed! Send notification
