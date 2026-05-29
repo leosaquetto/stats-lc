@@ -89,13 +89,7 @@ export default function SettingsScreen() {
         'success'
       );
     } else {
-      // If hiding the currently featured user, switch to first visible user
-      if (id === featuredUserId) {
-        const nextVisible = members.find(m => m.id !== id);
-        if (nextVisible) {
-          setFeaturedUserId(nextVisible.id);
-        }
-      }
+      // Ocultar usuário não muda featuredUserId - ele continua selecionado mas oculto das listas
       setHiddenUsers(dedupeIds([...hiddenUsers, id]));
       showToast(
         'Privacidade Atualizada',

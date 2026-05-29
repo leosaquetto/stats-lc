@@ -341,10 +341,11 @@ export default function HomeScreen() {
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
   const primaryUser = useMemo(() => {
     if (!groupStats) return null;
+    // Prioriza allMembers para permitir usuário oculto como featuredUserId
     return (
+      allMembers.find(m => m.id === featuredUserId) ||
       members.find(m => m.id === featuredUserId) ||
       members[0] ||
-      allMembers.find(m => m.id === featuredUserId) ||
       allMembers[0] ||
       null
     );
@@ -559,16 +560,21 @@ export default function HomeScreen() {
       return;
     }
 
-    if (primaryUser?.id && featuredUserId !== primaryUser.id) {
-      if ((import.meta as any).env?.DEV) {
-        console.warn('[HomeScreen] Invalid featuredUserId recovered', {
-          featuredUserId,
-          fallbackUserId: primaryUser.id,
-        });
+    // Só recupera featuredUserId se ele estiver vazio ou não existir em allMembers
+    const featuredUserExists = allMembers.some(m => m.id === featuredUserId);
+
+    if (!featuredUserId || !featuredUserExists) {
+      if (primaryUser?.id) {
+        if ((import.meta as any).env?.DEV) {
+          console.warn('[HomeScreen] Invalid featuredUserId recovered', {
+            featuredUserId,
+            fallbackUserId: primaryUser.id,
+          });
+        }
+        setFeaturedUserId(primaryUser.id);
+        setShowInitialModal(false);
+        return;
       }
-      setFeaturedUserId(primaryUser.id);
-      setShowInitialModal(false);
-      return;
     }
 
     if (primaryUser?.id) {
@@ -578,7 +584,7 @@ export default function HomeScreen() {
     } else if (allMembers.length > 0) {
       setShowInitialModal(true);
     }
-  }, [allMembers.length, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
+  }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
 
   useEffect(() => {
     const nowPlaying = primaryUser?.nowPlaying;

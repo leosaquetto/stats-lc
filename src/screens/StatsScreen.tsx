@@ -1518,55 +1518,52 @@ export default function StatsScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4">
-      <header className="px-1 flex justify-between items-start pb-1">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Stats</h1>
-          <p className="text-white/60 text-sm">
-            {isOffline ? `Modo offline (dados salvos) de ${user?.name}` : `O legado sonoro de ${user?.name}`}
-          </p>
-        </div>
-        <div className="flex gap-2 relative mt-1">
-          {/* Fusion Button */}
-          <button 
+    <div className="flex flex-col gap-3 pb-32 px-4">
+      {/* Universal Period Filter (The Master Selector - Floating Glass Pill) */}
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full flex flex-col transition-all py-3 bg-[#050505]/75 backdrop-blur-md">
+        {/* Compact actions bar above filter */}
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowUserSelector(!showUserSelector)}
+              className={clsx(
+                "h-8 w-8 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md overflow-hidden cursor-pointer active:scale-95 transition-all p-0 shrink-0",
+                showUserSelector && "bg-white/25 border-white/25"
+              )}
+              title="Mudar Usuário"
+            >
+              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} className="h-full w-full" fallback={user.name} rounded="full" />
+            </button>
+
+            <button
+              type="button"
+              onClick={executeWithCooldown(() => fetchGroupLive())}
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all text-white/70 cursor-pointer shrink-0"
+              title="Sincronizar"
+            >
+               <RefreshCcw className={clsx("h-3.5 w-3.5 text-white/70", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
+            </button>
+          </div>
+
+          <button
             type="button"
             onClick={() => setShowFusionSelector(!showFusionSelector)}
             className={clsx(
-              "h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md transition-all cursor-pointer text-white/70 shrink-0",
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md transition-all cursor-pointer text-white/60 hover:text-white/90 shrink-0",
               showFusionSelector && "bg-orange-500/20 text-orange-500 border-orange-500/20"
             )}
             title="Modo Fusion"
           >
-            <Swords className="h-4 w-4" />
-          </button>
-
-          {/* User Selector */}
-          <button 
-            type="button"
-            onClick={() => setShowUserSelector(!showUserSelector)} 
-            className={clsx(
-              "h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md overflow-hidden cursor-pointer active:scale-95 transition-all p-0 shrink-0",
-              showUserSelector && "bg-white/25 border-white/25"
-            )}
-            title="Mudar Usuário"
-          >
-            <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} className="h-full w-full" fallback={user.name} rounded="full" />
-          </button>
-          
-          <button
-            type="button"
-            onClick={executeWithCooldown(() => fetchGroupLive())}
-            className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all text-white/70 cursor-pointer shrink-0"
-            title="Sincronizar"
-          >
-             <RefreshCcw className={clsx("h-4 w-4 text-white/70", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
+            <Swords className="h-3 w-3" />
+            <span className="text-[9px] font-black uppercase tracking-wider">Fusion</span>
           </button>
 
           <AnimatePresence>
             {showFusionSelector && (
               <>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowFusionSelector(false)} className="fixed inset-0 z-40" />
-                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full right-16 mt-2 w-56 glass-card border-orange-500/20 p-2 z-50 shadow-2xl backdrop-blur-3xl">
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full right-0 mt-2 w-56 glass-card border-orange-500/20 p-2 z-50 shadow-2xl backdrop-blur-3xl">
                   <div className="text-[10px] font-bold uppercase tracking-widest text-orange-500 px-3 py-2 mb-1 border-b border-white/5 flex items-center gap-1.5"><Swords className="h-3 w-3" /> Modo Fusion</div>
                   <div className="flex flex-col gap-1">
                     {members.filter(m => m.id !== CURRENT_USER_ID).map((u) => (
@@ -1583,7 +1580,7 @@ export default function StatsScreen() {
             {showUserSelector && (
               <>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowUserSelector(false)} className="fixed inset-0 z-40" />
-                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full right-0 mt-2 w-52 glass-card border-white/10 p-2 z-50 shadow-2xl backdrop-blur-3xl max-h-[300px] overflow-y-auto no-scrollbar">
+                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-12 left-0 mt-2 w-52 glass-card border-white/10 p-2 z-50 shadow-2xl backdrop-blur-3xl max-h-[300px] overflow-y-auto no-scrollbar">
                   <div className="text-[9px] font-bold uppercase tracking-widest text-white/50 px-3 py-2 mb-1">Trocar Perfil</div>
                   <div className="flex flex-col gap-1">
                     {members.map((u) => (
@@ -1598,7 +1595,7 @@ export default function StatsScreen() {
                         className={clsx(
                           "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
                           CURRENT_USER_ID === u.id && viewMode === 'user'
-                            ? "bg-white/10 border border-white/10" 
+                            ? "bg-white/10 border border-white/10"
                             : "hover:bg-white/5 opacity-70 hover:opacity-100"
                         )}
                       >
@@ -1631,10 +1628,7 @@ export default function StatsScreen() {
             )}
           </AnimatePresence>
         </div>
-      </header>
 
-      {/* Universal Period Filter (The Master Selector - Floating Glass Pill) */}
-      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full flex flex-col transition-all py-3 bg-[#050505]/75 backdrop-blur-md">
         <div className="relative w-full z-10 flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-xl rounded-[32px] overflow-x-auto no-scrollbar border border-white/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
           {/* Glossy shine reflection top half */}
           <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none rounded-t-[32px]" />
