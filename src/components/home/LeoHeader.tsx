@@ -307,11 +307,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const albumImage = useMemo(() => {
     if (!track) return "";
     const candidates = [
-      track.image,
       track.albumImage,
       track.album?.image,
       track.album?.images?.[0]?.url,
       track.album?.images?.[0], // In case images[0] IS the URL string
+      track.image,
       track.images?.[0]?.url,
       track.images?.[0],
       track.albumArt,
