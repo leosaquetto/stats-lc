@@ -93,6 +93,7 @@ export interface UserStats {
     tracks: TopItem[];
     albums: TopItem[];
   };
+  topItemsFetchedAt?: number;
   catalogSummary?: any;
   errors?: Record<string, any>;
   recent?: any[];

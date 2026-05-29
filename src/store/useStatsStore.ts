@@ -364,8 +364,65 @@ export const useStatsStore = create<StatsState>()(
 
       prefetchUserTops: async (userId: string, period: string = 'month') => {
         const types: ('tracks' | 'artists' | 'albums')[] = ['tracks', 'artists', 'albums'];
+        const topItems: any = {};
+
         for (const type of types) {
-          await statsService.getTopItems(userId, type, period).catch(() => []);
+          const items = await statsService.getTopItems(userId, type, period).catch(() => []);
+          topItems[`${type}`] = items;
+        }
+
+        // Update groupStats.users and groupStats.members with the fetched topItems
+        const currentGroupStats = get().groupStats;
+        if (currentGroupStats) {
+          const newGroupStats = { ...currentGroupStats };
+          const newUsers = { ...newGroupStats.users };
+          const newMembers = [...newGroupStats.members];
+
+          const now = Date.now();
+
+          // Update user in users map
+          if (newUsers[userId]) {
+            newUsers[userId] = {
+              ...newUsers[userId],
+              topItems: {
+                tracks: topItems.tracks || [],
+                artists: topItems.artists || [],
+                albums: topItems.albums || []
+              },
+              topItemsFetchedAt: now
+            };
+          }
+
+          // Update user in members array
+          const memberIndex = newMembers.findIndex(m => m.id === userId);
+          if (memberIndex !== -1) {
+            newMembers[memberIndex] = {
+              ...newMembers[memberIndex],
+              topItems: {
+                tracks: topItems.tracks || [],
+                artists: topItems.artists || [],
+                albums: topItems.albums || []
+              },
+              topItemsFetchedAt: now
+            };
+          }
+
+          newGroupStats.users = newUsers;
+          newGroupStats.members = newMembers;
+
+          // Canonicalize and save
+          const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
+          saveToMMKV('groupStats', canonicalGroupStats);
+
+          set({ groupStats: canonicalGroupStats });
+
+          if ((import.meta as any).env?.DEV) {
+            console.log(`[prefetchUserTops] Updated groupStats with topItems for ${userId}:`, {
+              tracks: topItems.tracks?.length || 0,
+              artists: topItems.artists?.length || 0,
+              albums: topItems.albums?.length || 0
+            });
+          }
         }
       },
 

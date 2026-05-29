@@ -63,15 +63,31 @@ export const StatsAlike = React.memo(() => {
     if (!members.length) return;
 
     const loadTopItemsForMembers = async () => {
+      const REFETCH_INTERVAL = 15 * 60 * 1000; // 15 min - match topItemsCache TTL
+      const now = Date.now();
+
       for (const member of members) {
+        const lastFetched = (member as any).topItemsFetchedAt || 0;
+        const shouldRefetch = (now - lastFetched) > REFETCH_INTERVAL;
+
         if (!member.topItems ||
             !member.topItems.tracks?.length ||
             !member.topItems.artists?.length ||
             !member.topItems.albums?.length) {
+          // Missing topItems - fetch if not recently attempted
+          if (shouldRefetch) {
+            try {
+              await prefetchUserTops(member.id);
+            } catch (err) {
+              console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
+            }
+          }
+        } else if (shouldRefetch) {
+          // Has topItems but stale - refresh in background
           try {
             await prefetchUserTops(member.id);
           } catch (err) {
-            console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
+            console.warn(`[StatsAlike] Failed to refresh tops for ${member.id}:`, err);
           }
         }
       }
