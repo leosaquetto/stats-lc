@@ -144,6 +144,164 @@ From `api-contract.md`:
 - `"lastPlayed"` - Recently played (> 5 minutes ago)
 - `"inactive"` - No valid track data
 
+## Permanent stats-lc Agent Rules
+
+### 1. Do not persist heavy cache data
+
+Never save large objects into `stats-lc-storage` or persisted `groupStats`.
+
+Avoid persisting:
+- full `topItems` arrays inside `groupStats`
+- `historyCache`
+- `topItemsCache`
+- `userFullStatsCache`
+- `timeRangeStatsCache`
+- large stream/recent/history arrays
+
+Reason: Safari/PWA/localStorage quota is limited and can throw `QuotaExceededError`, breaking app startup and leaving the UI stuck in loading.
+
+Preferred approach:
+- persist only lightweight preferences in Zustand;
+- keep large caches in dedicated cache layers with TTL and safe fallbacks;
+- if `groupStats` must be saved, save a stripped/lightweight version.
+
+### 2. Stats Alike topItems hydration
+
+`StatsAlike` needs tracks, artists, and albums to build matches, but those arrays must not inflate persisted `groupStats`.
+
+Rules:
+- do not inject full `topItems` into persisted `groupStats`;
+- use a specific cache, lightweight local state, or returned `prefetchUserTops` data;
+- avoid loops like `StatsAlike -> prefetchUserTops -> set groupStats -> StatsAlike`.
+
+Required defenses:
+- in-flight guard by `userId:period`;
+- mark recent attempts even when arrays are empty;
+- protect `activeIndex` when the list changes;
+- never modulo by zero.
+
+### 3. Orbital UI means a real orbital stage
+
+When a task mentions `orbit`, `orbital`, `órbita`, or compares behavior to Stats Alike, do not implement it as a standard stacked card.
+
+Orbital means:
+- a large relative stage;
+- absolute-positioned elements;
+- large rings;
+- satellites around a center;
+- light points;
+- subtle floating motion;
+- preserved vertical scroll;
+- no new requests.
+
+Avoid:
+- stacking artist/user/track/album in a column;
+- tiny 90px orbits for primary sections;
+- heavy rectangular cards around everything;
+- undersized center avatars.
+
+### 4. Vinyl/LeoHeader album resolution
+
+For tracks that exist in multiple albums or compilations, the app should prefer the album resolved by stream evidence.
+
+Backend support already exists:
+- `/api/recent?resolveAlbums=1`
+- `useTrackStreamEvidence`
+- `track-album-enrichment.ts`
+
+Rules:
+- when recent tracks feed the vinyl/LeoHeader, call `resolveAlbums=1`;
+- prefer enriched `track.album`, `track.albumImage`, `track.albumName`, and `track.albums[0]`;
+- keep the old fallback if enrichment fails;
+- do not add new polling.
+
+### 5. Scroll-triggered UI must not mount heavy components
+
+Elements that appear on scroll, such as floating mini headers, should remain mounted and only change:
+- `opacity`
+- `transform`
+- `pointer-events`
+
+Avoid:
+- mounting/unmounting with `AnimatePresence` during scroll;
+- recalculating images, dominant colors, or large arrays on scroll;
+- animating `height`, `width`, `blur`, or heavy shadows;
+- passing scroll state into heavy sections.
+
+### 6. Stats charts are first-class features
+
+Do not hide `Evolução de Atividade` or `Distribuição Horária` just because they render as zero.
+
+If data exists but charts appear empty:
+- treat it as a mapper/source bug;
+- inspect `datesData`, `historyData`, `fullUserData`, `chartData`, and `hourlyDistributionData`;
+- fix duration conversions and shape handling;
+- distinguish true empty data from mapper failure.
+
+### 7. Glassmorphism is React Web/Tailwind, not React Native
+
+Do not use `expo-blur` or `BlurView` in this repo.
+
+Use:
+- `backdrop-filter`
+- `-webkit-backdrop-filter`
+- translucent backgrounds
+- translucent borders
+- shadow/inset highlights
+- fallback styles when backdrop-filter is unsupported
+
+Apply carefully:
+- nav and modals can use stronger blur;
+- repeated lists/cards should use moderate blur;
+- avoid stacking too many blur layers.
+
+### 8. App reset action
+
+Settings may expose a `Reiniciar app` action to clear local app caches.
+
+It may clear:
+- app-specific `localStorage` keys;
+- `stats-cache_*`;
+- `stats-lc-storage`;
+- `sessionStorage`;
+- `CacheStorage`, with try/catch.
+
+It must not clear:
+- cookies;
+- service workers via automatic unregister;
+- external account data.
+
+Always ask for confirmation before clearing local state.
+
+### 9. Before large changes
+
+Always read the real files involved before editing.
+
+Checklist:
+- identify the exact component;
+- identify the data source;
+- confirm whether a new request is being added;
+- confirm whether persistence/cache is affected;
+- check for loop risk;
+- check mobile scroll impact;
+- run `npm run lint`;
+- run `npm run build`.
+
+### 10. Required final report format
+
+Every final report should include:
+- files changed;
+- real cause;
+- what changed;
+- whether a new request was added;
+- whether persistence/cache changed;
+- whether mobile scroll is preserved;
+- lint result;
+- build result;
+- remaining risks;
+- suggested commit command;
+- confirmation that no commit was made, unless explicitly instructed otherwise.
+
 ## Environment Variables
 
 Create `.env.local` from `.env.example`:
