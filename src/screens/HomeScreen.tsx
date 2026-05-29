@@ -228,6 +228,8 @@ export default function HomeScreen() {
   const [isAppReady, setIsAppReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState(0);
+  const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
@@ -381,7 +383,15 @@ export default function HomeScreen() {
   }, [miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
 
   const handleRefresh = useCallback(async () => {
+    // Rate limiting: prevent spam refresh
+    const now = Date.now();
+    if (now - lastRefreshTime < REFRESH_COOLDOWN_MS) {
+      showToast('Now Playing', 'Aguarde alguns segundos antes de atualizar novamente.', 'error');
+      return;
+    }
+
     setIsManualLiveRefresh(true);
+    setLastRefreshTime(now);
     try {
       await fetchGroupLive(false);
       showToast('Now Playing', 'Tocando agora atualizado.', 'success');
@@ -391,7 +401,7 @@ export default function HomeScreen() {
     } finally {
       setIsManualLiveRefresh(false);
     }
-  }, [fetchGroupLive, showToast]);
+  }, [fetchGroupLive, showToast, lastRefreshTime, REFRESH_COOLDOWN_MS]);
 
   useEffect(() => {
     if (!isRefreshing) {

@@ -6,6 +6,7 @@
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import HomeScreen from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
@@ -182,10 +183,12 @@ export default function App() {
   }, [fetchGroupLive, pushNotificationsEnabled, pollingFrequency]);
 
   return (
-    <HashRouter>
-      <Layout>
-        <AppRoutes />
-      </Layout>
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <Layout>
+          <AppRoutes />
+        </Layout>
+      </HashRouter>
+    </ErrorBoundary>
   );
 }
