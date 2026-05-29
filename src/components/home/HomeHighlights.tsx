@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { getVisibleMembers } from '../../lib/memberSelectors';
@@ -41,6 +41,8 @@ const topItemKey = (type: string, item: any, index: number) => {
 };
 
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
+  const shouldReduceMotion = useReducedMotion();
+
   const totalStreams = React.useMemo(() =>
     users.reduce((sum, u) => sum + (u.streamsToday || 0), 0),
     [users]
@@ -80,13 +82,13 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
     );
   }
 
-  // Orbital positions for up to 5 participants
+  // Orbital positions for up to 5 participants - more spread out
   const orbitalPositions = [
-    { left: '18%', top: '48%', size: 'large' }, // Leader - larger
-    { left: '35%', top: '22%', size: 'normal' },
-    { right: '24%', top: '28%', size: 'normal' },
-    { right: '25%', bottom: '24%', size: 'normal' },
-    { left: '45%', bottom: '12%', size: 'normal' },
+    { left: '12%', bottom: '35%', size: 'large' }, // Leader - larger, left-bottom
+    { left: '50%', top: '8%', size: 'normal' }, // Top center
+    { right: '15%', top: '25%', size: 'normal' }, // Top right
+    { right: '18%', bottom: '28%', size: 'normal' }, // Bottom right
+    { left: '48%', bottom: '8%', size: 'normal' }, // Bottom center
   ];
 
   return (
@@ -100,13 +102,13 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
 
-      <div className="glass-card premium-gradient border-white/10 p-6 relative z-10 min-h-[280px]">
+      <div className="border border-white/8 bg-white/[0.01] backdrop-blur-xl rounded-[32px] p-6 relative z-10 min-h-[320px]">
         {/* Glossy Reflection Overlay */}
-        <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
 
         <div className="relative z-10 flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5">
               <motion.div
                 animate={{
@@ -115,7 +117,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 }}
                 transition={{
                   duration: 2,
-                  repeat: Infinity,
+                  repeat: shouldReduceMotion ? 0 : Infinity,
                   ease: "easeInOut"
                 }}
                 className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)]"
@@ -128,39 +130,39 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           </div>
 
           {/* Orbital Stage */}
-          <div className="relative flex-1 flex items-center justify-center min-h-[200px]">
+          <div className="relative flex-1 flex items-center justify-center min-h-[300px]">
             {/* Orbital Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Inner ring */}
-              <div className="absolute w-[140px] h-[140px] rounded-full border border-white/5 opacity-40" />
+              <div className="absolute w-[180px] h-[180px] rounded-full border border-white/5 opacity-40" />
               {/* Middle ring */}
-              <div className="absolute w-[180px] h-[180px] rounded-full border border-orange-500/10 opacity-30" />
+              <div className="absolute w-[240px] h-[240px] rounded-full border border-orange-500/10 opacity-30" />
               {/* Outer ring partial */}
-              <svg className="absolute w-[220px] h-[220px] -rotate-90 opacity-20">
+              <svg className="absolute w-[310px] h-[310px] -rotate-90 opacity-20">
                 <circle
-                  cx="110"
-                  cy="110"
-                  r="108"
+                  cx="155"
+                  cy="155"
+                  r="153"
                   fill="none"
                   stroke="rgba(249, 115, 22, 0.3)"
                   strokeWidth="1"
-                  strokeDasharray="340 680"
+                  strokeDasharray="480 960"
                 />
               </svg>
               {/* Light dots on rings */}
               <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                className="absolute w-[180px] h-[180px]"
+                animate={shouldReduceMotion ? {} : { opacity: [0.3, 0.8, 0.3], scale: [0.9, 1.2, 0.9] }}
+                transition={{ duration: 3, repeat: shouldReduceMotion ? 0 : Infinity, ease: "easeInOut" }}
+                className="absolute w-[240px] h-[240px]"
               >
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-500/60 blur-[1px]" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-500/60 blur-[1px]" />
               </motion.div>
               <motion.div
-                animate={{ rotate: -360 }}
-                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-                className="absolute w-[140px] h-[140px]"
+                animate={shouldReduceMotion ? {} : { opacity: [0.4, 0.9, 0.4], scale: [1, 1.3, 1] }}
+                transition={{ duration: 4, repeat: shouldReduceMotion ? 0 : Infinity, ease: "easeInOut", delay: 1.5 }}
+                className="absolute w-[180px] h-[180px]"
               >
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500/50 blur-[1px]" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-green-500/50 blur-[1px]" />
               </motion.div>
             </div>
 
@@ -191,12 +193,22 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                   <motion.div
                     key={user.id}
                     initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: hasZeroStreams ? 0.5 : 1, scale: 1 }}
+                    animate={{
+                      opacity: hasZeroStreams ? 0.5 : 1,
+                      scale: 1,
+                      y: shouldReduceMotion ? 0 : [0, -3, 0]
+                    }}
                     exit={{ opacity: 0, scale: 0.5 }}
                     transition={{
                       duration: 0.4,
                       delay: i * 0.1,
-                      ease: [0.16, 1, 0.3, 1]
+                      ease: [0.16, 1, 0.3, 1],
+                      y: {
+                        duration: 5 + i * 0.5,
+                        repeat: shouldReduceMotion ? 0 : Infinity,
+                        ease: "easeInOut",
+                        delay: i * 0.3
+                      }
                     }}
                     className="absolute"
                     style={{
@@ -212,8 +224,8 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                         className={cn(
                           "rounded-full overflow-hidden border-2 shadow-2xl transition-all",
                           isLeader
-                            ? "h-14 w-14 border-orange-500/60 ring-2 ring-orange-500/30"
-                            : "h-11 w-11 border-white/10"
+                            ? "h-16 w-16 border-orange-500/60 ring-4 ring-orange-500/20"
+                            : "h-12 w-12 border-white/10"
                         )}
                       >
                         <SmartImage
@@ -226,7 +238,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       {/* Badge */}
                       <div
                         className={cn(
-                          "absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full border-2 border-[#050505] flex items-center justify-center shadow-lg z-20",
+                          "absolute -bottom-1.5 -right-1.5 min-w-[20px] h-[20px] px-1.5 rounded-full border-2 border-[#050505] flex items-center justify-center shadow-lg z-20",
                           isLeader ? "bg-orange-500" : "bg-orange-600"
                         )}
                       >
@@ -246,7 +258,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.6 }}
-                className="absolute right-[12%] top-[50%] -translate-y-1/2 px-2 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm"
+                className="absolute right-[8%] top-[50%] -translate-y-1/2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm"
               >
                 <span className="text-[8px] font-black text-white/40">+{extraCount}</span>
               </motion.div>
@@ -403,6 +415,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
 });
 
 export const FriendsLiveCarousel = React.memo(() => {
+  const shouldReduceMotion = useReducedMotion();
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -453,17 +466,17 @@ export const FriendsLiveCarousel = React.memo(() => {
               className="glass-card min-w-[180px] max-w-[220px] p-4 flex items-center gap-3 relative overflow-hidden transition-all border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] active:scale-95"
             >
               <div className="relative shrink-0">
-                <motion.div 
-                   animate={{ 
+                <motion.div
+                   animate={shouldReduceMotion ? {} : {
                      boxShadow: [
                        "0 0 0 0px rgba(249, 115, 22, 0)",
                        "0 0 0 4px rgba(249, 115, 22, 0.3)",
                        "0 0 0 0px rgba(249, 115, 22, 0)"
                      ]
                    }}
-                   transition={{ 
+                   transition={{
                      duration: 2,
-                     repeat: Infinity,
+                     repeat: shouldReduceMotion ? 0 : Infinity,
                      ease: "easeInOut"
                    }}
                    className="h-12 w-12 rounded-full p-0.5 bg-gradient-to-tr from-orange-500 to-yellow-500"
