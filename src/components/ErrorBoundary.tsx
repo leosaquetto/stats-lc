@@ -52,22 +52,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReload = () => {
-    // Clear any cached service worker data
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        registrations.forEach((registration) => registration.unregister());
-      });
+    // For chunk errors only: clear CacheStorage to force fresh fetch
+    // Do NOT unregister service worker (would break PWA in future)
+    // Do NOT touch localStorage (would lose user preferences)
+    if (this.state.isChunkError && 'caches' in window) {
+      caches.keys()
+        .then((names) => {
+          return Promise.all(names.map((name) => caches.delete(name).catch(() => {})));
+        })
+        .catch(() => {})
+        .finally(() => {
+          window.location.reload();
+        });
+    } else {
+      // Generic error: just reload without cache clearing
+      window.location.reload();
     }
-
-    // Clear cache storage
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        names.forEach((name) => caches.delete(name));
-      });
-    }
-
-    // Reload the page
-    window.location.reload();
   };
 
   render() {
