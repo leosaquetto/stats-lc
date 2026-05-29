@@ -49,11 +49,20 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
 export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" }: { src?: string, className?: string, fallback?: string, rounded?: string }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
 
   const resolvedSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
 
-  const finalSrc = error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))
+  // Delay showing fallback to give real images time to load
+  useEffect(() => {
+    if (!resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) {
+      const timer = setTimeout(() => setShowFallback(true), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [resolvedSrc]);
+
+  const finalSrc = (error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) && showFallback
     ? `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(fallback)}`
     : resolvedSrc;
 
