@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test API Structure - Stats LC</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      background: #050505;
+      color: #fff;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { color: #FF9F0A; }
+    h2 { color: #FF9F0A; margin-top: 30px; }
+    button {
+      background: #FF9F0A;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+      margin: 10px 5px;
+    }
+    button:hover { background: #FFB84D; }
+    pre {
+      background: #0a0a0a;
+      border: 1px solid #333;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #0a0a0a;
+      border-radius: 12px;
+      border: 1px solid #222;
+    }
+    .error { color: #ff4444; }
+    .success { color: #44ff44; }
+    .warning { color: #ffaa44; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Stats LC - API Structure Tester</h1>
+  <p>Este teste vai buscar dados reais da API e mostrar a estrutura exata retornada.</p>
+
+  <div class="section">
+    <h2>Configuração</h2>
+    <label>User ID: <input type="text" id="userId" value="LEO" style="padding: 8px; width: 200px; background: #111; color: #fff; border: 1px solid #333; border-radius: 4px;"></label>
+    <br><br>
+    <label>Filtro:
+      <select id="filter" style="padding: 8px; background: #111; color: #fff; border: 1px solid #333; border-radius: 4px;">
+        <option value="today">Hoje</option>
+        <option value="week">Semana</option>
+        <option value="month">Mês</option>
+        <option value="year">Ano</option>
+        <option value="lifetime">Total</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="section">
+    <h2>Testes</h2>
+    <button onclick="testStatsEndpoint()">1. Test /api/stats</button>
+    <button onclick="testDatesEndpoint()">2. Test /api/stats-dates</button>
+    <button onclick="testCardinalityEndpoint()">3. Test /api/stats-cardinality</button>
+    <button onclick="testAllEndpoints()">🚀 Test ALL</button>
+  </div>
+
+  <div id="results"></div>
+
+  <script>
+    const API_BASE = 'https://statslc.leosaquetto.com';
+
+    function getAfterTimestamp() {
+      const filter = document.getElementById('filter').value;
+      const now = new Date();
+
+      if (filter === 'today') {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        return today.getTime();
+      } else if (filter === 'week') {
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        return weekStart.getTime();
+      } else if (filter === 'month') {
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        return monthStart.getTime();
+      } else if (filter === 'year') {
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        return yearStart.getTime();
+      } else {
+        return 0;
+      }
+    }
+
+    async function testEndpoint(endpoint, name) {
+      const userId = document.getElementById('userId').value;
+      const after = getAfterTimestamp();
+      const url = `${API_BASE}${endpoint}?user=${userId}&after=${after}`;
+
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'section';
+      resultDiv.innerHTML = `<h2>${name}</h2><p>Loading...</p>`;
+      document.getElementById('results').appendChild(resultDiv);
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const keys = Object.keys(data);
+        const hasStats = !!data.stats;
+        const hasItems = !!data.items;
+        const hasStatsItems = !!data.stats?.items;
+
+        let analysis = `<p class="success">✓ Success (${response.status})</p>`;
+        analysis += `<p><strong>URL:</strong> <code>${url}</code></p>`;
+        analysis += `<p><strong>Top-level keys:</strong> ${keys.join(', ')}</p>`;
+        analysis += `<p><strong>Has .stats?</strong> ${hasStats ? '✓ YES' : '✗ NO'}</p>`;
+        analysis += `<p><strong>Has .items?</strong> ${hasItems ? '✓ YES' : '✗ NO'}</p>`;
+        analysis += `<p><strong>Has .stats.items?</strong> ${hasStatsItems ? '✓ YES' : '✗ NO'}</p>`;
+
+        if (endpoint === '/api/stats-dates') {
+          const datesContainer = data.stats || data;
+          const datesItems = datesContainer.items || datesContainer;
+          analysis += `<p class="warning"><strong>CRITICAL FOR CHARTS:</strong></p>`;
+          analysis += `<p>• Has hours? ${!!datesItems.hours ? '✓ YES' : '✗ NO'}</p>`;
+          analysis += `<p>• Has weekDays? ${!!datesItems.weekDays ? '✓ YES' : '✗ NO'}</p>`;
+          analysis += `<p>• Has monthDays? ${!!datesItems.monthDays ? '✓ YES' : '✗ NO'}</p>`;
+          analysis += `<p>• Has months? ${!!datesItems.months ? '✓ YES' : '✗ NO'}</p>`;
+
+          if (datesItems.hours) {
+            const hourKeys = Object.keys(datesItems.hours);
+            const firstHour = datesItems.hours[hourKeys[0]];
+            analysis += `<p>• hours keys: ${hourKeys.length} (${hourKeys.slice(0, 5).join(', ')}...)</p>`;
+            analysis += `<p>• hours[0] structure: ${JSON.stringify(firstHour)}</p>`;
+          }
+        }
+
+        if (endpoint === '/api/stats-cardinality') {
+          const cardContainer = data.stats || data;
+          const cardItems = cardContainer.items || cardContainer;
+          analysis += `<p class="warning"><strong>CARDINALITY:</strong></p>`;
+          analysis += `<p>• Has cardinality? ${!!cardItems.cardinality ? '✓ YES' : '✗ NO'}</p>`;
+          if (cardItems.cardinality) {
+            analysis += `<p>• Cardinality: ${JSON.stringify(cardItems.cardinality)}</p>`;
+          }
+        }
+
+        resultDiv.innerHTML = `<h2>${name}</h2>${analysis}<pre>${JSON.stringify(data, null, 2)}</pre>`;
+      } catch (error) {
+        resultDiv.innerHTML = `<h2>${name}</h2><p class="error">✗ Error: ${error.message}</p>`;
+      }
+    }
+
+    async function testStatsEndpoint() {
+      await testEndpoint('/api/stats', '📊 /api/stats');
+    }
+
+    async function testDatesEndpoint() {
+      await testEndpoint('/api/stats-dates', '📅 /api/stats-dates');
+    }
+
+    async function testCardinalityEndpoint() {
+      await testEndpoint('/api/stats-cardinality', '🔢 /api/stats-cardinality');
+    }
+
+    async function testAllEndpoints() {
+      document.getElementById('results').innerHTML = '';
+      await testStatsEndpoint();
+      await testDatesEndpoint();
+      await testCardinalityEndpoint();
+    }
+  </script>
+</body>
+</html>

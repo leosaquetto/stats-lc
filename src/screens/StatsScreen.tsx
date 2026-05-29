@@ -510,7 +510,7 @@ export default function StatsScreen() {
         } else if (activeFilter === 'Total') {
           after = 0;
         }
-        
+
         const [statsRes, datesRes, cardRes] = await Promise.all([
           statsService.fetchTimeRangeStats(CURRENT_USER_ID, after),
           statsService.fetchTimeRangeDates(CURRENT_USER_ID, after),
@@ -519,6 +519,24 @@ export default function StatsScreen() {
 
         const data = statsRes;
         if (cancelled) return;
+
+        // DEV LOGS - Mapear estrutura real dos dados
+        if ((import.meta as any).env?.DEV) {
+          console.group(`[StatsScreen DEV] Chart Data Load - Filter: ${activeFilter}`);
+          console.log('activeFilter:', activeFilter);
+          console.log('CURRENT_USER_ID:', CURRENT_USER_ID);
+          console.log('after timestamp:', after, new Date(after).toISOString());
+          console.log('statsRes keys:', statsRes ? Object.keys(statsRes) : 'null');
+          console.log('statsRes.streams:', statsRes?.streams);
+          console.log('statsRes.durationMs:', statsRes?.durationMs);
+          console.log('datesRes.empty:', datesRes?.empty);
+          console.log('datesRes.reason:', datesRes?.reason);
+          console.log('cardRes.cardinality:', cardRes?.cardinality);
+          console.log('fullUserData keys:', fullUserData ? Object.keys(fullUserData) : 'null');
+          console.log('fullUserData.history length:', fullUserData?.history?.length);
+          console.groupEnd();
+        }
+
         setDatesData(datesRes);
         // Cardinality can be in stats endpoint directly (data.items.cardinality) or in a separate cardinalityRes
         setCardinalityData(cardRes?.items?.cardinality || cardRes?.cardinality ? cardRes : data);
@@ -573,12 +591,23 @@ export default function StatsScreen() {
           rawItems = Array.isArray(fullUserData.history) ? fullUserData.history : [];
         }
 
+        // DEV LOG - Mapear rawItems antes de formatar
+        if ((import.meta as any).env?.DEV) {
+          console.group(`[StatsScreen DEV] rawItems Formatting - Filter: ${activeFilter}`);
+          console.log('rawItems length:', rawItems.length);
+          console.log('rawItems sample (first 3):', rawItems.slice(0, 3));
+          console.log('data type:', typeof data);
+          console.log('data.items exists?', !!data?.items);
+          console.log('data.history exists?', !!data?.history);
+          console.groupEnd();
+        }
+
         const formatted = rawItems.map((item: any) => {
           if (!item) return null;
-          
+
           // Robust key detection for date/time
           let dateVal = item.date || item.t || item.timestamp || item.ts || item.time || item.day || item.playedAt || item.played_at || item.dt;
-          
+
           if (!dateVal || dateVal === 'undefined' || dateVal === 'null') return null;
 
           // Handle Unix timestamps in seconds (common in some APIs)
@@ -604,12 +633,12 @@ export default function StatsScreen() {
             if (isNaN(dateObj.getTime())) return null;
 
             const hasExplicitCount = ('streams' in item) || ('count' in item) || ('c' in item) || ('plays' in item) || ('playcount' in item) || ('scrobbles' in item);
-            const streamCount = hasExplicitCount 
+            const streamCount = hasExplicitCount
               ? (item.streams || item.count || item.c || item.plays || item.playcount || item.scrobbles || 0)
               : 1; // Default to 1 stream if it is a single stream event in history
-              
+
             const durationVal = item.durationMs || item.playedMs || item.totalDurationMs || item.d || (item.duration ? item.duration * 60000 : 0) || 0;
-            
+
             return {
               date: dateObj.toISOString(),
               streams: Number(streamCount) || 0,
@@ -619,6 +648,18 @@ export default function StatsScreen() {
             return null;
           }
         }).filter((item: any) => item !== null && (item.streams > 0 || item.duration > 0 || rawItems.length < 50));
+
+        // DEV LOG - Resultado do formatting
+        if ((import.meta as any).env?.DEV) {
+          console.group(`[StatsScreen DEV] Formatted Result - Filter: ${activeFilter}`);
+          console.log('formatted length:', formatted.length);
+          console.log('formatted sample (first 3):', formatted.slice(0, 3));
+          const totalStreams = formatted.reduce((acc: number, item: any) => acc + (item.streams || 0), 0);
+          const totalHours = formatted.reduce((acc: number, item: any) => acc + (item.duration || 0), 0) / 60;
+          console.log('total streams in chartData:', totalStreams);
+          console.log('total hours in chartData:', totalHours.toFixed(2));
+          console.groupEnd();
+        }
 
         // Sort items by date if they aren't
         formatted.sort((a: any, b: any) => {
@@ -660,9 +701,55 @@ export default function StatsScreen() {
   }, [CURRENT_USER_ID, activeFilter, fullUserData]);
 
   const dailyEvolutionData = useMemo(() => {
-    const datesContainer = datesData?.stats || datesData;
-    const datesItems = datesContainer?.items || datesContainer;
+    // Robust multi-path navigation for API response
+    const datesContainer = datesData?.stats || datesData?.data || datesData;
+    const datesItems = datesContainer?.items || datesContainer?.stats?.items || datesContainer;
     const today = new Date();
+
+    // DEV LOG - Mapear estrutura de datesItems para Evolução de Atividade
+    if ((import.meta as any).env?.DEV) {
+      console.group(`[StatsScreen DEV] dailyEvolutionData Mapper - Filter: ${activeFilter}`);
+      console.log('datesData.empty:', datesData?.empty);
+      console.log('datesData.reason:', datesData?.reason);
+      console.log('historyData length:', historyData?.length);
+      console.log('fullUserData?.history length:', fullUserData?.history?.length);
+
+      // Check if API dates is empty and we need to use history fallback
+      if (datesData?.empty && fullUserData?.history?.length > 0) {
+        console.warn('⚠️ API /stats-dates returned empty. Using fullUserData.history as primary source.');
+      }
+      console.groupEnd();
+    }
+
+    // Helper: filter fullUserData.history by active period
+    const getFilteredHistory = () => {
+      if (!fullUserData?.history || !Array.isArray(fullUserData.history)) return [];
+
+      const now = Date.now();
+      let afterTimestamp = 0;
+
+      if (activeFilter === 'Hoje') {
+        afterTimestamp = getStartOfTodaySP().getTime();
+      } else if (activeFilter === 'Semana') {
+        afterTimestamp = getStartOfWeekSP().getTime();
+      } else if (activeFilter === 'Mês') {
+        afterTimestamp = getStartOfMonthSP().getTime();
+      } else if (activeFilter === 'Ano') {
+        afterTimestamp = getStartOfYearSP().getTime();
+      } else {
+        afterTimestamp = 0; // Total
+      }
+
+      return fullUserData.history.filter((item: any) => {
+        const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+        if (!dateVal) return false;
+
+        let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+        if (ts < 2147483647) ts *= 1000; // Convert seconds to ms
+
+        return ts >= afterTimestamp && ts <= now;
+      });
+    };
 
     // Safely format Date as YYYY-MM-DD helper
     const getDayKey = (date: Date) => {
@@ -678,20 +765,44 @@ export default function StatsScreen() {
         const hourStr = `${h.toString().padStart(2, '0')}:00`;
         hourlyMap[h] = { date: hourStr, displayLabel: hourStr, timestamp: h, streams: 0, duration: 0, hours: 0 };
       }
-      
-      const hourlyDataPoints = datesItems?.hours;
+
+      // Try API data first (but it's likely empty)
+      const hourlyDataPoints = datesItems?.hours || datesItems?.hourly || datesItems?.byHour;
       if (hourlyDataPoints && Object.keys(hourlyDataPoints).length > 0) {
         Object.entries(hourlyDataPoints).forEach(([hStr, v]: [string, any]) => {
           const h = Number(hStr);
           if (h >= 0 && h < 24 && hourlyMap[h]) {
-            hourlyMap[h].streams = v.count ?? v.streams ?? 0;
+            hourlyMap[h].streams = v.count ?? v.streams ?? v.c ?? 0;
             const durationMs = getStatsDurationMsValue(v);
             hourlyMap[h].duration = durationMs;
             hourlyMap[h].hours = Number((durationMs / 3600000).toFixed(2));
           }
         });
+
+        const totalStreams = Object.values(hourlyMap).reduce((acc, h) => acc + h.streams, 0);
+        if (totalStreams > 0) {
+          return Object.values(hourlyMap);
+        }
+      }
+
+      // Primary fallback: use filtered fullUserData.history
+      const filteredHistory = getFilteredHistory();
+      if (filteredHistory.length > 0) {
+        filteredHistory.forEach((item: any) => {
+          const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+          const hour = getHourSP(dateVal);
+          if (hour >= 0 && hour < 24 && hourlyMap[hour]) {
+            hourlyMap[hour].streams += 1;
+            const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+            hourlyMap[hour].duration += dur;
+            hourlyMap[hour].hours = Number((hourlyMap[hour].duration / 3600000).toFixed(2));
+          }
+        });
         return Object.values(hourlyMap);
-      } else if (historyData && historyData.length > 0) {
+      }
+
+      // Last fallback: historyData (already filtered by loadChartData)
+      if (historyData && historyData.length > 0) {
         historyData.forEach((item) => {
           const hour = getHourSP(item.date);
           if (hour >= 0 && hour < 24 && hourlyMap[hour]) {
@@ -707,22 +818,32 @@ export default function StatsScreen() {
 
     if (activeFilter === 'Semana') {
       const daysLabel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      
-      if (datesItems?.weekDays && Object.keys(datesItems.weekDays).length > 0) {
-        return Object.entries(datesItems.weekDays).map(([wStr, v]: [string, any]) => {
+
+      // Try API data first (but it's likely empty)
+      const weeklyDataPoints = datesItems?.weekDays || datesItems?.weekly || datesItems?.byWeekDay || datesItems?.days;
+      if (weeklyDataPoints && Object.keys(weeklyDataPoints).length > 0) {
+        const mapped = Object.entries(weeklyDataPoints).map(([wStr, v]: [string, any]) => {
            let day = Number(wStr);
-           if (day === 0) day = 7; // backend might map differently
+           if (day === 0) day = 7;
            return {
              date: String(wStr),
              displayLabel: daysLabel[day - 1] || wStr,
              timestamp: Number(wStr),
-             streams: v.count ?? v.streams ?? 0,
+             streams: v.count ?? v.streams ?? v.c ?? 0,
              duration: getStatsDurationMsValue(v),
              hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
-      } else if (historyData && historyData.length > 0) {
-        // Last 7 days fallback
+
+        const totalStreams = mapped.reduce((acc, d) => acc + d.streams, 0);
+        if (totalStreams > 0) {
+          return mapped;
+        }
+      }
+
+      // Primary fallback: use filtered fullUserData.history
+      const filteredHistory = getFilteredHistory();
+      if (filteredHistory.length > 0) {
         const weekMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
         for (let i = 6; i >= 0; i--) {
           const d = new Date(today);
@@ -738,7 +859,44 @@ export default function StatsScreen() {
             hours: 0
           };
         }
-        
+
+        filteredHistory.forEach((item: any) => {
+          const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+          let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+          if (ts < 2147483647) ts *= 1000;
+
+          const d = new Date(ts);
+          if (!isNaN(d.getTime())) {
+            const dayKey = getDayKey(d);
+            if (weekMap[dayKey]) {
+              weekMap[dayKey].streams += 1;
+              const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+              weekMap[dayKey].duration += dur;
+              weekMap[dayKey].hours = Number((weekMap[dayKey].duration / 3600000).toFixed(2));
+            }
+          }
+        });
+        return Object.values(weekMap).sort((a, b) => a.timestamp - b.timestamp);
+      }
+
+      // Last fallback: historyData
+      if (historyData && historyData.length > 0) {
+        const weekMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          const dayKey = getDayKey(d);
+          const dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+          weekMap[dayKey] = {
+            date: dayKey,
+            displayLabel: dateLabel,
+            timestamp: d.getTime(),
+            streams: 0,
+            duration: 0,
+            hours: 0
+          };
+        }
+
         historyData.forEach((item) => {
           const d = new Date(item.date);
           if (!isNaN(d.getTime())) {
@@ -755,25 +913,35 @@ export default function StatsScreen() {
     }
 
     if (activeFilter === 'Mês') {
-      if (datesItems?.monthDays && Object.keys(datesItems.monthDays).length > 0) {
-        return Object.entries(datesItems.monthDays).map(([dStr, v]: [string, any]) => {
+      // Try API data first (but it's likely empty)
+      const monthlyDataPoints = datesItems?.monthDays || datesItems?.monthly || datesItems?.byMonthDay || datesItems?.daysOfMonth;
+      if (monthlyDataPoints && Object.keys(monthlyDataPoints).length > 0) {
+        const mapped = Object.entries(monthlyDataPoints).map(([dStr, v]: [string, any]) => {
            const d = Number(dStr);
            return {
              date: String(dStr),
              displayLabel: String(d).padStart(2, '0'),
              timestamp: d,
-             streams: v.count ?? v.streams ?? 0,
+             streams: v.count ?? v.streams ?? v.c ?? 0,
              duration: getStatsDurationMsValue(v),
              hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
-      } else if (historyData && historyData.length > 0) {
-        // Current month days fallback
+
+        const totalStreams = mapped.reduce((acc, d) => acc + d.streams, 0);
+        if (totalStreams > 0) {
+          return mapped;
+        }
+      }
+
+      // Primary fallback: use filtered fullUserData.history
+      const filteredHistory = getFilteredHistory();
+      if (filteredHistory.length > 0) {
         const monthMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
         const year = today.getFullYear();
         const month = today.getMonth();
         const currentDay = today.getDate();
-        
+
         for (let day = 1; day <= currentDay; day++) {
           const d = new Date(year, month, day);
           const dayKey = getDayKey(d);
@@ -787,7 +955,47 @@ export default function StatsScreen() {
             hours: 0
           };
         }
-        
+
+        filteredHistory.forEach((item: any) => {
+          const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+          let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+          if (ts < 2147483647) ts *= 1000;
+
+          const d = new Date(ts);
+          if (!isNaN(d.getTime())) {
+            const dayKey = getDayKey(d);
+            if (monthMap[dayKey]) {
+              monthMap[dayKey].streams += 1;
+              const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+              monthMap[dayKey].duration += dur;
+              monthMap[dayKey].hours = Number((monthMap[dayKey].duration / 3600000).toFixed(2));
+            }
+          }
+        });
+        return Object.values(monthMap).sort((a, b) => a.timestamp - b.timestamp);
+      }
+
+      // Last fallback: historyData
+      if (historyData && historyData.length > 0) {
+        const monthMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const currentDay = today.getDate();
+
+        for (let day = 1; day <= currentDay; day++) {
+          const d = new Date(year, month, day);
+          const dayKey = getDayKey(d);
+          const dateLabel = String(day).padStart(2, '0');
+          monthMap[dayKey] = {
+            date: dayKey,
+            displayLabel: dateLabel,
+            timestamp: d.getTime(),
+            streams: 0,
+            duration: 0,
+            hours: 0
+          };
+        }
+
         historyData.forEach((item) => {
           const d = new Date(item.date);
           if (!isNaN(d.getTime())) {
@@ -805,23 +1013,35 @@ export default function StatsScreen() {
 
     if (activeFilter === 'Ano') {
       const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-      if (datesItems?.months && Object.keys(datesItems.months).length > 0) {
-        return Object.entries(datesItems.months).map(([mStr, v]: [string, any]) => {
+
+      // Try API data first (but it's likely empty)
+      const yearlyDataPoints = datesItems?.months || datesItems?.yearly || datesItems?.byMonth || datesItems?.monthsOfYear;
+      if (yearlyDataPoints && Object.keys(yearlyDataPoints).length > 0) {
+        const mapped = Object.entries(yearlyDataPoints).map(([mStr, v]: [string, any]) => {
            const m = Number(mStr);
            return {
              date: String(mStr),
              displayLabel: monthNames[m - 1] || String(mStr),
              timestamp: m,
-             streams: v.count ?? v.streams ?? 0,
+             streams: v.count ?? v.streams ?? v.c ?? 0,
              duration: getStatsDurationMsValue(v),
              hours: Number((getStatsDurationMsValue(v) / 3600000).toFixed(2))
            };
         }).sort((a,b) => a.timestamp - b.timestamp);
-      } else if (historyData && historyData.length > 0) {
+
+        const totalStreams = mapped.reduce((acc, m) => acc + m.streams, 0);
+        if (totalStreams > 0) {
+          return mapped;
+        }
+      }
+
+      // Primary fallback: use filtered fullUserData.history
+      const filteredHistory = getFilteredHistory();
+      if (filteredHistory.length > 0) {
         const yearMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
         const currentYear = today.getFullYear();
         const currentMonth = today.getMonth();
-        
+
         for (let m = 0; m <= currentMonth; m++) {
           const d = new Date(currentYear, m, 1);
           const key = `${currentYear}-${(m + 1).toString().padStart(2, '0')}`;
@@ -834,7 +1054,46 @@ export default function StatsScreen() {
             hours: 0
           };
         }
-        
+
+        filteredHistory.forEach((item: any) => {
+          const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+          let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+          if (ts < 2147483647) ts *= 1000;
+
+          const d = new Date(ts);
+          if (!isNaN(d.getTime()) && d.getFullYear() === currentYear) {
+            const m = d.getMonth();
+            const key = `${currentYear}-${(m + 1).toString().padStart(2, '0')}`;
+            if (yearMap[key]) {
+              yearMap[key].streams += 1;
+              const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+              yearMap[key].duration += dur;
+              yearMap[key].hours = Number((yearMap[key].duration / 3600000).toFixed(2));
+            }
+          }
+        });
+        return Object.values(yearMap).sort((a, b) => a.timestamp - b.timestamp);
+      }
+
+      // Last fallback: historyData
+      if (historyData && historyData.length > 0) {
+        const yearMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth();
+
+        for (let m = 0; m <= currentMonth; m++) {
+          const d = new Date(currentYear, m, 1);
+          const key = `${currentYear}-${(m + 1).toString().padStart(2, '0')}`;
+          yearMap[key] = {
+            date: key,
+            displayLabel: monthNames[m],
+            timestamp: d.getTime(),
+            streams: 0,
+            duration: 0,
+            hours: 0
+          };
+        }
+
         historyData.forEach((item) => {
           const d = new Date(item.date);
           if (!isNaN(d.getTime()) && d.getFullYear() === currentYear) {
@@ -851,24 +1110,30 @@ export default function StatsScreen() {
       }
     }
 
-    // Default / Total
-    if (historyData && historyData.length > 0) {
+    // Default / Total - use fullUserData.history or historyData
+    const sourceHistory = fullUserData?.history && Array.isArray(fullUserData.history) && fullUserData.history.length > 0
+      ? fullUserData.history
+      : historyData;
+
+    if (sourceHistory && sourceHistory.length > 0) {
       const totalMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
-      historyData.forEach((item) => {
-        const d = new Date(item.date);
+      sourceHistory.forEach((item: any) => {
+        const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+        let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+        if (ts < 2147483647) ts *= 1000;
+
+        const d = new Date(ts);
         let dayKey = "";
         let dateLabel = "";
-        let ts = 0;
-        
+
         if (!isNaN(d.getTime())) {
-          ts = d.getTime();
           dayKey = getDayKey(d);
           dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
         } else {
-          dayKey = String(item.date).substring(0, 10);
+          dayKey = String(dateVal).substring(0, 10);
           dateLabel = dayKey;
         }
-        
+
         if (!totalMap[dayKey]) {
           totalMap[dayKey] = {
             date: dayKey,
@@ -879,47 +1144,74 @@ export default function StatsScreen() {
             hours: 0
           };
         }
-        
-        totalMap[dayKey].streams += item.streams;
-        totalMap[dayKey].duration += item.duration;
-        totalMap[dayKey].hours = Number((totalMap[dayKey].duration / 60).toFixed(2));
+
+        // Check if this is raw history (each item = 1 stream) or aggregated
+        const isRawHistory = !('streams' in item) && !('count' in item);
+        totalMap[dayKey].streams += isRawHistory ? 1 : (item.streams || item.count || 0);
+
+        const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+        totalMap[dayKey].duration += dur;
+        totalMap[dayKey].hours = Number((totalMap[dayKey].duration / 3600000).toFixed(2));
       });
       return Object.values(totalMap).sort((a, b) => a.timestamp - b.timestamp);
     }
 
     return [];
-  }, [datesData, historyData, activeFilter]);
+  }, [datesData, historyData, activeFilter, fullUserData]);
 
   const hourlyDistributionData = useMemo(() => {
-    // Override behavior to use new stats-dates hourly endpoint
-    const datesContainer = datesData?.stats || datesData;
-    const datesItems = datesContainer?.items || datesContainer;
-    const activeHourly = datesItems?.hours ? datesItems.hours : fullUserData?.statsDates?.hours;
+    // Robust multi-path navigation for API response
+    const datesContainer = datesData?.stats || datesData?.data || datesData;
+    const datesItems = datesContainer?.items || datesContainer?.stats?.items || datesContainer;
+
+    // Try multiple possible keys for hourly data
+    const activeHourly = datesItems?.hours || datesItems?.hourly || datesItems?.byHour || fullUserData?.statsDates?.hours;
+
+    // DEV LOG - Mapear estrutura de hourlyDistributionData
+    if ((import.meta as any).env?.DEV) {
+      console.group(`[StatsScreen DEV] hourlyDistributionData Mapper - Filter: ${activeFilter}`);
+      console.log('datesData.empty:', datesData?.empty);
+      console.log('activeHourly exists:', !!activeHourly);
+      console.log('fullUserData?.history length:', fullUserData?.history?.length);
+      console.log('historyData length:', historyData?.length);
+
+      // Check if API dates is empty and we need to use history fallback
+      if (datesData?.empty && fullUserData?.history?.length > 0) {
+        console.warn('⚠️ API /stats-dates returned empty. Using fullUserData.history for hourly distribution.');
+      }
+      console.groupEnd();
+    }
+
     if (activeHourly && Object.keys(activeHourly).length > 0) {
       const mapped = [];
       for (let h = 0; h < 24; h++) {
          const d = activeHourly[String(h)] || { count: 0, durationMs: 0 };
          mapped.push({
            hour: h,
-           streams: d.count ?? d.streams ?? 0,
+           streams: d.count ?? d.streams ?? d.c ?? 0,
            duration: getStatsDurationMsValue(d)
          });
       }
-      return mapped;
-    }
 
-    // Robust history detection from fullUserData
-    const fullHistory = fullUserData?.history || fullUserData?.streams || fullUserData?.recent || fullUserData?.scrobbles || [];
-    
-    const sourceData = (fullHistory && Array.isArray(fullHistory) && fullHistory.length > 0) 
-      ? fullHistory 
-      : historyData;
+      // Check if we got real data
+      const totalStreams = mapped.reduce((acc, h) => acc + h.streams, 0);
+      if (totalStreams > 0) {
+        return mapped;
+      }
+    }
 
     // Build default hourly distribution of 24 hours with zeros
     const hourlyMap: Record<number, { hour: number; streams: number; duration: number }> = {};
     for (let h = 0; h < 24; h++) {
       hourlyMap[h] = { hour: h, streams: 0, duration: 0 };
     }
+
+    // Primary source: fullUserData.history (complete history, not filtered by period)
+    const fullHistory = fullUserData?.history || fullUserData?.streams || fullUserData?.recent || fullUserData?.scrobbles || [];
+
+    const sourceData = (fullHistory && Array.isArray(fullHistory) && fullHistory.length > 0)
+      ? fullHistory
+      : historyData;
 
     if (sourceData && sourceData.length > 0) {
       sourceData.forEach((item: any) => {
@@ -930,25 +1222,26 @@ export default function StatsScreen() {
         if (typeof dateVal === 'number' && dateVal < 2147483647) {
           dateVal = dateVal * 1000;
         }
-        
-        const hour = getHourSP(dateVal);
-        
-        if (hour >= 0 && hour < 24 && hourlyMap[hour]) {
-          const hasExplicitCount = ('streams' in item) || ('count' in item) || ('c' in item) || ('plays' in item) || ('playcount' in item) || ('scrobbles' in item);
-          const streamCount = hasExplicitCount 
-            ? (item.streams || item.count || item.c || item.plays || item.playcount || item.scrobbles || 0)
-            : (item.streams ?? 1);
 
-          const dur = item.durationMs || item.playedMs || (item.duration * 1000 * 60) || 0;
+        const hour = getHourSP(dateVal);
+
+        if (hour >= 0 && hour < 24 && hourlyMap[hour]) {
+          // Check if this is raw history (each item = 1 stream) or aggregated
+          const hasExplicitCount = ('streams' in item) || ('count' in item) || ('c' in item) || ('plays' in item) || ('playcount' in item) || ('scrobbles' in item);
+          const streamCount = hasExplicitCount
+            ? (item.streams || item.count || item.c || item.plays || item.playcount || item.scrobbles || 0)
+            : 1; // Raw history: each item = 1 stream
+
+          const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 1000 : 0) || 0;
 
           hourlyMap[hour].streams += Number(streamCount);
           hourlyMap[hour].duration += Number(dur);
         }
       });
     }
-    
+
     return Object.values(hourlyMap);
-  }, [datesData, historyData, fullUserData]);
+  }, [datesData, historyData, fullUserData, activeFilter]);
 
   const getStatsByFilter = () => {
     if (!fullUserData) return null;
@@ -1342,10 +1635,10 @@ export default function StatsScreen() {
 
       {/* Universal Period Filter (The Master Selector - Floating Glass Pill) */}
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full flex flex-col transition-all py-3 bg-[#050505]/75 backdrop-blur-md">
-        <div className="relative w-full z-10 flex gap-1.5 p-1.5 bg-white/[0.03] backdrop-blur-xl rounded-[32px] overflow-x-auto no-scrollbar border border-white/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] premium-gradient">
+        <div className="relative w-full z-10 flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-xl rounded-[32px] overflow-x-auto no-scrollbar border border-white/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
           {/* Glossy shine reflection top half */}
-          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none rounded-t-[32px]" />
-          
+          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none rounded-t-[32px]" />
+
           {filters.map((f) => (
             <button
               key={f}
@@ -1356,9 +1649,9 @@ export default function StatsScreen() {
               }}
               className={clsx(
                 "filter-pill flex-1 px-1.5 py-3 rounded-[24px] text-[10.5px] font-black uppercase tracking-[0.14em] transition-all shrink-0 cursor-pointer text-center relative z-10 select-none",
-                activeFilter === f 
-                  ? "bg-white text-black shadow-lg" 
-                  : "text-white/45 hover:text-white/75 hover:bg-white/5"
+                activeFilter === f
+                  ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_20px_rgba(249,115,22,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]"
+                  : "text-white/45 hover:text-white/75 hover:bg-white/[0.05]"
               )}
             >
               {f}
@@ -1369,88 +1662,89 @@ export default function StatsScreen() {
 
       {viewMode === 'user' ? (
         <>
-          {/* Active Period Metrics Spotlight */}
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3 px-1">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                key={`streams-card-${activeFilter}`}
-                className="glass-card p-4 flex flex-col gap-3.5 border-white/5 bg-white/[0.02] relative overflow-hidden group"
-              >
-                <div className="absolute right-3.5 top-3.5 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
-                  <PlayCircle className="h-10 w-10 text-orange-500" />
-                </div>
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-orange-500/10 text-orange-500 border border-orange-500/10">
-                  <PlayCircle className="h-4 w-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[18px] font-display font-black text-white leading-none tracking-tight">
+          {/* Hero Summary Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            key={`hero-summary-${activeFilter}`}
+            className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+          >
+            {/* Glossy shine reflection */}
+            <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[32px]" />
+
+            {/* Background glow */}
+            <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-orange-500/15 blur-3xl" />
+
+            <div className="relative z-10 flex flex-col gap-5">
+              {/* Main Metrics Row */}
+              <div className="flex items-start justify-between gap-4">
+                {/* Streams - Primary */}
+                <div className="flex flex-col gap-2 flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-gradient-to-br from-orange-500/20 to-orange-600/10 text-orange-500 border border-orange-500/30 shadow-[0_0_12px_rgba(249,115,22,0.15)]">
+                      <PlayCircle className="h-5 w-5" />
+                    </div>
+                    <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.15em]">Streams</span>
+                  </div>
+                  <span className="text-[32px] font-display font-black text-white leading-none tracking-tight drop-shadow-[0_2px_8px_rgba(255,255,255,0.1)]">
                     {coreUtils.formatNumber(periodSummaryStats.count)}
                   </span>
-                  <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.15em] mt-2 flex items-center gap-1 font-mono">
-                    Streams Acumulados
-                  </span>
                 </div>
-              </motion.div>
 
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                key={`played-card-${activeFilter}`}
-                className="glass-card p-4 flex flex-col gap-3.5 border-white/5 bg-white/[0.02] relative overflow-hidden group"
-              >
-                <div className="absolute right-3.5 top-3.5 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
-                  <Clock className="h-10 w-10 text-orange-500" />
-                </div>
-                <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-orange-500/10 text-orange-500 border border-orange-500/10">
-                  <Clock className="h-4 w-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[18px] font-display font-black text-white leading-none tracking-tight truncate">
+                {/* Time Listened - Secondary */}
+                <div className="flex flex-col gap-2 items-end">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.15em]">Tempo</span>
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center bg-white/[0.06] text-white/60 border border-white/[0.08]">
+                      <Clock className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                  <span className="text-[16px] font-display font-black text-white/80 leading-none tracking-tight">
                     {coreUtils.formatDuration(periodSummaryStats.durationMs)}
                   </span>
-                  <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.15em] mt-2 font-mono">
-                    Tempo Estimado Ouvido
-                  </span>
                 </div>
-              </motion.div>
-            </div>
+              </div>
 
-            {/* Badges de Cardinalidade Extras */}
-            <div className="flex flex-wrap gap-2 px-1 justify-start">
-              <div 
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-wider text-white/50 shadow-sm backdrop-blur-md transition-all hover:bg-white/[0.04] cursor-default"
-                title="Artistas únicos ouvidos"
-              >
-                <UserCircle className="h-3.5 w-3.5 text-orange-500/80" />
-                <span>{uniqueArtists ? `${uniqueArtists} artistas` : '— artistas'}</span>
-              </div>
-              <div 
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-wider text-white/50 shadow-sm backdrop-blur-md transition-all hover:bg-white/[0.04] cursor-default"
-                title="Músicas únicas ouvidas"
-              >
-                <Music2 className="h-3.5 w-3.5 text-orange-500/80" />
-                <span>{uniqueTracks ? `${uniqueTracks} músicas` : '— músicas'}</span>
-              </div>
-              <div 
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.02] border border-white/5 text-[9px] font-black uppercase tracking-wider text-white/50 shadow-sm backdrop-blur-md transition-all hover:bg-white/[0.04] cursor-default"
-                title="Álbuns únicos ouvidos"
-              >
-                <Disc className="h-3.5 w-3.5 text-orange-500/80" />
-                <span>{uniqueAlbums ? `${uniqueAlbums} álbuns` : '— álbuns'}</span>
+              {/* Divider */}
+              <div className="h-[1px] bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
+
+              {/* Cardinality Chips */}
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm shadow-inner">
+                  <UserCircle className="h-4 w-4 text-orange-500/80" />
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-black text-white leading-none">{uniqueArtists || 0}</span>
+                    <span className="text-[7px] font-black text-white/30 uppercase tracking-wider leading-none mt-0.5">Artistas</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm shadow-inner">
+                  <Music2 className="h-4 w-4 text-orange-500/80" />
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-black text-white leading-none">{uniqueTracks || 0}</span>
+                    <span className="text-[7px] font-black text-white/30 uppercase tracking-wider leading-none mt-0.5">Músicas</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm shadow-inner">
+                  <Disc className="h-4 w-4 text-orange-500/80" />
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-black text-white leading-none">{uniqueAlbums || 0}</span>
+                    <span className="text-[7px] font-black text-white/30 uppercase tracking-wider leading-none mt-0.5">Álbuns</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Hall of Fame - Top #1 Highlights */}
           {!isTopItemsLoading && (activePeriodArtists?.length > 0 || activePeriodTracks?.length > 0 || activePeriodAlbums?.length > 0) && (
             <div className="flex flex-col gap-3">
-              <SectionHeader 
-                title={`Hall of Fame • ${activeFilter}`} 
-                icon={<Trophy className="h-3 w-3 text-yellow-500" />} 
+              <SectionHeader
+                title={`Hall of Fame • ${activeFilter}`}
+                icon={<Trophy className="h-3 w-3 text-yellow-500" />}
                 action={
-                  <button 
+                  <button
                     type="button"
                     onClick={() => {
                       const el = document.getElementById('search-bar-ranking');
@@ -1462,53 +1756,268 @@ export default function StatsScreen() {
                   </button>
                 }
               />
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: '#1 Artista', data: activePeriodArtists?.[0], type: 'artist' },
-                  { label: '#1 Música', data: activePeriodTracks?.[0], type: 'track' },
-                  { label: '#1 Álbum', data: activePeriodAlbums?.[0], type: 'album' }
-                ].map((highlight, i) => {
-                  const itemData = highlight.data as any;
-                  return (
+
+              {/* New Layout: Featured Artist + Side Grid */}
+              <div className="flex flex-col gap-3">
+                {/* Featured #1 Artist - Full Width Hero */}
+                {activePeriodArtists?.[0] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0 }}
+                    onClick={() => {
+                      setSelectedTrack({ ...activePeriodArtists[0], type: 'artist' });
+                    }}
+                    className="glass-card p-5 flex items-center gap-4 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                  >
+                    {/* Glossy shine */}
+                    <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[32px]" />
+
+                    {/* Background glow */}
+                    <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-yellow-500/15 blur-3xl group-hover:bg-yellow-500/25 transition-all" />
+
+                    {/* Crown badge */}
+                    <div className="absolute top-3 right-3">
+                      <div className="h-6 w-6 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(234,179,8,0.3)]">
+                        <Trophy className="h-3 w-3 text-yellow-500" />
+                      </div>
+                    </div>
+
+                    {/* Artist Image */}
+                    <div className="relative h-20 w-20 shrink-0">
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-200 blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
+                      <SmartImage
+                        src={activePeriodArtists[0]?.image || activePeriodArtists[0]?.album?.image || activePeriodArtists[0]?.artist?.image}
+                        className="h-full w-full border-2 border-white/[0.12] z-10 relative shadow-xl"
+                        rounded="full"
+                        fallback={activePeriodArtists[0]?.name || 'Top Artist'}
+                      />
+                    </div>
+
+                    {/* Artist Info */}
+                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 relative z-10">
+                      <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest leading-none">#1 Artista</span>
+                      <span className="text-[16px] font-bold text-white/95 line-clamp-1 leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+                        {activePeriodArtists[0]?.name || '---'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-orange-500 uppercase tracking-tight">
+                          {activePeriodArtists[0]?.playcount || activePeriodArtists[0]?.streams || activePeriodArtists[0]?.count || 0} streams
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* #1 Track + #1 Album - Side by Side */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* #1 Track */}
+                  {activePeriodTracks?.[0] && (
                     <motion.div
-                      key={highlight.label}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.1 }}
+                      transition={{ delay: 0.1 }}
                       onClick={() => {
-                        if (itemData) {
-                          setSelectedTrack({ ...itemData, type: highlight.type });
-                        }
+                        setSelectedTrack({ ...activePeriodTracks[0], type: 'track' });
                       }}
-                      className="glass-card p-3 flex flex-col items-center gap-3 border-white/5 bg-white/[0.02] relative overflow-hidden group hover:bg-white/[0.05] transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      className="glass-card p-3.5 flex flex-col items-center gap-3 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
                     >
-                      <div className="absolute top-0 right-0 p-1">
-                         <Star className="h-2 w-2 text-yellow-500/40" />
+                      {/* Glossy shine */}
+                      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
+
+                      <div className="absolute top-2 right-2">
+                        <Star className="h-2.5 w-2.5 text-yellow-500/40" />
                       </div>
-                      <div className="relative h-14 w-14">
-                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-200 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
-                        <SmartImage 
-                          src={itemData?.image || itemData?.album?.image || itemData?.artist?.image} 
-                          className="h-full w-full border border-white/10 z-10 relative" 
-                          rounded={highlight.type === 'artist' ? "full" : "2xl"} 
-                          fallback={itemData?.name || itemData?.track?.name || 'Top #1'} 
+                      <div className="relative h-16 w-16">
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-orange-500/20 to-yellow-200/20 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
+                        <SmartImage
+                          src={activePeriodTracks[0]?.image || activePeriodTracks[0]?.album?.image}
+                          className="h-full w-full border border-white/[0.12] z-10 relative shadow-lg"
+                          rounded="2xl"
+                          fallback={activePeriodTracks[0]?.name || activePeriodTracks[0]?.track?.name || 'Top Track'}
                         />
                       </div>
-                      <div className="flex flex-col items-center text-center gap-0.5 w-full">
-                        <span className="text-[7px] font-black text-white/30 uppercase tracking-widest">{highlight.label}</span>
-                        <span className="text-[10px] font-bold text-white/95 line-clamp-1 w-full leading-tight">
-                          {itemData?.name || itemData?.track?.name || '---'}
+                      <div className="flex flex-col items-center text-center gap-0.5 w-full relative z-10">
+                        <span className="text-[7px] font-black text-white/30 uppercase tracking-widest">#1 Música</span>
+                        <span className="text-[11px] font-bold text-white/95 line-clamp-2 w-full leading-tight">
+                          {activePeriodTracks[0]?.name || activePeriodTracks[0]?.track?.name || '---'}
                         </span>
-                        <span className="text-[8px] font-black text-orange-500 uppercase tracking-tighter">
-                          {itemData?.playcount || itemData?.streams || itemData?.count || 0} streams
+                        <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
+                          {activePeriodTracks[0]?.playcount || activePeriodTracks[0]?.streams || activePeriodTracks[0]?.count || 0}
                         </span>
                       </div>
                     </motion.div>
-                  );
-                })}
+                  )}
+
+                  {/* #1 Album */}
+                  {activePeriodAlbums?.[0] && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      onClick={() => {
+                        setSelectedTrack({ ...activePeriodAlbums[0], type: 'album' });
+                      }}
+                      className="glass-card p-3.5 flex flex-col items-center gap-3 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                    >
+                      {/* Glossy shine */}
+                      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
+
+                      <div className="absolute top-2 right-2">
+                        <Star className="h-2.5 w-2.5 text-yellow-500/40" />
+                      </div>
+                      <div className="relative h-16 w-16">
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-orange-500/20 to-yellow-200/20 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
+                        <SmartImage
+                          src={activePeriodAlbums[0]?.image || activePeriodAlbums[0]?.album?.image}
+                          className="h-full w-full border border-white/[0.12] z-10 relative shadow-lg"
+                          rounded="2xl"
+                          fallback={activePeriodAlbums[0]?.name || 'Top Album'}
+                        />
+                      </div>
+                      <div className="flex flex-col items-center text-center gap-0.5 w-full relative z-10">
+                        <span className="text-[7px] font-black text-white/30 uppercase tracking-widest">#1 Álbum</span>
+                        <span className="text-[11px] font-bold text-white/95 line-clamp-2 w-full leading-tight">
+                          {activePeriodAlbums[0]?.name || '---'}
+                        </span>
+                        <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
+                          {activePeriodAlbums[0]?.playcount || activePeriodAlbums[0]?.streams || activePeriodAlbums[0]?.count || 0}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
             </div>
           )}
+
+          {/* Análise Temporal - Gráficos */}
+          <div className="flex flex-col gap-3">
+            <SectionHeader
+              title="Análise Temporal"
+              icon={<BarChart3 className="h-3 w-3 text-orange-500" />}
+            />
+
+            {/* Evolução de Atividade */}
+            <div className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden">
+              {/* Glossy shine */}
+              <div className="absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none rounded-t-[32px]" />
+
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-orange-500" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Evolução de Atividade</span>
+                </div>
+                <div className="bg-orange-500/10 border border-orange-500/30 py-1 px-2.5 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.15)]">
+                  {activeFilter}
+                </div>
+              </div>
+
+              {/* Toggle chart metric */}
+              <div className="flex gap-1.5 bg-black/40 border border-white/[0.08] p-1 rounded-xl w-full relative z-10">
+                {[
+                  { metric: 'streams', label: 'Streams' },
+                  { metric: 'hours', label: 'Horas' }
+                ].map((btn) => (
+                  <button
+                    key={btn.metric}
+                    type="button"
+                    onClick={() => {
+                      setChartMetric(btn.metric as any);
+                      trackEvent('stats_chart_metric_changed', { metric: btn.metric });
+                    }}
+                    className={clsx(
+                      "flex-1 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] rounded-lg transition-all text-center cursor-pointer",
+                      chartMetric === btn.metric
+                        ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_12px_rgba(249,115,22,0.3),inset_0_1px_0_rgba(255,255,255,0.2)]"
+                        : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
+                    )}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="h-56 w-full mt-2 relative z-10">
+                {isChartLoading && dailyEvolutionData.length === 0 ? (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <RefreshCcw className="h-6 w-6 text-white/10 animate-spin" />
+                  </div>
+                ) : (() => {
+                  // Check if all data points are zero
+                  const hasRealData = dailyEvolutionData.length > 0 && dailyEvolutionData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
+
+                  if (!hasRealData) {
+                    return (
+                      <div className="h-full w-full flex flex-col items-center justify-center gap-3 opacity-40">
+                        <TrendingUp className="h-10 w-10 text-white/30" />
+                        <div className="flex flex-col items-center gap-1 text-center px-4">
+                          <span className="text-[11px] font-black uppercase tracking-widest text-white/50">Sem dados suficientes</span>
+                          <span className="text-[9px] text-white/30 leading-relaxed">
+                            Ainda não há dados para montar a evolução deste período.
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
+                      <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
+                        <ActivityAreaChart data={dailyEvolutionData} chartMetric={chartMetric} accentColor={accentColor} />
+                      </Suspense>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Distribuição Horária */}
+            <div className="transition-opacity duration-300">
+              {isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
+                <div className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 animate-pulse shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-white/30" />
+                      <div className="h-3.5 w-32 bg-white/10 rounded-full" />
+                    </div>
+                    <div className="h-2 w-16 bg-white/5 rounded-full" />
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-12 gap-1.5">
+                      {Array.from({ length: 24 }).map((_, i) => (
+                        <div key={i} className="aspect-square bg-white/5 rounded-lg border border-white/5" />
+                      ))}
+                    </div>
+                    <div className="flex justify-between px-1">
+                      {Array.from({ length: 7 }).map((_, i) => (
+                        <div key={i} className="h-2 w-4 bg-white/5 rounded-full" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (() => {
+                // Check if hourly data has real values
+                const hasRealHourlyData = hourlyDistributionData && hourlyDistributionData.length > 0 && hourlyDistributionData.some(d => d.streams > 0);
+
+                if (!hasRealHourlyData) {
+                  // Don't render anything - empty state already shown in Evolução de Atividade
+                  return null;
+                }
+
+                return (
+                  <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
+                    <Suspense fallback={<div className="glass-card p-6 border-white/5 h-36 animate-pulse" />}>
+                      <DailyActivityHeatmap
+                        data={hourlyDistributionData}
+                        accentColor={accentColor}
+                      />
+                    </Suspense>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
 
           {/* Insights Fade-Rotator */}
           {insights.length > 0 && (
@@ -1561,23 +2070,23 @@ export default function StatsScreen() {
                         exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
                         transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
                         className={clsx(
-                          "glass-card w-full p-5 flex flex-col gap-3.5 relative overflow-hidden transition-all duration-300 rounded-[24px] bg-[#0b0b0bb5] backdrop-blur-xl border border-white/[0.08] shadow-[0_12px_36px_rgba(0,0,0,0.55)]",
-                          (insight as any).isDiscovery ? "border-orange-500/35 bg-orange-500/[0.03] shadow-[0_0_20px_rgba(249,115,22,0.1)]" : ""
+                          "glass-card w-full p-5 flex flex-col gap-3.5 relative overflow-hidden transition-all duration-300 rounded-[24px] bg-black/40 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+                          (insight as any).isDiscovery ? "border-orange-500/40 bg-orange-500/[0.05] shadow-[0_0_20px_rgba(249,115,22,0.15)]" : ""
                         )}
                       >
                         {/* Glossy shine reflection top half */}
-                        <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none rounded-t-[24px]" />
-                        
+                        <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
+
                         <div className={clsx(
                           "absolute -top-4 -right-4 h-24 w-24 rounded-full blur-3xl transition-all duration-500",
-                          (insight as any).isDiscovery ? "bg-orange-500/20" : "bg-orange-500/5"
+                          (insight as any).isDiscovery ? "bg-orange-500/25" : "bg-orange-500/10"
                         )} />
 
                         <div className="flex items-center justify-between relative z-10">
                           <div className="flex items-center gap-3">
                             <div className={clsx(
-                              "h-8 w-8 rounded-xl flex items-center justify-center border transition-all duration-300",
-                              (insight as any).isDiscovery ? "bg-orange-500 text-black border-orange-500" : "bg-orange-500/10 text-orange-500 border-orange-500/15"
+                              "h-8 w-8 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-lg",
+                              (insight as any).isDiscovery ? "bg-gradient-to-br from-orange-500 to-orange-600 text-black border-orange-500/50 shadow-[0_0_12px_rgba(249,115,22,0.3)]" : "bg-orange-500/15 text-orange-500 border-orange-500/20"
                             )}>
                               <insight.icon className="h-4 w-4" />
                             </div>
@@ -1591,7 +2100,7 @@ export default function StatsScreen() {
 
                           {/* Dots / Page indicators */}
                           {insights.length > 1 && (
-                            <div className="flex items-center gap-1.5 bg-white/[0.02] px-2 py-1 rounded-full border border-white/5">
+                            <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded-full border border-white/[0.08]">
                               {insights.map((_, i) => (
                                 <button
                                   key={i}
@@ -1602,7 +2111,7 @@ export default function StatsScreen() {
                                   }}
                                   className={cn(
                                     "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
-                                    i === idx ? "w-3 bg-orange-500" : "w-1.5 bg-white/10 hover:bg-white/30"
+                                    i === idx ? "w-3 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "w-1.5 bg-white/10 hover:bg-white/30"
                                   )}
                                   aria-label={`Ir para insight ${i + 1}`}
                                 />
@@ -1767,106 +2276,6 @@ export default function StatsScreen() {
               )}
             </motion.div>
           </AnimatePresence>
-
-          {/* Evolução de Streams Chart */}
-          <div className="glass-card p-6 border-white/5 flex flex-col gap-5 mt-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-orange-500 animate-pulse" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Evolução de Atividade</span>
-              </div>
-              <div className="bg-white/[0.03] border border-white/5 py-1 px-2.5 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500">
-                {activeFilter}
-              </div>
-            </div>
-
-            {/* Toggle chart metric */}
-            <div className="flex gap-1.5 bg-white/[0.02] border border-white/5 p-1 rounded-xl w-full">
-              {[
-                { metric: 'streams', label: 'Streams' },
-                { metric: 'hours', label: 'Horas' }
-              ].map((btn) => (
-                <button
-                  key={btn.metric}
-                  type="button"
-                  onClick={() => {
-                    setChartMetric(btn.metric as any);
-                    trackEvent('stats_chart_metric_changed', { metric: btn.metric });
-                  }}
-                  className={clsx(
-                    "flex-1 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] rounded-lg transition-all text-center cursor-pointer",
-                    chartMetric === btn.metric 
-                      ? "bg-white text-black shadow-md p-1" 
-                      : "text-white/40 hover:text-white/70 hover:bg-white/[0.02]"
-                  )}
-                >
-                  {btn.label}
-                </button>
-              ))}
-            </div>
- 
-            <div className="h-56 w-full mt-2 relative">
-              {isChartLoading && dailyEvolutionData.length === 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <RefreshCcw className="h-6 w-6 text-white/10 animate-spin" />
-                </div>
-	              ) : dailyEvolutionData.length > 0 ? (
-	                <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
-	                  <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
-	                    <ActivityAreaChart data={dailyEvolutionData} chartMetric={chartMetric} accentColor={accentColor} />
-	                  </Suspense>
-	                </div>
-              ) : (
-                <div className="h-full w-full flex flex-col items-center justify-center opacity-30 gap-3">
-                  <TrendingUp className="h-8 w-8" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Sem dados históricos</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Daily Activity Heatmap */}
-          <div className="transition-opacity duration-300">
-            {isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
-              // Discrete skeleton loading state
-              <div className="glass-card p-6 border-white/5 flex flex-col gap-5 mt-4 opacity-40 animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-white/30" />
-                    <div className="h-3.5 w-32 bg-white/10 rounded-full" />
-                  </div>
-                  <div className="h-2 w-16 bg-white/5 rounded-full" />
-                </div>
-                <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-12 gap-1.5">
-                    {Array.from({ length: 24 }).map((_, i) => (
-                      <div key={i} className="aspect-square bg-white/5 rounded-lg border border-white/5" />
-                    ))}
-                  </div>
-                  <div className="flex justify-between px-1">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <div key={i} className="h-2 w-4 bg-white/5 rounded-full" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-	            ) : (hourlyDistributionData && hourlyDistributionData.length > 0 && hourlyDistributionData.some(d => d.streams > 0)) ? (
-	              <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
-	                <Suspense fallback={<div className="glass-card p-6 border-white/5 mt-4 h-36 animate-pulse" />}>
-	                  <DailyActivityHeatmap 
-	                    data={hourlyDistributionData} 
-	                    accentColor={accentColor} 
-	                  />
-	                </Suspense>
-	              </div>
-            ) : (
-              // Empty state with reduced vertical space (p-4 instead of p-8 to reduce empty vertical space)
-              <div className="glass-card p-4 border-white/5 flex flex-col items-center justify-center gap-2 mt-4 opacity-30">
-                <Clock className="h-5 w-5" />
-                <span className="text-[9px] font-black uppercase tracking-[0.14em]">Sem dados de distribuição horária</span>
-              </div>
-            )}
-          </div>
         </>
       ) : (
         <div className="flex flex-col gap-8">
@@ -1931,24 +2340,22 @@ export default function StatsScreen() {
             whileTap={{ scale: 0.95 }}
             onClick={scrollY < 15 ? executeWithCooldown(() => fetchGroup(true)) : scrollToTop}
             className={cn(
-              "fixed bottom-[110px] right-6 z-50 rounded-full border flex items-center justify-center transition-all duration-300 cursor-pointer shadow-lg select-none group/btn overflow-hidden",
-              scrollY < 15 
-                ? "h-11 px-4.5 bg-[#080808]/95 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:bg-[#121212]/95 hover:border-emerald-500/60" 
-                : "h-11 w-11 bg-orange-500 hover:bg-orange-600 border-white/10 text-white shadow-[0_4px_20px_rgba(249,115,22,0.4)]"
+              "fixed bottom-[120px] right-5 z-40 rounded-full border flex items-center justify-center transition-all duration-300 cursor-pointer select-none group/btn overflow-hidden backdrop-blur-xl",
+              scrollY < 15
+                ? "h-11 px-4 bg-black/60 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-black/70 hover:border-emerald-500/60"
+                : "h-11 w-11 bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 border-white/[0.12] text-white shadow-[0_0_20px_rgba(249,115,22,0.3),0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]"
             )}
             id="scroll-to-top-btn"
             title={scrollY < 15 ? "Status: Sincronizado" : "Voltar ao topo"}
           >
+            {/* Glossy shine */}
+            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.15] to-transparent pointer-events-none rounded-t-full" />
+
             {scrollY < 15 ? (
               <div className="flex items-center gap-2 relative z-10">
-                {/* Edge/Side glows inside button */}
-                <span className="absolute inset-x-0 -bottom-1 h-[2px] bg-gradient-to-r from-transparent via-emerald-400 to-transparent blur-[1px]" />
-                <span className="absolute inset-y-0 -left-1 w-[2px] bg-gradient-to-b from-transparent via-emerald-400 to-transparent blur-[1px]" />
-                <span className="absolute inset-y-0 -right-1 w-[2px] bg-gradient-to-b from-transparent via-emerald-400 to-transparent blur-[1px]" />
-                
-                {/* Pulsing auras */}
-                <span className="absolute -inset-1 rounded-full bg-emerald-500/10 animate-ping" />
-                
+                {/* Subtle inner glow */}
+                <span className="absolute inset-0 rounded-full bg-emerald-500/5" />
+
                 {/* Live pulse dot */}
                 <span className="relative flex h-2 w-2">
                   <span className={cn(
@@ -1957,16 +2364,16 @@ export default function StatsScreen() {
                   )}></span>
                   <span className={cn(
                     "relative inline-flex rounded-full h-2 w-2",
-                    (isGlobalLoading || isLocalLoading) ? "bg-amber-500" : "bg-emerald-500"
+                    (isGlobalLoading || isLocalLoading) ? "bg-amber-500" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
                   )}></span>
                 </span>
-                
+
                 <span className="text-[9px] font-black uppercase tracking-widest leading-none">
                   {(isGlobalLoading || isLocalLoading) ? 'SINC...' : 'SINCRONIZADO'}
                 </span>
               </div>
             ) : (
-              <ChevronUp className="h-5 w-5 stroke-[2.5]" />
+              <ChevronUp className="h-5 w-5 stroke-[2.5] relative z-10" />
             )}
           </motion.button>
         )}
