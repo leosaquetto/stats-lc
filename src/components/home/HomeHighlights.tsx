@@ -347,7 +347,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
   return (
     <div className="flex flex-col gap-2 mb-10">
       <SectionHeader title={title} />
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pt-2 pb-4 -mx-4 px-4">
+      <div data-home-horizontal-scroll="true" className="flex gap-4 overflow-x-auto no-scrollbar pt-2 pb-4 -mx-4 px-4">
         {sorted.map((user, i) => {
           const isFeatured = user.id === featuredUserId;
           return (
@@ -449,7 +449,7 @@ export const FriendsLiveCarousel = React.memo(() => {
         icon={<div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />} 
       />
       
-      <div className="flex gap-3 overflow-x-auto no-scrollbar scroll-fade-h -mx-4 px-4 pb-2">
+      <div data-home-horizontal-scroll="true" className="flex gap-3 overflow-x-auto no-scrollbar scroll-fade-h -mx-4 px-4 pb-2">
         {friendsNowPlaying.map((friend, idx) => {
           const trackName = friend.nowPlaying?.track?.name || 'Música Desconhecida';
           const artistName = typeof friend.nowPlaying?.track?.artists[0] === 'string' 
@@ -629,7 +629,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
         />
       </div>
       
-      <div className="flex gap-1 bg-white/5 p-0.5 rounded-lg glass border border-white/5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-0.5">
+      <div data-home-horizontal-scroll="true" className="flex gap-1 bg-white/5 p-0.5 rounded-lg glass border border-white/5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-0.5">
         {(['today', 'week', '7days', 'month', 'year', 'lifetime'] as const).map(p => (
           <button
             key={p}
@@ -650,7 +650,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
           <div className="flex items-center opacity-30">
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Artistas</span>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.artists.map((artist, idx) => (
                 <motion.div 
@@ -688,7 +688,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
           <div className="flex items-center opacity-30">
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Faixas</span>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.tracks.map((track, idx) => (
                 <motion.div 
@@ -726,7 +726,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
           <div className="flex items-center opacity-30">
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Álbuns</span>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
             <AnimatePresence mode="popLayout" initial={false}>
               {tops.albums.map((album, idx) => (
                 <motion.div 

@@ -230,8 +230,8 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             </span>
           </div>
           <div
+            data-home-horizontal-scroll="true"
             className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
-            style={{ touchAction: 'pan-x' }}
           >
             {members.map((member) => {
               const tops = periodTops[member.id] || member.topItems;

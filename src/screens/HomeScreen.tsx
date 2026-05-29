@@ -60,7 +60,7 @@ const FloatingMiniHeader = React.memo(({
       className={cn(
         "fixed top-0 left-0 right-0 z-[150] flex items-center justify-center px-3 sm:px-6 lg:px-8 py-3.5 transition-[transform,opacity] duration-300 ease-out",
         visible
-          ? "translate-y-0 opacity-100 pointer-events-auto"
+          ? "translate-y-0 opacity-100 pointer-events-none"
           : "-translate-y-4 opacity-0 pointer-events-none"
       )}
     >
@@ -489,6 +489,13 @@ export default function HomeScreen() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4500);
+  }, []);
+
+  const stopPullToRefreshOnHorizontalGesture = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('[data-home-horizontal-scroll="true"]')) {
+      event.nativeEvent.stopImmediatePropagation();
+    }
   }, []);
 
   useEffect(() => {
@@ -1070,7 +1077,11 @@ export default function HomeScreen() {
         </div>
       }
     >
-      <div className="flex flex-col gap-3 pt-24">
+      <div
+        className="flex flex-col gap-3 pt-24"
+        onTouchStartCapture={stopPullToRefreshOnHorizontalGesture}
+        onTouchMoveCapture={stopPullToRefreshOnHorizontalGesture}
+      >
 
       {/* Custom Background Sync Bar */}
       <AnimatePresence>

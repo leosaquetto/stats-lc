@@ -192,7 +192,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </button>
         </div>
 
-        <div className="-mx-1 flex w-full items-center gap-2 overflow-x-auto px-1 hide-scrollbar">
+        <div data-home-horizontal-scroll="true" className="-mx-1 flex w-full items-center gap-2 overflow-x-auto px-1 hide-scrollbar">
           {periodTabs.map((tab) => (
             <button
               key={tab.key}
@@ -211,7 +211,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       </div>
 
       {activeTab === 'week' && (
-        <div className="relative z-10 flex items-center gap-2 overflow-x-auto hide-scrollbar">
+        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-2 overflow-x-auto hide-scrollbar">
           {[
             { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
             { key: 'current' as ReplayWeekMode, label: 'esta semana' }
@@ -236,7 +236,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {activeTab === 'month' && (
-        <div className="relative z-10 -mx-1 flex items-center gap-6 overflow-x-auto px-1 hide-scrollbar">
+        <div data-home-horizontal-scroll="true" className="relative z-10 -mx-1 flex items-center gap-6 overflow-x-auto px-1 hide-scrollbar">
           {availableMonths.map((month, index) => {
             const isSelected = selectedSubValues.month === String(index).padStart(2, '0');
             return (
@@ -256,7 +256,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {activeTab === 'year' && (
-        <div className="relative z-10 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-3 overflow-x-auto hide-scrollbar">
           {YEARS.map((year) => {
             const isSelected = selectedSubValues.year === String(year);
             return (
@@ -339,7 +339,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedArtists.map((artist, index) => (
               <motion.div
                 key={replayItemKey('artist', artist, index)}
@@ -407,7 +407,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto snap-x pl-4 pr-6 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="overflow-x-auto snap-x pl-4 pr-6 hide-scrollbar scroll-pl-4">
             <div className="flex gap-6">
               {Array.from({ length: Math.ceil(visibleTracks.length / 4) }).map((_, pageIndex) => (
                 <div key={pageIndex} className="flex flex-col snap-start flex-shrink-0">
@@ -468,7 +468,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-4 overflow-x-auto snap-x pb-2 pl-4 pr-7 hide-scrollbar scroll-pl-4">
             {limitedAlbums.map((album, index) => (
               <motion.div
                 key={replayItemKey('album', album, index)}

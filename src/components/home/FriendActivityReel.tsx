@@ -80,7 +80,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div className="flex h-[184px] gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]">
+      <div data-home-horizontal-scroll="true" className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]">
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;

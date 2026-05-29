@@ -469,6 +469,7 @@ export const StatsAlike = React.memo(() => {
       />
 
       <div
+        data-home-horizontal-scroll="true"
         className="relative h-[292px] w-full select-none flex items-center justify-center overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoRotating(false)}
         onMouseLeave={() => setIsAutoRotating(true)}
