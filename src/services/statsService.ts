@@ -289,6 +289,14 @@ export type ReplayPeriodQuery = {
   signal?: AbortSignal;
 };
 
+export type ComparePeriodQuery = {
+  users: string[];
+  period?: '4w' | '6m' | 'all' | 'month' | 'week';
+  limit?: number;
+  force?: boolean;
+  signal?: AbortSignal;
+};
+
 let groupRequestInFlight: Promise<GroupStats> | null = null;
 let liveRequestInFlight: Promise<GroupStats> | null = null;
 
@@ -687,6 +695,19 @@ export const statsService = {
       } catch {}
       throw e;
     }
+  },
+
+  async getCompareData(query: ComparePeriodQuery): Promise<any> {
+    const users = query.users.map((userId) => coreUtils.getUserApiParam(userId)).filter(Boolean);
+    if (users.length < 2) {
+      return { ok: false, common: { artists: [], tracks: [], albums: [] } };
+    }
+
+    return fetchFromApi<any>('/api/compare', {
+      users: users.join(','),
+      period: query.period || 'month',
+      limit: query.limit || 50,
+    }, !!query.force, 1, true, { signal: query.signal });
   },
 
   /**

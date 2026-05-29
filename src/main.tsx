@@ -31,16 +31,3 @@ const root = createRoot(document.getElementById('root')!);
 root.render(
   <App />
 );
-
-// Sinaliza que o React renderizou e o splash pode ser removido
-setTimeout(() => {
-  if (window.__SPLASH_READY__ !== undefined) {
-    window.__SPLASH_READY__ = true;
-  }
-  const splash = document.getElementById('splash-screen');
-  if (splash) {
-    splash.style.opacity = '0';
-    splash.style.transition = 'opacity 0.3s ease-out';
-    setTimeout(() => splash.remove(), 300);
-  }
-}, 100);

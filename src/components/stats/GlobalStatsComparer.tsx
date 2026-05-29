@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Swords, Clock, PlayCircle, Star, Info } from 'lucide-react';
 import clsx from 'clsx';
 import { SmartImage } from '../shared/CommonUI';
 import { UserStats } from '../../types/stats';
 import { coreUtils } from '../../services/statsCore';
+import { statsService } from '../../services/statsService';
 
 interface GlobalStatsComparerProps {
   members: UserStats[];
@@ -15,6 +16,8 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
   const [userBId, setUserBId] = useState<string>(members[1]?.id || members[0]?.id || '');
   const [selectingFor, setSelectingFor] = useState<'A' | 'B' | 'none'>('none');
   const [showArtistComparison, setShowArtistComparison] = useState(false);
+  const [compareData, setCompareData] = useState<any>(null);
+  const [compareStatus, setCompareStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const userA = members.find(m => m.id === userAId) || members[0];
   const userB = members.find(m => m.id === userBId) || members[0];
@@ -33,13 +36,48 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
   const streamsWinner = getWinner(userA.totalStreams || 0, userB.totalStreams || 0);
   const timeWinner = getWinner(userA.totalDurationMs || 0, userB.totalDurationMs || 0);
 
+  useEffect(() => {
+    if (!showArtistComparison || !userA?.id || !userB?.id || userA.id === userB.id) return;
+
+    const controller = new AbortController();
+    setCompareStatus('loading');
+
+    statsService.getCompareData({
+      users: [userA.id, userB.id],
+      period: 'month',
+      limit: 50,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCompareData(data);
+        setCompareStatus('ready');
+      })
+      .catch((error: any) => {
+        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+        setCompareStatus('error');
+      });
+
+    return () => controller.abort();
+  }, [showArtistComparison, userA?.id, userB?.id]);
+
+  const apiCommonArtists = useMemo(() => {
+    const rows = compareData?.common?.artists;
+    if (!Array.isArray(rows)) return [];
+    return rows.slice(0, 5).map((row: any) => ({
+      ...(row.item || {}),
+      sharedByCount: row.sharedByCount,
+      score: row.score,
+    }));
+  }, [compareData]);
+
   // Artist Comparison Logic
   const topArtistsA = (userA.topItems?.artists || []).slice(0, 5);
   const topArtistsB = (userB.topItems?.artists || []).slice(0, 5);
 
-  const commonArtists = topArtistsA.filter(a => 
+  const localCommonArtists = topArtistsA.filter(a =>
     topArtistsB.some(b => b.name.toLowerCase() === a.name.toLowerCase())
   );
+  const commonArtists = apiCommonArtists.length > 0 ? apiCommonArtists : localCommonArtists;
 
   const uniqueArtistsA = topArtistsA.filter(a => 
     !topArtistsB.some(b => b.name.toLowerCase() === a.name.toLowerCase())
@@ -232,7 +270,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
             )}
           >
             <Star className={clsx("h-4 w-4", showArtistComparison && "fill-orange-500")} />
-            {showArtistComparison ? "Ocultar Afinidade de Artistas" : "Comparar Top 5 Artistas"}
+            {showArtistComparison ? "Ocultar Afinidade de Artistas" : "Comparar Top Artistas"}
           </button>
         </div>
 
@@ -252,8 +290,22 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
                     <div className="h-4 w-4 rounded-full bg-green-500/20 flex items-center justify-center">
                       <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Em Comum ({commonArtists.length})</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/50">
+                      Em Comum ({commonArtists.length})
+                    </span>
                   </div>
+
+                  {compareStatus === 'loading' && (
+                    <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                      <span className="text-[10px] font-bold text-white/35">Calculando afinidade pela API...</span>
+                    </div>
+                  )}
+
+                  {compareStatus === 'error' && (
+                    <div className="bg-orange-500/5 rounded-xl p-3 border border-orange-500/10 text-center">
+                      <span className="text-[10px] font-bold text-orange-400/70">API indisponivel, usando dados locais.</span>
+                    </div>
+                  )}
                   
                   {commonArtists.length > 0 ? (
                     <div className="flex flex-wrap gap-2">

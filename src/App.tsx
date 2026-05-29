@@ -4,7 +4,7 @@
  */
 
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { Component, lazy, Suspense, useEffect, type ErrorInfo, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import HomeScreen from './screens/HomeScreen';
@@ -188,6 +188,7 @@ export default function App() {
   const setOffline = useStatsStore(s => s.setOffline);
   const pushNotificationsEnabled = useStatsStore(s => s.pushNotificationsEnabled);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
+  const [initialBootSettled, setInitialBootSettled] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -203,7 +204,13 @@ export default function App() {
     };
     window.addEventListener('storage', handleStorage);
 
-    fetchStats();
+    const minVisibleUntil = Date.now() + 650;
+    const settleSplash = () => {
+      const delay = Math.max(0, minVisibleUntil - Date.now());
+      window.setTimeout(() => setInitialBootSettled(true), delay);
+    };
+
+    fetchStats().then(settleSplash).catch(settleSplash);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -211,6 +218,11 @@ export default function App() {
       window.removeEventListener('storage', handleStorage);
     };
   }, [fetchStats, setOffline]);
+
+  useEffect(() => {
+    if (!initialBootSettled) return;
+    window.__STATS_LC_DISMISS_SPLASH__?.();
+  }, [initialBootSettled]);
 
   useEffect(() => {
     const safePollingFrequency = Math.max(8, pollingFrequency);

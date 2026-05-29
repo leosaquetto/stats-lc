@@ -350,12 +350,16 @@ export default function StatsScreen() {
   
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [chartRetryNonce, setChartRetryNonce] = useState(0);
   const [chartMetric, setChartMetric] = useState<'streams' | 'hours'>('streams');
   
   const [activePeriodArtists, setActivePeriodArtists] = useState<any[]>([]);
   const [activePeriodTracks, setActivePeriodTracks] = useState<any[]>([]);
   const [activePeriodAlbums, setActivePeriodAlbums] = useState<any[]>([]);
   const [isTopItemsLoading, setIsTopItemsLoading] = useState(false);
+  const [topItemsError, setTopItemsError] = useState<string | null>(null);
+  const [topItemsRetryNonce, setTopItemsRetryNonce] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
@@ -496,6 +500,7 @@ export default function StatsScreen() {
       }
 
       setIsChartLoading(true);
+      setChartError(null);
       try {
         const today = getStartOfTodaySP();
         let after = 0;
@@ -689,7 +694,14 @@ export default function StatsScreen() {
 
         if (!cancelled) setHistoryData(formatted);
       } catch (e) {
-        if (!cancelled) console.error("Failed to load chart data", e);
+        if (!cancelled) {
+          console.error("Failed to load chart data", e);
+          setChartError("Nao foi possivel carregar a analise temporal agora.");
+          setDatesData(null);
+          setCardinalityData(null);
+          setActiveRangeStats(null);
+          setHistoryData([]);
+        }
       } finally {
         if (!cancelled) setIsChartLoading(false);
       }
@@ -698,7 +710,7 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, fullUserData]);
+  }, [CURRENT_USER_ID, activeFilter, fullUserData, chartRetryNonce]);
 
   const dailyEvolutionData = useMemo(() => {
     // Robust multi-path navigation for API response
@@ -1457,6 +1469,7 @@ export default function StatsScreen() {
     async function loadAllPeriodData() {
       if (viewMode === 'friends' || !CURRENT_USER_ID) return;
       setIsTopItemsLoading(true);
+      setTopItemsError(null);
       try {
         const period = periodMap[activeFilter];
         const [artists, tracks, albums] = await Promise.all([
@@ -1469,7 +1482,13 @@ export default function StatsScreen() {
         setActivePeriodTracks(tracks || []);
         setActivePeriodAlbums(albums || []);
       } catch (e) {
-        if (!cancelled) console.error("Failed to load period top items for StatsScreen", e);
+        if (!cancelled) {
+          console.error("Failed to load period top items for StatsScreen", e);
+          setTopItemsError("Nao foi possivel carregar seus mais tocados agora.");
+          setActivePeriodArtists([]);
+          setActivePeriodTracks([]);
+          setActivePeriodAlbums([]);
+        }
       } finally {
         if (!cancelled) setIsTopItemsLoading(false);
       }
@@ -1478,7 +1497,7 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, viewMode]);
+  }, [CURRENT_USER_ID, activeFilter, viewMode, topItemsRetryNonce]);
 
   const topItems = useMemo(() => {
     if (activeType === 'artists') return activePeriodArtists;
@@ -1933,7 +1952,22 @@ export default function StatsScreen() {
               </div>
 
               <div className="h-56 w-full mt-2 relative z-10">
-                {isChartLoading && dailyEvolutionData.length === 0 ? (
+                {chartError ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center gap-3 text-center">
+                    <AlertTriangle className="h-9 w-9 text-orange-400/80" />
+                    <div className="flex flex-col items-center gap-1 px-4">
+                      <span className="text-[11px] font-black uppercase tracking-widest text-white/65">Falha ao carregar</span>
+                      <span className="text-[9px] text-white/35 leading-relaxed">{chartError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setChartRetryNonce((value) => value + 1)}
+                      className="rounded-2xl bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 active:scale-95"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : isChartLoading && dailyEvolutionData.length === 0 ? (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <RefreshCcw className="h-6 w-6 text-white/10 animate-spin" />
                   </div>
@@ -1968,7 +2002,7 @@ export default function StatsScreen() {
 
             {/* Distribuição Horária */}
             <div className="transition-opacity duration-300">
-              {isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
+              {chartError ? null : isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
                 <div className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 animate-pulse shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2197,7 +2231,22 @@ export default function StatsScreen() {
                 isTopItemsLoading && filteredTopItems.length > 0 ? "opacity-35 pointer-events-none" : "opacity-100"
               )}
             >
-              {isTopItemsLoading && filteredTopItems.length === 0 ? (
+              {topItemsError ? (
+                <div className="py-16 flex flex-col items-center gap-4 text-center rounded-[28px] border border-orange-500/15 bg-orange-500/[0.04]">
+                  <AlertTriangle className="h-8 w-8 text-orange-400/80" />
+                  <div className="flex flex-col items-center gap-1 px-5">
+                    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/65">Ranking indisponivel</span>
+                    <span className="max-w-xs text-[10px] font-medium leading-relaxed text-white/35">{topItemsError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setTopItemsRetryNonce((value) => value + 1)}
+                    className="rounded-2xl bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 active:scale-95"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : isTopItemsLoading && filteredTopItems.length === 0 ? (
                 <div className="py-20 flex flex-col items-center gap-4">
                   <RefreshCcw className="h-8 w-8 text-white/10 animate-spin" />
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Buscando Rankings...</span>
@@ -2261,11 +2310,20 @@ export default function StatsScreen() {
                   )}
                 </div>
               ) : (
-                <div className="py-20 flex flex-col items-center gap-4 opacity-30">
+                <div className="py-20 flex flex-col items-center gap-4 opacity-40 text-center">
                   <Music2 className="h-10 w-10" />
                   <span className="text-[10px] font-black uppercase tracking-[0.3em]">
                     {searchQuery.trim() ? "Nenhum resultado correspondente" : "Nenhum dado encontrado"}
                   </span>
+                  {!searchQuery.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => setTopItemsRetryNonce((value) => value + 1)}
+                      className="rounded-2xl bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 active:scale-95"
+                    >
+                      Recarregar ranking
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>

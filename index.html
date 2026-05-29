@@ -58,27 +58,28 @@
       }
     </style>
     <script>
-      // Remove splash quando React renderizar
       window.__SPLASH_READY__ = false;
-      window.addEventListener('load', () => {
-        const removeSplash = () => {
-          const splash = document.getElementById('splash-screen');
-          if (splash && window.__SPLASH_READY__) {
-            splash.style.opacity = '0';
-            splash.style.transition = 'opacity 0.3s ease-out';
-            setTimeout(() => splash.remove(), 300);
-          }
-        };
+      window.__STATS_LC_DISMISS_SPLASH__ = function () {
+        var splash = document.getElementById('splash-screen');
+        if (!splash || splash.dataset.dismissed === '1') return;
+        splash.dataset.dismissed = '1';
+        window.__SPLASH_READY__ = true;
+        splash.style.opacity = '0';
+        splash.style.transition = 'opacity 0.35s ease-out';
+        setTimeout(function () {
+          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 350);
+      };
 
-        // Tenta remover após um delay mínimo
-        setTimeout(() => {
-          window.__SPLASH_READY__ = true;
-          removeSplash();
-        }, 300);
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          if (window.__SPLASH_READY__ === false) {
+            window.__STATS_LC_DISMISS_SPLASH__();
+          }
+        }, 12000);
       });
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
