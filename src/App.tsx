@@ -58,13 +58,42 @@ class RouteErrorBoundary extends Component<
   componentDidCatch(error: Error, info: ErrorInfo) {
     const chunkError = isChunkLoadError(error);
 
+    // Log crítico em produção para diagnóstico de PWA
+    console.error('[RouteErrorBoundary] Route render error', {
+      message: error?.message,
+      name: error?.name,
+      pathname: window.location.pathname,
+      hash: window.location.hash,
+      timestamp: new Date().toISOString(),
+      chunkError,
+      stack: error?.stack?.split('\n').slice(0, 3).join('\n'), // Primeiras 3 linhas
+      componentStack: info.componentStack?.split('\n').slice(0, 5).join('\n'), // Primeiras 5 linhas do component stack
+    });
+
     if ((import.meta as any).env?.DEV) {
-      console.error('[RouteErrorBoundary] original route render error', {
+      console.error('[RouteErrorBoundary] Full error details', {
         error,
         cause: (error as any)?.cause,
         stack: error?.stack,
         componentStack: info.componentStack,
       });
+    }
+
+    // Salvar erro para diagnóstico
+    try {
+      const diagnosticData = {
+        message: error?.message,
+        name: error?.name,
+        pathname: window.location.pathname,
+        hash: window.location.hash,
+        timestamp: new Date().toISOString(),
+        chunkError,
+        stackPreview: error?.stack?.split('\n').slice(0, 3).join('\n'),
+        componentStackPreview: info.componentStack?.split('\n').slice(0, 5).join('\n'),
+      };
+      sessionStorage.setItem('stats-lc-last-error', JSON.stringify(diagnosticData, null, 2));
+    } catch (e) {
+      // Ignorar se sessionStorage falhar
     }
 
     if (chunkError) {
@@ -82,6 +111,21 @@ class RouteErrorBoundary extends Component<
   render() {
     if (!this.state.hasError) return this.props.children;
 
+    const copyDiagnostics = () => {
+      try {
+        const lastError = sessionStorage.getItem('stats-lc-last-error');
+        const diagnostics = lastError || JSON.stringify({
+          message: 'Erro desconhecido',
+          pathname: window.location.pathname,
+          timestamp: new Date().toISOString(),
+        });
+        navigator.clipboard.writeText(diagnostics);
+        alert('Diagnóstico copiado!');
+      } catch (e) {
+        alert('Não foi possível copiar');
+      }
+    };
+
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-5 bg-[#050505] px-6 text-center">
         <div className="relative h-14 w-14 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
@@ -97,13 +141,22 @@ class RouteErrorBoundary extends Component<
               : 'Recarregue o app para tentar montar a tela novamente.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="rounded-2xl bg-orange-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-[0_10px_25px_rgba(234,88,12,0.28)] active:scale-95"
-        >
-          {this.state.chunkError ? 'Atualizar app' : 'Tentar novamente'}
-        </button>
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="rounded-2xl bg-orange-600 px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white shadow-[0_10px_25px_rgba(234,88,12,0.28)] active:scale-95"
+          >
+            {this.state.chunkError ? 'Atualizar app' : 'Tentar novamente'}
+          </button>
+          <button
+            type="button"
+            onClick={copyDiagnostics}
+            className="rounded-2xl bg-white/5 px-5 py-2 text-[9px] font-bold uppercase tracking-[0.16em] text-white/60 active:scale-95"
+          >
+            Copiar diagnóstico
+          </button>
+        </div>
       </div>
     );
   }

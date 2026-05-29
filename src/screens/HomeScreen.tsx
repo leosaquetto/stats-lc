@@ -173,6 +173,9 @@ const getReplayAlbumArtistName = (album: any, tracks: any[]) => {
   const directArtist = getReplayArtistName(album);
   if (directArtist !== 'Artista Desconhecido') return directArtist;
 
+  // Defesa: tracks pode ser undefined ao restaurar do cache
+  if (!Array.isArray(tracks) || tracks.length === 0) return directArtist;
+
   const albumName = coreUtils.normalizeText(album?.name);
   const albumImage = album?.image || album?.albumImage;
   const albumId = album?.id || album?.albumId || album?.album?.id;
@@ -249,8 +252,8 @@ export default function HomeScreen() {
   const liveRefreshActive = isManualLiveRefresh;
   const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
-  const allMembers = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
-  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
   const primaryUser = useMemo(() => {
     if (!groupStats) return null;
     return (
@@ -289,7 +292,7 @@ export default function HomeScreen() {
   const primaryIsPlaying = primaryPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
   const visibleMembersCount = members.length || 1;
   const currentTrackId = (primaryTrack as any)?.id;
-  const currentTrackArenaPlayCount = currentTrackId
+  const currentTrackArenaPlayCount = currentTrackId && Array.isArray(members)
     ? members
         .reduce((total, member) => total + (userTrackStatsForLayout[`${member.id}:${currentTrackId}`] || 0), 0)
     : 0;
@@ -673,13 +676,17 @@ export default function HomeScreen() {
     setAvatarClickPosition(null);
   }, [featuredUserId]);
 
-  const friendsSelection = useMemo(() => members.filter(u => u && u.id && u.id !== FEATURED_ID), [members, FEATURED_ID]);
-  
+  const friendsSelection = useMemo(() => {
+    if (!Array.isArray(members)) return [];
+    return members.filter(u => u && u.id && u.id !== FEATURED_ID);
+  }, [members, FEATURED_ID]);
+
   const sortedFriends = useMemo(() => {
     return [...friendsSelection].sort((a, b) => a.name.localeCompare(b.name));
   }, [friendsSelection]);
 
   const recentTracks = useMemo(() => {
+    if (!Array.isArray(members)) return [];
     return members
       .filter(u => u && u.id)
       .sort((a, b) => {
@@ -742,9 +749,9 @@ export default function HomeScreen() {
     };
   }, [primaryUser?.id, replayPeriodQuery, replayActiveTab]);
 
-  const replayArtists = replayTopItems.artists;
-  const replayTracks = replayTopItems.tracks;
-  const replayAlbums = replayTopItems.albums;
+  const replayArtists = replayTopItems.artists || [];
+  const replayTracks = replayTopItems.tracks || [];
+  const replayAlbums = replayTopItems.albums || [];
   const replayModalPeriod = getReplayModalPeriod(replayActiveTab, replaySelectedSubValues);
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
   const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
