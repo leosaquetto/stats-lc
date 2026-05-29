@@ -277,6 +277,25 @@ const getReplayAlbumArtistName = (album: any, tracks: any[]) => {
   return matchingTrack ? getReplayArtistName(matchingTrack) : directArtist;
 };
 
+const firstExternalId = (value: any) => {
+  if (Array.isArray(value)) return value.find((item) => typeof item === 'string' && item.trim());
+  return typeof value === 'string' && value.trim() ? value : undefined;
+};
+
+const getReplayTrackUrl = (track: any) => {
+  const directUrl = track?.url || track?.externalUrl || track?.spotifyUrl || track?.appleMusicUrl;
+  if (typeof directUrl === 'string' && directUrl.trim()) return directUrl;
+
+  const spotifyId = track?.spotifyId || firstExternalId(track?.externalIds?.spotify) || firstExternalId(track?.track?.externalIds?.spotify);
+  if (spotifyId) return `https://open.spotify.com/track/${spotifyId}`;
+
+  const appleMusicId = track?.appleMusicId || firstExternalId(track?.externalIds?.appleMusic) || firstExternalId(track?.track?.externalIds?.appleMusic);
+  if (appleMusicId) return `https://music.apple.com/search?term=${encodeURIComponent(`${track?.name || ''} ${getReplayArtistName(track)}`.trim())}`;
+
+  if (track?.name) return `https://open.spotify.com/search/${encodeURIComponent(`${track.name} ${getReplayArtistName(track)}`)}`;
+  return '';
+};
+
 export default function HomeScreen() {
   const groupStats = useStatsStore(state => state.groupStats);
   const isLoading = useStatsStore(state => state.isLoading);
@@ -319,7 +338,7 @@ export default function HomeScreen() {
   const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
   const isHeaderScrolledRef = useRef(false);
-  const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
     tracks: [],
@@ -823,6 +842,7 @@ export default function HomeScreen() {
   }, [members, FEATURED_ID, historyOrder, historyCustomOrder]);
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
     if (!primaryUser?.id) {
       setReplayState('idle');
@@ -832,30 +852,45 @@ export default function HomeScreen() {
     }
 
     setReplayState('loading');
-    statsService.getReplayData(primaryUser.id, replayPeriodQuery)
+    statsService.getReplayData(primaryUser.id, { ...replayPeriodQuery, signal: controller.signal })
       .then((replay) => ({
         artists: replay.topArtists,
         tracks: replay.topTracks,
         albums: replay.topAlbums,
         totalSongs: replay.totalSongs,
-        totalDurationMs: replay.totalDurationMs
+        totalDurationMs: replay.totalDurationMs,
+        failed: false
       }))
-      .catch(() => ({ artists: [], tracks: [], albums: [], totalSongs: undefined, totalDurationMs: undefined }))
-      .then(({ artists, tracks, albums, totalSongs, totalDurationMs }) => {
+      .catch((error: any) => {
+        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+          return null;
+        }
+        return { artists: [], tracks: [], albums: [], totalSongs: undefined, totalDurationMs: undefined, failed: true };
+      })
+      .then((payload) => {
+      if (!payload || cancelled) return;
+      const { artists, tracks, albums, totalSongs, totalDurationMs, failed } = payload;
+      if (failed) {
+        setReplayTopItems({ artists, tracks, albums });
+        setReplayTotalMinutesCount(0);
+        setReplayState('error');
+        return;
+      }
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });
-          const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
-          setReplayTotalMinutesCount(
-            Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
-              ? Math.max(1, Math.round(totalDurationMs / 60000))
-              : fallbackTotal
-          );
+        const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
+        setReplayTotalMinutesCount(
+          Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
+            ? Math.max(1, Math.round(totalDurationMs / 60000))
+            : fallbackTotal
+        );
         setReplayState('ready');
       }
     });
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [primaryUser?.id, replayPeriodQuery, replayActiveTab]);
 
@@ -863,6 +898,41 @@ export default function HomeScreen() {
   const replayTracks = replayTopItems.tracks || [];
   const replayAlbums = replayTopItems.albums || [];
   const replayModalPeriod = getReplayModalPeriod(replayActiveTab, replaySelectedSubValues);
+
+  const handleShareReplay = useCallback(async () => {
+    if (!primaryUser) return;
+    const topArtist = replayArtists[0]?.name ? ` Artista #1: ${replayArtists[0].name}.` : '';
+    const text = `${primaryUser.name} ouviu ${Math.round(replayTotalMinutesCount).toLocaleString('pt-BR')} minutos de musica ${replayModalPeriod}.${topArtist}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'stats.lc Replay',
+          text,
+          url: window.location.href
+        });
+        showToast('Replay compartilhado', 'Seu resumo foi enviado para o compartilhamento do sistema.', 'success');
+        return;
+      }
+
+      await navigator.clipboard?.writeText(`${text} ${window.location.href}`);
+      showToast('Replay copiado', 'O resumo do Replay foi copiado para a area de transferencia.', 'success');
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        showToast('Compartilhamento indisponivel', 'Nao foi possivel abrir o compartilhamento agora.', 'error');
+      }
+    }
+  }, [primaryUser, replayArtists, replayModalPeriod, replayTotalMinutesCount, showToast]);
+
+  const handleOpenReplayTrack = useCallback((track: any) => {
+    const url = getReplayTrackUrl(track);
+    if (!url) {
+      showToast('Link indisponivel', 'Esta musica ainda nao trouxe link de catalogo pela API.', 'info');
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, [showToast]);
+
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
   const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
   const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
@@ -1397,6 +1467,29 @@ export default function HomeScreen() {
         </motion.div>
       )}
 
+      {isAppReady && primaryUser && replayState === 'error' && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="px-4 sm:px-6 lg:px-8 py-4"
+        >
+          <div className="rounded-[28px] border border-orange-500/15 bg-orange-500/[0.04] px-5 py-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+            <AlertTriangle className="mx-auto h-6 w-6 text-orange-400" />
+            <h2 className="mt-3 text-sm font-black uppercase tracking-[0.18em] text-white/85">Replay indisponivel</h2>
+            <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-relaxed text-white/45">
+              Nao conseguimos carregar esse periodo agora. Os demais blocos seguem funcionando.
+            </p>
+            <button
+              type="button"
+              onClick={() => setReplaySelectedSubValues((values) => ({ ...values }))}
+              className="mt-4 rounded-2xl bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/75 active:scale-95"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1417,7 +1510,13 @@ export default function HomeScreen() {
                 name: t.name,
                 artist: getReplayArtistName(t),
                 image: t.image || t.albumImage,
-                streams: t.playedCount || t.streams || t.playcount || t.count || 0
+                streams: t.playedCount || t.streams || t.playcount || t.count || 0,
+                url: getReplayTrackUrl(t),
+                spotifyUrl: t.spotifyUrl,
+                appleMusicUrl: t.appleMusicUrl,
+                spotifyId: t.spotifyId,
+                appleMusicId: t.appleMusicId,
+                externalIds: t.externalIds || t.track?.externalIds
               })) || []}
               topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
                 id: a.id,
@@ -1434,6 +1533,8 @@ export default function HomeScreen() {
               onOpenArtistsModal={() => setOpenReplayModal('artists')}
               onOpenSongsModal={() => setOpenReplayModal('songs')}
               onOpenAlbumsModal={() => setOpenReplayModal('albums')}
+              onShareReplay={handleShareReplay}
+              onOpenTrack={handleOpenReplayTrack}
               isLoading={isReplayUpdating}
             />
           </React.Suspense>

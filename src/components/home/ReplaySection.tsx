@@ -39,6 +39,15 @@ interface Track {
   artist: string;
   image?: string;
   streams: number;
+  url?: string;
+  spotifyUrl?: string;
+  appleMusicUrl?: string;
+  spotifyId?: string;
+  appleMusicId?: string;
+  externalIds?: {
+    spotify?: string[] | string;
+    appleMusic?: string[] | string;
+  };
 }
 
 interface Album {
@@ -61,6 +70,8 @@ interface ReplaySectionProps {
   onOpenArtistsModal: () => void;
   onOpenSongsModal: () => void;
   onOpenAlbumsModal: () => void;
+  onShareReplay?: () => void;
+  onOpenTrack?: (track: Track) => void;
   isLoading?: boolean;
 }
 
@@ -78,6 +89,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   onOpenArtistsModal,
   onOpenSongsModal,
   onOpenAlbumsModal,
+  onShareReplay,
+  onOpenTrack,
   isLoading = false
 }) => {
   const filterText = useMemo(() => getReplayFilterSentence(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
@@ -122,11 +135,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[44px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
           <button
-            onClick={() => {
-              console.log('Compartilhar Replay');
-            }}
+            type="button"
+            onClick={onShareReplay}
             className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all active:scale-95"
             title="Compartilhar Replay"
+            aria-label="Compartilhar Replay"
           >
             <Share2 className="h-6 w-6" />
           </button>
@@ -381,11 +394,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         </div>
 
                         <button
-                          onClick={() => {
-                            // TODO: Abrir link da plataforma (priorizar Apple Music, fallback Spotify)
-                            console.log('Abrir música na plataforma:', track.name);
-                          }}
+                          type="button"
+                          onClick={() => onOpenTrack?.(track)}
                           className="flex-shrink-0 text-[20px] leading-none text-white/70 transition-colors hover:text-white"
+                          title={`Abrir ${track.name}`}
+                          aria-label={`Abrir ${track.name}`}
                         >
                           ⋯
                         </button>

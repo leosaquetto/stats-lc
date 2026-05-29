@@ -97,13 +97,20 @@ const normalizeNowPlaying = (nowPlaying: any) => {
   if (!track) return undefined;
   const ts = nowPlaying.timestamp || nowPlaying.playedAt || nowPlaying.endTime || new Date().toISOString();
   const platformCandidate = nowPlaying.platformCandidate || nowPlaying.serviceCandidate;
+  const progressMs = nowPlaying.progressMs ?? nowPlaying.playedMs;
+  const playedMs = nowPlaying.playedMs ?? nowPlaying.progressMs;
 
   return {
     isNow: nowPlaying.isNow !== undefined ? nowPlaying.isNow : (Date.now() - new Date(ts).getTime() < 300000),
     timestamp: ts,
-    progressMs: nowPlaying.progressMs ?? nowPlaying.playedMs ?? 0,
+    playedAt: nowPlaying.playedAt,
+    endTime: nowPlaying.endTime,
+    playbackKey: nowPlaying.playbackKey,
+    streamId: nowPlaying.streamId,
+    stream: nowPlaying.stream,
+    progressMs,
     durationMs: nowPlaying.durationMs || track?.durationMs,
-    playedMs: nowPlaying.playedMs ?? nowPlaying.progressMs ?? 0,
+    playedMs,
     platformCandidate: platformCandidate?.primary
       ? platformCandidate
       : platformCandidate?.platform
@@ -279,6 +286,7 @@ export type ReplayPeriodQuery = {
   before?: number;
   limit?: number;
   force?: boolean;
+  signal?: AbortSignal;
 };
 
 let groupRequestInFlight: Promise<GroupStats> | null = null;
@@ -598,13 +606,13 @@ export const statsService = {
     const userParam = coreUtils.getUserApiParam(userId);
     const params: any = {
       user: userParam,
-      period: query.period === 'all' ? 'lifetime' : query.period,
+      period: query.period === 'lifetime' ? 'all' : query.period,
       limit: query.limit || 12
     };
     if (query.after) params.after = query.after;
     if (query.before) params.before = query.before;
 
-    const res = await fetchFromApi<any>('/api/replay', params, !!query.force);
+    const res = await fetchFromApi<any>('/api/replay', params, !!query.force, 1, true, { signal: query.signal });
     const totalMinutes = res?.totalMinutes ?? res?.playedMinutes ?? res?.minutes ?? res?.stats?.totalMinutes ?? res?.stats?.minutes;
     return {
       totalSongs: res?.totalSongs ?? res?.totalStreams ?? res?.count ?? res?.stats?.streams,
