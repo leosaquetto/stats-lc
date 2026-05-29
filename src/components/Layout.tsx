@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BarChart3, Settings, WifiOff, Clock, X, HeartHandshake } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Clock, X, Orbit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -123,10 +123,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const shouldShowExpanded = isSyncInfoExpanded;
   
   const navItems = [
-    { label: 'Home', icon: Home, path: '/', activePaths: ['/'] },
-    { label: 'Stats', icon: BarChart3, path: '/highlights', activePaths: ['/highlights'] },
-    { label: 'Circle', icon: HeartHandshake, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
-    { label: 'Ajustes', icon: Settings, path: '/settings', activePaths: ['/settings'] },
+    { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
+    { label: 'Stats', icon: AudioLines, path: '/highlights', activePaths: ['/highlights'] },
+    { label: 'Orbit', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
+    { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
   ];
 
   const lastUpdate = groupStats?.lastUpdated;
@@ -367,65 +367,85 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           )}
         </AnimatePresence>
 
-        {/* Navigation - sempre visível */}
-        <nav className="w-full max-w-[480px] px-3 pb-8 pb-[env(safe-area-inset-bottom)] pointer-events-auto mx-auto">
-          <div className="glass-card premium-gradient flex h-[72px] items-center justify-around rounded-[32px] px-1 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] border-white/15 relative overflow-hidden group">
-            {/* Glossy Reflection Overlay */}
-            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
-            
-            {navItems.map((item) => {
-              const isActive = item.activePaths.includes(location.pathname);
-              const Icon = item.icon;
-              
-              return (
-                <Link 
-                  key={item.path} 
-                  to={item.path} 
-                  className={clsx(
-                    "relative flex flex-1 flex-col items-center justify-center gap-1 transition-all duration-300 py-2 outline-none",
-                    isActive ? "text-orange-500" : "text-white/30 hover:text-white/50"
-                  )}
-                >
-                  <motion.div 
-                    className="relative flex flex-col items-center overflow-visible"
-                    whileTap={{ scale: 0.85 }}
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  >
-                    <motion.div
-                      animate={{ 
-                        scale: isActive ? 1.2 : 1,
-                        y: isActive ? -2 : 0
-                      }}
-                      transition={{ type: "spring", stiffness: 300, damping: 12 }}
-                    >
-                      <Icon 
-                        className={clsx(
-                          "h-5 w-5 transition-colors duration-300",
-                          isActive ? "drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" : ""
-                        )} 
-                        strokeWidth={isActive ? 2.5 : 2}
-                      />
-                    </motion.div>
+        {/* Navigation - Liquid Glass Capsule */}
+        <nav className="w-full max-w-[480px] px-4 pb-6 pb-[calc(env(safe-area-inset-bottom)+8px)] pointer-events-auto mx-auto">
+          <div className="relative rounded-[9999px] overflow-visible">
+            {/* Liquid Glass Container */}
+            <div className="relative bg-black/45 backdrop-blur-2xl rounded-[9999px] border border-white/16 shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden">
+              {/* Top highlight reflection */}
+              <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
-                    <span className={clsx(
-                      "text-[8px] font-mundial font-bold uppercase tracking-tight transition-all duration-300 mt-1.5",
-                      isActive ? "text-orange-500 opacity-100" : "text-white/40 opacity-70"
-                    )}>
-                      {item.label}
-                    </span>
-                    
-                    {isActive && (
+              {/* Bottom highlight reflection */}
+              <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+
+              {/* Inner glow for depth */}
+              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none rounded-[9999px]" />
+
+              {/* Navigation Items Grid */}
+              <div className="relative grid grid-cols-4 gap-0 px-3 py-3 min-h-[82px]">
+                {navItems.map((item) => {
+                  const isActive = item.activePaths.includes(location.pathname);
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      aria-label={item.label}
+                      className="relative flex flex-col items-center justify-center gap-1.5 outline-none touch-manipulation min-h-[56px]"
+                    >
+                      {/* Active bubble/pill */}
+                      {isActive && (
+                        <motion.div
+                          layoutId="active-bubble"
+                          className="absolute inset-x-1 inset-y-1 rounded-[9999px] bg-gradient-to-b from-orange-500/20 to-orange-600/10 border border-orange-500/30 shadow-[0_4px_16px_rgba(249,115,22,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        >
+                          {/* Inner highlight */}
+                          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-orange-300/40 to-transparent rounded-t-[9999px]" />
+
+                          {/* Orange glow behind */}
+                          <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-[9999px] -z-10" />
+                        </motion.div>
+                      )}
+
+                      {/* Icon and Label */}
                       <motion.div
-                        layoutId="nav-glow"
-                        className="absolute -bottom-[22px] h-1.5 w-10 rounded-full bg-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.6)]"
-                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                      />
-                    )}
-                  </motion.div>
-                </Link>
-              );
-            })}
+                        className="relative z-10 flex flex-col items-center gap-1"
+                        whileTap={{ scale: 0.9 }}
+                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                      >
+                        <motion.div
+                          animate={{
+                            y: isActive ? -1 : 0
+                          }}
+                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        >
+                          <Icon
+                            className={clsx(
+                              "transition-all duration-300",
+                              isActive
+                                ? "h-[30px] w-[30px] text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]"
+                                : "h-[28px] w-[28px] text-white/45 hover:text-white/65"
+                            )}
+                            strokeWidth={isActive ? 2.2 : 1.8}
+                          />
+                        </motion.div>
+
+                        <span className={clsx(
+                          "text-[9px] font-black uppercase tracking-[0.18em] transition-all duration-300 leading-none",
+                          isActive
+                            ? "text-orange-400"
+                            : "text-white/40"
+                        )}>
+                          {item.label}
+                        </span>
+                      </motion.div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </nav>
       </div>
