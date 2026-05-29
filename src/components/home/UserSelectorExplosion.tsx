@@ -123,7 +123,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 z-[200] bg-black/20 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] liquid-glass-overlay"
           />
 
           {/* Avatares em órbita (sem mostrar o usuário principal) */}

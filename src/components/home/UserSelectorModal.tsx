@@ -45,7 +45,7 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="fixed inset-0 z-[200] bg-black/30 backdrop-blur-xl touch-none"
+            className="fixed inset-0 z-[200] liquid-glass-overlay touch-none"
             style={{ minHeight: '100dvh' }}
             onTouchStart={(e) => e.preventDefault()}
             onTouchMove={(e) => e.preventDefault()}

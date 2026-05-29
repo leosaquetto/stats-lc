@@ -41,14 +41,14 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center liquid-glass-overlay p-4"
       onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="relative bg-[#080808] w-full max-w-lg rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        className="relative liquid-glass-modal w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header BG Accent */}

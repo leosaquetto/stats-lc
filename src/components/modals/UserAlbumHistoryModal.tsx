@@ -71,19 +71,19 @@ export const UserAlbumHistoryModal = ({
   }, [albums, search]);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-xl"
+      className="fixed inset-0 z-[60] flex items-end justify-center liquid-glass-overlay"
       onClick={onClose}
     >
-      <motion.div 
+      <motion.div
         initial={{ y: "100%" }}
         animate={{ y: 0 }}
         exit={{ y: "100%" }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="bg-[#050505] w-full max-w-lg h-[88vh] rounded-t-[48px] overflow-hidden border-t border-white/5 shadow-2xl flex flex-col"
+        className="liquid-glass-modal w-full max-w-lg h-[88vh] rounded-t-[48px] overflow-hidden shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

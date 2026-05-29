@@ -54,15 +54,15 @@ export const CircleActivityModal: React.FC<CircleActivityModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+            className="absolute inset-0 liquid-glass-overlay"
           />
-          
+
           <motion.div
             initial={{ y: "100%", opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="relative w-full max-w-lg bg-[#0a0a0a] rounded-t-[32px] overflow-hidden border border-white/10 flex flex-col max-h-[85vh]"
+            className="relative w-full max-w-lg liquid-glass-modal rounded-t-[32px] overflow-hidden flex flex-col max-h-[85vh]"
           >
             {/* Header */}
             <div className="p-6 flex items-center justify-between border-b border-white/5 sticky top-0 bg-[#0a0a0a]/80 backdrop-blur-md z-20">

@@ -33,19 +33,19 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="absolute inset-0 bg-black/80 backdrop-blur-xl"
+        className="absolute inset-0 liquid-glass-overlay"
       />
-      
-      <motion.div 
+
+      <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-2xl glass-card rounded-[40px] border border-white/10 overflow-hidden bg-black/40 flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-2xl liquid-glass-modal rounded-[40px] overflow-hidden flex flex-col max-h-[80vh]"
       >
         <div className="p-8 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-4">

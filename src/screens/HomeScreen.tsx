@@ -64,7 +64,7 @@ const FloatingMiniHeader = React.memo(({
     <header
       style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
       className={cn(
-        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-[transform,opacity]",
+        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-[transform,opacity] duration-300 ease-out",
         visible
           ? "translate-y-0 opacity-100 pointer-events-auto"
           : "-translate-y-4 opacity-0 pointer-events-none"
@@ -460,8 +460,9 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!miniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
-      setMiniHeaderResolvedColor('');
+    // Não recalcula cor dominante durante scroll
+    if (!miniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor || isHeaderScrolled) {
+      if (!isHeaderScrolled) setMiniHeaderResolvedColor('');
       return;
     }
 
@@ -476,7 +477,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
+  }, [miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor, isHeaderScrolled]);
 
   const handleRefresh = useCallback(async () => {
     // Rate limiting: prevent spam refresh
@@ -870,26 +871,26 @@ export default function HomeScreen() {
     <>
       {createPortal(
         <>
-          <AnimatePresence>
-            {/* Modal inicial - primeira vez */}
-            <UserSelectorModal
-              isOpen={showInitialModal}
-              members={members}
-              featuredUserId={featuredUserId || ''}
-              onSelectUser={(userId) => {
-                setFeaturedUserId(userId);
+          {/* Modal inicial - primeira vez */}
+          <UserSelectorModal
+            isOpen={showInitialModal}
+            members={members}
+            featuredUserId={featuredUserId || ''}
+            onSelectUser={(userId) => {
+              setFeaturedUserId(userId);
+              localStorage.setItem('stats-lc-has-selected-user', '1');
+              setShowInitialModal(false);
+            }}
+            onClose={() => {
+              if (!primaryUser && members.length > 0) {
+                setFeaturedUserId(members[0].id);
                 localStorage.setItem('stats-lc-has-selected-user', '1');
-                setShowInitialModal(false);
-              }}
-              onClose={() => {
-                if (!primaryUser && members.length > 0) {
-                  setFeaturedUserId(members[0].id);
-                  localStorage.setItem('stats-lc-has-selected-user', '1');
-                }
-                setShowInitialModal(false);
-              }}
-            />
+              }
+              setShowInitialModal(false);
+            }}
+          />
 
+          <AnimatePresence>
             <React.Suspense fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
               <CircleActivityModal
                 isOpen={showCircleActivity}
