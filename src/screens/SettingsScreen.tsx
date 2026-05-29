@@ -69,6 +69,7 @@ export default function SettingsScreen() {
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isResettingApp, setIsResettingApp] = useState(false);
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -147,10 +148,105 @@ export default function SettingsScreen() {
   const triggerTestNotification = () => {
     notificationService.sendTestNotification();
     showToast(
-      'Sinal Enviado', 
-      'Um pacote de teste foi disparado para validar a integridade da comunicação push.', 
+      'Sinal Enviado',
+      'Um pacote de teste foi disparado para validar a integridade da comunicação push.',
       'success'
     );
+  };
+
+  const handleResetApp = async () => {
+    const confirmed = window.confirm(
+      'Reiniciar app?\n\nIsso limpa o cache local deste dispositivo e recarrega o app. Seus dados do stats.fm não serão apagados.'
+    );
+
+    if (!confirmed) return;
+
+    setIsResettingApp(true);
+
+    try {
+      // 1. Clear localStorage keys related to the app
+      const keysToRemove = [
+        'stats-lc-storage',
+        // MockMMKV keys with 'stats-cache_' prefix
+        'stats-cache_groupStats',
+        'stats-cache_groupStats_timestamp',
+        'stats-cache_userFullStatsCache',
+        'stats-cache_userFullStatsCacheMeta',
+        'stats-cache_timeRangeStatsCache',
+        'stats-cache_timeRangeStatsCacheMeta',
+        'stats-cache_topItemsCache',
+        'stats-cache_topItemsCacheMeta',
+      ];
+
+      keysToRemove.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`Failed to remove localStorage key: ${key}`, e);
+        }
+      });
+
+      // 2. Clear all localStorage keys that start with 'stats-cache_'
+      try {
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach(key => {
+          if (key.startsWith('stats-cache_')) {
+            try {
+              localStorage.removeItem(key);
+            } catch (e) {
+              console.warn(`Failed to remove localStorage key: ${key}`, e);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to iterate localStorage keys', e);
+      }
+
+      // 3. Clear sessionStorage (temporary, safe to clear entirely)
+      try {
+        sessionStorage.clear();
+      } catch (e) {
+        console.warn('Failed to clear sessionStorage', e);
+      }
+
+      // 4. Clear CacheStorage (service worker caches)
+      if ('caches' in window) {
+        try {
+          const cacheKeys = await caches.keys();
+          await Promise.all(
+            cacheKeys.map(key =>
+              caches.delete(key).catch(err => {
+                console.warn(`Failed to delete cache: ${key}`, err);
+                return false;
+              })
+            )
+          );
+        } catch (e) {
+          console.warn('Failed to clear CacheStorage', e);
+        }
+      }
+
+      // 5. Show success toast
+      showToast(
+        'Cache Limpo',
+        'Cache limpo. Reiniciando o app…',
+        'success'
+      );
+
+      // 6. Wait and reload
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 7. Hard reload to root
+      window.location.href = '/#/';
+    } catch (error) {
+      console.error('Failed to reset app:', error);
+      setIsResettingApp(false);
+      showToast(
+        'Erro ao Limpar',
+        'Não foi possível limpar tudo. Tente fechar e abrir o app.',
+        'error'
+      );
+    }
   };
 
   return (
@@ -864,6 +960,51 @@ export default function SettingsScreen() {
               </div>
 
            </div>
+        </div>
+
+        {/* Sistema */}
+        <div className="flex flex-col gap-4">
+          <SectionHeader title="Sistema" action={<Database className="h-4 w-4 text-white/20" />} />
+          <div className="glass-card p-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] font-bold text-white/90">Reiniciar App</span>
+              <span className="text-[10px] text-white/30 leading-relaxed">
+                Limpa o cache local, dados salvos da Home e força o app a abrir do zero neste dispositivo.
+              </span>
+              <div className="mt-2 p-3 rounded-xl bg-orange-500/5 border border-orange-500/10">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 text-orange-500/60 shrink-0 mt-0.5" />
+                  <span className="text-[9px] text-orange-500/60 leading-relaxed">
+                    Seus dados do stats.fm não serão apagados. Apenas o cache local deste navegador/app será limpo.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleResetApp}
+              disabled={isResettingApp}
+              className={clsx(
+                "w-full py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all",
+                "flex items-center justify-center gap-2",
+                isResettingApp
+                  ? "bg-white/5 text-white/30 cursor-not-allowed"
+                  : "bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 border border-orange-500/20 active:scale-[0.98]"
+              )}
+            >
+              {isResettingApp ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Limpando...
+                </>
+              ) : (
+                <>
+                  <Database className="h-3.5 w-3.5" />
+                  Limpar e Reiniciar
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="mt-10 mb-20 flex flex-col items-center gap-4 py-8">

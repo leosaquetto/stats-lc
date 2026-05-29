@@ -58,29 +58,51 @@ export const StatsAlike = React.memo(() => {
     }).join('|');
   }, [members]);
 
+  // Stable signature for prefetch needs
+  const prefetchSignature = useMemo(() => {
+    const now = Date.now();
+    const REFETCH_INTERVAL = 15 * 60 * 1000;
+
+    return members.map((member) => {
+      const fetchedAt = (member as any).topItemsFetchedAt || 0;
+      const tracksLen = member.topItems?.tracks?.length ?? -1;
+      const artistsLen = member.topItems?.artists?.length ?? -1;
+      const albumsLen = member.topItems?.albums?.length ?? -1;
+      const needsFetch = fetchedAt === 0 || (now - fetchedAt) > REFETCH_INTERVAL;
+      return `${member.id}:${fetchedAt}:${tracksLen}:${artistsLen}:${albumsLen}:${needsFetch}`;
+    }).join('|');
+  }, [members]);
+
   // Prefetch topItems for all members to enable Stats Alike matching
   useEffect(() => {
     if (!members.length) return;
+
+    let cancelled = false;
 
     const loadTopItemsForMembers = async () => {
       const REFETCH_INTERVAL = 15 * 60 * 1000; // 15 min - match topItemsCache TTL
       const now = Date.now();
 
       for (const member of members) {
+        if (cancelled) return;
+
         const lastFetched = (member as any).topItemsFetchedAt || 0;
         const shouldRefetch = (now - lastFetched) > REFETCH_INTERVAL;
 
-        if (!member.topItems ||
-            !member.topItems.tracks?.length ||
-            !member.topItems.artists?.length ||
-            !member.topItems.albums?.length) {
+        if (!shouldRefetch) continue;
+
+        const hasTopItemsObject = !!member.topItems;
+        const hasAnyTopItems =
+          !!member.topItems?.tracks?.length ||
+          !!member.topItems?.artists?.length ||
+          !!member.topItems?.albums?.length;
+
+        if (!hasTopItemsObject || !hasAnyTopItems) {
           // Missing topItems - fetch if not recently attempted
-          if (shouldRefetch) {
-            try {
-              await prefetchUserTops(member.id);
-            } catch (err) {
-              console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
-            }
+          try {
+            await prefetchUserTops(member.id);
+          } catch (err) {
+            console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
           }
         } else if (shouldRefetch) {
           // Has topItems but stale - refresh in background
@@ -94,7 +116,11 @@ export const StatsAlike = React.memo(() => {
     };
 
     loadTopItemsForMembers();
-  }, [members, prefetchUserTops]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [prefetchSignature, prefetchUserTops]);
 
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];

@@ -101,6 +101,9 @@ const FRIEND_PREFETCH_DELAY_MS = 1500;
 let friendPrefetchTimer: ReturnType<typeof setTimeout> | null = null;
 let friendPrefetchController: AbortController | null = null;
 
+// In-flight guard for prefetchUserTops to prevent duplicate simultaneous calls
+const prefetchUserTopsInFlight = new Set<string>();
+
 const isLivePayloadOlder = (existing?: any, incoming?: any) => {
   if (!existing?.timestamp || !incoming?.timestamp) return false;
   const existingTime = new Date(existing.timestamp).getTime();
@@ -363,66 +366,96 @@ export const useStatsStore = create<StatsState>()(
       },
 
       prefetchUserTops: async (userId: string, period: string = 'month') => {
-        const types: ('tracks' | 'artists' | 'albums')[] = ['tracks', 'artists', 'albums'];
-        const topItems: any = {};
+        const cacheKey = `${userId}:${period}`;
 
-        for (const type of types) {
-          const items = await statsService.getTopItems(userId, type, period).catch(() => []);
-          topItems[`${type}`] = items;
+        // In-flight guard: prevent duplicate simultaneous calls
+        if (prefetchUserTopsInFlight.has(cacheKey)) {
+          if ((import.meta as any).env?.DEV) {
+            console.log(`[prefetchUserTops] Already in-flight for ${cacheKey}, skipping`);
+          }
+          return;
         }
 
-        // Update groupStats.users and groupStats.members with the fetched topItems
-        const currentGroupStats = get().groupStats;
-        if (currentGroupStats) {
-          const newGroupStats = { ...currentGroupStats };
-          const newUsers = { ...newGroupStats.users };
-          const newMembers = [...newGroupStats.members];
+        prefetchUserTopsInFlight.add(cacheKey);
 
-          const now = Date.now();
+        try {
+          const types: ('tracks' | 'artists' | 'albums')[] = ['tracks', 'artists', 'albums'];
+          const topItems: any = {};
 
-          // Update user in users map
-          if (newUsers[userId]) {
-            newUsers[userId] = {
-              ...newUsers[userId],
-              topItems: {
-                tracks: topItems.tracks || [],
-                artists: topItems.artists || [],
-                albums: topItems.albums || []
-              },
-              topItemsFetchedAt: now
-            };
+          for (const type of types) {
+            const items = await statsService.getTopItems(userId, type, period).catch(() => []);
+            topItems[`${type}`] = items;
           }
 
-          // Update user in members array
-          const memberIndex = newMembers.findIndex(m => m.id === userId);
-          if (memberIndex !== -1) {
-            newMembers[memberIndex] = {
-              ...newMembers[memberIndex],
-              topItems: {
-                tracks: topItems.tracks || [],
-                artists: topItems.artists || [],
-                albums: topItems.albums || []
-              },
-              topItemsFetchedAt: now
-            };
+          // Update groupStats.users and groupStats.members with the fetched topItems
+          const currentGroupStats = get().groupStats;
+          if (currentGroupStats) {
+            const existingUser = currentGroupStats.users[userId];
+            const now = Date.now();
+
+            // Check if update is needed (avoid redundant set)
+            const existingFetchedAt = (existingUser as any)?.topItemsFetchedAt || 0;
+            const timeSinceLastFetch = now - existingFetchedAt;
+
+            // If fetched less than 1 minute ago, skip update
+            if (timeSinceLastFetch < 60000 && existingUser?.topItems) {
+              if ((import.meta as any).env?.DEV) {
+                console.log(`[prefetchUserTops] Recently fetched for ${userId}, skipping update`);
+              }
+              return;
+            }
+
+            const newGroupStats = { ...currentGroupStats };
+            const newUsers = { ...newGroupStats.users };
+            const newMembers = [...newGroupStats.members];
+
+            // Update user in users map
+            if (newUsers[userId]) {
+              newUsers[userId] = {
+                ...newUsers[userId],
+                topItems: {
+                  tracks: topItems.tracks || [],
+                  artists: topItems.artists || [],
+                  albums: topItems.albums || []
+                },
+                topItemsFetchedAt: now
+              };
+            }
+
+            // Update user in members array
+            const memberIndex = newMembers.findIndex(m => m.id === userId);
+            if (memberIndex !== -1) {
+              newMembers[memberIndex] = {
+                ...newMembers[memberIndex],
+                topItems: {
+                  tracks: topItems.tracks || [],
+                  artists: topItems.artists || [],
+                  albums: topItems.albums || []
+                },
+                topItemsFetchedAt: now
+              };
+            }
+
+            newGroupStats.users = newUsers;
+            newGroupStats.members = newMembers;
+
+            // Canonicalize and save
+            const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
+            saveToMMKV('groupStats', canonicalGroupStats);
+
+            set({ groupStats: canonicalGroupStats });
+
+            if ((import.meta as any).env?.DEV) {
+              console.log(`[prefetchUserTops] Updated groupStats with topItems for ${userId}:`, {
+                tracks: topItems.tracks?.length || 0,
+                artists: topItems.artists?.length || 0,
+                albums: topItems.albums?.length || 0
+              });
+            }
           }
-
-          newGroupStats.users = newUsers;
-          newGroupStats.members = newMembers;
-
-          // Canonicalize and save
-          const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
-          saveToMMKV('groupStats', canonicalGroupStats);
-
-          set({ groupStats: canonicalGroupStats });
-
-          if ((import.meta as any).env?.DEV) {
-            console.log(`[prefetchUserTops] Updated groupStats with topItems for ${userId}:`, {
-              tracks: topItems.tracks?.length || 0,
-              artists: topItems.artists?.length || 0,
-              albums: topItems.albums?.length || 0
-            });
-          }
+        } finally {
+          // Always remove from in-flight set
+          prefetchUserTopsInFlight.delete(cacheKey);
         }
       },
 
