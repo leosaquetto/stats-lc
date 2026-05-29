@@ -10,6 +10,160 @@ interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
 }
 
+// Helpers locais para melhorar inteligência dos insights
+const getItemCount = (item: any): number => {
+  if (!item) return 0;
+  return item.playcount || item.streams || item.count || 0;
+};
+
+const getItemName = (item: any): string => {
+  if (!item) return '';
+  return item.name || item.title || '';
+};
+
+const normalizeName = (name: string): string => {
+  return (name || '').toLowerCase().trim();
+};
+
+const buildMatchReason = (match: any): string => {
+  if (!match) return 'sem match claro ainda — comparação em aberto';
+
+  const u1 = match.u1;
+  const u2 = match.u2;
+
+  if (!u1 || !u2) return 'sem match claro ainda — comparação em aberto';
+
+  const u1Artists = new Set((u1.topItems?.artists || []).map((a: any) => normalizeName(getItemName(a))));
+  const u2Artists = (u2.topItems?.artists || []).map((a: any) => normalizeName(getItemName(a)));
+
+  const u1Tracks = new Set((u1.topItems?.tracks || []).map((t: any) => normalizeName(getItemName(t))));
+  const u2Tracks = (u2.topItems?.tracks || []).map((t: any) => normalizeName(getItemName(t)));
+
+  const commonTracks: string[] = [];
+  const commonArtists: string[] = [];
+
+  u2Tracks.forEach((name: string) => {
+    if (name && u1Tracks.has(name)) {
+      const tItem = u1.topItems?.tracks?.find((t: any) => normalizeName(getItemName(t)) === name);
+      if (tItem) commonTracks.push(getItemName(tItem));
+    }
+  });
+
+  u2Artists.forEach((name: string) => {
+    if (name && u1Artists.has(name)) {
+      const aItem = u1.topItems?.artists?.find((a: any) => normalizeName(getItemName(a)) === name);
+      if (aItem) commonArtists.push(getItemName(aItem));
+    }
+  });
+
+  if (commonTracks.length > 0) {
+    const trackName = commonTracks[0];
+    if (commonTracks.length === 1) {
+      return `os dois repetiram '${trackName}' no período`;
+    }
+    return `${commonTracks.length} faixas em comum no topo`;
+  }
+
+  if (commonArtists.length > 0) {
+    const artistName = commonArtists[0];
+    if (commonArtists.length === 1) {
+      return `${artistName} conecta os dois rankings de hoje`;
+    }
+    return `compartilham ${commonArtists.length} artistas no topo`;
+  }
+
+  const totalCommon = commonTracks.length + commonArtists.length;
+  if (totalCommon > 1) {
+    return `${totalCommon} pontos em comum entre artistas e faixas`;
+  }
+
+  return 'sem match claro ainda — comparação em aberto';
+};
+
+const getDominantAlbumInsight = (member: any): string => {
+  if (!member) return 'álbum em destaque';
+
+  const album = member.topItems?.albums?.[0];
+  if (!album) return 'álbum em destaque';
+
+  const count = getItemCount(album);
+  const userName = member.name || 'usuário';
+
+  if (count > 0) {
+    return `álbum mais repetido por ${userName}: ${count} plays`;
+  }
+
+  return `álbum que domina o topo de ${userName}`;
+};
+
+const getRivalryInsight = (leader: any, runnerUp: any): string => {
+  if (!leader || !runnerUp) return 'disputa em andamento';
+
+  const leaderStreams = leader.streamsToday || 0;
+  const runnerUpStreams = runnerUp.streamsToday || 0;
+  const diff = Math.abs(leaderStreams - runnerUpStreams);
+  const leaderName = leader.name || 'líder';
+
+  if (diff === 0) {
+    return 'empate técnico no momento';
+  }
+
+  if (diff <= 5) {
+    return `disputa colada: só ${diff} plays separam os dois`;
+  }
+
+  if (diff <= 25) {
+    return `briga aberta: ${diff} plays de diferença`;
+  }
+
+  return `${leaderName} abriu vantagem de ${diff} plays`;
+};
+
+const getMostActiveInsight = (member: any, totalMembers: number): string => {
+  if (!member) return 'ativo hoje';
+
+  const streams = member.streamsToday || 0;
+
+  if (streams === 0) return 'ativo hoje';
+
+  if (streams === 1) {
+    return 'deu o play inicial do dia';
+  }
+
+  if (streams < 10) {
+    return `lidera o dia com ${streams} plays`;
+  }
+
+  return `puxou o ritmo do círculo com ${streams} plays`;
+};
+
+const getMonthLeaderInsight = (member: any): string => {
+  if (!member) return 'lidera o mês';
+
+  const streams = member.streamsMonth || 0;
+
+  if (streams === 0) return 'lidera o mês';
+
+  return `lidera o mês com ${streams} plays`;
+};
+
+const getLiveInsight = (member: any): string => {
+  if (!member) return 'ativo neste momento';
+
+  const track = member.nowPlaying?.track?.name;
+  const artist = member.nowPlaying?.track?.artist?.name;
+
+  if (track && artist) {
+    return `ouvindo ${track} por ${artist}`;
+  }
+
+  if (track) {
+    return `ouvindo agora: ${track}`;
+  }
+
+  return 'ativo neste momento';
+};
+
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
@@ -39,14 +193,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         const u2Artists = (u2.topItems?.artists || []).map((a: any) => (a.name || "").toLowerCase());
 
         let commonScore = 0;
-        let sampleMatch = "";
         u2Artists.forEach((name: string) => {
           if (name && u1Artists.has(name)) {
             commonScore += 10;
-            if (!sampleMatch) {
-              const aItem = u1.topItems?.artists.find((a: any) => (a.name || "").toLowerCase() === name);
-              sampleMatch = aItem?.name || "";
-            }
           }
         });
 
@@ -55,10 +204,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         u2Tracks.forEach((name: string) => {
           if (name && u1Tracks.has(name)) {
             commonScore += 15;
-            if (!sampleMatch) {
-              const tItem = u1.topItems.tracks.find((t: any) => (t.name || "").toLowerCase() === name);
-              sampleMatch = tItem?.name || "";
-            }
           }
         });
 
@@ -67,8 +212,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           candidates.push({
             u1,
             u2,
-            score: commonScore + activityTieBreaker,
-            reason: sampleMatch ? `Curtem ${sampleMatch}` : "Alinhamento sonoro!"
+            score: commonScore + activityTieBreaker
           });
         }
       }
@@ -78,8 +222,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       return {
         u1: activeMembers[daySeed % activeMembers.length],
         u2: activeMembers[(daySeed + 1) % activeMembers.length] || activeMembers[0],
-        score: 0,
-        reason: "Conexão de Ritmo"
+        score: 0
       };
     }
 
@@ -102,9 +245,10 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon: <Zap className="h-2.5 w-2.5 text-orange-400" />,
         title: 'Mais Ativo Hoje',
         primary: mostActive.name,
-        secondary: `${mostActive.streamsToday || 0} reproduções hoje`,
+        secondary: getMostActiveInsight(mostActive, activeMembers.length),
         users: [mostActive],
-        onClick: () => onFriendClick(mostActive)
+        onClick: () => onFriendClick(mostActive),
+        type: 'active'
       },
       match && {
         key: 'match',
@@ -112,8 +256,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon: <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />,
         title: 'Match do Dia',
         primary: `${match.u1.name} + ${match.u2.name}`,
-        secondary: match.reason,
-        users: [match.u1, match.u2]
+        secondary: buildMatchReason(match),
+        users: [match.u1, match.u2],
+        type: 'match'
       },
       topMonth && {
         key: 'month',
@@ -121,9 +266,10 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon: <Trophy className="h-2.5 w-2.5 text-yellow-300" />,
         title: 'Líder do Mês',
         primary: topMonth.name,
-        secondary: `${topMonth.streamsMonth || 0} reproduções no mês`,
+        secondary: getMonthLeaderInsight(topMonth),
         users: [topMonth],
-        onClick: () => onFriendClick(topMonth)
+        onClick: () => onFriendClick(topMonth),
+        type: 'month'
       },
       liveUser && {
         key: 'live',
@@ -131,19 +277,22 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon: <Radio className="h-2.5 w-2.5 text-green-300" />,
         title: 'No Ar Agora',
         primary: liveUser.name,
-        secondary: liveUser.nowPlaying?.track?.name || 'tocando neste momento',
+        secondary: getLiveInsight(liveUser),
         users: [liveUser],
-        onClick: () => onFriendClick(liveUser)
+        onClick: () => onFriendClick(liveUser),
+        type: 'live'
       },
-      albumUser && {
+      albumUser && albumUser.topItems?.albums?.[0] && {
         key: 'album',
         tone: 'blue',
         icon: <Disc3 className="h-2.5 w-2.5 text-blue-300" />,
         title: 'Álbum Dominante',
-        primary: albumUser.topItems?.albums?.[0]?.name || albumUser.name,
-        secondary: albumUser.name,
+        primary: albumUser.topItems.albums[0].name || albumUser.name,
+        secondary: getDominantAlbumInsight(albumUser),
         users: [albumUser],
-        onClick: () => onFriendClick(albumUser)
+        onClick: () => onFriendClick(albumUser),
+        type: 'album',
+        albumArt: albumUser.topItems.albums[0].image
       },
       (runnerUp || lateUser) && {
         key: 'pulse',
@@ -151,8 +300,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         icon: <Clock className="h-2.5 w-2.5 text-violet-300" />,
         title: runnerUp ? 'Disputa do Dia' : 'Última Sintonia',
         primary: runnerUp ? `${mostActive?.name} vs ${runnerUp.name}` : lateUser?.name,
-        secondary: runnerUp ? `${Math.abs((mostActive?.streamsToday || 0) - (runnerUp.streamsToday || 0))} de diferença` : lateUser?.nowPlaying?.track?.name,
-        users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : []
+        secondary: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'última atividade registrada',
+        users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : [],
+        type: runnerUp ? 'rivalry' : 'late'
       }
     ].filter(Boolean) as any[];
   }, [activeMembers, match, mostActive, onFriendClick]);
@@ -172,54 +322,195 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   if (activeMembers.length < 2) return null;
 
+  const renderOrbitalInsight = (insight: any) => {
+    const isRivalry = insight.type === 'rivalry';
+    const isMatch = insight.type === 'match';
+    const isAlbum = insight.type === 'album';
+    const isLive = insight.type === 'live';
+    const isActive = insight.type === 'active';
+
+    return (
+      <motion.div
+        key={insight.key}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        onClick={insight.onClick}
+        className={`relative flex items-center gap-4 p-4 rounded-2xl bg-black/40 border border-white/5 ${insight.onClick ? 'cursor-pointer hover:border-orange-500/30' : ''} overflow-hidden`}
+        style={{ minHeight: '140px' }}
+      >
+        {/* Orbital visual */}
+        <div className="relative shrink-0" style={{ width: '90px', height: '90px' }}>
+          {/* Anel principal */}
+          <div className="absolute inset-0 rounded-full border border-white/10" />
+
+          {/* Anel pontilhado */}
+          <div
+            className="absolute inset-0 rounded-full border-2 border-dashed border-orange-500/20"
+            style={{ transform: 'scale(1.1)' }}
+          />
+
+          {/* Arco laranja parcial */}
+          {(isActive || isAlbum) && (
+            <div
+              className="absolute inset-0 rounded-full border-t-2 border-orange-500/40"
+              style={{ transform: 'rotate(45deg)' }}
+            />
+          )}
+
+          {/* Núcleo central */}
+          {isRivalry ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-orange-500 font-black text-lg">VS</div>
+              {insight.users[0] && (
+                <div
+                  className="absolute h-8 w-8 rounded-full overflow-hidden border-2 border-orange-500/50 shadow-lg shadow-orange-500/20"
+                  style={{ top: '8px', left: '8px' }}
+                >
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+              {insight.users[1] && (
+                <div
+                  className="absolute h-8 w-8 rounded-full overflow-hidden border-2 border-orange-500/50 shadow-lg shadow-orange-500/20"
+                  style={{ bottom: '8px', right: '8px' }}
+                >
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[1].id, insight.users[1].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+            </div>
+          ) : isMatch ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              {insight.users[0] && (
+                <div
+                  className="absolute h-10 w-10 rounded-full overflow-hidden border-2 border-red-500/50 shadow-lg shadow-red-500/20"
+                  style={{ top: '12px', left: '12px' }}
+                >
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+              {insight.users[1] && (
+                <div
+                  className="absolute h-10 w-10 rounded-full overflow-hidden border-2 border-red-500/50 shadow-lg shadow-red-500/20"
+                  style={{ bottom: '12px', right: '12px' }}
+                >
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[1].id, insight.users[1].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+              <Heart className="h-5 w-5 fill-red-400 text-red-400" />
+            </div>
+          ) : isAlbum && insight.albumArt ? (
+            <div className="absolute inset-0 flex items-center justify-center p-3">
+              <div className="h-full w-full rounded-lg overflow-hidden border border-white/10 shadow-lg shadow-orange-500/10">
+                <SmartImage
+                  src={insight.albumArt}
+                  rounded="lg"
+                  className="h-full w-full object-cover"
+                  fallback=""
+                />
+              </div>
+              {insight.users[0] && (
+                <div
+                  className="absolute h-7 w-7 rounded-full overflow-hidden border-2 border-blue-500/50 shadow-lg"
+                  style={{ bottom: '-4px', right: '-4px' }}
+                >
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              {insight.users[0] && (
+                <div className="h-full w-full rounded-full overflow-hidden border-2 border-orange-500/50 shadow-lg shadow-orange-500/20">
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
+                    rounded="full"
+                    className="h-full w-full object-cover"
+                    fallback=""
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pontos de luz orbitais */}
+          <motion.div
+            className="absolute h-1.5 w-1.5 rounded-full bg-orange-500 shadow-lg shadow-orange-500/50"
+            style={{ top: '4px', left: '50%', marginLeft: '-3px' }}
+            animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          {isLive && (
+            <motion.div
+              className="absolute h-1.5 w-1.5 rounded-full bg-green-400 shadow-lg shadow-green-400/50"
+              style={{ top: '50%', right: '4px', marginTop: '-3px' }}
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          )}
+
+          {/* Badge com contagem */}
+          {(isActive || isAlbum) && insight.users[0] && (
+            <div className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-orange-500 border-2 border-black flex items-center justify-center shadow-lg">
+              <Flame className="h-3 w-3 text-white" />
+            </div>
+          )}
+        </div>
+
+        {/* Texto do insight */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {insight.icon}
+            <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest">
+              {insight.title}
+            </span>
+          </div>
+          <h3 className="text-sm font-bold text-white leading-tight truncate">
+            {insight.primary}
+          </h3>
+          <p className="text-[11px] font-medium text-white/50 leading-snug line-clamp-2">
+            {insight.secondary}
+          </p>
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <div className="flex flex-col gap-3 mb-3 mt-1">
-      <SectionHeader 
-        title="Insights do Dia" 
-        icon={<Sparkles className="h-3 w-3 text-orange-500" />} 
+      <SectionHeader
+        title="Insights do Dia"
+        icon={<Sparkles className="h-3 w-3 text-orange-500" />}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {visibleInsights.map((insight) => (
-          <motion.div
-            key={insight.key}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-            onClick={insight.onClick}
-            className="glass-card bg-white/[0.02] border border-white/5 hover:border-orange-500/20 rounded-2xl p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors relative overflow-hidden"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center shrink-0 -space-x-3">
-                {insight.users.slice(0, 2).map((user: any, index: number) => (
-                  <div key={`${insight.key}-${user.id}`} className="h-9 w-9 rounded-full overflow-hidden border border-[#0d0d0d] relative shrink-0" style={{ zIndex: 2 - index }}>
-                    <SmartImage
-                      src={coreUtils.getUserAvatar(user.id, user.avatar)}
-                      rounded="full"
-                      className="h-full w-full object-cover"
-                      fallback=""
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[8.5px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1">
-                  <span className="inline-flex items-center gap-1">{insight.icon}{insight.title}</span>
-                </span>
-                <span className="text-xs font-bold text-white truncate leading-tight">
-                  {insight.primary}
-                </span>
-                <p className="text-[10px] font-medium text-white/40 truncate mt-0.5">
-                  {insight.secondary}
-                </p>
-              </div>
-            </div>
-            <div className="shrink-0 text-right pr-1">
-              <Flame className="h-3.5 w-3.5 text-white/10" />
-            </div>
-          </motion.div>
-        ))}
+      <div className="flex flex-col gap-3">
+        {visibleInsights.map(renderOrbitalInsight)}
       </div>
     </div>
   );

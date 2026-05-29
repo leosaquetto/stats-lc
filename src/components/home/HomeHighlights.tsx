@@ -10,10 +10,9 @@ import { coreUtils } from '../../services/statsCore';
 import { getVisibleMembers } from '../../lib/memberSelectors';
 import { statsService } from '../../services/statsService';
 import { UserStats } from '../../types/stats';
-import { 
-  AnimatedNumber, 
-  StatsLCLogo, 
-  SmartImage, 
+import {
+  AnimatedNumber,
+  SmartImage,
   SectionHeader,
   ShimmerOverlay,
   Skeleton
@@ -42,9 +41,53 @@ const topItemKey = (type: string, item: any, index: number) => {
 };
 
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
-  const totalStreams = users.reduce((sum, u) => sum + (u.streamsToday || 0), 0);
-  const sortedParticipants = [...users]
-    .sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0));
+  const totalStreams = React.useMemo(() =>
+    users.reduce((sum, u) => sum + (u.streamsToday || 0), 0),
+    [users]
+  );
+
+  const sortedParticipants = React.useMemo(() =>
+    [...users].sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0)),
+    [users]
+  );
+
+  const displayParticipants = React.useMemo(() =>
+    sortedParticipants.slice(0, 5),
+    [sortedParticipants]
+  );
+
+  const hasExtraParticipants = sortedParticipants.length > 5;
+  const extraCount = sortedParticipants.length - 5;
+
+  // Empty state
+  if (users.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative overflow-hidden rounded-[32px] mb-6 min-h-[280px]"
+      >
+        <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
+
+        <div className="glass-card premium-gradient border-white/10 p-6 relative z-10 flex items-center justify-center min-h-[280px]">
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
+            sem atividade ao vivo agora
+          </span>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Orbital positions for up to 5 participants
+  const orbitalPositions = [
+    { left: '18%', top: '48%', size: 'large' }, // Leader - larger
+    { left: '35%', top: '22%', size: 'normal' },
+    { right: '24%', top: '28%', size: 'normal' },
+    { right: '25%', bottom: '24%', size: 'normal' },
+    { left: '45%', bottom: '12%', size: 'normal' },
+  ];
 
   return (
     <motion.div
@@ -57,13 +100,13 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
 
-      <div className="glass-card premium-gradient border-white/10 p-6 relative z-10">
+      <div className="glass-card premium-gradient border-white/10 p-6 relative z-10 min-h-[280px]">
         {/* Glossy Reflection Overlay */}
         <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col gap-5">
+        <div className="relative z-10 flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5">
               <motion.div
                 animate={{
@@ -77,72 +120,136 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 }}
                 className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)]"
               />
-              <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/40">Arena Live</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/40">Orbit Group</span>
             </div>
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
               <span className="text-[7px] font-black uppercase tracking-widest text-white/30">Hoje</span>
             </div>
           </div>
 
-          {/* Main Stats */}
-          <div className="flex items-end justify-between gap-4">
-            <div className="flex items-baseline gap-2">
+          {/* Orbital Stage */}
+          <div className="relative flex-1 flex items-center justify-center min-h-[200px]">
+            {/* Orbital Rings */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Inner ring */}
+              <div className="absolute w-[140px] h-[140px] rounded-full border border-white/5 opacity-40" />
+              {/* Middle ring */}
+              <div className="absolute w-[180px] h-[180px] rounded-full border border-orange-500/10 opacity-30" />
+              {/* Outer ring partial */}
+              <svg className="absolute w-[220px] h-[220px] -rotate-90 opacity-20">
+                <circle
+                  cx="110"
+                  cy="110"
+                  r="108"
+                  fill="none"
+                  stroke="rgba(249, 115, 22, 0.3)"
+                  strokeWidth="1"
+                  strokeDasharray="340 680"
+                />
+              </svg>
+              {/* Light dots on rings */}
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                className="absolute w-[180px] h-[180px]"
+              >
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-orange-500/60 blur-[1px]" />
+              </motion.div>
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+                className="absolute w-[140px] h-[140px]"
+              >
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-green-500/50 blur-[1px]" />
+              </motion.div>
+            </div>
+
+            {/* Center Stats */}
+            <div className="relative z-20 flex flex-col items-center gap-1">
               <motion.span
                 key={totalStreams}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-6xl font-display font-black tracking-tighter leading-none text-white"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="text-5xl sm:text-6xl font-display font-black tracking-tighter leading-none text-white"
               >
                 <AnimatedNumber value={totalStreams} />
               </motion.span>
-              <div className="flex flex-col pb-1">
-                <span className="text-[10px] font-black text-white/50 uppercase tracking-wider leading-none">Streams</span>
-                <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tight leading-none mt-0.5">Total</span>
-              </div>
+              <span className="text-[9px] font-black text-white/50 uppercase tracking-wider leading-none">Streams</span>
+              <span className="text-[8px] font-bold text-orange-500 uppercase tracking-tight leading-none">Total</span>
             </div>
-            <div className="shrink-0">
-              <StatsLCLogo size={36} variant="black" className="rounded-xl shadow-lg border border-white/10" />
-            </div>
-          </div>
 
-          {/* Participants */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/5">
-            <div className="flex -space-x-2.5">
-              <AnimatePresence mode="popLayout" initial={false}>
-                {sortedParticipants.slice(0, 5).map((user, i) => (
+            {/* Orbiting Participants */}
+            <AnimatePresence mode="popLayout">
+              {displayParticipants.map((user, i) => {
+                const position = orbitalPositions[i];
+                const isLeader = i === 0;
+                const streamsToday = user.streamsToday || 0;
+                const hasZeroStreams = streamsToday === 0;
+
+                return (
                   <motion.div
-                    layout
                     key={user.id}
-                    initial={{ x: -10, opacity: 0, scale: 0.8 }}
-                    animate={{ x: 0, opacity: 1, scale: 1 }}
-                    exit={{ x: 10, opacity: 0, scale: 0.8 }}
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: hasZeroStreams ? 0.5 : 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
                     transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 25
+                      duration: 0.4,
+                      delay: i * 0.1,
+                      ease: [0.16, 1, 0.3, 1]
                     }}
-                    className="relative group"
+                    className="absolute"
+                    style={{
+                      left: position.left,
+                      right: position.right,
+                      top: position.top,
+                      bottom: position.bottom,
+                      transform: 'translate(-50%, -50%)'
+                    }}
                   >
-                    <div className="h-11 w-11 rounded-full ring-[3px] ring-[#050505] bg-gradient-to-br from-white/10 to-white/5 p-0.5 overflow-hidden transition-all group-hover:scale-110 group-hover:-translate-y-1 group-hover:z-10">
-                      <SmartImage
-                        src={coreUtils.getUserAvatar(user.id, user.avatar)}
-                        className="h-full w-full rounded-full"
-                        fallback=""
-                        rounded="full"
-                      />
-                    </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 border-2 border-[#050505] flex items-center justify-center shadow-lg z-20">
-                      <span className="text-[8px] font-black text-white leading-none">{user.streamsToday}</span>
+                    <div className="relative">
+                      <div
+                        className={cn(
+                          "rounded-full overflow-hidden border-2 shadow-2xl transition-all",
+                          isLeader
+                            ? "h-14 w-14 border-orange-500/60 ring-2 ring-orange-500/30"
+                            : "h-11 w-11 border-white/10"
+                        )}
+                      >
+                        <SmartImage
+                          src={coreUtils.getUserAvatar(user.id, user.avatar)}
+                          className="h-full w-full object-cover"
+                          fallback=""
+                          rounded="full"
+                        />
+                      </div>
+                      {/* Badge */}
+                      <div
+                        className={cn(
+                          "absolute -bottom-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full border-2 border-[#050505] flex items-center justify-center shadow-lg z-20",
+                          isLeader ? "bg-orange-500" : "bg-orange-600"
+                        )}
+                      >
+                        <span className="text-[8px] font-black text-white leading-none">
+                          {streamsToday}
+                        </span>
+                      </div>
                     </div>
                   </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                );
+              })}
+            </AnimatePresence>
 
-            {sortedParticipants.length > 5 && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
-                <span className="text-[8px] font-black text-white/40">+{sortedParticipants.length - 5}</span>
-              </div>
+            {/* Extra participants indicator */}
+            {hasExtraParticipants && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+                className="absolute right-[12%] top-[50%] -translate-y-1/2 px-2 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm"
+              >
+                <span className="text-[8px] font-black text-white/40">+{extraCount}</span>
+              </motion.div>
             )}
           </div>
         </div>
@@ -162,38 +269,34 @@ export const LiveGroupOverviewSkeleton = () => (
     <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
     <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
 
-    <div className="glass-card premium-gradient border-white/10 p-6 relative z-10">
+    <div className="glass-card premium-gradient border-white/10 p-6 relative z-10 min-h-[280px]">
       {/* Glossy Reflection Overlay */}
       <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
       <ShimmerOverlay duration={2.8} />
 
-      <div className="relative z-10 flex flex-col gap-5">
+      <div className="relative z-10 flex flex-col h-full">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <Skeleton className="h-3 w-28 rounded-full" />
           <Skeleton className="h-5 w-16 rounded-full" />
         </div>
 
-        {/* Main Stats */}
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex items-baseline gap-2">
-            <Skeleton className="h-16 w-32 rounded-2xl" />
-            <div className="flex flex-col gap-1.5 pb-1">
-              <Skeleton className="h-2.5 w-16 rounded-full" />
-              <Skeleton className="h-2.5 w-12 rounded-full" />
-            </div>
+        {/* Orbital Stage */}
+        <div className="relative flex-1 flex items-center justify-center min-h-[200px]">
+          {/* Center Stats Skeleton */}
+          <div className="relative z-20 flex flex-col items-center gap-2">
+            <Skeleton className="h-14 w-32 rounded-2xl" />
+            <Skeleton className="h-2 w-16 rounded-full" />
+            <Skeleton className="h-2 w-12 rounded-full" />
           </div>
-          <Skeleton className="h-9 w-9 rounded-xl" />
-        </div>
 
-        {/* Participants */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/5">
-          <div className="flex -space-x-2.5">
-            {[0, 1, 2, 3, 4].map((item) => (
-              <Skeleton key={item} className="h-11 w-11 rounded-full ring-[3px] ring-[#050505]" />
-            ))}
-          </div>
+          {/* Orbiting Participants Skeletons */}
+          <Skeleton className="absolute left-[18%] top-[48%] -translate-x-1/2 -translate-y-1/2 h-14 w-14 rounded-full" />
+          <Skeleton className="absolute left-[35%] top-[22%] -translate-x-1/2 -translate-y-1/2 h-11 w-11 rounded-full" />
+          <Skeleton className="absolute right-[24%] top-[28%] translate-x-1/2 -translate-y-1/2 h-11 w-11 rounded-full" />
+          <Skeleton className="absolute right-[25%] bottom-[24%] translate-x-1/2 translate-y-1/2 h-11 w-11 rounded-full" />
+          <Skeleton className="absolute left-[45%] bottom-[12%] -translate-x-1/2 translate-y-1/2 h-11 w-11 rounded-full" />
         </div>
       </div>
     </div>
