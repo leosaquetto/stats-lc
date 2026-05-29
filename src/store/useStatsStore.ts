@@ -142,6 +142,16 @@ const isValidGroupStats = (value: any): value is GroupStats => {
   return !!value && typeof value === 'object' && Array.isArray(value.members) && value.users && typeof value.users === 'object';
 };
 
+const hasAliasOnlyNames = (groupStats: GroupStats | null) => {
+  if (!groupStats) return false;
+  return getCanonicalMembers(groupStats).some((member: any) => {
+    const name = String(member?.name || '').trim();
+    const key = String(member?.key || '').trim();
+    const profileDisplayName = String(member?.profile?.displayName || '').trim();
+    return !!name && !!key && name === key && !profileDisplayName;
+  });
+};
+
 const clearPersistedGroupCache = () => {
   try {
     mmkv.delete('groupStats');
@@ -212,6 +222,27 @@ const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
   if (existing?.isNow === true && incoming?.isNow !== true && hasNewerTimestamp) return true;
   if (incomingTrackId && existingTrackId && incomingTrackId !== existingTrackId && hasNewerTimestamp) return true;
   return hasNewerTimestamp;
+};
+
+const shouldUseIncomingDisplayName = (existingUser: any, incomingUser: any) => {
+  const incomingName = String(incomingUser?.name || "").trim();
+  const existingName = String(existingUser?.name || "").trim();
+  if (!incomingName) return false;
+  if (!existingName) return true;
+
+  const incomingProfileName = String(incomingUser?.profile?.displayName || "").trim();
+  if (incomingProfileName && incomingProfileName === incomingName) return true;
+
+  const incomingKey = String(incomingUser?.key || "").trim();
+  const incomingId = String(incomingUser?.id || "").trim();
+  const looksLikeAlias = incomingName === incomingKey || incomingName === incomingId;
+  if (looksLikeAlias) return false;
+
+  const existingHasDisplayCasing = /[A-ZÀ-Ý]/.test(existingName) || existingName.includes(" ");
+  const incomingLooksLowerAlias = incomingName === incomingName.toLowerCase() && !incomingName.includes(" ");
+  if (existingHasDisplayCasing && incomingLooksLowerAlias) return false;
+
+  return true;
 };
 
 const canonicalizeGroupStats = (groupStats: GroupStats | null) => {
@@ -432,7 +463,7 @@ export const useStatsStore = create<StatsState>()(
     (set, get) => ({
       groupStats: (() => {
         const cached = loadFromMMKV<GroupStats | null>('groupStats', null);
-        if (cached && !isValidGroupStats(cached)) {
+        if (cached && (!isValidGroupStats(cached) || hasAliasOnlyNames(cached))) {
           clearPersistedGroupCache();
           return null;
         }
@@ -828,7 +859,7 @@ export const useStatsStore = create<StatsState>()(
           const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
           const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
           if (cachedGroup) {
-            if (!isValidGroupStats(cachedGroup)) {
+            if (!isValidGroupStats(cachedGroup) || hasAliasOnlyNames(cachedGroup)) {
               clearPersistedGroupCache();
             } else {
               const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
@@ -862,7 +893,7 @@ export const useStatsStore = create<StatsState>()(
             const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
             const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
             if (cachedGroup) {
-              if (!isValidGroupStats(cachedGroup)) {
+              if (!isValidGroupStats(cachedGroup) || hasAliasOnlyNames(cachedGroup)) {
                 clearPersistedGroupCache();
               } else {
                 const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
@@ -934,7 +965,7 @@ export const useStatsStore = create<StatsState>()(
           const cachedGroup = loadFromMMKV<GroupStats | null>('groupStats', null);
           const cachedUserFullStats = loadFromMMKV<Record<string, any>>('userFullStatsCache', {});
           if (cachedGroup) {
-            if (!isValidGroupStats(cachedGroup)) {
+            if (!isValidGroupStats(cachedGroup) || hasAliasOnlyNames(cachedGroup)) {
               clearPersistedGroupCache();
               set({ error: "Cache local inválido. Reinicie a sincronização.", isLoading: false, isRefreshing: false });
             } else {
@@ -1017,7 +1048,9 @@ export const useStatsStore = create<StatsState>()(
                   nowPlaying: incomingNowPlaying,
                   platform: liveUser.platform || existingUser.platform,
                   avatar: liveUser.avatar || existingUser.avatar,
-                  name: liveUser.name || existingUser.name,
+                  name: shouldUseIncomingDisplayName(existingUser, liveUser)
+                    ? liveUser.name
+                    : existingUser.name,
                   // Preserve: topItems, recent, catalogSummary, errors, stats
                 };
 

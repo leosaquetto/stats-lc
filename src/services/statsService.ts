@@ -293,6 +293,8 @@ export type ComparePeriodQuery = {
   users: string[];
   period?: '4w' | '6m' | 'all' | 'month' | 'week';
   limit?: number;
+  commonMode?: 'any' | 'all';
+  minSharedBy?: number;
   force?: boolean;
   signal?: AbortSignal;
 };
@@ -707,6 +709,8 @@ export const statsService = {
       users: users.join(','),
       period: query.period || 'month',
       limit: query.limit || 50,
+      ...(query.commonMode ? { commonMode: query.commonMode } : {}),
+      ...(query.minSharedBy ? { minSharedBy: query.minSharedBy } : {}),
     }, !!query.force, 1, true, { signal: query.signal });
   },
 

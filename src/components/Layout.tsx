@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Clock, X, Orbit } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -75,6 +75,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
   const showSyncFooterRef = React.useRef(false);
+  const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
+  const syncDidDragRef = React.useRef(false);
 
   React.useEffect(() => {
     let frame = 0;
@@ -184,7 +186,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2">
         {/* Sync Info Footer - aparece apenas quando scrollar */}
         <AnimatePresence>
-          {showSyncFooter && lastUpdate && (
+          {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -197,20 +199,20 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               }}
               layout
               onClick={() => {
-                if (!shouldShowExpanded) {
-                  toggleSyncInfo();
+                if (syncDidDragRef.current) {
+                  syncDidDragRef.current = false;
+                  return;
                 }
+                toggleSyncInfo();
               }}
               className={clsx(
                 "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
                 shouldShowExpanded
                   ? "bg-transparent border-none shadow-none h-10 gap-2 max-w-[95vw]"
-                  : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg " +
-                    (activeMembersSorted.length > 0 ? "h-7 pl-2.5 pr-2 gap-1.5" : "h-7 w-7 justify-center")
+                  : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg h-7 pl-2.5 pr-2 gap-1.5"
               )}
               title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
             >
-            {activeMembersSorted.length > 0 ? (
               <motion.div 
                 layout="position"
                 className={clsx(
@@ -223,13 +225,32 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   className={clsx(
                     "flex items-center min-w-0 transition-all duration-300",
                     shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar max-w-[calc(95vw-48px)] py-1.5 px-0.5 gap-2" 
+                      ? "overflow-x-auto no-scrollbar max-w-[95vw] py-1.5 px-0.5 gap-2" 
                       : "-space-x-1.5"
                   )}
-                  onClick={(e) => {
-                    if (shouldShowExpanded) {
-                      e.stopPropagation();
+                  onPointerDown={(event) => {
+                    syncDidDragRef.current = false;
+                    syncPointerStartRef.current = {
+                      x: event.clientX,
+                      y: event.clientY,
+                      scrollLeft: event.currentTarget.scrollLeft,
+                    };
+                  }}
+                  onPointerMove={(event) => {
+                    const start = syncPointerStartRef.current;
+                    if (!start) return;
+                    const deltaX = Math.abs(event.clientX - start.x);
+                    const deltaY = Math.abs(event.clientY - start.y);
+                    const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
+                    if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
+                      syncDidDragRef.current = true;
                     }
+                  }}
+                  onPointerUp={() => {
+                    syncPointerStartRef.current = null;
+                  }}
+                  onPointerCancel={() => {
+                    syncPointerStartRef.current = null;
                   }}
                 >
                   {activeMembersSorted.map((user, index) => {
@@ -318,22 +339,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     );
                   })}
                 </motion.div>
-                
-                {/* Close Button only when expanded to allow easy collapsing since users list has stopPropagation */}
-                {shouldShowExpanded && (
-                  <motion.button
-                    layout="position"
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSyncInfo();
-                    }}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 active:scale-95 border border-white/15 backdrop-blur-md text-white/80 hover:text-white shrink-0 shadow-md cursor-pointer pointer-events-auto ml-1"
-                    title="Minimizar informações"
-                  >
-                    <X className="h-4 w-4" />
-                  </motion.button>
-                )}
 
                 {/* Global Equalizer in Minimized mode when someone is playing */}
                 {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
@@ -342,37 +347,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   </motion.div>
                 )}
               </motion.div>
-            ) : (
-              /* Scenario when nobody is actively playing */
-              <div 
-                className="flex items-center gap-1.5"
-                onClick={(e) => {
-                  if (shouldShowExpanded) {
-                    toggleSyncInfo();
-                  }
-                }}
-              >
-                <Clock className="h-3 w-3 text-white/30 group-hover:text-orange-500 transition-colors shrink-0" />
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {shouldShowExpanded && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -6 }}
-                      transition={{ duration: 0.2 }}
-                      className="flex flex-col text-left shrink-0"
-                    >
-                      <span className="text-[9px] font-black text-white/90 tracking-tight leading-none">Sincronizado</span>
-                      <span className="text-[7.5px] font-medium text-white/40 tracking-tight leading-none mt-1">
-                        {coreUtils.getTimeAgoSmart(new Date(lastUpdate))}
-                      </span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Scroll dot removed per user request */}
-              </div>
-            )}
           </motion.div>
           )}
         </AnimatePresence>

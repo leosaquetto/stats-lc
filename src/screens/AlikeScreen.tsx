@@ -8,6 +8,7 @@ import { HeartHandshake, Users, Sparkles, UserCircle2, Clock, PlayCircle, Flame 
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getVisibleMembers } from '../lib/memberSelectors';
+import { statsService } from '../services/statsService';
 
 function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -91,6 +92,18 @@ function getIntersection(user: UserStats, friend: UserStats, type: 'artists' | '
   return intersection;
 }
 
+function compareRowsToIntersection(rows: any[] = []) {
+  return rows.slice(0, 12).map((row) => {
+    const byUserItems = Object.values(row.byUser || {}) as any[];
+    return {
+      item: row.item || byUserItems[0]?.item || {},
+      friendItem: byUserItems[1]?.item || row.item || {},
+      sharedByCount: row.sharedByCount,
+      score: row.score,
+    };
+  });
+}
+
 export default function AlikeScreen() {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -107,6 +120,8 @@ export default function AlikeScreen() {
   );
 
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
+  const [compareData, setCompareData] = useState<any>(null);
+  const [compareStatus, setCompareStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
 
   const friendAffinities = useMemo(() => {
     if (!featuredUser) return [];
@@ -133,6 +148,37 @@ export default function AlikeScreen() {
     [friends, selectedFriendId]
   );
 
+  useEffect(() => {
+    if (!featuredUser?.id || !selectedFriend?.id) {
+      setCompareData(null);
+      setCompareStatus('idle');
+      return;
+    }
+
+    const controller = new AbortController();
+    setCompareStatus('loading');
+
+    statsService.getCompareData({
+      users: [featuredUser.id, selectedFriend.id],
+      period: 'month',
+      limit: 80,
+      commonMode: 'any',
+      minSharedBy: 2,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setCompareData(data);
+        setCompareStatus('ready');
+      })
+      .catch((error: any) => {
+        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+        setCompareData(null);
+        setCompareStatus('error');
+      });
+
+    return () => controller.abort();
+  }, [featuredUser?.id, selectedFriend?.id]);
+
   const compareStats = useMemo(() => {
     if (!featuredUser || !selectedFriend) return null;
     
@@ -150,12 +196,12 @@ export default function AlikeScreen() {
         friend: fStats.totalDurationMs || 0
       },
       intersection: {
-        artists: getIntersection(featuredUser, selectedFriend, 'artists'),
-        tracks: getIntersection(featuredUser, selectedFriend, 'tracks'),
-        albums: getIntersection(featuredUser, selectedFriend, 'albums')
+        artists: compareData?.common?.artists?.length ? compareRowsToIntersection(compareData.common.artists) : getIntersection(featuredUser, selectedFriend, 'artists'),
+        tracks: compareData?.common?.tracks?.length ? compareRowsToIntersection(compareData.common.tracks) : getIntersection(featuredUser, selectedFriend, 'tracks'),
+        albums: compareData?.common?.albums?.length ? compareRowsToIntersection(compareData.common.albums) : getIntersection(featuredUser, selectedFriend, 'albums')
       }
     };
-  }, [featuredUser, selectedFriend]);
+  }, [featuredUser, selectedFriend, compareData]);
 
 
   if (!featuredUser || friends.length === 0) {
@@ -287,6 +333,16 @@ export default function AlikeScreen() {
             {/* In Common */}
             <div className="glass-card rounded-[32px] p-6 border-white/5 flex flex-col gap-6 w-full">
               <SectionHeader title="Em Comum" icon={<Sparkles className="h-4 w-4 text-orange-500" />} />
+              {compareStatus === 'loading' && (
+                <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                  Atualizando afinidade pela API...
+                </div>
+              )}
+              {compareStatus === 'error' && (
+                <div className="rounded-2xl border border-orange-500/15 bg-orange-500/[0.04] px-4 py-3 text-[10px] font-bold leading-relaxed text-orange-200/70">
+                  Nao foi possivel atualizar a afinidade agora. Mostrando dados locais.
+                </div>
+              )}
               
               <div className="flex flex-col gap-6 mt-2 max-h-[300px] overflow-y-auto no-scrollbar pr-2">
                 <CommonList title="Artistas Top 50" items={compareStats.intersection.artists} type="artista" />
