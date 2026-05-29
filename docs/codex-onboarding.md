@@ -44,6 +44,34 @@ Use este arquivo para iniciar uma nova janela do Codex sem precisar redescobrir 
 
    `npm run lint` e `npm run build` sao as validacoes principais. O build pode avisar sobre chunks grandes e imports dinamicos; isso ja existia e nao necessariamente bloqueia a entrega.
 
+## Regra De Ouro
+
+Antes de otimizar ou redesenhar, prove que o bug nao e:
+
+1. API antiga/deploy antigo.
+2. Cache/chunk velho.
+3. Request loop.
+4. Selector Zustand instavel.
+5. Fallback vazio na Home.
+6. Timeout upstream stats.fm.
+
+Nao resolver sintomas visuais antes de checar console, network e curls.
+
+## Nao Fazer Sem Autorizacao Explicita
+
+- Redis/KV.
+- Cache em memoria no backend.
+- Service worker/Workbox.
+- Offline PWA.
+- CSP bloqueante.
+- Troca de Recharts.
+- Troca agressiva de `lucide-react` para imports internos.
+- `/api/home-bundle`.
+- Refatoracao ampla do store.
+- Redesign de vinis.
+- Duelos/Circle feature nova.
+- Light mode.
+
 ## Navegador In-App
 
 - Usar o in-app browser do Codex quando o usuario pedir inspecao visual.
@@ -101,6 +129,262 @@ Use este arquivo para iniciar uma nova janela do Codex sem precisar redescobrir 
 ## Referencias Locais
 
 - `referencia_vinis/`: pasta local com referencias visuais de vinis. Nao apagar e nao stagear sem pedido.
+
+## Pos-Estabilizacao De Maio/2026 — Regras Obrigatorias
+
+### 1. Nao implementar cache em memoria no backend serverless
+
+Nao adicionar `new Map()`/cache em memoria para endpoints de producao da API.
+
+Motivo:
+
+- Vercel serverless nao garante persistencia entre cold starts.
+- Instancias paralelas nao compartilham memoria.
+- Pode mascarar timeout em warm instance e falhar em cold start.
+- Se a chave nao incluir todos os parametros relevantes, pode devolver dados errados.
+
+Se for implementar cache real:
+
+- Usar Vercel KV, Upstash ou Redis com env vars configuradas.
+- Chave precisa incluir versao, endpoint, usuario/grupo, periodo e flags relevantes.
+- `force`/`debug` devem bypassar cache.
+- Erro deve retornar JSON controlado com `no-store`.
+- Nunca depender do cache para evitar timeout. O endpoint precisa degradar sozinho.
+
+### 2. `/api/group` deve ser bootstrap parcial e resiliente
+
+`/api/group` nao pode voltar a ser endpoint gigante que espera tudo de todos.
+
+Regras:
+
+- Deadline interno menor que o timeout da Vercel.
+- Retornar dados parciais com warnings quando necessario.
+- Nunca deixar a Vercel matar a funcao com `FUNCTION_INVOCATION_TIMEOUT`.
+- `top`, enrich, recent pesado e historico nao devem ser obrigatorios para responder.
+- Erro de um membro nao pode derrubar o grupo inteiro.
+- `/api/group-live` continua sendo a rota leve para now playing/live.
+
+Validacao obrigatoria apos mexer em group:
+
+```bash
+curl -i "https://statslc.leosaquetto.com/api/group"
+curl -i "https://statslc.leosaquetto.com/api/group-live?force=1"
+```
+
+Resultado proibido:
+
+```txt
+FUNCTION_INVOCATION_TIMEOUT
+An error occurred with your deployment
+```
+
+### 3. `stats-dates` upstream 404 nao e erro fatal
+
+A rota `/api/stats-dates` existe, mas o upstream stats.fm pode retornar 404 para `/streams/dates`.
+
+Esse caso deve ser tratado como dado vazio, nao erro fatal:
+
+- HTTP 200.
+- JSON controlado.
+- `empty: true`.
+- `reason: "upstream_not_found"`.
+- Arrays/objetos vazios.
+- CORS presente.
+
+Nao deixar o frontend receber erro vermelho repetido para esse caso.
+
+### 4. Nao usar `force=1` em fluxos automaticos
+
+`force=1` deve ser excecao, nao padrao.
+
+Evitar em:
+
+- Abertura da Home.
+- Polling/live automatico.
+- Replay automatico.
+- Top mensal/semanal automatico.
+- Retry silencioso.
+
+Permitido apenas em acoes manuais claras, com cooldown/rate limit.
+
+Refresh manual deve ter cooldown minimo de 2s.
+
+### 5. Nao criar request loops
+
+Antes de alterar componente que chama API, verificar:
+
+- `useEffect` com dependencias instaveis.
+- Objetos/arrays recriados por render.
+- Callbacks nao memoizados.
+- `periodQuery`, `params`, `filters` e `members` derivados sem `useMemo`.
+- Promises sem `cancelled`/cleanup em componente que desmonta.
+
+Caso real: `FriendsMonthlyHighlights` gerou chamadas duplicadas para `/api/top` por `periodQuery` instavel. Sempre estabilizar queries/params usados em effects.
+
+### 6. Zustand: nao usar selectors instaveis
+
+Evitar:
+
+```ts
+useStatsStore(state => ({ a: state.a, b: state.b }))
+useStatsStore(state => getVisibleMembers(state.groupStats, state.hiddenUsers))
+```
+
+Preferir:
+
+```ts
+const groupStats = useStatsStore(state => state.groupStats)
+const hiddenUsers = useStatsStore(state => state.hiddenUsers)
+
+const members = useMemo(
+  () => getVisibleMembers(groupStats, hiddenUsers),
+  [groupStats, hiddenUsers]
+)
+```
+
+Nao assinar o store inteiro com `useStatsStore()` em componentes grandes.
+
+### 7. ErrorBoundary nao deve limpar estado do usuario
+
+O ErrorBoundary pode:
+
+- Mostrar fallback visivel.
+- Detectar chunk load error.
+- Fazer reload controlado.
+- Limpar CacheStorage somente em chunk error e com acao do usuario.
+
+Nao pode:
+
+- `unregister()` service worker automaticamente.
+- Limpar `localStorage`.
+- Limpar `sessionStorage`.
+- Apagar preferencias/cache do app.
+- Limpar cache em erro generico.
+
+Motivo: isso pode quebrar PWA futuro e apagar estado util.
+
+### 8. Home nunca deve renderizar preto/vazio
+
+Se `groupStats`, `primaryUser`, `featuredUserId` ou members estiverem inconsistentes:
+
+- Mostrar loading/empty/fallback visivel.
+- Recuperar `featuredUserId` para primeiro membro valido.
+- Se usuario atual for ocultado em Ajustes, trocar para proximo usuario visivel.
+- Nunca retornar `null` silencioso em tela principal.
+
+Fluxo obrigatorio de validacao:
+
+```txt
+Home -> Stats -> Circle -> Ajustes -> Home
+```
+
+Tambem testar:
+
+```txt
+Ajustes -> ocultar usuario atual -> Home
+```
+
+### 9. Fallback de avatar deve ser local e proporcional
+
+Nao depender de `ui-avatars.com` nem de outra API externa para fallback de avatar.
+
+Fallback deve:
+
+- Ser local.
+- Mostrar no maximo 2 iniciais.
+- Usar texto pequeno/proporcional.
+- Nao estourar card.
+- Deixar a imagem real substituir normalmente quando carregar.
+
+### 10. Fontes externas
+
+Nao usar fonte remota de `onlinewebfonts.com`.
+
+Se usar Google Fonts:
+
+- Preferir `<link rel="preconnect">`.
+- Usar `display=swap`.
+- Evitar `@import` bloqueante no CSS.
+
+Se o visual permitir, usar `Outfit` + system fallback.
+
+### 11. Assets versionados podem usar immutable
+
+E seguro usar:
+
+```txt
+Cache-Control: public, max-age=31536000, immutable
+```
+
+somente para assets com hash em `/assets/*`.
+
+Nunca aplicar `immutable` em:
+
+- `index.html`.
+- `/api/*`.
+- Manifest sem versionamento.
+- Dados dinamicos.
+
+### 12. PWA/service worker: nao implementar sem plano
+
+Nao adicionar Workbox/service worker/offline cache como ajuste pequeno.
+
+Motivo: pode prender chunks antigos, gerar tela preta em PWA e divergir Safari/PWA.
+
+Antes de implementar PWA offline:
+
+- Definir estrategia de atualizacao.
+- Definir cache de chunks.
+- Definir limpeza segura.
+- Testar Safari normal e app instalado na tela inicial.
+
+### 13. Secao “TOP 1 DO CIRCULO”
+
+A secao “TOP 1 DO CIRCULO” fica na Home e nao deve ser confundida com:
+
+- Stats Alike.
+- Atividade do Circulo.
+- CircleScreen.
+- RankingScreen.
+- AlikeScreen.
+- Duelos.
+
+Se for refatorar para orbit mode:
+
+- Usar dados reais atuais.
+- Nao inventar dados.
+- 1 usuario ativo por vez.
+- Satelites: top artista, top faixa, top album.
+- Dock de membros para troca.
+- Nao criar request novo.
+- Nao bloquear scroll vertical.
+- Nao mexer em vinis/LeoHeader.
+
+### 14. Validacao minima pos-mudanca
+
+Frontend:
+
+```bash
+cd /Users/leosaquetto/Developer/GitHub/stats-lc
+npm run lint
+npm run build
+```
+
+Backend:
+
+```bash
+cd /Users/leosaquetto/Developer/GitHub/stats-lc-api
+npx tsc --noEmit --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck 'api/[...path].ts' $(rg --files lib | rg '\.ts$' | rg -v '\.test\.ts$')
+```
+
+Curls uteis:
+
+```bash
+curl -i "https://statslc.leosaquetto.com/api/group"
+curl -i "https://statslc.leosaquetto.com/api/group-live?force=1"
+curl -i "https://statslc.leosaquetto.com/api/stats?user=savio&after=0"
+curl -i "https://statslc.leosaquetto.com/api/stats-dates?user=savio&after=1780023600000"
+```
 
 ## Diagnosticos E Armadilhas Recentes
 
