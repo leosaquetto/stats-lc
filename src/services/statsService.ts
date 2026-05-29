@@ -386,7 +386,7 @@ export const statsService = {
 
     const request = (async () => {
       try {
-        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1 }, forceRefresh, 1, !forceRefresh);
+        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1, profile: 0 }, forceRefresh, 1, !forceRefresh);
         if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupLiveData raw response:", data);
 
         return normalizeGroupStats(data);

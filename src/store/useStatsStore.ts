@@ -885,6 +885,13 @@ export const useStatsStore = create<StatsState>()(
       },
 
       fetchGroupLive: async (force = false) => {
+        if (!force && (get().isLoading || !get().groupStats)) {
+          if ((import.meta as any).env?.DEV) {
+            console.log('[fetchGroupLive] Skipped while initial group data is loading');
+          }
+          return;
+        }
+
         const now = Date.now();
         const timeSinceLastFetch = now - get().lastLiveFetchTime;
         const MIN_FETCH_INTERVAL = 6000;
