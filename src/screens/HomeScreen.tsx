@@ -1080,38 +1080,112 @@ export default function HomeScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-8 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
           >
+            {/* Logo Container */}
+            <div className="flex items-center gap-4">
+              {/* Animated Icon - 3 bars equalizer */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="relative w-12 h-12 flex items-end justify-center gap-1.5"
+              >
+                {/* Glow effect */}
+                <div className="absolute inset-0 bg-orange-500/20 blur-xl rounded-full" />
+
+                {/* Left bar */}
+                <motion.div
+                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
+                  animate={{
+                    scaleY: [0.65, 0.95, 0.65],
+                    opacity: [0.7, 1, 0.7]
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0
+                  }}
+                />
+
+                {/* Center bar - tallest */}
+                <motion.div
+                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
+                  animate={{
+                    scaleY: [0.85, 1.12, 0.85],
+                    opacity: [0.8, 1, 0.8]
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0.15
+                  }}
+                />
+
+                {/* Right bar */}
+                <motion.div
+                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
+                  animate={{
+                    scaleY: [0.55, 0.85, 0.55],
+                    opacity: [0.7, 1, 0.7]
+                  }}
+                  transition={{
+                    duration: 1.2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: 0.3
+                  }}
+                />
+              </motion.div>
+
+              {/* Text logo - single line */}
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <span className="text-4xl font-black text-white tracking-tight leading-none whitespace-nowrap">
+                  stats.lc
+                </span>
+              </motion.div>
+            </div>
+
+            {/* Tagline */}
             <motion.div
-              animate={{
-                scale: [1, 1.05, 1],
-                opacity: [0.8, 1, 0.8]
-              }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-48 h-auto"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center"
             >
-              <img src="/statslc_white.svg" alt="Stats LC" className="w-full h-full" />
+              <span className="text-xs font-medium text-white/50 tracking-wide">
+                sintonizando seu círculo…
+              </span>
             </motion.div>
+
+            {/* Subtle pulse indicator */}
             <motion.div
-              className="flex items-center gap-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.7 }}
+              className="flex items-center gap-1.5 mt-2"
             >
               <motion.div
-                className="h-2 w-2 rounded-full bg-orange-500"
-                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
+                className="h-1 w-1 rounded-full bg-orange-500/60"
+                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 1.8, repeat: Infinity, delay: 0 }}
               />
               <motion.div
-                className="h-2 w-2 rounded-full bg-orange-500"
-                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                className="h-1 w-1 rounded-full bg-orange-500/60"
+                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 1.8, repeat: Infinity, delay: 0.3 }}
               />
               <motion.div
-                className="h-2 w-2 rounded-full bg-orange-500"
-                animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                className="h-1 w-1 rounded-full bg-orange-500/60"
+                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 1.8, repeat: Infinity, delay: 0.6 }}
               />
             </motion.div>
           </motion.div>
