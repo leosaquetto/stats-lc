@@ -7,6 +7,7 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
+import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -396,7 +397,10 @@ export default function StatsScreen() {
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
-  
+
+  // Cooldown for manual refresh actions
+  const { executeWithCooldown } = useRefreshCooldown(2000);
+
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const selectedUserId = featuredUserId || members[0]?.id || '';
   const user = groupStats?.users[selectedUserId] || members.find(m => m.id === selectedUserId) || members[0];
@@ -1256,9 +1260,9 @@ export default function StatsScreen() {
             <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} className="h-full w-full" fallback={user.name} rounded="full" />
           </button>
           
-          <button 
+          <button
             type="button"
-            onClick={() => fetchGroupLive()} 
+            onClick={executeWithCooldown(() => fetchGroupLive())}
             className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all text-white/70 cursor-pointer shrink-0"
             title="Sincronizar"
           >
@@ -1925,7 +1929,7 @@ export default function StatsScreen() {
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={scrollY < 15 ? () => fetchGroup(true) : scrollToTop}
+            onClick={scrollY < 15 ? executeWithCooldown(() => fetchGroup(true)) : scrollToTop}
             className={cn(
               "fixed bottom-[110px] right-6 z-50 rounded-full border flex items-center justify-center transition-all duration-300 cursor-pointer shadow-lg select-none group/btn overflow-hidden",
               scrollY < 15 

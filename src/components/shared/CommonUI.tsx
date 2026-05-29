@@ -62,9 +62,17 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
     }
   }, [resolvedSrc]);
 
-  const finalSrc = (error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) && showFallback
-    ? `https://ui-avatars.com/api/?background=222&color=fff&name=${encodeURIComponent(fallback)}`
-    : resolvedSrc;
+  // Get initials from fallback name (max 2 chars)
+  const getInitials = (name: string) => {
+    if (!name || typeof name !== 'string') return '?';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const shouldShowFallback = (error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) && showFallback;
 
   return (
     <div className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
@@ -87,18 +95,26 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
           />
         </div>
       )}
-      <img
-        src={finalSrc}
-        className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
-        referrerPolicy="no-referrer"
-        loading="lazy"
-        onLoad={() => setLoading(false)}
-        onError={() => {
-          setError(true);
-          setLoading(false);
-        }}
-        alt=""
-      />
+      {shouldShowFallback ? (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/[0.08] to-white/[0.03]">
+          <span className="text-xl font-bold text-white/40 select-none">
+            {getInitials(fallback)}
+          </span>
+        </div>
+      ) : (
+        <img
+          src={resolvedSrc}
+          className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          onLoad={() => setLoading(false)}
+          onError={() => {
+            setError(true);
+            setLoading(false);
+          }}
+          alt=""
+        />
+      )}
     </div>
   );
 };

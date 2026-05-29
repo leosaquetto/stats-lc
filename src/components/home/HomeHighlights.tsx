@@ -354,6 +354,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
   const navigate = useNavigate();
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       try {
@@ -362,18 +363,22 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
           statsService.getTopItems(userId, 'artists', period),
           statsService.getTopItems(userId, 'albums', period)
         ]);
-        setTops({ 
-          tracks: tracks.slice(0, 20), 
-          artists: artists.slice(0, 20), 
-          albums: albums.slice(0, 20) 
+        if (cancelled) return;
+        setTops({
+          tracks: tracks.slice(0, 20),
+          artists: artists.slice(0, 20),
+          albums: albums.slice(0, 20)
         });
       } catch (e) {
         console.error("Failed to load highlights", e);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [userId, period]);
 
   const periodLabels: Record<string, string> = {

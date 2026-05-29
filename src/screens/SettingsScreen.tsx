@@ -83,15 +83,22 @@ export default function SettingsScreen() {
     if (hiddenUsers.includes(id)) {
       setHiddenUsers(dedupeIds(hiddenUsers.filter(u => u !== id)));
       showToast(
-        'Privacidade Atualizada', 
-        `O membro ${name} agora está visível e será contabilizado no ranking global da Arena.`, 
+        'Privacidade Atualizada',
+        `O membro ${name} agora está visível e será contabilizado no ranking global da Arena.`,
         'success'
       );
     } else {
+      // If hiding the currently featured user, switch to first visible user
+      if (id === featuredUserId) {
+        const nextVisible = members.find(m => m.id !== id);
+        if (nextVisible) {
+          setFeaturedUserId(nextVisible.id);
+        }
+      }
       setHiddenUsers(dedupeIds([...hiddenUsers, id]));
       showToast(
-        'Privacidade Atualizada', 
-        `O membro ${name} foi ocultado. Seus dados não aparecerão mais no ranking para você.`, 
+        'Privacidade Atualizada',
+        `O membro ${name} foi ocultado. Seus dados não aparecerão mais no ranking para você.`,
         'info'
       );
     }
