@@ -363,26 +363,32 @@ export default function StatsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
-  const [showScrollTop, setShowScrollTop] = useState(true);
-  const [scrollY, setScrollY] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleItemsCount, setVisibleItemsCount] = useState(15);
   const [activeRangeStats, setActiveRangeStats] = useState<{ count: number; durationMs: number } | null>(null);
   const [currentInsightIndex, setCurrentInsightIndex] = useState(0);
+  const showScrollTopRef = useRef(false);
 
   useEffect(() => {
+    let frame = 0;
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      setScrollY(currentScrollY);
-      if (currentScrollY > 300 || currentScrollY < 15) {
-        setShowScrollTop(true);
-      } else {
-        setShowScrollTop(false);
-      }
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        const nextShowScrollTop = currentScrollY > 300;
+        if (nextShowScrollTop !== showScrollTopRef.current) {
+          showScrollTopRef.current = nextShowScrollTop;
+          setShowScrollTop(nextShowScrollTop);
+        }
+        frame = 0;
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // Run initially
     handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const scrollToTop = () => {
@@ -2381,7 +2387,7 @@ export default function StatsScreen() {
       </Suspense>
 
       <AnimatePresence>
-        {showScrollTop && scrollY > 300 && (
+        {showScrollTop && (
           <motion.button
             layout
             key="scroll-top-btn"

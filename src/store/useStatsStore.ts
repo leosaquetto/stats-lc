@@ -230,6 +230,65 @@ const canonicalizeGroupStats = (groupStats: GroupStats | null) => {
   };
 };
 
+const clampNumber = (value: any, fallback: number, min: number, max: number) => {
+  const next = Number(value);
+  if (!Number.isFinite(next)) return fallback;
+  return Math.max(min, Math.min(max, next));
+};
+
+const sanitizePreferences = (
+  state: Partial<StatsState>,
+  groupStats: GroupStats | null
+): Partial<StatsState> => {
+  const updates: Partial<StatsState> = {};
+  const members = getCanonicalMembers(groupStats);
+  const validIds = new Set(members.map(member => member.id));
+
+  if (typeof state.featuredUserId === 'string') {
+    const featuredUserId = state.featuredUserId.trim();
+    updates.featuredUserId = !featuredUserId || validIds.size === 0 || validIds.has(featuredUserId)
+      ? featuredUserId
+      : members[0]?.id || '';
+  }
+
+  if (Array.isArray(state.hiddenUsers)) {
+    const hiddenUsers = dedupeIds(state.hiddenUsers);
+    updates.hiddenUsers = validIds.size > 0
+      ? hiddenUsers.filter(id => validIds.has(id))
+      : hiddenUsers;
+  }
+
+  if (Array.isArray(state.historyCustomOrder)) {
+    const historyCustomOrder = dedupeIds(state.historyCustomOrder);
+    updates.historyCustomOrder = validIds.size > 0
+      ? historyCustomOrder.filter(id => validIds.has(id))
+      : historyCustomOrder;
+  }
+
+  if (!['lastPlayed', 'alphabetical', 'custom'].includes(state.historyOrder || '')) {
+    updates.historyOrder = 'lastPlayed';
+  }
+
+  if (typeof state.arenaName === 'string') {
+    updates.arenaName = state.arenaName.trim().replace(/\s+/g, ' ').slice(0, 50) || 'Arena do Grupo';
+  }
+
+  if (state.pollingFrequency !== undefined) {
+    updates.pollingFrequency = clampNumber(state.pollingFrequency, 20, 5, 900);
+  }
+  if (state.animationDuration !== undefined) {
+    updates.animationDuration = clampNumber(state.animationDuration, 0.4, 0.05, 3);
+  }
+  if (state.animationDelay !== undefined) {
+    updates.animationDelay = clampNumber(state.animationDelay, 0.04, 0, 0.5);
+  }
+  if (state.shimmerDuration !== undefined) {
+    updates.shimmerDuration = clampNumber(state.shimmerDuration, 2.8, 0.5, 5);
+  }
+
+  return updates;
+};
+
 interface StatsState {
   groupStats: GroupStats | null;
   isLoading: boolean;
@@ -401,12 +460,21 @@ export const useStatsStore = create<StatsState>()(
 
       setOffline: (offline: boolean) => set({ isOffline: offline }),
       setFeaturedUserId: (userId: string) => {
-        if (typeof localStorage !== 'undefined' && userId) {
+        const members = getCanonicalMembers(get().groupStats);
+        const validIds = new Set(members.map(member => member.id));
+        const nextUserId = userId && (validIds.size === 0 || validIds.has(userId))
+          ? userId
+          : members[0]?.id || '';
+        if (typeof localStorage !== 'undefined' && nextUserId) {
           localStorage.setItem('stats-lc-has-selected-user', '1');
         }
-        set({ featuredUserId: userId });
+        set({ featuredUserId: nextUserId });
       },
-      setHiddenUsers: (users: string[]) => set({ hiddenUsers: dedupeIds(users) }),
+      setHiddenUsers: (users: string[]) => {
+        const validIds = new Set(getCanonicalMembers(get().groupStats).map(member => member.id));
+        const nextUsers = dedupeIds(users).filter(id => validIds.size === 0 || validIds.has(id));
+        set({ hiddenUsers: nextUsers });
+      },
       setHideRankingBadge: (hide: boolean) => set({ hideRankingBadge: hide }),
       
       setUserFullStatsCache: (userId: string, data: any) => {
@@ -552,13 +620,17 @@ export const useStatsStore = create<StatsState>()(
       setNotifyOnNewStreams: (enabled: boolean) => set({ notifyOnNewStreams: enabled }),
       setNotifyOnGroupHighlights: (enabled: boolean) => set({ notifyOnGroupHighlights: enabled }),
       setNotifyOnArenaBattle: (enabled: boolean) => set({ notifyOnArenaBattle: enabled }),
-      setArenaName: (name: string) => set({ arenaName: name }),
-      setPollingFrequency: (frequency: number) => set({ pollingFrequency: frequency }),
+      setArenaName: (name: string) => set({ arenaName: name.trim().replace(/\s+/g, ' ').slice(0, 50) || 'Arena do Grupo' }),
+      setPollingFrequency: (frequency: number) => set({ pollingFrequency: clampNumber(frequency, 20, 5, 900) }),
       setHistoryOrder: (order: 'lastPlayed' | 'alphabetical' | 'custom') => set({ historyOrder: order }),
-      setHistoryCustomOrder: (order: string[]) => set({ historyCustomOrder: dedupeIds(order) }),
-      setAnimationDuration: (duration: number) => set({ animationDuration: duration }),
-      setAnimationDelay: (delay: number) => set({ animationDelay: delay }),
-      setShimmerDuration: (duration: number) => set({ shimmerDuration: duration }),
+      setHistoryCustomOrder: (order: string[]) => {
+        const validIds = new Set(getCanonicalMembers(get().groupStats).map(member => member.id));
+        const nextOrder = dedupeIds(order).filter(id => validIds.size === 0 || validIds.has(id));
+        set({ historyCustomOrder: nextOrder });
+      },
+      setAnimationDuration: (duration: number) => set({ animationDuration: clampNumber(duration, 0.4, 0.05, 3) }),
+      setAnimationDelay: (delay: number) => set({ animationDelay: clampNumber(delay, 0.04, 0, 0.5) }),
+      setShimmerDuration: (duration: number) => set({ shimmerDuration: clampNumber(duration, 2.8, 0.5, 5) }),
 
       // Setter para cache de stats
       setCacheStats: (userId: string, stats: any) => {
@@ -1118,6 +1190,7 @@ export const useStatsStore = create<StatsState>()(
         } else if (nextState.groupStats) {
           nextState.groupStats = canonicalizeGroupStats(nextState.groupStats);
         }
+        Object.assign(nextState, sanitizePreferences(nextState, nextState.groupStats));
         return nextState;
       },
       partialize: (state) => ({
