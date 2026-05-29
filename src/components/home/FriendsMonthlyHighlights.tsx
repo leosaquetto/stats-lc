@@ -38,14 +38,23 @@ export const FriendsMonthlyHighlights = React.memo(({
   const isWaitingForGroup = !groupStats;
   const visibleMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
 
+  // Stabilize periodQuery to prevent loops
+  const stablePeriodQuery = React.useMemo(() => periodQuery, [
+    periodQuery?.period,
+    periodQuery?.after,
+    periodQuery?.before,
+    periodQuery?.limit,
+    periodQuery?.force
+  ]);
+
   useEffect(() => {
-    if (!periodQuery || visibleMembers.length === 0) return;
+    if (!stablePeriodQuery || visibleMembers.length === 0) return;
     let cancelled = false;
     Promise.allSettled(visibleMembers.map(async (member) => {
       const [artists, tracks, albums] = await Promise.all([
-        statsService.getTopItems(member.id, 'artists', { ...periodQuery, limit: 1 }).catch(() => []),
-        statsService.getTopItems(member.id, 'tracks', { ...periodQuery, limit: 1 }).catch(() => []),
-        statsService.getTopItems(member.id, 'albums', { ...periodQuery, limit: 1 }).catch(() => [])
+        statsService.getTopItems(member.id, 'artists', { ...stablePeriodQuery, limit: 1 }).catch(() => []),
+        statsService.getTopItems(member.id, 'tracks', { ...stablePeriodQuery, limit: 1 }).catch(() => []),
+        statsService.getTopItems(member.id, 'albums', { ...stablePeriodQuery, limit: 1 }).catch(() => [])
       ]);
       return { id: member.id, tops: { artists, tracks, albums } };
     })).then((results) => {
@@ -59,7 +68,7 @@ export const FriendsMonthlyHighlights = React.memo(({
     return () => {
       cancelled = true;
     };
-  }, [periodQuery, visibleMembers]);
+  }, [stablePeriodQuery, visibleMembers]);
 
   const sortedFriends = React.useMemo(() => [...visibleMembers].sort((a, b) => {
     const aTops = periodTops[a.id] || a.topItems;

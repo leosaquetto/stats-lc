@@ -82,30 +82,30 @@ const REPLAY_MONTHS_LONG = [
 const getReplayQuery = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedSubValues): ReplayPeriodQuery => {
   const now = new Date();
   if (activeTab === 'today') {
-    return { period: 'today', after: getStartOfDay(now), limit: 30, force: true };
+    return { period: 'today', after: getStartOfDay(now), limit: 30 };
   }
   if (activeTab === 'week') {
     if (selected.weekMode === 'current') {
       const day = now.getDay();
       const diffToMonday = (day + 6) % 7;
       const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
-      return { period: 'week', after: getStartOfDay(monday), limit: 30, force: true };
+      return { period: 'week', after: getStartOfDay(monday), limit: 30 };
     }
     const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 30, force: true };
+    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 30 };
   }
   if (activeTab === 'month') {
     const month = Number(selected.month ?? now.getMonth());
     const year = now.getFullYear();
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 1);
-    return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 30, force: true };
+    return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 30 };
   }
   if (activeTab === 'year') {
     const year = Number(selected.year || now.getFullYear());
-    return { period: 'year', after: new Date(year, 0, 1).getTime(), before: new Date(year + 1, 0, 1).getTime(), limit: 30, force: true };
+    return { period: 'year', after: new Date(year, 0, 1).getTime(), before: new Date(year + 1, 0, 1).getTime(), limit: 30 };
   }
-  return { period: 'all', limit: 30, force: true };
+  return { period: 'all', limit: 30 };
 };
 
 const getReplayModalPeriod = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedSubValues) => {
@@ -383,7 +383,7 @@ export default function HomeScreen() {
   const handleRefresh = useCallback(async () => {
     setIsManualLiveRefresh(true);
     try {
-      await fetchGroupLive(true);
+      await fetchGroupLive(false);
       showToast('Now Playing', 'Tocando agora atualizado.', 'success');
     } catch (err: any) {
       console.error(err);
@@ -479,7 +479,7 @@ export default function HomeScreen() {
     const delay = Math.min(Math.max(remainingMs + 1500, 1200), 45000);
 
     const timer = window.setTimeout(() => {
-      fetchGroupLive(true);
+      fetchGroupLive(false);
     }, delay);
 
     return () => window.clearTimeout(timer);
@@ -1151,7 +1151,7 @@ export default function HomeScreen() {
 
                <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs relative z-10">
                  <button 
-                   onClick={() => fetchGroup(true)}
+                   onClick={() => fetchGroup(false)}
                    disabled={isLoading || isRefreshing}
                    className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black uppercase tracking-[0.15em] shadow-[0_10px_25px_rgba(234,88,12,0.3)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-wait"
                  >
@@ -1224,7 +1224,7 @@ export default function HomeScreen() {
             </motion.div>
           </div>
         ) : groupStats && !isLoading ? (
-          <HomeEmptyState onRetry={() => fetchGroup(true)} />
+          <HomeEmptyState onRetry={() => fetchGroup(false)} />
         ) : (
           <HomeSectionLoader />
         )}

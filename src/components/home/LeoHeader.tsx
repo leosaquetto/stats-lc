@@ -884,7 +884,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                         dominantColor={dominantColor || undefined}
                         onComplete={() => {
                            setIsForceFinished(true);
-                           fetchGroupLive(true);
+                           fetchGroupLive(false);
                         }}
                          />
                       </div>

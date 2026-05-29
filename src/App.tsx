@@ -170,7 +170,7 @@ export default function App() {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchGroupLive(true);
+        fetchGroupLive(false);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);

@@ -196,9 +196,10 @@ const fetchFromApi = async <T>(
   requestOptions: ApiRequestOptions = {}
 ): Promise<T> => {
   const finalParams = { ...params };
-  if (forceRefresh) finalParams.force = '1';
+  const sendsForceParam = forceRefresh && endpoint !== '/api/group' && endpoint !== '/api/group-live';
+  if (sendsForceParam) finalParams.force = '1';
 
-  const cacheKey = getApiCacheKey(endpoint, finalParams, forceRefresh);
+  const cacheKey = getApiCacheKey(endpoint, finalParams, sendsForceParam);
   const now = Date.now();
 
   if (!forceRefresh && useDedupe) {
@@ -477,6 +478,16 @@ export const statsService = {
 
       if (!cachedMembers.length) return {};
 
+      if (range === 'lifetime') {
+        return cachedMembers.reduce<Record<string, { count: number, durationMs: number }>>((acc, member) => {
+          acc[member.id] = {
+            count: member.totalStreams || member.scrobbles || 0,
+            durationMs: member.totalDurationMs || 0,
+          };
+          return acc;
+        }, {});
+      }
+
       const now = new Date();
       const afterByRange = {
         today: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
@@ -611,7 +622,7 @@ export const statsService = {
     try {
       const adapter = getStoreAdapter();
         const store = adapter.getState();
-      const shouldForce = typeof period !== 'string' && !!period.force;
+      const shouldForce = typeof period !== 'string' && !!period.force && period.after !== 0 && period.period !== 'all' && period.period !== 'lifetime';
       const cachedTopItems = shouldForce ? null : store.getTopItemsFromCache?.(cacheKey);
       if (cachedTopItems) {
         if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached top items for ${cacheKey}`);
