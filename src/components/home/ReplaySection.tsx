@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Share2 } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
@@ -76,6 +76,28 @@ interface ReplaySectionProps {
 }
 
 const YEARS = [2024, 2025, 2026];
+const INITIAL_TRACK_ROWS = 4;
+
+const ReplayTrackImage = ({ src, fallback }: { src?: string; fallback: string }) => {
+  if (!src) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-white/[0.06] text-[13px] font-black text-white/35">
+        {fallback.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-full w-full object-cover"
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+    />
+  );
+};
 
 export const ReplaySection: React.FC<ReplaySectionProps> = ({
   topArtists,
@@ -94,15 +116,36 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   isLoading = false
 }) => {
   const filterText = useMemo(() => getReplayFilterSentence(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
+  const [renderFullTrackList, setRenderFullTrackList] = useState(false);
 
   const limitedArtists = useMemo(() => topArtists.slice(0, 10), [topArtists]);
   const limitedTracks = useMemo(() => topTracks.slice(0, 12), [topTracks]);
+  const visibleTracks = useMemo(
+    () => (renderFullTrackList ? limitedTracks : limitedTracks.slice(0, INITIAL_TRACK_ROWS)),
+    [limitedTracks, renderFullTrackList]
+  );
   const limitedAlbums = useMemo(() => topAlbums.slice(0, 10), [topAlbums]);
 
   const hasData = totalMinutesCount > 0 || topArtists.length > 0 || topTracks.length > 0 || topAlbums.length > 0;
 
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT.slice(0, currentMonth + 1);
+
+  useEffect(() => {
+    setRenderFullTrackList(false);
+
+    if (limitedTracks.length <= INITIAL_TRACK_ROWS) return undefined;
+
+    const scheduleIdle = window.requestIdleCallback || ((callback: IdleRequestCallback) => {
+      const timeoutId = window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 450);
+      return timeoutId as unknown as number;
+    });
+    const cancelIdle = window.cancelIdleCallback || ((id: number) => window.clearTimeout(id));
+
+    const idleId = scheduleIdle(() => setRenderFullTrackList(true), { timeout: 900 });
+    return () => cancelIdle(idleId);
+  }, [activeTab, selectedSubValues, limitedTracks.length]);
+
   const selectTab = (tab: ReplayFilterPeriod) => {
     onActiveTabChange(tab);
   };
@@ -365,23 +408,19 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
           <div className="overflow-x-auto snap-x pl-4 pr-6 hide-scrollbar scroll-pl-4">
             <div className="flex gap-6">
-              {Array.from({ length: Math.ceil(limitedTracks.length / 4) }).map((_, pageIndex) => (
+              {Array.from({ length: Math.ceil(visibleTracks.length / 4) }).map((_, pageIndex) => (
                 <div key={pageIndex} className="flex flex-col snap-start flex-shrink-0">
-                  {limitedTracks.slice(pageIndex * 4, (pageIndex + 1) * 4).map((track, indexInPage) => {
+                  {visibleTracks.slice(pageIndex * 4, (pageIndex + 1) * 4).map((track, indexInPage) => {
                     const globalIndex = pageIndex * 4 + indexInPage;
                     return (
-                      <motion.div
+                      <div
                         key={replayItemKey('track', track, globalIndex)}
                         className="flex h-[58px] w-[calc(100vw-72px)] max-w-[318px] items-center gap-3 border-b border-white/10"
-                        whileHover={{ scale: 1.01 }}
-                        whileTap={{ scale: 0.99 }}
                       >
                         <div className="h-[42px] w-[42px] flex-shrink-0 overflow-hidden rounded-[9px] bg-white/5 shadow-lg">
-                          <SmartImage
+                          <ReplayTrackImage
                             src={track.image || ''}
-                            className="w-full h-full object-cover"
-                            fallback="🎵"
-                            rounded="lg"
+                            fallback={track.name || 'Música'}
                           />
                         </div>
 
@@ -405,7 +444,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         >
                           ⋯
                         </button>
-                      </motion.div>
+                      </div>
                     );
                   })}
                 </div>
