@@ -49,7 +49,7 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
 export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" }: { src?: string, className?: string, fallback?: string, rounded?: string }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const { shimmerDuration = 2.8 } = useStatsStore();
+  const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
 
   const resolvedSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
 

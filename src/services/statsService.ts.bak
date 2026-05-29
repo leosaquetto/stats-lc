@@ -671,8 +671,8 @@ export const statsService = {
    */
   async getTrackGlobalHistory(trackId: string): Promise<any[]> {
     try {
-       const adapter = getStoreAdapter();
-      const user = getCanonicalMembers(adapter.getState().groupStats)[0];
+      const { useStatsStore } = await import('../store/useStatsStore');
+      const user = getCanonicalMembers(useStatsStore.getState().groupStats)[0];
       if (!user?.id) return [];
 
       const userParam = coreUtils.getUserApiParam(user.id);

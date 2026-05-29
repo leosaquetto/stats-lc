@@ -1013,3 +1013,13 @@ export const useStatsStore = create<StatsState>()(
     }
   )
 );
+
+// Initialize store adapter for statsService to avoid circular dependency
+import { setStoreAdapter } from '../services/storeAdapter';
+setStoreAdapter({
+  getState: () => useStatsStore.getState(),
+  getCanonicalMembers: (groupStats: any) => {
+    const { getCanonicalMembers } = require('../lib/memberSelectors');
+    return getCanonicalMembers(groupStats);
+  }
+});

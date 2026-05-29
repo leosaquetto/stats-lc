@@ -387,17 +387,15 @@ export default function StatsScreen() {
     });
   };
   
-  const { 
-    groupStats, 
-    isLoading: isGlobalLoading, 
-    isOffline,
-    error: globalError, 
-    fetchGroup,
-    fetchGroupLive,
-    featuredUserId,
-    hiddenUsers,
-    setFeaturedUserId
-  } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const isGlobalLoading = useStatsStore(state => state.isLoading);
+  const isOffline = useStatsStore(state => state.isOffline);
+  const globalError = useStatsStore(state => state.error);
+  const fetchGroup = useStatsStore(state => state.fetchGroup);
+  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const selectedUserId = featuredUserId || members[0]?.id || '';

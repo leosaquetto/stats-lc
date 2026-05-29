@@ -18,40 +18,38 @@ interface ToastItem {
 }
 
 export default function SettingsScreen() {
-  const { 
-    groupStats, 
-    featuredUserId, 
-    setFeaturedUserId, 
-    hiddenUsers, 
-    setHiddenUsers, 
-    hideRankingBadge, 
-    setHideRankingBadge,
-    pushNotificationsEnabled,
-    setPushNotificationsEnabled,
-    notifyOnNewStreams,
-    setNotifyOnNewStreams,
-    notifyOnGroupHighlights,
-    setNotifyOnGroupHighlights,
-    notifyOnArenaBattle,
-    setNotifyOnArenaBattle,
-    arenaName,
-    setArenaName,
-    pollingFrequency,
-    setPollingFrequency,
-    animationDuration,
-    setAnimationDuration,
-    animationDelay,
-    setAnimationDelay,
-    shimmerDuration,
-    setShimmerDuration,
-    fetchGroup,
-    isRefreshing,
-    lastFetchTime,
-    historyOrder,
-    setHistoryOrder,
-    historyCustomOrder,
-    setHistoryCustomOrder
-  } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const setHiddenUsers = useStatsStore(state => state.setHiddenUsers);
+  const hideRankingBadge = useStatsStore(state => state.hideRankingBadge);
+  const setHideRankingBadge = useStatsStore(state => state.setHideRankingBadge);
+  const pushNotificationsEnabled = useStatsStore(state => state.pushNotificationsEnabled);
+  const setPushNotificationsEnabled = useStatsStore(state => state.setPushNotificationsEnabled);
+  const notifyOnNewStreams = useStatsStore(state => state.notifyOnNewStreams);
+  const setNotifyOnNewStreams = useStatsStore(state => state.setNotifyOnNewStreams);
+  const notifyOnGroupHighlights = useStatsStore(state => state.notifyOnGroupHighlights);
+  const setNotifyOnGroupHighlights = useStatsStore(state => state.setNotifyOnGroupHighlights);
+  const notifyOnArenaBattle = useStatsStore(state => state.notifyOnArenaBattle);
+  const setNotifyOnArenaBattle = useStatsStore(state => state.setNotifyOnArenaBattle);
+  const arenaName = useStatsStore(state => state.arenaName);
+  const setArenaName = useStatsStore(state => state.setArenaName);
+  const pollingFrequency = useStatsStore(state => state.pollingFrequency);
+  const setPollingFrequency = useStatsStore(state => state.setPollingFrequency);
+  const animationDuration = useStatsStore(state => state.animationDuration);
+  const setAnimationDuration = useStatsStore(state => state.setAnimationDuration);
+  const animationDelay = useStatsStore(state => state.animationDelay);
+  const setAnimationDelay = useStatsStore(state => state.setAnimationDelay);
+  const shimmerDuration = useStatsStore(state => state.shimmerDuration);
+  const setShimmerDuration = useStatsStore(state => state.setShimmerDuration);
+  const fetchGroup = useStatsStore(state => state.fetchGroup);
+  const isRefreshing = useStatsStore(state => state.isRefreshing);
+  const lastFetchTime = useStatsStore(state => state.lastFetchTime);
+  const historyOrder = useStatsStore(state => state.historyOrder);
+  const setHistoryOrder = useStatsStore(state => state.setHistoryOrder);
+  const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
+  const setHistoryCustomOrder = useStatsStore(state => state.setHistoryCustomOrder);
   
   const members = getCanonicalMembers(groupStats);
 

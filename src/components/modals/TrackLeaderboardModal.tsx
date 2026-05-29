@@ -104,7 +104,8 @@ export const TrackLeaderboardModal = ({
     loadStats();
   }, [track?.id, track?.albumId, track?.artistId, selectedArtist?.id, selectedArtist?.name]);
 
-  const { groupStats, featuredUserId } = useStatsStore();
+  const groupStats = useStatsStore(state => state.groupStats);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
   const membersData = groupStats?.users || {};
 
   const sortedUsers = Object.values(membersData)

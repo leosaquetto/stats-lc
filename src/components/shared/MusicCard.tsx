@@ -49,7 +49,8 @@ export const MusicCard = React.memo(({
   progressMs,
   durationMs
 }: MusicCardProps) => {
-  const { animationDuration = 0.4, animationDelay = 0.04 } = useStatsStore();
+  const animationDuration = useStatsStore(state => state.animationDuration) || 0.4;
+  const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
   const isLeo = userId === "leo";
   const accentColor = isLeo ? "#FF9F0A" : "#FFFFFF";
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
