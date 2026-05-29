@@ -15,6 +15,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Music, Disc, Mic2, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { getVisibleMembers } from '../../lib/memberSelectors';
+import { CircleTopOrbit } from './CircleTopOrbit';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -33,6 +34,7 @@ export const FriendsMonthlyHighlights = React.memo(({
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [allExpanded, setAllExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'orbit' | 'list'>('orbit');
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
 
   const isWaitingForGroup = !groupStats;
@@ -125,19 +127,14 @@ export const FriendsMonthlyHighlights = React.memo(({
         title="TOP 1 DO CÍRCULO"
         action={
           <div className="flex items-center gap-2">
-            <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.18em] text-white/55 backdrop-blur-xl">
-              {periodLabel}
-            </span>
             <button
               type="button"
-              onClick={() => {
-                setAllExpanded(prev => !prev);
-                setExpandedId(null);
-              }}
-              aria-label={allExpanded ? 'Minimizar todos' : 'Expandir todos'}
+              onClick={() => setViewMode(prev => prev === 'orbit' ? 'list' : 'orbit')}
+              aria-label={viewMode === 'orbit' ? 'Modo lista' : 'Modo orbital'}
+              title={viewMode === 'orbit' ? 'Modo lista' : 'Modo orbital'}
               className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.055] text-white/55 backdrop-blur-xl transition-all hover:bg-white/[0.1] hover:text-white active:scale-95"
             >
-              {allExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+              {viewMode === 'orbit' ? <Maximize2 className="h-3 w-3" /> : <Minimize2 className="h-3 w-3" />}
             </button>
           </div>
         }
@@ -147,29 +144,38 @@ export const FriendsMonthlyHighlights = React.memo(({
         initial={{ opacity: 0, scale: 0.98 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
-        className="glass-card p-4 sm:p-5 border-white/5 bg-white/[0.01] relative overflow-hidden"
       >
-        {/* Background Gradients */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
+        {viewMode === 'orbit' ? (
+          <CircleTopOrbit
+            members={sortedFriends}
+            periodTops={periodTops}
+            periodLabel={periodLabel}
+          />
+        ) : (
+          <div className="glass-card p-4 sm:p-5 border-white/5 bg-white/[0.01] relative overflow-hidden">
+            {/* Background Gradients */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
 
-        <div className="flex flex-col divide-y divide-white/5 relative z-10">
-          {sortedFriends.map((friend, idx) => (
-            <FriendHighlightRow
-              key={friend.id}
-              friend={friend}
-              tops={periodTops[friend.id] || friend.topItems}
-              isExpanded={allExpanded || expandedId === friend.id}
-              onToggle={() => {
-                if (allExpanded) {
-                  setAllExpanded(false);
-                  setExpandedId(friend.id);
-                  return;
-                }
-                setExpandedId(expandedId === friend.id ? null : friend.id);
-              }}
-            />
-          ))}
-        </div>
+            <div className="flex flex-col divide-y divide-white/5 relative z-10">
+              {sortedFriends.map((friend, idx) => (
+                <FriendHighlightRow
+                  key={friend.id}
+                  friend={friend}
+                  tops={periodTops[friend.id] || friend.topItems}
+                  isExpanded={allExpanded || expandedId === friend.id}
+                  onToggle={() => {
+                    if (allExpanded) {
+                      setAllExpanded(false);
+                      setExpandedId(friend.id);
+                      return;
+                    }
+                    setExpandedId(expandedId === friend.id ? null : friend.id);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );
