@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
@@ -35,10 +35,19 @@ export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
+  const topItemsCache = useStatsStore(state => state.topItemsCache);
   const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
+
+  // Local hydrated topItems cache
+  const [hydratedTopsByUser, setHydratedTopsByUser] = useState<Record<string, {
+    tracks: any[];
+    artists: any[];
+    albums: any[];
+    fetchedAt: number;
+  }>>({});
 
   const members = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
   const featuredUser = useMemo(
@@ -46,9 +55,36 @@ export const StatsAlike = React.memo(() => {
     [members, featuredUserId]
   );
   const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
+
+  // Helper to get member topItems from multiple sources
+  const getMemberTopItems = useCallback((member: any) => {
+    // 1. Try member.topItems if exists (from API)
+    if (member.topItems?.tracks?.length || member.topItems?.artists?.length || member.topItems?.albums?.length) {
+      return member.topItems;
+    }
+
+    // 2. Try local hydrated cache
+    if (hydratedTopsByUser[member.id]) {
+      return hydratedTopsByUser[member.id];
+    }
+
+    // 3. Try topItemsCache from store
+    const cacheKey = `${member.id}:tracks:month`;
+    if (topItemsCache?.[cacheKey]) {
+      return {
+        tracks: topItemsCache[cacheKey] || [],
+        artists: topItemsCache[`${member.id}:artists:month`] || [],
+        albums: topItemsCache[`${member.id}:albums:month`] || [],
+      };
+    }
+
+    // 4. Fallback
+    return { tracks: [], artists: [], albums: [] };
+  }, [hydratedTopsByUser, topItemsCache]);
+
   const topItemsSignature = useMemo(() => {
     return members.map((member) => {
-      const tops = member.topItems;
+      const tops = getMemberTopItems(member);
       const ids = [
         ...(tops?.tracks || []).slice(0, 12).map((item: any) => item?.id || item?.track?.id || item?.name),
         ...(tops?.artists || []).slice(0, 12).map((item: any) => item?.id || item?.artist?.id || item?.name),
@@ -56,7 +92,7 @@ export const StatsAlike = React.memo(() => {
       ];
       return `${member.id}:${ids.join(',')}`;
     }).join('|');
-  }, [members]);
+  }, [members, getMemberTopItems]);
 
   // Stable signature for prefetch needs
   const prefetchSignature = useMemo(() => {
@@ -64,14 +100,16 @@ export const StatsAlike = React.memo(() => {
     const REFETCH_INTERVAL = 15 * 60 * 1000;
 
     return members.map((member) => {
-      const fetchedAt = (member as any).topItemsFetchedAt || 0;
-      const tracksLen = member.topItems?.tracks?.length ?? -1;
-      const artistsLen = member.topItems?.artists?.length ?? -1;
-      const albumsLen = member.topItems?.albums?.length ?? -1;
+      const hydrated = hydratedTopsByUser[member.id];
+      const fetchedAt = hydrated?.fetchedAt || 0;
+      const tops = getMemberTopItems(member);
+      const tracksLen = tops?.tracks?.length ?? -1;
+      const artistsLen = tops?.artists?.length ?? -1;
+      const albumsLen = tops?.albums?.length ?? -1;
       const needsFetch = fetchedAt === 0 || (now - fetchedAt) > REFETCH_INTERVAL;
       return `${member.id}:${fetchedAt}:${tracksLen}:${artistsLen}:${albumsLen}:${needsFetch}`;
     }).join('|');
-  }, [members]);
+  }, [members, hydratedTopsByUser, getMemberTopItems]);
 
   // Prefetch topItems for all members to enable Stats Alike matching
   useEffect(() => {
@@ -86,30 +124,37 @@ export const StatsAlike = React.memo(() => {
       for (const member of members) {
         if (cancelled) return;
 
-        const lastFetched = (member as any).topItemsFetchedAt || 0;
+        const hydrated = hydratedTopsByUser[member.id];
+        const lastFetched = hydrated?.fetchedAt || 0;
         const shouldRefetch = (now - lastFetched) > REFETCH_INTERVAL;
 
         if (!shouldRefetch) continue;
 
-        const hasTopItemsObject = !!member.topItems;
+        const tops = getMemberTopItems(member);
         const hasAnyTopItems =
-          !!member.topItems?.tracks?.length ||
-          !!member.topItems?.artists?.length ||
-          !!member.topItems?.albums?.length;
+          !!tops?.tracks?.length ||
+          !!tops?.artists?.length ||
+          !!tops?.albums?.length;
 
-        if (!hasTopItemsObject || !hasAnyTopItems) {
-          // Missing topItems - fetch if not recently attempted
+        if (!hasAnyTopItems || shouldRefetch) {
           try {
-            await prefetchUserTops(member.id);
+            const result = await prefetchUserTops(member.id);
+            if (result && result.fetchedAt && !cancelled) {
+              setHydratedTopsByUser(prev => ({
+                ...prev,
+                [member.id]: result
+              }));
+
+              if ((import.meta as any).env?.DEV) {
+                console.log(`[StatsAlike] Hydrated tops from prefetch for ${member.id}:`, {
+                  tracks: result.tracks?.length || 0,
+                  artists: result.artists?.length || 0,
+                  albums: result.albums?.length || 0
+                });
+              }
+            }
           } catch (err) {
             console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
-          }
-        } else if (shouldRefetch) {
-          // Has topItems but stale - refresh in background
-          try {
-            await prefetchUserTops(member.id);
-          } catch (err) {
-            console.warn(`[StatsAlike] Failed to refresh tops for ${member.id}:`, err);
           }
         }
       }
@@ -120,30 +165,33 @@ export const StatsAlike = React.memo(() => {
     return () => {
       cancelled = true;
     };
-  }, [prefetchSignature, prefetchUserTops]);
+  }, [prefetchSignature, prefetchUserTops, hydratedTopsByUser, getMemberTopItems]);
 
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];
 
     const friends = members.filter(m => m.id !== effectiveFeaturedUserId);
 
+    const featuredUserTops = getMemberTopItems(featuredUser);
+
     // Debug: Log topItems availability
     if ((import.meta as any).env?.DEV) {
       console.log('[StatsAlike] Featured user topItems:', {
         userId: featuredUser.id,
-        hasTopItems: !!featuredUser.topItems,
-        artists: featuredUser.topItems?.artists?.length || 0,
-        tracks: featuredUser.topItems?.tracks?.length || 0,
-        albums: featuredUser.topItems?.albums?.length || 0
+        hasTopItems: !!featuredUserTops,
+        artists: featuredUserTops?.artists?.length || 0,
+        tracks: featuredUserTops?.tracks?.length || 0,
+        albums: featuredUserTops?.albums?.length || 0
       });
       friends.forEach(friend => {
+        const friendTops = getMemberTopItems(friend);
         console.log('[StatsAlike] Friend topItems:', {
           userId: friend.id,
           name: friend.name,
-          hasTopItems: !!friend.topItems,
-          artists: friend.topItems?.artists?.length || 0,
-          tracks: friend.topItems?.tracks?.length || 0,
-          albums: friend.topItems?.albums?.length || 0
+          hasTopItems: !!friendTops,
+          artists: friendTops?.artists?.length || 0,
+          tracks: friendTops?.tracks?.length || 0,
+          albums: friendTops?.albums?.length || 0
         });
       });
     }
@@ -162,7 +210,7 @@ export const StatsAlike = React.memo(() => {
         };
       };
 
-      const userItems = (featuredUser.topItems?.[`${type}s` as keyof typeof featuredUser.topItems] as TopItem[] || []).map(normalizeItem);
+      const userItems = (featuredUserTops?.[`${type}s` as keyof typeof featuredUserTops] as TopItem[] || []).map(normalizeItem);
       
       const found: AlikeConnection[] = [];
       const searchDepth = 36;
@@ -179,7 +227,8 @@ export const StatsAlike = React.memo(() => {
         let friendPosition = -1;
 
         friends.forEach(friend => {
-          const friendItems = (friend.topItems?.[`${type}s` as keyof typeof friend.topItems] as TopItem[] || []).map(normalizeItem).slice(0, searchDepth);
+          const friendTops = getMemberTopItems(friend);
+          const friendItems = (friendTops?.[`${type}s` as keyof typeof friendTops] as TopItem[] || []).map(normalizeItem).slice(0, searchDepth);
 
           const matchIndex = friendItems.findIndex(i => {
             if (!i.name) return false;
@@ -300,12 +349,22 @@ export const StatsAlike = React.memo(() => {
     }
 
     return selection;
-  }, [effectiveFeaturedUserId, topItemsSignature]);
+  }, [effectiveFeaturedUserId, topItemsSignature, getMemberTopItems]);
+
+  // Protect activeIndex if alikeConnections length changes
+  useEffect(() => {
+    if (alikeConnections.length > 0 && activeIndex >= alikeConnections.length) {
+      setActiveIndex(0);
+    }
+  }, [alikeConnections.length, activeIndex]);
 
   useEffect(() => {
     if (!isAutoRotating || alikeConnections.length < 2) return;
     const timer = setInterval(() => {
-      setActiveIndex(prev => (prev + 1) % alikeConnections.length);
+      setActiveIndex(prev => {
+        const next = (prev + 1) % alikeConnections.length;
+        return alikeConnections.length > 0 ? next : 0;
+      });
     }, 5000);
     return () => clearInterval(timer);
   }, [isAutoRotating, alikeConnections.length]);

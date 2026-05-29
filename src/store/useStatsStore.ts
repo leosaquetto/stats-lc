@@ -54,6 +54,90 @@ const saveToMMKV = (key: string, value: any) => {
   }
 };
 
+const stripHeavyGroupStats = (groupStats: GroupStats | null): GroupStats | null => {
+  if (!groupStats) return null;
+
+  try {
+    const stripped: GroupStats = {
+      ...groupStats,
+      users: {},
+      members: []
+    };
+
+    // Strip heavy data from users
+    Object.keys(groupStats.users || {}).forEach(userId => {
+      const user = groupStats.users[userId];
+      if (!user) return;
+
+      stripped.users[userId] = {
+        id: user.id,
+        key: user.key,
+        name: user.name,
+        avatar: user.avatar,
+        nowPlaying: user.nowPlaying,
+        platform: user.platform,
+        streamsToday: user.streamsToday,
+        streamsWeek: user.streamsWeek,
+        streamsMonth: user.streamsMonth,
+        streamsYear: user.streamsYear,
+        totalStreams: user.totalStreams,
+        totalDurationMs: user.totalDurationMs,
+        scrobbles: user.scrobbles,
+        // Explicitly exclude: topItems, recent, catalogSummary, errors
+      };
+    });
+
+    // Strip heavy data from members
+    (groupStats.members || []).forEach(member => {
+      if (!member) return;
+
+      stripped.members!.push({
+        id: member.id,
+        key: member.key,
+        name: member.name,
+        avatar: member.avatar,
+        nowPlaying: member.nowPlaying,
+        platform: member.platform,
+        streamsToday: member.streamsToday,
+        streamsWeek: member.streamsWeek,
+        streamsMonth: member.streamsMonth,
+        streamsYear: member.streamsYear,
+        totalStreams: member.totalStreams,
+        totalDurationMs: member.totalDurationMs,
+        scrobbles: member.scrobbles,
+        // Explicitly exclude: topItems, recent, catalogSummary, errors
+      });
+    });
+
+    return stripped;
+  } catch (e) {
+    console.warn('[stripHeavyGroupStats] Failed to strip:', e);
+    return null;
+  }
+};
+
+const saveGroupStatsToMMKV = (groupStats: GroupStats | null) => {
+  try {
+    const stripped = stripHeavyGroupStats(groupStats);
+    if (stripped) {
+      mmkv.set('groupStats', JSON.stringify(stripped));
+      if ((import.meta as any).env?.DEV) {
+        console.log('[persist] Saved stripped groupStats to MMKV');
+      }
+    }
+  } catch (e: any) {
+    if (e.name === 'QuotaExceededError' || e.message?.includes('quota')) {
+      console.warn('[persist] QuotaExceededError, clearing old groupStats');
+      try {
+        mmkv.delete('groupStats');
+        mmkv.delete('groupStats_timestamp');
+      } catch {}
+    } else {
+      console.warn('[persist] Failed to save groupStats:', e);
+    }
+  }
+};
+
 const isValidGroupStats = (value: any): value is GroupStats => {
   return !!value && typeof value === 'object' && Array.isArray(value.members) && value.users && typeof value.users === 'object';
 };
@@ -204,7 +288,12 @@ interface StatsState {
   setUserFullStatsCache: (userId: string, data: any) => void;
   setTimeRangeStatsCache: (key: string, data: any) => void;
   setTopItemsCache: (key: string, data: any) => void;
-  prefetchUserTops: (userId: string, period?: string) => Promise<void>;
+  prefetchUserTops: (userId: string, period?: string) => Promise<{
+    tracks: any[];
+    artists: any[];
+    albums: any[];
+    fetchedAt: number;
+  }>;
   prefetchNextFriend: (currentUserId: string) => void;
   lastLiveFetchTime: number;
 
@@ -373,7 +462,7 @@ export const useStatsStore = create<StatsState>()(
           if ((import.meta as any).env?.DEV) {
             console.log(`[prefetchUserTops] Already in-flight for ${cacheKey}, skipping`);
           }
-          return;
+          return { tracks: [], artists: [], albums: [], fetchedAt: 0 };
         }
 
         prefetchUserTopsInFlight.add(cacheKey);
@@ -387,72 +476,23 @@ export const useStatsStore = create<StatsState>()(
             topItems[`${type}`] = items;
           }
 
-          // Update groupStats.users and groupStats.members with the fetched topItems
-          const currentGroupStats = get().groupStats;
-          if (currentGroupStats) {
-            const existingUser = currentGroupStats.users[userId];
-            const now = Date.now();
+          const fetchedAt = Date.now();
 
-            // Check if update is needed (avoid redundant set)
-            const existingFetchedAt = (existingUser as any)?.topItemsFetchedAt || 0;
-            const timeSinceLastFetch = now - existingFetchedAt;
-
-            // If fetched less than 1 minute ago, skip update
-            if (timeSinceLastFetch < 60000 && existingUser?.topItems) {
-              if ((import.meta as any).env?.DEV) {
-                console.log(`[prefetchUserTops] Recently fetched for ${userId}, skipping update`);
-              }
-              return;
-            }
-
-            const newGroupStats = { ...currentGroupStats };
-            const newUsers = { ...newGroupStats.users };
-            const newMembers = [...newGroupStats.members];
-
-            // Update user in users map
-            if (newUsers[userId]) {
-              newUsers[userId] = {
-                ...newUsers[userId],
-                topItems: {
-                  tracks: topItems.tracks || [],
-                  artists: topItems.artists || [],
-                  albums: topItems.albums || []
-                },
-                topItemsFetchedAt: now
-              };
-            }
-
-            // Update user in members array
-            const memberIndex = newMembers.findIndex(m => m.id === userId);
-            if (memberIndex !== -1) {
-              newMembers[memberIndex] = {
-                ...newMembers[memberIndex],
-                topItems: {
-                  tracks: topItems.tracks || [],
-                  artists: topItems.artists || [],
-                  albums: topItems.albums || []
-                },
-                topItemsFetchedAt: now
-              };
-            }
-
-            newGroupStats.users = newUsers;
-            newGroupStats.members = newMembers;
-
-            // Canonicalize and save
-            const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
-            saveToMMKV('groupStats', canonicalGroupStats);
-
-            set({ groupStats: canonicalGroupStats });
-
-            if ((import.meta as any).env?.DEV) {
-              console.log(`[prefetchUserTops] Updated groupStats with topItems for ${userId}:`, {
-                tracks: topItems.tracks?.length || 0,
-                artists: topItems.artists?.length || 0,
-                albums: topItems.albums?.length || 0
-              });
-            }
+          if ((import.meta as any).env?.DEV) {
+            console.log(`[prefetchUserTops] Fetched topItems for ${userId}:`, {
+              tracks: topItems.tracks?.length || 0,
+              artists: topItems.artists?.length || 0,
+              albums: topItems.albums?.length || 0
+            });
           }
+
+          // Return the fetched data without persisting in groupStats
+          return {
+            tracks: topItems.tracks || [],
+            artists: topItems.artists || [],
+            albums: topItems.albums || [],
+            fetchedAt
+          };
         } finally {
           // Always remove from in-flight set
           prefetchUserTopsInFlight.delete(cacheKey);
@@ -771,9 +811,9 @@ export const useStatsStore = create<StatsState>()(
 
           const rawData = await statsService.getGroupData(force);
           const data = canonicalizeGroupStats(rawData) || rawData;
-          
-          // Salva os novos dados obtidos em cache via MMKV
-          saveToMMKV('groupStats', data);
+
+          // Salva os novos dados obtidos em cache via MMKV (stripped)
+          saveGroupStatsToMMKV(data);
           mmkv.set('groupStats_timestamp', Date.now());
 
           // Migrate old state to canonical IDs
@@ -929,7 +969,7 @@ export const useStatsStore = create<StatsState>()(
             const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
             canonicalGroupStats.lastUpdated = liveData.lastUpdated;
 
-            saveToMMKV('groupStats', canonicalGroupStats);
+            saveGroupStatsToMMKV(canonicalGroupStats);
             mmkv.set('groupStats_timestamp', Date.now());
             set({
               groupStats: canonicalGroupStats,
@@ -1073,20 +1113,11 @@ export const useStatsStore = create<StatsState>()(
         }
         return nextState;
       },
-      partialize: (state) => ({ 
-        groupStats: state.groupStats,
-        lastFetchTime: state.lastFetchTime,
+      partialize: (state) => ({
+        // Only persist lightweight preferences, NOT heavy caches
         featuredUserId: state.featuredUserId,
         hiddenUsers: state.hiddenUsers,
         hideRankingBadge: state.hideRankingBadge,
-        statsCache: state.statsCache,
-        historyCache: state.historyCache,
-        userFullStatsCache: state.userFullStatsCache,
-        userFullStatsCacheMeta: state.userFullStatsCacheMeta,
-        timeRangeStatsCache: state.timeRangeStatsCache,
-        timeRangeStatsCacheMeta: state.timeRangeStatsCacheMeta,
-        topItemsCache: state.topItemsCache,
-        topItemsCacheMeta: state.topItemsCacheMeta,
         pushNotificationsEnabled: state.pushNotificationsEnabled,
         notifyOnNewStreams: state.notifyOnNewStreams,
         notifyOnGroupHighlights: state.notifyOnGroupHighlights,
@@ -1098,7 +1129,17 @@ export const useStatsStore = create<StatsState>()(
         animationDuration: state.animationDuration,
         animationDelay: state.animationDelay,
         shimmerDuration: state.shimmerDuration,
-        lastLiveFetchTime: state.lastLiveFetchTime,
+        // Explicitly exclude heavy caches to prevent QuotaExceededError:
+        // - groupStats (has its own MMKV)
+        // - topItemsCache, topItemsCacheMeta
+        // - userFullStatsCache, userFullStatsCacheMeta
+        // - timeRangeStatsCache, timeRangeStatsCacheMeta
+        // - historyCache
+        // - statsCache
+        // - userTrackStats
+        // - preloadedUsers
+        // - lastFetchTime
+        // - lastLiveFetchTime
       }),
     }
   )
