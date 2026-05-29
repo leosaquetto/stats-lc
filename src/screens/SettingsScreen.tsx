@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings, Users, EyeOff, MinusCircle, Bell, BellRing, Sparkles, Activity, Check, Info, AlertTriangle, X, Clock, Image as ImageIcon, ChevronRight, Swords, Loader2, Database } from 'lucide-react';
 import { useStatsStore } from '../store/useStatsStore';
@@ -70,6 +70,12 @@ export default function SettingsScreen() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isResettingApp, setIsResettingApp] = useState(false);
+  const [arenaNameDraft, setArenaNameDraft] = useState(arenaName || '');
+  const arenaNameSaveButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    setArenaNameDraft(arenaName || '');
+  }, [arenaName]);
 
   const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -146,6 +152,23 @@ export default function SettingsScreen() {
       'Um pacote de teste foi disparado para validar a integridade da comunicação push.',
       'success'
     );
+  };
+
+  const handleSaveArenaName = () => {
+    const normalizedName = arenaNameDraft.trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      showToast('Nome da Arena', 'Informe um nome para salvar sua Arena.', 'error');
+      return;
+    }
+
+    if (normalizedName.length > 50) {
+      showToast('Nome da Arena', 'Use no máximo 50 caracteres.', 'error');
+      return;
+    }
+
+    setArenaName(normalizedName);
+    setArenaNameDraft(normalizedName);
+    showToast('Nome da Arena', 'Nome salvo para os próximos relatórios e compartilhamentos.', 'success');
   };
 
   const handleResetApp = async () => {
@@ -491,11 +514,32 @@ export default function SettingsScreen() {
                 </div>
                 <input 
                   type="text" 
-                  value={arenaName || ''}
-                  onChange={(e) => setArenaName(e.target.value)}
+                  value={arenaNameDraft}
+                  onChange={(e) => setArenaNameDraft(e.target.value.slice(0, 50))}
+                  onBlur={(event) => {
+                    if (event.relatedTarget === arenaNameSaveButtonRef.current) return;
+                    if (arenaNameDraft.trim() && arenaNameDraft.trim() !== (arenaName || '').trim()) {
+                      handleSaveArenaName();
+                    }
+                  }}
+                  maxLength={50}
                   placeholder="Nome da sua Arena"
                   className="bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-white outline-none focus:border-orange-500/50 transition-all placeholder:text-white/20"
                 />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/25">
+                    {arenaNameDraft.length}/50
+                  </span>
+                  <button
+                    ref={arenaNameSaveButtonRef}
+                    type="button"
+                    onClick={handleSaveArenaName}
+                    disabled={arenaNameDraft.trim() === (arenaName || '').trim()}
+                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/60 transition-all active:scale-95 disabled:cursor-default disabled:opacity-30"
+                  >
+                    Salvar nome
+                  </button>
+                </div>
               </div>
 
               <div className="h-px w-full bg-white/5 my-2" />

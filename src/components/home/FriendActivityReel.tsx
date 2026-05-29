@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { clsx } from 'clsx';
@@ -81,15 +81,11 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div className="flex h-[184px] gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain no-scrollbar -mx-4 px-4 pb-2 scroll-fade-h scrolling-touch">
-        <AnimatePresence>
+      <div className="flex h-[184px] gap-2.5 overflow-x-auto overflow-y-hidden overscroll-x-contain no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]">
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
             const trackImage = track?.image || "";
-            const liveSeed = friend.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-            const livePulseDuration = 3.4 + (liveSeed % 7) * 0.34;
-            const livePulseDelay = (liveSeed % 5) * 0.22;
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -98,35 +94,18 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             return (
               <motion.div
                 key={friend.id}
-                initial={{ opacity: 0, scale: 0.95, x: 15 }}
-                whileInView={{ opacity: 1, scale: 1, x: 0 }}
-                viewport={{ once: true, margin: "-20px" }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ 
-                  delay: idx * 0.05,
-                  duration: 0.5,
-                  ease: [0.23, 1, 0.32, 1]
-                }}
-                className="flex-shrink-0 w-[144px] group cursor-pointer"
+                className="flex-shrink-0 w-[144px] group cursor-pointer transform-gpu"
+                style={{ contentVisibility: idx > 2 ? 'auto' : 'visible', containIntrinsicSize: '144px 180px' }}
                 onClick={() => onFriendClick(friend)}
                 whileTap={{ scale: 0.98 }}
               >
                 <div className="relative">
                   {isPlaying && (
-                    <motion.div
-                      className="absolute -inset-3 rounded-[30px] bg-orange-500/18 blur-xl"
-                      animate={{ scale: [0.96, 1.08, 0.96], opacity: [0.26, 0.62, 0.26] }}
-                      transition={{
-                        duration: livePulseDuration,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: livePulseDelay
-                      }}
-                    />
+                    <div className="absolute -inset-1 rounded-[26px] border border-orange-500/18 bg-orange-500/[0.035]" />
                   )}
 
                   <div className={clsx(
-                    "relative aspect-[4/5] rounded-[22px] overflow-hidden glass border transition-all duration-500 shadow-lg group-hover:shadow-[0_15px_30px_rgba(0,0,0,0.4)]",
+                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-all duration-300 shadow-lg",
                     isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
                   )}>
 
@@ -217,8 +196,6 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
               </motion.div>
             );
           })}
-        </AnimatePresence>
-        
         {/* View All Card */}
         <motion.div
           className="flex-shrink-0 w-[70px] h-full flex flex-col items-center justify-center gap-2.5 cursor-pointer group pr-4"
@@ -226,7 +203,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           whileTap={{ scale: 0.95 }}
           onClick={() => onViewAll?.()}
         >
-          <div className="h-10 w-10 rounded-full glass border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-orange-500/50 transition-all">
+          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center group-hover:bg-white/10 group-hover:border-orange-500/50 transition-all">
             <motion.div
               animate={{ x: [0, 3, 0] }}
               transition={{ duration: 2, repeat: Infinity }}

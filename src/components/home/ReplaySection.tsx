@@ -118,8 +118,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   ];
 
   return (
-    <div className="relative w-full overflow-hidden px-4 py-7 sm:px-6 lg:px-8">
-      <div className="pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.55)_0%,rgba(239,92,38,0.28)_36%,rgba(0,0,0,0)_72%)] blur-3xl" />
+    <div
+      className="relative isolate w-full overflow-hidden px-4 py-7 sm:px-6 lg:px-8 [contain:layout_paint]"
+      style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
+    >
+      <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.22)_0%,rgba(239,92,38,0.12)_42%,rgba(0,0,0,0)_72%)]" />
       {isLoading && (
         <div className="absolute top-2 left-4 right-4 h-px overflow-hidden rounded-full bg-white/5">
           <motion.div
@@ -137,7 +140,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <button
             type="button"
             onClick={onShareReplay}
-            className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all active:scale-95"
+            className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-all active:scale-95"
             title="Compartilhar Replay"
             aria-label="Compartilhar Replay"
           >
@@ -250,8 +253,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             {Math.round(totalMinutesCount).toLocaleString('pt-BR').split('').map((char, index) => (
               <motion.span
                 key={`${totalMinutesCount}-${index}`}
-                initial={{ opacity: 0, x: -20, filter: "blur(4px)" }}
-                animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
                 transition={{
                   duration: 0.4,
                   delay: index * 0.05,

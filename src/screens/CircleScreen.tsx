@@ -3,17 +3,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, HeartHandshake, Loader2, Swords, Trophy } from 'lucide-react';
 import { clsx } from 'clsx';
-import RankingScreen from './RankingScreen';
-import AlikeScreen from './AlikeScreen';
 import { SmartImage } from '../components/shared/CommonUI';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
 import { getVisibleMembers } from '../lib/memberSelectors';
+
+const RankingScreen = lazy(() => import('./RankingScreen'));
+const AlikeScreen = lazy(() => import('./AlikeScreen'));
 
 type CircleTab = 'ranking' | 'duels' | 'affinity';
 
@@ -26,6 +27,13 @@ const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
   { id: 'duels', label: 'Duelos', icon: Swords },
   { id: 'affinity', label: 'Afinidade', icon: HeartHandshake },
 ];
+
+const CircleTabLoader = ({ label }: { label: string }) => (
+  <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
+    <Loader2 className="h-6 w-6 animate-spin text-orange-400/80" />
+    <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
+  </div>
+);
 
 function DuelsSection() {
   const groupStats = useStatsStore(state => state.groupStats);
@@ -215,8 +223,16 @@ export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenPro
         </div>
       </div>
 
-      {activeTab === 'ranking' && <RankingScreen />}
-      {activeTab === 'affinity' && <AlikeScreen />}
+      {activeTab === 'ranking' && (
+        <Suspense fallback={<CircleTabLoader label="Carregando ranking" />}>
+          <RankingScreen />
+        </Suspense>
+      )}
+      {activeTab === 'affinity' && (
+        <Suspense fallback={<CircleTabLoader label="Carregando afinidade" />}>
+          <AlikeScreen />
+        </Suspense>
+      )}
       {activeTab === 'duels' && <DuelsSection />}
     </div>
   );
