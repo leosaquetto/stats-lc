@@ -64,6 +64,40 @@ const firstFiniteNumber = (...values: any[]) => {
   return 0;
 };
 
+const getTrackImage = (track: any) => {
+  const candidates = [
+    track?.albumImage,
+    track?.album?.image,
+    track?.album?.images?.[0]?.url,
+    track?.album?.images?.[0],
+    track?.image,
+    track?.images?.[0]?.url,
+    track?.images?.[0],
+    track?.albumArt,
+    track?.coverArt,
+    track?.cover_art,
+    track?.album_image,
+    track?.cover,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.length > 5) return candidate;
+    if (candidate?.url && typeof candidate.url === 'string') return candidate.url;
+  }
+
+  return '';
+};
+
+const getActivityTimestamp = (user: any) => (
+  user?.nowPlaying?.timestamp ||
+  user?.nowPlaying?.playedAt ||
+  user?.nowPlaying?.endTime ||
+  user?.recent?.[0]?.playedAt ||
+  user?.recent?.[0]?.timestamp ||
+  user?.recent?.[0]?.endTime ||
+  null
+);
+
 export const FriendHistoryCard = memo(({
   user,
   onTrackClick,
@@ -86,6 +120,10 @@ export const FriendHistoryCard = memo(({
   const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
 
   const isLive = storeUser.nowPlaying?.isNow === true;
+  const activityTimestamp = getActivityTimestamp(storeUser) || getActivityTimestamp(user);
+  const activityLabel = activityTimestamp
+    ? coreUtils.formatRelativeTimeSP(activityTimestamp).toUpperCase()
+    : 'SESSÃO RECENTE';
 
   const getHistoryList = (): any[] => {
     if (isLive && (storeUser.nowPlaying?.track || user.nowPlaying?.track)) {
@@ -130,13 +168,19 @@ export const FriendHistoryCard = memo(({
 
       const initialStats = statsCacheService.getStats(user.id);
       if (initialStats && mounted) setUserStats(initialStats);
+      const needsYearStats = !initialStats || !Number(initialStats.totalStreamsThisYear);
+      if (needsYearStats) {
+        statsCacheService.cacheUserStats(user.id).then((stats) => {
+          if (mounted && stats) setUserStats(stats);
+        });
+      }
 
       // 2. Só buscar dados novos se não tiver cache ou se o cache for muito antigo (> 5 min)
       const hasValidCache =
         (cachedHistory && cachedHistory.length > 0) ||
         embeddedRecent.length > 0;
       if (hasValidCache) {
-        // Já tem cache, não precisa buscar novamente
+        // Já tem histórico, não precisa buscar músicas novamente; stats podem chegar em background.
         return;
       }
 
@@ -252,7 +296,7 @@ export const FriendHistoryCard = memo(({
                     Ouvindo Agora
                   </span>
                 ) : (
-                  'Sessão Recente'
+                  activityLabel
                 )}
               </span>
             </div>
@@ -352,7 +396,7 @@ export const FriendHistoryCard = memo(({
                     {/* Capa com badge de count */}
                     <div className="shrink-0 relative">
                       <SmartImage
-                        src={item.track?.image}
+                        src={getTrackImage(item.track)}
                         className="h-9 w-9 rounded-lg shrink-0"
                         fallback=""
                         rounded="lg"

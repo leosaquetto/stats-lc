@@ -28,32 +28,234 @@ function cn(...inputs: ClassValue[]) {
 
 interface LiveTrackProgressProps {
   progressMs?: number;
-  playedMs?: number;
+  progressPercent?: number;
   durationMs?: number;
   timestamp: string | number;
   isNowPlaying: boolean;
   platform: "spotify" | "appleMusic" | "unknown";
-  onComplete?: () => void;
   compact?: boolean;
   dominantColor?: string | null;
 }
 
+const COMPLETE_MARGIN_MS = 2500;
+const DRIFT_REANCHOR_MS = 5000;
+const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
+
+type PlaybackSnapshot = {
+  playbackKey: string;
+  trackId: string;
+  startedAt: number | null;
+  baseProgressMs: number;
+  durationMs: number | null;
+  receivedAt: number;
+};
+
+function readTimeMs(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function readProgressMs(nowPlaying: any) {
+  const value = nowPlaying?.progressMs ?? nowPlaying?.playedMs;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function getPlaybackKey(userId: string, nowPlaying: any, previousSnapshot: PlaybackSnapshot | null) {
+  const trackId = nowPlaying?.track?.id == null ? null : String(nowPlaying.track.id);
+  if (!trackId) return null;
+
+  const reliablePart =
+    nowPlaying?.playbackKey ??
+    nowPlaying?.streamId ??
+    nowPlaying?.stream?.id ??
+    nowPlaying?.playedAt ??
+    nowPlaying?.endTime ??
+    null;
+
+  if (reliablePart != null && String(reliablePart).trim()) {
+    return `${userId}:${trackId}:${String(reliablePart)}`;
+  }
+
+  if (previousSnapshot?.trackId === trackId) {
+    return previousSnapshot.playbackKey;
+  }
+
+  return `${userId}:${trackId}:${nowPlaying?.timestamp ?? ''}`;
+}
+
+function calculateSnapshotProgress(snapshot: PlaybackSnapshot | null, now = Date.now()) {
+  if (!snapshot) return 0;
+  return Math.max(0, snapshot.baseProgressMs + (now - snapshot.receivedAt));
+}
+
+function useLivePlaybackProgress({
+  userId,
+  nowPlaying,
+  durationMs,
+  fetchGroupLive,
+}: {
+  userId: string;
+  nowPlaying: any;
+  durationMs?: number | null;
+  fetchGroupLive: (force?: boolean) => Promise<void>;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const snapshotRef = React.useRef<PlaybackSnapshot | null>(null);
+  const completedPlaybackKeyRef = React.useRef<string | null>(null);
+  const checkingPlaybackKeyRef = React.useRef<string | null>(null);
+  const [tick, setTick] = useState(() => Date.now());
+  const [isFinished, setIsFinished] = useState(false);
+  const [isCheckingNext, setIsCheckingNext] = useState(false);
+
+  const trackId = nowPlaying?.track?.id == null ? null : String(nowPlaying.track.id);
+  const isNow = nowPlaying?.isNow === true && !!trackId;
+  const normalizedDurationMs =
+    typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
+      ? durationMs
+      : null;
+
+  useEffect(() => {
+    if (!isNow || !trackId) {
+      snapshotRef.current = null;
+      completedPlaybackKeyRef.current = null;
+      checkingPlaybackKeyRef.current = null;
+      setIsFinished(false);
+      setIsCheckingNext(false);
+      return;
+    }
+
+    const playbackKey = getPlaybackKey(userId, nowPlaying, snapshotRef.current);
+    if (!playbackKey) return;
+
+    const now = Date.now();
+    const startedAt = readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.endTime ?? nowPlaying?.timestamp);
+    const explicitProgressMs = readProgressMs(nowPlaying);
+    const fallbackProgressMs = explicitProgressMs ?? (startedAt ? Math.max(0, now - startedAt) : 0);
+    const previous = snapshotRef.current;
+
+    if (!previous || previous.playbackKey !== playbackKey || previous.trackId !== trackId) {
+      snapshotRef.current = {
+        playbackKey,
+        trackId,
+        startedAt,
+        baseProgressMs: fallbackProgressMs,
+        durationMs: normalizedDurationMs,
+        receivedAt: now,
+      };
+      completedPlaybackKeyRef.current = null;
+      checkingPlaybackKeyRef.current = null;
+      setIsFinished(false);
+      setIsCheckingNext(false);
+      setTick(now);
+      return;
+    }
+
+    snapshotRef.current = {
+      ...previous,
+      durationMs: normalizedDurationMs,
+      startedAt: previous.startedAt ?? startedAt,
+    };
+
+    if (explicitProgressMs != null && completedPlaybackKeyRef.current !== playbackKey) {
+      const projectedProgressMs = calculateSnapshotProgress(snapshotRef.current, now);
+      if (Math.abs(projectedProgressMs - explicitProgressMs) >= DRIFT_REANCHOR_MS) {
+        snapshotRef.current = {
+          ...snapshotRef.current,
+          baseProgressMs: explicitProgressMs,
+          receivedAt: now,
+        };
+        setTick(now);
+      }
+    }
+  }, [
+    userId,
+    trackId,
+    isNow,
+    nowPlaying?.playbackKey,
+    nowPlaying?.streamId,
+    nowPlaying?.stream?.id,
+    nowPlaying?.playedAt,
+    nowPlaying?.endTime,
+    nowPlaying?.timestamp,
+    nowPlaying?.progressMs,
+    nowPlaying?.playedMs,
+    normalizedDurationMs,
+    nowPlaying,
+  ]);
+
+  useEffect(() => {
+    if (!isNow || isFinished) return;
+
+    if (shouldReduceMotion) {
+      const id = window.setInterval(() => setTick(Date.now()), 1000);
+      return () => window.clearInterval(id);
+    }
+
+    let frame = 0;
+    const loop = () => {
+      setTick(Date.now());
+      frame = window.requestAnimationFrame(loop);
+    };
+    frame = window.requestAnimationFrame(loop);
+    return () => window.cancelAnimationFrame(frame);
+  }, [isNow, isFinished, shouldReduceMotion]);
+
+  const rawProgressMs = calculateSnapshotProgress(snapshotRef.current, tick);
+  const cappedProgressMs = normalizedDurationMs
+    ? Math.min(rawProgressMs, normalizedDurationMs)
+    : rawProgressMs;
+  const progressPercent = normalizedDurationMs
+    ? Math.min((cappedProgressMs / normalizedDurationMs) * 100, 100)
+    : 0;
+  const completionDurationMs = normalizedDurationMs ?? HIDDEN_FALLBACK_DURATION_MS;
+
+  useEffect(() => {
+    const snapshot = snapshotRef.current;
+    if (!isNow || !snapshot) return;
+    if (rawProgressMs < completionDurationMs + COMPLETE_MARGIN_MS) return;
+    if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
+
+    completedPlaybackKeyRef.current = snapshot.playbackKey;
+    checkingPlaybackKeyRef.current = snapshot.playbackKey;
+    setIsCheckingNext(true);
+
+    fetchGroupLive(true)
+      .catch(() => undefined)
+      .finally(() => {
+        if (checkingPlaybackKeyRef.current === snapshot.playbackKey) {
+          checkingPlaybackKeyRef.current = null;
+          setIsCheckingNext(false);
+          if (snapshotRef.current?.playbackKey === snapshot.playbackKey) {
+            setIsFinished(true);
+          }
+        }
+      });
+  }, [isNow, completionDurationMs, rawProgressMs, fetchGroupLive]);
+
+  return {
+    progressMs: cappedProgressMs,
+    progressPercent,
+    isFinished,
+    isCheckingNext,
+    shouldSpinVinyl: isNow && !isFinished,
+  };
+}
+
 export const LiveTrackProgress = memo(({
   progressMs,
-  playedMs,
+  progressPercent,
   durationMs,
   timestamp,
   isNowPlaying,
   platform,
-  onComplete,
   compact = false,
   dominantColor
 }: LiveTrackProgressProps) => {
-  const lastGroupFetchTime = useStatsStore(state => state.lastFetchTime.group);
-  const [progressTime, setProgressTime] = useState(() => Date.now());
-  const [currentProgress, setCurrentProgress] = useState(0);
   const [minPlayTime, setMinPlayTime] = useState(false);
-  const completedRef = React.useRef(false);
 
   // SVG Platform Logos (inline)
   const SpotifyLogo = () => (
@@ -94,56 +296,11 @@ export const LiveTrackProgress = memo(({
   const PlatformName = platform === 'spotify' ? 'SPOTIFY' : platform === 'appleMusic' ? 'APPLE MUSIC' : 'MUSIC';
 
   useEffect(() => {
-    completedRef.current = false;
     setMinPlayTime(false);
-  }, [timestamp, durationMs, progressMs, playedMs, isNowPlaying]);
+  }, [timestamp, durationMs, isNowPlaying]);
 
-  useEffect(() => {
-    if (!isNowPlaying) return;
-    const id = window.setInterval(() => setProgressTime(Date.now()), 250);
-    return () => window.clearInterval(id);
-  }, [isNowPlaying, timestamp]);
-
-  useEffect(() => {
-    if (!isNowPlaying) {
-      setCurrentProgress(100);
-      return;
-    }
-
-    const calculateProgress = () => {
-      const hasExplicitProgress = playedMs != null || progressMs != null;
-      const baseProgress = playedMs ?? progressMs ?? 0;
-
-      if (!durationMs) {
-        // Sem duração: animação de loading simples
-        setCurrentProgress(prev => (prev + 0.5) % 100);
-        return;
-      }
-
-      const startTime = new Date(timestamp).getTime();
-      const now = Date.now();
-      const elapsedSinceReference = hasExplicitProgress
-        ? Math.max(0, now - (lastGroupFetchTime || now))
-        : Math.max(0, now - startTime);
-      const totalProgressMs = baseProgress + elapsedSinceReference;
-      const percent = (totalProgressMs / durationMs) * 100;
-
-      if (totalProgressMs >= durationMs + 2500) {
-        if (!completedRef.current) {
-          completedRef.current = true;
-          onComplete?.();
-        }
-        setCurrentProgress(100);
-        setMinPlayTime(true);
-      } else {
-        setCurrentProgress(Math.min(percent, 100));
-      }
-    };
-
-    calculateProgress();
-  }, [progressTime, isNowPlaying, platform, durationMs, progressMs, playedMs, timestamp, onComplete, lastGroupFetchTime]);
-
-  const elapsedMs = useMemo(() => (currentProgress / 100) * (durationMs || 0), [currentProgress, durationMs]);
+  const currentProgress = isNowPlaying ? (progressPercent ?? 0) : 100;
+  const elapsedMs = useMemo(() => progressMs ?? ((currentProgress / 100) * (durationMs || 0)), [currentProgress, durationMs, progressMs]);
 
   const dateObj = new Date(timestamp);
   const timeStr = formatTimeSP(dateObj, 'dots');
@@ -343,14 +500,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [track, mainArtistName]);
 
   const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
-
-  const [isForceFinished, setIsForceFinished] = useState(false);
   const prevNowPlaying = React.useRef(nowPlaying);
-
-  // Reseta estado forceFinished quando a música muda, e trata transição tocando -> ocioso
-  useEffect(() => {
-    setIsForceFinished(false);
-  }, [track?.id, nowPlaying?.timestamp]);
 
   useEffect(() => {
     const wasPlaying = prevNowPlaying.current?.isNow === true;
@@ -362,8 +512,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [nowPlaying, fetchGroupLive]);
 
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
-  // Usa o isNow do backend + forceFinished local
-  const isActuallyLive = playback.status === "live" && nowPlaying?.isNow === true && !isForceFinished;
+  const backendIsLive = playback.status === "live" && nowPlaying?.isNow === true;
   const platform = useMemo(() => {
     // Prioriza plataforma detectada na faixa atual se a do usuário for desconhecida
     if (user.platform?.primary && user.platform.primary !== "unknown") {
@@ -447,7 +596,15 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const isYesterday = nowPlaying?.timestamp ? isYesterdaySP(new Date(nowPlaying.timestamp)) : false;
   const formattedTime = nowPlaying?.timestamp ? formatTimeSP(new Date(nowPlaying.timestamp)) : "";
   const formattedDate = nowPlaying?.timestamp ? formatDateSP(new Date(nowPlaying.timestamp)) : "";
-    const statusLabel = isActuallyLive
+  const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
+  const livePlayback = useLivePlaybackProgress({
+    userId: user.id,
+    nowPlaying,
+    durationMs,
+    fetchGroupLive,
+  });
+  const isActuallyLive = backendIsLive && livePlayback.shouldSpinVinyl;
+  const statusLabel = isActuallyLive
     ? "OUVINDO AGORA"
     : isToday
       ? "REPRODUZIDO ÀS " + formattedTime
@@ -458,7 +615,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const othersPlayed = allTrackArenaUsers.some(u => u.id !== user.id);
   const showRankingSummary = !hideRankingBadge && othersPlayed;
 
-  const durationMs = track?.durationMs || nowPlaying?.durationMs || null;
   const listenArtistId = mainArtist?.id || track?.primaryArtistId || track?.artistId;
   const listenAlbumId = track?.albumId || track?.album?.id;
   const canShowListenStats = !!track?.id;
@@ -688,7 +844,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
                 isPlaying={isActuallyLive}
-                progressMs={nowPlaying?.progressMs || nowPlaying?.playedMs || 0}
+                progressMs={livePlayback.progressMs}
                 durationMs={durationMs || undefined}
                 onClick={handleVinylClick}
               />
@@ -874,18 +1030,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                       <div className="w-[calc((100vw-40px)*0.5)] min-w-[154px] max-w-[220px]">
                          <LiveTrackProgress
-                            progressMs={nowPlaying.progressMs}
-                            playedMs={nowPlaying.playedMs}
+                            progressMs={livePlayback.progressMs}
+                            progressPercent={livePlayback.progressPercent}
                             durationMs={durationMs || undefined}
                             timestamp={nowPlaying.timestamp}
                             isNowPlaying={isActuallyLive}
                             platform={platform.primary}
                             compact
                         dominantColor={dominantColor || undefined}
-                        onComplete={() => {
-                           setIsForceFinished(true);
-                           fetchGroupLive(false);
-                        }}
                          />
                       </div>
 
