@@ -19,6 +19,7 @@
     <link rel="apple-touch-icon" href="/faveiconsvg_withoutbackground.png">
     <link rel="icon" type="image/svg+xml" href="/faveiconsvg_nobackground.svg">
     <link rel="shortcut icon" href="/favicon_png_black.png">
+    <link rel="manifest" href="/manifest.json">
   </head>
   <body style="background-color: #050505;">
     <!-- Splash Screen Inline - aparece instantaneamente -->
@@ -73,7 +74,7 @@
         setTimeout(() => {
           window.__SPLASH_READY__ = true;
           removeSplash();
-        }, 800);
+        }, 300);
       });
     </script>
     <div id="root"></div>

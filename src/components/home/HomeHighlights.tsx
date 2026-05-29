@@ -47,73 +47,104 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
     .sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0));
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="glass-card overflow-hidden rounded-[40px] p-6 mb-6 premium-gradient border-white/5 shadow-2xl flex flex-col gap-6"
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="relative overflow-hidden rounded-[32px] mb-6"
     >
-      <div className="flex justify-between items-start gap-4">
-        <div className="flex flex-col min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1.5">
-             <motion.div 
-               animate={{ 
-                 scale: [1, 1.3, 1],
-                 opacity: [0.6, 1, 0.6]
-               }}
-               transition={{ 
-                 duration: 2,
-                 repeat: Infinity,
-                 ease: "easeInOut"
-               }}
-               className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)] shrink-0" 
-             />
-             <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 whitespace-nowrap">Arena Group Live</span>
-          </div>
-          <div className="flex items-end gap-3 pt-6 pb-2">
-            <span className="text-7xl font-display font-black tracking-tighter leading-[0.6] text-white drop-shadow-2xl">
-              <AnimatedNumber value={totalStreams} />
-            </span>
-            <div className="flex flex-col shrink-0 mb-[4px]">
-               <span className="text-[11px] font-black text-white/40 uppercase tracking-widest whitespace-nowrap leading-none mb-1">Streams</span>
-               <span className="text-[11px] font-black text-orange-500 uppercase tracking-tighter whitespace-nowrap leading-none">Total Hoje</span>
+      {/* Background gradient glow */}
+      <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
+
+      <div className="glass-card premium-gradient border-white/10 p-6 relative z-10">
+        {/* Glossy Reflection Overlay */}
+        <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col gap-5">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <motion.div
+                animate={{
+                  scale: [1, 1.2, 1],
+                  opacity: [0.6, 1, 0.6]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)]"
+              />
+              <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/40">Arena Live</span>
+            </div>
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+              <span className="text-[7px] font-black uppercase tracking-widest text-white/30">Hoje</span>
             </div>
           </div>
-        </div>
-        <div className="shrink-0 pt-2 pr-1">
-          <StatsLCLogo size={40} variant="black" className="rounded-xl shadow-inner border border-white/10" />
-        </div>
-      </div>
 
-      <div className="flex items-end justify-between gap-4 mt-2">
-        <div className="flex -space-x-3 overflow-visible px-1">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {sortedParticipants.slice(0, 5).map((user, i) => (
-              <motion.div 
-                layout
-                key={user.id}
-                initial={{ x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: 10, opacity: 0 }}
-                transition={{ 
-                  opacity: { duration: 0.2 },
-                  layout: { type: "spring", stiffness: 350, damping: 35 }
-                }}
-                className="relative group shrink-0"
+          {/* Main Stats */}
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex items-baseline gap-2">
+              <motion.span
+                key={totalStreams}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-6xl font-display font-black tracking-tighter leading-none text-white"
               >
-              <div className="h-12 w-12 rounded-full ring-4 ring-[#0a0a0a] bg-[#1a1a1a] p-0.5 overflow-hidden transition-all group-hover:-translate-y-2 group-hover:scale-110 z-0 group-hover:z-10">
-                <SmartImage 
-                  src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                  className="h-full w-full rounded-full" 
-                  fallback="" 
-                  rounded="full" 
-                />
+                <AnimatedNumber value={totalStreams} />
+              </motion.span>
+              <div className="flex flex-col pb-1">
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-wider leading-none">Streams</span>
+                <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tight leading-none mt-0.5">Total</span>
               </div>
-              <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-orange-500/90 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-lg z-20">
-                 <span className="text-[9px] font-bold text-white leading-none">{user.streamsToday}</span>
+            </div>
+            <div className="shrink-0">
+              <StatsLCLogo size={36} variant="black" className="rounded-xl shadow-lg border border-white/10" />
+            </div>
+          </div>
+
+          {/* Participants */}
+          <div className="flex items-center justify-between pt-3 border-t border-white/5">
+            <div className="flex -space-x-2.5">
+              <AnimatePresence mode="popLayout" initial={false}>
+                {sortedParticipants.slice(0, 5).map((user, i) => (
+                  <motion.div
+                    layout
+                    key={user.id}
+                    initial={{ x: -10, opacity: 0, scale: 0.8 }}
+                    animate={{ x: 0, opacity: 1, scale: 1 }}
+                    exit={{ x: 10, opacity: 0, scale: 0.8 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 300,
+                      damping: 25
+                    }}
+                    className="relative group"
+                  >
+                    <div className="h-11 w-11 rounded-full ring-[3px] ring-[#050505] bg-gradient-to-br from-white/10 to-white/5 p-0.5 overflow-hidden transition-all group-hover:scale-110 group-hover:-translate-y-1 group-hover:z-10">
+                      <SmartImage
+                        src={coreUtils.getUserAvatar(user.id, user.avatar)}
+                        className="h-full w-full rounded-full"
+                        fallback=""
+                        rounded="full"
+                      />
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 border-2 border-[#050505] flex items-center justify-center shadow-lg z-20">
+                      <span className="text-[8px] font-black text-white leading-none">{user.streamsToday}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            {sortedParticipants.length > 5 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+                <span className="text-[8px] font-black text-white/40">+{sortedParticipants.length - 5}</span>
               </div>
-            </motion.div>
-          ))}
-          </AnimatePresence>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -122,29 +153,49 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
 
 export const LiveGroupOverviewSkeleton = () => (
   <motion.div
-    initial={{ opacity: 0, scale: 0.97, y: 12 }}
-    animate={{ opacity: 1, scale: 1, y: 0 }}
-    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-    className="glass-card overflow-hidden rounded-[40px] p-6 mb-6 premium-gradient border-white/5 shadow-2xl flex flex-col gap-6 relative"
+    initial={{ opacity: 0, y: 12 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    className="relative overflow-hidden rounded-[32px] mb-6"
   >
-    <ShimmerOverlay duration={2.8} />
-    <div className="flex justify-between items-start gap-4 relative z-10">
-      <div className="flex flex-col gap-5 flex-1">
-        <Skeleton className="h-3 w-36 rounded-full" />
-        <div className="flex items-end gap-3">
-          <Skeleton className="h-20 w-32 rounded-[24px]" />
-          <div className="flex flex-col gap-2 mb-2">
-            <Skeleton className="h-3 w-20 rounded-full" />
-            <Skeleton className="h-3 w-24 rounded-full" />
+    {/* Background gradient glow */}
+    <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
+    <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-green-500/5 blur-3xl pointer-events-none" />
+
+    <div className="glass-card premium-gradient border-white/10 p-6 relative z-10">
+      {/* Glossy Reflection Overlay */}
+      <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[32px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+
+      <ShimmerOverlay duration={2.8} />
+
+      <div className="relative z-10 flex flex-col gap-5">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-28 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
+        </div>
+
+        {/* Main Stats */}
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex items-baseline gap-2">
+            <Skeleton className="h-16 w-32 rounded-2xl" />
+            <div className="flex flex-col gap-1.5 pb-1">
+              <Skeleton className="h-2.5 w-16 rounded-full" />
+              <Skeleton className="h-2.5 w-12 rounded-full" />
+            </div>
+          </div>
+          <Skeleton className="h-9 w-9 rounded-xl" />
+        </div>
+
+        {/* Participants */}
+        <div className="flex items-center justify-between pt-3 border-t border-white/5">
+          <div className="flex -space-x-2.5">
+            {[0, 1, 2, 3, 4].map((item) => (
+              <Skeleton key={item} className="h-11 w-11 rounded-full ring-[3px] ring-[#050505]" />
+            ))}
           </div>
         </div>
       </div>
-      <Skeleton className="h-12 w-12 rounded-2xl" />
-    </div>
-    <div className="flex -space-x-3 relative z-10">
-      {[0, 1, 2, 3, 4].map((item) => (
-        <Skeleton key={item} className="h-12 w-12 rounded-full ring-4 ring-[#0a0a0a]" />
-      ))}
     </div>
   </motion.div>
 );

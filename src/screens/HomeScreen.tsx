@@ -507,7 +507,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!isLoading && groupStats) {
       // Small delay to ensure smooth transition
-      const timer = setTimeout(() => setIsAppReady(true), 650);
+      const timer = setTimeout(() => setIsAppReady(true), 300);
       return () => clearTimeout(timer);
     } else {
       setIsAppReady(false);
@@ -952,8 +952,11 @@ export default function HomeScreen() {
         document.body
       )}
 
-      <PullToRefresh 
+      <PullToRefresh
       onRefresh={handleRefresh}
+      pullDownThreshold={80}
+      maxPullDownDistance={120}
+      resistance={2.5}
       pullingContent={
         <div className="flex flex-col items-center justify-center pt-[calc(1.8rem+env(safe-area-inset-top,0px))] pb-10 gap-3 border-b border-orange-500/15 select-none bg-black/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
           <div className="relative h-14 w-14 rounded-full border border-orange-500/30 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">

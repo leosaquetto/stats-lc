@@ -34,6 +34,7 @@ interface AlikeConnection {
 export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAutoRotating, setIsAutoRotating] = useState(true);
@@ -57,10 +58,53 @@ export const StatsAlike = React.memo(() => {
     }).join('|');
   }, [members]);
 
+  // Prefetch topItems for all members to enable Stats Alike matching
+  useEffect(() => {
+    if (!members.length) return;
+
+    const loadTopItemsForMembers = async () => {
+      for (const member of members) {
+        if (!member.topItems ||
+            !member.topItems.tracks?.length ||
+            !member.topItems.artists?.length ||
+            !member.topItems.albums?.length) {
+          try {
+            await prefetchUserTops(member.id);
+          } catch (err) {
+            console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
+          }
+        }
+      }
+    };
+
+    loadTopItemsForMembers();
+  }, [members, prefetchUserTops]);
+
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];
 
     const friends = members.filter(m => m.id !== effectiveFeaturedUserId);
+
+    // Debug: Log topItems availability
+    if ((import.meta as any).env?.DEV) {
+      console.log('[StatsAlike] Featured user topItems:', {
+        userId: featuredUser.id,
+        hasTopItems: !!featuredUser.topItems,
+        artists: featuredUser.topItems?.artists?.length || 0,
+        tracks: featuredUser.topItems?.tracks?.length || 0,
+        albums: featuredUser.topItems?.albums?.length || 0
+      });
+      friends.forEach(friend => {
+        console.log('[StatsAlike] Friend topItems:', {
+          userId: friend.id,
+          name: friend.name,
+          hasTopItems: !!friend.topItems,
+          artists: friend.topItems?.artists?.length || 0,
+          tracks: friend.topItems?.tracks?.length || 0,
+          albums: friend.topItems?.albums?.length || 0
+        });
+      });
+    }
 
     // Helper to find match for a specific type
     const findMatches = (type: 'artist' | 'track' | 'album', limit: number = 3) => {

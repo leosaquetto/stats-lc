@@ -57,7 +57,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
   // Delay showing fallback to give real images time to load
   useEffect(() => {
     if (!resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) {
-      const timer = setTimeout(() => setShowFallback(true), 800);
+      const timer = setTimeout(() => setShowFallback(true), 400);
       return () => clearTimeout(timer);
     }
   }, [resolvedSrc]);

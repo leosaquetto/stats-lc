@@ -1,0 +1,26 @@
+{
+  "name": "stats.lc",
+  "short_name": "stats.lc",
+  "description": "Estatísticas musicais do seu círculo de amigos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/faveiconsvg_withoutbackground.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/faveicon_png_black.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["music", "entertainment", "social"],
+  "lang": "pt-BR"
+}

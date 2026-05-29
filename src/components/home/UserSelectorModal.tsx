@@ -95,7 +95,11 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
 
             {/* Avatares retangulares flutuantes */}
             <div
-              className="flex justify-center gap-2 max-w-[92vw] overflow-x-auto overflow-y-visible custom-scrollbar px-2 pb-2 touch-auto"
+              className="flex justify-center gap-3 max-w-[92vw] overflow-x-auto overflow-y-visible overscroll-x-contain snap-x snap-mandatory custom-scrollbar px-2 pb-2 touch-auto scroll-smooth"
+              style={{
+                scrollPaddingLeft: '0.5rem',
+                scrollPaddingRight: '0.5rem'
+              }}
               onTouchStart={(e) => e.stopPropagation()}
               onTouchMove={(e) => e.stopPropagation()}
             >
@@ -110,7 +114,8 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
                   transition={{ delay: 0.4 + idx * 0.05 }}
                   whileHover={{ scale: 1.05, y: -4 }}
                   whileTap={{ scale: 0.95 }}
-                  className="relative group flex-shrink-0"
+                  className="relative group flex-shrink-0 snap-center touch-manipulation"
+                  style={{ minWidth: '64px' }}
                 >
                   <motion.div
                     className={cn(
@@ -119,7 +124,7 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
                     )}
                   />
                   <div className={cn(
-                    "relative rounded-2xl overflow-hidden w-[56px] h-32 transition-all shadow-lg",
+                    "relative rounded-2xl overflow-hidden w-[64px] h-32 transition-all shadow-lg",
                     featuredUserId === u.id && "ring-2 ring-orange-500/70"
                   )}>
                     <SmartImage

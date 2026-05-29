@@ -232,14 +232,36 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <span>Você ouviu </span>
           <motion.span
             key={totalMinutesCount}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-white"
+            className="text-white inline-block relative"
           >
-            {Math.round(totalMinutesCount).toLocaleString('pt-BR')}
+            {Math.round(totalMinutesCount).toLocaleString('pt-BR').split('').map((char, index) => (
+              <motion.span
+                key={`${totalMinutesCount}-${index}`}
+                initial={{ opacity: 0, x: -20, filter: "blur(4px)" }}
+                animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+                transition={{
+                  duration: 0.4,
+                  delay: index * 0.05,
+                  ease: [0.16, 1, 0.3, 1]
+                }}
+                className="inline-block"
+              >
+                {char}
+              </motion.span>
+            ))}
           </motion.span>
-          <span className="text-white"> minutos</span>
+          <motion.span
+            key={`minutos-${totalMinutesCount}`}
+            initial={{ opacity: 0, scale: 0.8, rotateX: -90 }}
+            animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+            transition={{
+              duration: 0.6,
+              delay: 0.3,
+              ease: [0.16, 1, 0.3, 1]
+            }}
+            className="text-white inline-block"
+            style={{ transformOrigin: "center bottom" }}
+          > minutos</motion.span>
           <span> de música {filterText}.</span>
         </p>
       </div>}
