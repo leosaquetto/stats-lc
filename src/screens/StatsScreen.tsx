@@ -1650,7 +1650,7 @@ export default function StatsScreen() {
               className={clsx(
                 "filter-pill flex-1 px-1.5 py-3 rounded-[24px] text-[10.5px] font-black uppercase tracking-[0.14em] transition-all shrink-0 cursor-pointer text-center relative z-10 select-none",
                 activeFilter === f
-                  ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_20px_rgba(249,115,22,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]"
+                  ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_20px_rgba(249,115,22,0.4),0_4px_12px_rgba(249,115,22,0.2),inset_0_1px_0_rgba(255,255,255,0.25)]"
                   : "text-white/45 hover:text-white/75 hover:bg-white/[0.05]"
               )}
             >
@@ -2329,7 +2329,7 @@ export default function StatsScreen() {
       </Suspense>
 
       <AnimatePresence>
-        {showScrollTop && (
+        {showScrollTop && scrollY > 300 && (
           <motion.button
             layout
             key="scroll-top-btn"
@@ -2338,43 +2338,14 @@ export default function StatsScreen() {
             exit={{ opacity: 0, scale: 0.8, y: 10 }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={scrollY < 15 ? executeWithCooldown(() => fetchGroup(true)) : scrollToTop}
-            className={cn(
-              "fixed bottom-[120px] right-5 z-40 rounded-full border flex items-center justify-center transition-all duration-300 cursor-pointer select-none group/btn overflow-hidden backdrop-blur-xl",
-              scrollY < 15
-                ? "h-11 px-4 bg-black/60 border-emerald-500/40 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.25),0_8px_32px_rgba(0,0,0,0.4)] hover:bg-black/70 hover:border-emerald-500/60"
-                : "h-11 w-11 bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 border-white/[0.12] text-white shadow-[0_0_20px_rgba(249,115,22,0.3),0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)]"
-            )}
+            onClick={scrollToTop}
+            className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-5 z-40 h-11 w-11 rounded-full border bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 border-white/[0.12] text-white shadow-[0_0_20px_rgba(249,115,22,0.3),0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300 cursor-pointer select-none overflow-hidden backdrop-blur-xl"
             id="scroll-to-top-btn"
-            title={scrollY < 15 ? "Status: Sincronizado" : "Voltar ao topo"}
+            title="Voltar ao topo"
           >
             {/* Glossy shine */}
             <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.15] to-transparent pointer-events-none rounded-t-full" />
-
-            {scrollY < 15 ? (
-              <div className="flex items-center gap-2 relative z-10">
-                {/* Subtle inner glow */}
-                <span className="absolute inset-0 rounded-full bg-emerald-500/5" />
-
-                {/* Live pulse dot */}
-                <span className="relative flex h-2 w-2">
-                  <span className={cn(
-                    "absolute inline-flex h-full w-full rounded-full opacity-75",
-                    (isGlobalLoading || isLocalLoading) ? "animate-spin border-t border-emerald-400" : "animate-ping bg-emerald-400"
-                  )}></span>
-                  <span className={cn(
-                    "relative inline-flex rounded-full h-2 w-2",
-                    (isGlobalLoading || isLocalLoading) ? "bg-amber-500" : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
-                  )}></span>
-                </span>
-
-                <span className="text-[9px] font-black uppercase tracking-widest leading-none">
-                  {(isGlobalLoading || isLocalLoading) ? 'SINC...' : 'SINCRONIZADO'}
-                </span>
-              </div>
-            ) : (
-              <ChevronUp className="h-5 w-5 stroke-[2.5] relative z-10" />
-            )}
+            <ChevronUp className="h-5 w-5 stroke-[2.5] relative z-10" />
           </motion.button>
         )}
       </AnimatePresence>
