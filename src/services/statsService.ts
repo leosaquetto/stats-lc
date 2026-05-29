@@ -73,9 +73,13 @@ const normalizeTrack = (track: any) => {
     primaryArtistName: albumArtistName || track.primaryArtistName || getPrimaryArtistName(track.artists),
     secondaryArtists: track.secondaryArtists,
     image: track.image,
+    album: track.album,
+    albums: track.albums,
     albumId: track.albumId || track.album?.id,
     albumName: track.albumName || track.album?.name,
     albumArtist,
+    albumArtistId: track.albumArtistId || track.album?.artistId || track.album?.primaryArtistId || track.album?.artist?.id || track.album?.primaryArtist?.id,
+    albumArtistName: track.albumArtistName || albumArtistName || track.album?.artistName || track.album?.primaryArtistName || track.album?.artist?.name || track.album?.primaryArtist?.name,
     albumImage: track.albumImage || track.album?.image,
     durationMs: track.durationMs,
     playedCount: track.playedCount,
@@ -382,7 +386,7 @@ export const statsService = {
 
     const request = (async () => {
       try {
-        const data = await fetchFromApi<any>('/api/group-live', {}, forceRefresh, 1, !forceRefresh);
+        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1 }, forceRefresh, 1, !forceRefresh);
         if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupLiveData raw response:", data);
 
         return normalizeGroupStats(data);
@@ -692,6 +696,7 @@ export const statsService = {
         type: 'track',
         id: trackId,
         limit: 50,
+        resolveAlbums: 1,
       });
       return res?.items || [];
     } catch (e) {
