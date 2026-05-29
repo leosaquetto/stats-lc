@@ -17,6 +17,7 @@ import { UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { ShareButton } from '../components/shared/ShareButton';
 import { getVisibleMembers } from '../lib/memberSelectors';
+import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
 
 const UserDetailModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.UserDetailModal })));
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
@@ -131,6 +132,7 @@ export default function RankingScreen() {
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const { executeWithCooldown } = useRefreshCooldown(2000);
   const [activeRange, setActiveRange] = useState<Range>('months');
   const [rankingType, setRankingType] = useState<'streams' | 'duration'>('streams');
   const [rankingsData, setRankingsData] = useState<Record<string, { count: number, durationMs: number }>>({});
@@ -312,7 +314,7 @@ export default function RankingScreen() {
         <Trophy className="h-12 w-12 text-white/20" />
         <p className="text-white/40">Nenhum dado da arena disponível</p>
         <button
-          onClick={() => fetchGroup(true)}
+          onClick={executeWithCooldown(() => fetchGroup(true))}
           className="px-4 py-2 bg-white/10 rounded-xl text-white text-sm"
         >
           Sincronizar
@@ -368,7 +370,7 @@ export default function RankingScreen() {
               >
                  <Users className="h-4 w-4 text-white/40" />
           </button>
-          <button onClick={() => fetchGroupLive()} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
+          <button onClick={executeWithCooldown(() => fetchGroupLive())} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
              <RefreshCcw className={clsx("h-4 w-4 text-white/50", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
           </button>
 
