@@ -20,6 +20,67 @@
   @apply glass rounded-3xl p-6 shadow-2xl;
 }
 
+/* Liquid Glass - iOS 26 inspired premium glassmorphism */
+.liquid-glass {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.095), rgba(255,255,255,0.025)),
+    rgba(10, 10, 12, 0.54);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow:
+    0 18px 60px rgba(0,0,0,0.42),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 0 rgba(255,255,255,0.055);
+}
+
+.liquid-glass-card {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.095), rgba(255,255,255,0.025)),
+    rgba(10, 10, 12, 0.54);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow:
+    0 18px 60px rgba(0,0,0,0.42),
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 0 rgba(255,255,255,0.055);
+  border-radius: 32px;
+}
+
+.liquid-glass-modal {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.10), rgba(255,255,255,0.025)),
+    rgba(8, 8, 10, 0.72);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
+  backdrop-filter: blur(34px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.15);
+  box-shadow:
+    0 28px 80px rgba(0,0,0,0.62),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(255,255,255,0.06);
+}
+
+.liquid-glass-overlay {
+  background:
+    radial-gradient(circle at 50% 10%, rgba(249,115,22,0.10), transparent 38%),
+    rgba(0,0,0,0.62);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Fallback for browsers without backdrop-filter support */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass,
+  .liquid-glass-card,
+  .liquid-glass-modal {
+    background: rgba(12, 12, 14, 0.94);
+  }
+  .liquid-glass-overlay {
+    background: rgba(0,0,0,0.82);
+  }
+}
+
 @utility premium-gradient {
   background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
 }

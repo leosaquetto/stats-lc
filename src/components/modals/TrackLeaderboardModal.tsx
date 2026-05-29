@@ -176,7 +176,7 @@ export const TrackLeaderboardModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-2xl p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center liquid-glass-overlay p-4"
       onClick={onClose}
     >
       <motion.div 

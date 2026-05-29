@@ -183,7 +183,7 @@ export const UserDetailModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/90 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end justify-center liquid-glass-overlay"
       onClick={onClose}
     >
       <motion.div 
@@ -409,7 +409,7 @@ export const StatsBattleModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center liquid-glass-overlay p-4"
       onClick={onClose}
     >
       <motion.div 

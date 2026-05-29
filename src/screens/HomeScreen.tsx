@@ -39,6 +39,90 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const FloatingMiniHeader = React.memo(({
+  visible,
+  primaryUser,
+  miniHeaderAlbumImage,
+  miniHeaderDominantColor,
+  miniHeaderIsPlaying,
+  hasMiniHeaderAlbumImage,
+  liveRefreshActive,
+  onRefresh,
+  onOpenUserSelector
+}: {
+  visible: boolean;
+  primaryUser: any;
+  miniHeaderAlbumImage: string;
+  miniHeaderDominantColor: string;
+  miniHeaderIsPlaying: boolean;
+  hasMiniHeaderAlbumImage: boolean;
+  liveRefreshActive: boolean;
+  onRefresh: () => void;
+  onOpenUserSelector: (e: React.MouseEvent<HTMLButtonElement>) => void;
+}) => {
+  return (
+    <header
+      style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
+      className={cn(
+        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-[transform,opacity]",
+        visible
+          ? "translate-y-0 opacity-100 pointer-events-auto"
+          : "-translate-y-4 opacity-0 pointer-events-none"
+      )}
+    >
+      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/35">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRefresh();
+          }}
+          disabled={liveRefreshActive}
+          title="Atualizar tocando agora"
+          aria-label="Atualizar tocando agora"
+          className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
+        >
+          <RefreshCcw
+            className={cn(
+              "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
+              liveRefreshActive && "animate-spin text-orange-500"
+            )}
+          />
+        </button>
+
+        <button
+          onClick={onOpenUserSelector}
+          title="Selecionar Usuário"
+          aria-label="Selecionar Usuário"
+          className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
+        >
+          <SmartImage
+            src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
+            className="h-full w-full object-cover"
+            fallback=""
+            rounded="full"
+          />
+        </button>
+
+        {hasMiniHeaderAlbumImage && (
+          <div className="h-12 w-12 -ml-1 shrink-0">
+            <VinylRecord
+              albumImage={miniHeaderAlbumImage}
+              dominantColor={miniHeaderDominantColor || ""}
+              isPlaying={miniHeaderIsPlaying}
+              progressMs={0}
+              durationMs={undefined}
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              hideTonearm={true}
+            />
+          </div>
+        )}
+      </div>
+    </header>
+  );
+});
+
+FloatingMiniHeader.displayName = 'FloatingMiniHeader';
+
 const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?: string }) => (
   <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-3 rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
     <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
@@ -234,6 +318,7 @@ export default function HomeScreen() {
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
+  const isHeaderScrolledRef = useRef(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
@@ -321,12 +406,19 @@ export default function HomeScreen() {
         const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
         const shouldBeScrolled = scrollY >= 160;
         const shouldBeReset = scrollY <= 90;
-        
-        setIsHeaderScrolled((current) => {
-          if (!current && shouldBeScrolled) return true;
-          if (current && shouldBeReset) return false;
-          return current;
-        });
+
+        let nextValue = isHeaderScrolledRef.current;
+        if (!isHeaderScrolledRef.current && shouldBeScrolled) {
+          nextValue = true;
+        } else if (isHeaderScrolledRef.current && shouldBeReset) {
+          nextValue = false;
+        }
+
+        if (nextValue !== isHeaderScrolledRef.current) {
+          isHeaderScrolledRef.current = nextValue;
+          setIsHeaderScrolled(nextValue);
+        }
+
         frame = 0;
       });
     };
@@ -405,6 +497,17 @@ export default function HomeScreen() {
       setIsManualLiveRefresh(false);
     }
   }, [fetchGroupLive, showToast, lastRefreshTime, REFRESH_COOLDOWN_MS]);
+
+  const handleMiniHeaderUserSelectorOpen = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setAvatarClickPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    });
+    setSelectorMode('mini-header');
+    setShowUserSelector(true);
+  }, []);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -883,78 +986,17 @@ export default function HomeScreen() {
           </AnimatePresence>
 
           {/* Top Bar Navigation - Floating */}
-          <header
-            style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
-            className={cn(
-              "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-all duration-500 ease-out will-change-transform",
-              isHeaderScrolled
-                ? "translate-y-0 opacity-100 pointer-events-auto"
-                : "-translate-y-4 opacity-0 pointer-events-none"
-            )}
-          >
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/35">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRefresh();
-                }}
-                disabled={liveRefreshActive}
-                title="Atualizar tocando agora"
-                aria-label="Atualizar tocando agora"
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
-              >
-                <RefreshCcw
-                  className={cn(
-                    "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-                    liveRefreshActive && "animate-spin text-orange-500"
-                  )}
-                />
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setAvatarClickPosition({
-                    x: rect.left + rect.width / 2,
-                    y: rect.top + rect.height / 2
-                  });
-                  setSelectorMode('mini-header');
-                  setShowUserSelector(true);
-                }}
-                title="Selecionar Usuário"
-                aria-label="Selecionar Usuário"
-                className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
-              >
-                <SmartImage
-                  src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
-                  className="h-full w-full object-cover"
-                  fallback=""
-                  rounded="full"
-                />
-              </button>
-
-              {hasMiniHeaderAlbumImage && (
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                  className="h-12 w-12 -ml-1 shrink-0"
-                >
-                  <VinylRecord
-                    albumImage={miniHeaderAlbumImage}
-                    dominantColor={miniHeaderDominantColor || ""}
-                    isPlaying={miniHeaderIsPlaying}
-                    progressMs={0}
-                    durationMs={undefined}
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    hideTonearm={true}
-                  />
-                </motion.div>
-              )}
-            </div>
-          </header>
+          <FloatingMiniHeader
+            visible={isHeaderScrolled}
+            primaryUser={primaryUser}
+            miniHeaderAlbumImage={miniHeaderAlbumImage}
+            miniHeaderDominantColor={miniHeaderDominantColor}
+            miniHeaderIsPlaying={miniHeaderIsPlaying}
+            hasMiniHeaderAlbumImage={hasMiniHeaderAlbumImage}
+            liveRefreshActive={liveRefreshActive}
+            onRefresh={handleRefresh}
+            onOpenUserSelector={handleMiniHeaderUserSelectorOpen}
+          />
         </>,
         document.body
       )}
