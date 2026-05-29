@@ -72,19 +72,29 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     return saved !== null ? saved === 'true' : false;
   });
 
-  const [isScrolled, setIsScrolled] = React.useState(false);
   const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
+  const showSyncFooterRef = React.useRef(false);
 
   React.useEffect(() => {
+    let frame = 0;
     const handleScroll = () => {
-      const scrolled = window.scrollY > 50;
-      setIsScrolled(scrolled);
-      // Mostra footer apenas quando scrollar para baixo (sair da área do LeoHeader)
-      setShowSyncFooter(window.scrollY > 400);
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        const nextShowSyncFooter = window.scrollY > 400;
+        if (nextShowSyncFooter !== showSyncFooterRef.current) {
+          showSyncFooterRef.current = nextShowSyncFooter;
+          setShowSyncFooter(nextShowSyncFooter);
+        }
+        frame = 0;
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   React.useEffect(() => {
