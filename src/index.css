@@ -1,18 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap');
 @import "tailwindcss";
 
-@font-face {
-  font-family: 'Mundial';
-  src: url('https://db.onlinewebfonts.com/t/ef186c7d953683f2e56c5a04cc6368d4.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Figtree", sans-serif;
-  --font-mundial: "Mundial", "Outfit", sans-serif;
+  --font-mundial: "Outfit", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
