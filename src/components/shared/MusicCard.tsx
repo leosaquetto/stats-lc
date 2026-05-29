@@ -144,7 +144,7 @@ export const MusicCard = React.memo(({
           {/* Play Count Badge Overlay */}
           {playCount !== undefined && playCount > 1 && !isNowPlaying && (
             <div className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-600 border border-[#111] flex items-center justify-center shadow-lg z-20">
-              <span className="text-[8px] font-black text-white leading-none">{playCount > 99 ? '99+' : playCount}</span>
+              <span className="text-[8px] font-black text-white leading-none">{coreUtils.formatNumber(playCount)}</span>
             </div>
           )}
         </div>

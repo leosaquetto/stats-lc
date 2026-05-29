@@ -1,5 +1,6 @@
 import React from 'react';
 import { SmartImage } from './CommonUI';
+import { coreUtils } from '../../services/statsCore';
 
 interface WeeklyReportTemplateProps {
   userName: string;
@@ -69,7 +70,7 @@ export const WeeklyReportTemplate: React.FC<WeeklyReportTemplateProps> = ({
                             <div className="text-center flex flex-col gap-2">
                                 <p className="text-4xl font-black uppercase tracking-tight line-clamp-1 font-display">{artist.name}</p>
                                 <div className="flex flex-col">
-                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{artist.playcount || artist.streams}</span>
+                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{coreUtils.formatNumber(artist.playcount || artist.streams || 0)}</span>
                                     <span className="text-lg font-black text-white/20 uppercase tracking-widest">SCROBBLES</span>
                                 </div>
                             </div>
@@ -97,7 +98,7 @@ export const WeeklyReportTemplate: React.FC<WeeklyReportTemplateProps> = ({
                                 <p className="text-4xl font-black uppercase tracking-tight line-clamp-1 font-display">{track.name}</p>
                                 <p className="text-xl font-bold text-white/40 uppercase tracking-widest line-clamp-1">{track.artist?.name}</p>
                                 <div className="flex flex-col mt-2">
-                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{track.playcount || track.streams}</span>
+                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{coreUtils.formatNumber(track.playcount || track.streams || 0)}</span>
                                     <span className="text-lg font-black text-white/20 uppercase tracking-widest">PLAYS</span>
                                 </div>
                             </div>
@@ -125,7 +126,7 @@ export const WeeklyReportTemplate: React.FC<WeeklyReportTemplateProps> = ({
                                 <p className="text-4xl font-black uppercase tracking-tight line-clamp-1 font-display">{album.name}</p>
                                 <p className="text-xl font-bold text-white/40 uppercase tracking-widest line-clamp-1">{album.artist?.name}</p>
                                 <div className="flex flex-col mt-2">
-                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{album.playcount || album.streams}</span>
+                                    <span className="text-4xl font-black text-orange-500 leading-none font-display">{coreUtils.formatNumber(album.playcount || album.streams || 0)}</span>
                                     <span className="text-lg font-black text-white/20 uppercase tracking-widest">SCROBBLES</span>
                                 </div>
                             </div>

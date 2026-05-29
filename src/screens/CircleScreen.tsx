@@ -4,10 +4,12 @@
  */
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
-import { AlertTriangle, HeartHandshake, Loader2, Swords, Trophy } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { AlertTriangle, HeartHandshake, Loader2, Swords, Trophy, Users } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SmartImage } from '../components/shared/CommonUI';
+import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
+import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
+import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
@@ -15,6 +17,8 @@ import { getVisibleMembers } from '../lib/memberSelectors';
 
 const RankingScreen = lazy(() => import('./RankingScreen'));
 const AlikeScreen = lazy(() => import('./AlikeScreen'));
+const UserHistoryModal = lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
+const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
 
 type CircleTab = 'ranking' | 'duels' | 'affinity';
 
@@ -187,11 +191,172 @@ function DuelsSection() {
   );
 }
 
+function OrbitOverviewSection() {
+  const groupStats = useStatsStore(state => state.groupStats);
+  const isLoading = useStatsStore(state => state.isLoading);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const historyOrder = useStatsStore(state => state.historyOrder);
+  const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const [visibleHistory, setVisibleHistory] = useState(5);
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
+  const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
+  const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
+
+  const recentTracks = useMemo(() => {
+    if (!Array.isArray(members)) return [];
+    return [...members]
+      .filter(user => user && user.id)
+      .sort((a, b) => {
+        if (a.id === featuredUserId) return -1;
+        if (b.id === featuredUserId) return 1;
+
+        const order = historyOrder || 'lastPlayed';
+        if (order === 'alphabetical') {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        if (order === 'custom') {
+          const customOrder = historyCustomOrder || [];
+          const indexA = customOrder.indexOf(a.id);
+          const indexB = customOrder.indexOf(b.id);
+          if (indexA === -1 && indexB === -1) return 0;
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        }
+
+        const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
+        const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+  }, [featuredUserId, historyCustomOrder, historyOrder, members]);
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        {viewingFullHistoryUser && (
+          <UserHistoryModal
+            user={viewingFullHistoryUser}
+            onClose={() => setViewingFullHistoryUser(null)}
+            onTrackClick={(track) => setSelectedTrackHistory(track)}
+            groupStats={groupStats}
+          />
+        )}
+        {selectedTrackHistory && (
+          <TrackHistoryModal
+            track={selectedTrackHistory}
+            onClose={() => setSelectedTrackHistory(null)}
+          />
+        )}
+      </Suspense>
+
+      {groupStats ? (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="px-4 sm:px-6 lg:px-8"
+        >
+          <div className="custom-scrollbar scroll-fade-v">
+            <LiveGroupOverview
+              users={members}
+              lastUpdate={groupStats.lastUpdated}
+            />
+          </div>
+        </motion.div>
+      ) : isLoading ? (
+        <div className="px-4 sm:px-6 lg:px-8">
+          <LiveGroupOverviewSkeleton />
+        </div>
+      ) : null}
+
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="px-4 sm:px-6 lg:px-8 -mt-2"
+      >
+        <SectionHeader title="Timeline da Sessão" />
+      </motion.div>
+
+      <div className="flex flex-col gap-2 custom-scrollbar h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
+        {isLoading ? (
+          [1, 2, 3, 4, 5].map(i => (
+            <motion.div
+              key={`orbit-hist-skeleton-${i}`}
+              initial={{ opacity: 0, y: 15, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col"
+            >
+              <div className="flex items-center justify-between p-3.5 rounded-[28px] glass border-white/10 relative overflow-hidden bg-white/[0.01]">
+                <ShimmerOverlay duration={3} />
+                <div className="flex items-center gap-3.5 min-w-0 z-10 w-full relative">
+                  <div className="relative shrink-0">
+                    <div className="h-12 w-12 rounded-full bg-white/5 border border-white/5 shadow-inner" />
+                  </div>
+                  <div className="flex flex-col gap-2 flex-1">
+                    <div className="h-3 w-32 bg-white/10 rounded-full" />
+                    <div className="h-2 w-20 bg-white/5 rounded-full" />
+                  </div>
+                </div>
+                <div className="h-3 w-8 bg-white/10 rounded-full shrink-0 mr-1 relative z-10" />
+              </div>
+            </motion.div>
+          ))
+        ) : (
+          <AnimatePresence mode="popLayout" initial={false}>
+            {recentTracks.slice(0, visibleHistory).map((user, idx) => (
+              <motion.div
+                layout
+                key={user.id || `orbit-hist-${idx}`}
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{
+                  opacity: { duration: 0.2 },
+                  layout: { type: "spring", stiffness: 350, damping: 35 }
+                }}
+              >
+                <FriendHistoryCard
+                  user={user}
+                  index={idx}
+                  onTrackClick={setSelectedTrackHistory}
+                  onFullHistoryClick={(userStats) => setViewingFullHistoryUser(userStats)}
+                  showFullHistoryButton={timelineExpanded}
+                  showInlineHistory
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
+
+        {!isLoading && recentTracks.length > visibleHistory && (
+          <button
+            type="button"
+            onClick={() => {
+              setTimelineExpanded(true);
+              setVisibleHistory(recentTracks.length);
+            }}
+            className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
+          >
+            <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
+            <span>Expandir todos</span>
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
 export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenProps) {
   const [activeTab, setActiveTab] = useState<CircleTab>(initialTab);
 
   return (
     <div className="flex flex-col gap-5">
+      <OrbitOverviewSection />
+
       <div className="px-4">
         <div className="flex gap-2 rounded-3xl bg-white/[0.03] p-1">
           {tabs.map((tab) => {

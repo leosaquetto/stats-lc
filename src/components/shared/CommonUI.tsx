@@ -288,7 +288,7 @@ export const AnimatedNumber = ({ value }: { value: number }) => {
     };
   }, [value]);
 
-  return <span>{displayValue}</span>;
+  return <span>{coreUtils.formatNumber(displayValue)}</span>;
 };
 
 export const MusicPlatformBadge = memo(({ userId, platform, track, className, showLabel = false, variant = "default" }: { userId?: string, platform?: any, track?: any, className?: string, showLabel?: boolean, variant?: "default" | "minimal" }) => {

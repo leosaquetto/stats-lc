@@ -62,8 +62,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
     });
   }, [members]);
 
-  // Take top 5 friends
-  const topFriends = useMemo(() => sortedFriends.slice(0, 5), [sortedFriends]);
+  const topFriends = useMemo(() => sortedFriends.slice(0, 3), [sortedFriends]);
 
   if (topFriends.length === 0) return null;
 

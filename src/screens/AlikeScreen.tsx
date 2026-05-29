@@ -371,7 +371,7 @@ const CompareBar = ({ label, userVal, friendVal, isTime = false }: { label: stri
   const uPct = (userVal / max) * 100;
   const fPct = (friendVal / max) * 100;
 
-  const displayVal = (v: number) => isTime ? `${v}h` : v;
+  const displayVal = (v: number) => isTime ? `${coreUtils.formatNumber(v)}h` : coreUtils.formatNumber(v);
 
   return (
     <div className="flex flex-col gap-2">

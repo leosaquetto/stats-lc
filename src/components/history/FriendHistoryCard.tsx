@@ -403,7 +403,7 @@ export const FriendHistoryCard = memo(({
                       />
                       {(item.playCount > 1) && !item.isLive && (
                         <div className="absolute -top-1.5 -left-1.5 min-w-[16px] h-4 px-1 rounded-full bg-orange-600 border border-[#111] flex items-center justify-center shadow-lg z-20">
-                          <span className="text-[8px] font-black text-white leading-none">{item.playCount > 99 ? '99+' : item.playCount}</span>
+                          <span className="text-[8px] font-black text-white leading-none">{fmt(item.playCount)}</span>
                         </div>
                       )}
                     </div>

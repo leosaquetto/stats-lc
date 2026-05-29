@@ -137,7 +137,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const navItems = [
     { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
     { label: 'Stats', icon: AudioLines, path: '/highlights', activePaths: ['/highlights'] },
-    { label: 'Orbit', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
+    { label: 'Órbita', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
     { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
   ];
 

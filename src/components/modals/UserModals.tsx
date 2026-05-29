@@ -291,7 +291,7 @@ export const UserDetailModal = ({
                 <div className="glass-card p-5 flex items-center justify-between border-orange-500/10 bg-orange-500/5">
                    <div className="flex items-center gap-4">
                       <div className="h-14 w-14 glass rounded-2xl flex items-center justify-center italic font-black text-orange-400 text-lg shadow-inner">
-                         {loading ? "?" : stats.today?.count || 0}
+                         {loading ? "?" : coreUtils.formatNumber(stats.today?.count || 0)}
                       </div>
                       <div>
                          <h4 className="text-[14px] font-black text-white/80 uppercase tracking-tight">Streams Hoje</h4>

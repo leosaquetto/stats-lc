@@ -7,6 +7,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Share2, Star } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
+import { coreUtils } from '../../services/statsCore';
 
 interface Artist {
   id: string;
@@ -133,7 +134,7 @@ export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClos
             <div className="min-w-0">
               <p className="truncate text-[18px] font-medium leading-tight text-white">{artist.name}</p>
               <p className="truncate text-[16px] leading-tight text-white/48">
-                {artist.streams.toLocaleString('pt-BR')} minutos
+                {coreUtils.formatNumber(artist.streams)} minutos
               </p>
             </div>
             <ChevronRight className="h-6 w-6 text-white/45" />
@@ -166,7 +167,7 @@ export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, t
             <div className="min-w-0">
               <p className="truncate text-[17px] font-medium leading-tight text-white">{track.name}</p>
               <p className="truncate text-[15px] leading-tight text-white/48">
-                {track.artist} · {track.streams.toLocaleString('pt-BR')} reproduções
+                {track.artist} · {coreUtils.formatNumber(track.streams)} reproduções
               </p>
             </div>
             <MoreHorizontal className="h-6 w-6 text-white/85" />
@@ -196,7 +197,7 @@ export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose,
               <p className="mt-1 truncate text-[16px] font-black leading-tight text-white">{album.name}</p>
               <p className="truncate text-[15px] leading-tight text-white/48">{album.artist}</p>
               <p className="text-[15px] leading-tight text-white/48">
-                {album.streams.toLocaleString('pt-BR')} minutos
+                {coreUtils.formatNumber(album.streams)} minutos
               </p>
             </div>
           </div>

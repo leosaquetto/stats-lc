@@ -80,7 +80,12 @@ const ActivityAreaChart = lazy(async () => {
           </defs>
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
           <XAxis dataKey="displayLabel" axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} minTickGap={20} />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
+            tickFormatter={(value) => chartMetric === 'hours' ? String(value) : coreUtils.formatNumber(Number(value))}
+          />
           <Tooltip
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
@@ -93,7 +98,7 @@ const ActivityAreaChart = lazy(async () => {
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
                       <span className="text-sm font-black text-white">
-                        {isHours ? `${Number(val).toFixed(2)}` : val}{' '}
+                        {isHours ? `${Number(val).toFixed(2)}` : coreUtils.formatNumber(Number(val))}{' '}
                         <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
                           {isHours ? 'HORAS' : 'STREAMS'}
                         </span>
@@ -203,7 +208,7 @@ const VirtualRow = ({ index, style, data }: VirtualRowProps) => {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex flex-col items-end gap-0.5">
-             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{item.playcount || item.streams || 0}</span>
+             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{coreUtils.formatNumber(item.playcount || item.streams || 0)}</span>
              <span className="text-[7px] font-black text-white/20 uppercase tracking-widest leading-none">STREAMS</span>
           </div>
           <ShareButton 
@@ -307,7 +312,7 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <div className="flex flex-col items-end gap-0.5">
-             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{item.playcount || item.streams || 0}</span>
+             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{coreUtils.formatNumber(item.playcount || item.streams || 0)}</span>
              <span className="text-[7px] font-black text-white/20 uppercase tracking-widest leading-none">STREAMS</span>
           </div>
           <ShareButton 
@@ -1329,7 +1334,7 @@ export default function StatsScreen() {
         title: "Em Alta",
         description: `Sua música líder absoluta ${periodName}: "${topTrack.name || (topTrack as any).track?.name}" por ${topTrack.artist?.name || 'Vários Artistas'}.`,
         icon: PlayCircle,
-        value: `${streamsCount} stream${streamsCount !== 1 ? 's' : ''}`
+        value: `${coreUtils.formatNumber(streamsCount)} stream${streamsCount !== 1 ? 's' : ''}`
       });
     }
 
@@ -1341,7 +1346,7 @@ export default function StatsScreen() {
         title: "Artista Favorito",
         description: `Seu canal mais sintonizado ${periodName} é "${topArtist.name}".`,
         icon: UserCircle,
-        value: `${streamsCount} tocadas`
+        value: `${coreUtils.formatNumber(streamsCount)} tocadas`
       });
     }
 
@@ -1821,7 +1826,7 @@ export default function StatsScreen() {
                       </span>
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] font-black text-orange-500 uppercase tracking-tight">
-                          {activePeriodArtists[0]?.playcount || activePeriodArtists[0]?.streams || activePeriodArtists[0]?.count || 0} streams
+                          {coreUtils.formatNumber(activePeriodArtists[0]?.playcount || activePeriodArtists[0]?.streams || activePeriodArtists[0]?.count || 0)} streams
                         </span>
                       </div>
                     </div>
@@ -1862,7 +1867,7 @@ export default function StatsScreen() {
                           {activePeriodTracks[0]?.name || activePeriodTracks[0]?.track?.name || '---'}
                         </span>
                         <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
-                          {activePeriodTracks[0]?.playcount || activePeriodTracks[0]?.streams || activePeriodTracks[0]?.count || 0}
+                          {coreUtils.formatNumber(activePeriodTracks[0]?.playcount || activePeriodTracks[0]?.streams || activePeriodTracks[0]?.count || 0)}
                         </span>
                       </div>
                     </motion.div>
@@ -1900,7 +1905,7 @@ export default function StatsScreen() {
                           {activePeriodAlbums[0]?.name || '---'}
                         </span>
                         <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
-                          {activePeriodAlbums[0]?.playcount || activePeriodAlbums[0]?.streams || activePeriodAlbums[0]?.count || 0}
+                          {coreUtils.formatNumber(activePeriodAlbums[0]?.playcount || activePeriodAlbums[0]?.streams || activePeriodAlbums[0]?.count || 0)}
                         </span>
                       </div>
                     </motion.div>

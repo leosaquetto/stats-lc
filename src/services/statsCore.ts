@@ -40,7 +40,7 @@ export const coreUtils = {
   formatPlayCount(count: number): string {
     if (count === 0) return "0 reproduções";
     if (count === 1) return "1 reprodução";
-    return `${count} reproduções`;
+    return `${this.formatNumber(count)} reproduções`;
   },
   /**
    * Retorna a URL do avatar do usuário diretamente da API.
@@ -74,7 +74,7 @@ export const coreUtils = {
   },
 
   formatNumber(num: number): string {
-    return (num || 0).toLocaleString('pt-BR');
+    return Math.round(Number(num) || 0).toLocaleString('pt-BR');
   },
 
   formatDuration(ms: number): string {

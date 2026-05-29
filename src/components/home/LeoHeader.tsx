@@ -26,6 +26,41 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const ScrollingTrackTitle = React.memo(({
+  title,
+  onClick
+}: {
+  title: string;
+  onClick?: () => void;
+}) => {
+  const shouldReduceMotion = useReducedMotion();
+  const shouldScroll = title.length > 22 && !shouldReduceMotion;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="block max-w-[50vw] sm:max-w-[260px] overflow-hidden text-left pointer-events-auto cursor-pointer hover:underline [mask-image:linear-gradient(90deg,transparent,black_7%,black_93%,transparent)]"
+      title={title}
+    >
+      {shouldScroll ? (
+        <motion.span
+          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.04] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]"
+          animate={{ x: ['0%', '-50%'] }}
+          transition={{ duration: Math.min(18, Math.max(8, title.length * 0.34)), repeat: Infinity, ease: 'linear' }}
+        >
+          <span className="pr-8">{title}</span>
+          <span className="pr-8" aria-hidden="true">{title}</span>
+        </motion.span>
+      ) : (
+        <span className="block truncate whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.04] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
+          {title}
+        </span>
+      )}
+    </button>
+  );
+});
+
 interface LiveTrackProgressProps {
   progressMs?: number;
   progressPercent?: number;
@@ -956,14 +991,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     {/* Conteúdo Esquerdo: textos e ranking compactos, com o vinil vazando por trás */}
                     <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-40">
                       <div className="flex flex-col gap-1.5">
-                        <div
+                        <ScrollingTrackTitle
+                          title={track.name}
                           onClick={() => onTrackClick?.({ ...track, type: 'track' })}
-                          className="cursor-pointer hover:underline text-left pointer-events-auto"
-                        >
-                          <div className="w-[82vw] max-w-[380px] overflow-hidden truncate whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.04] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
-                            {track.name}
-                          </div>
-                        </div>
+                        />
                         <div className="text-[22px] sm:text-[28px] font-medium text-white/80 line-clamp-1 flex items-center flex-wrap gap-x-1 pointer-events-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] w-[62vw] max-w-[300px] leading-[1.04]">
                           <span
                             onClick={(e) => {
@@ -1214,7 +1245,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                             rounded={item.rounded}
                                           />
                                           <span className="absolute -bottom-1 -right-1 flex h-5 min-w-[22px] items-center justify-center rounded-full bg-orange-500 px-1 text-[8px] font-black text-white shadow-[0_0_18px_rgba(249,115,22,0.48)]">
-                                            {listenStatsLoading ? '...' : item.count}
+                                            {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                           </span>
                                         </div>
                                         <span className="mt-2 line-clamp-2 min-w-0 text-[9px] font-bold leading-[1.1] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">

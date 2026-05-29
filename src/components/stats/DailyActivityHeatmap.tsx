@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Clock } from 'lucide-react';
 import { clsx } from 'clsx';
+import { coreUtils } from '../../services/statsCore';
 
 interface HourlyData {
   hour: number;
@@ -68,7 +69,7 @@ export const DailyActivityHeatmap: React.FC<DailyActivityHeatmapProps> = ({
                 }}
               >
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
-                  <span className="text-[8px] font-bold text-white">{item.streams}</span>
+                  <span className="text-[8px] font-bold text-white">{coreUtils.formatNumber(item.streams)}</span>
                 </div>
                 {/* Visual indicator for peak hours */}
                 {intensity > 0.8 && maxStreams > 5 && (
@@ -114,7 +115,7 @@ export const DailyActivityHeatmap: React.FC<DailyActivityHeatmapProps> = ({
                   )}>
                     {range.label}
                   </span>
-                  <span className="text-[12px] font-black text-white">{totalStreams} <span className="text-[8px] text-white/40">PLAYS</span></span>
+                  <span className="text-[12px] font-black text-white">{coreUtils.formatNumber(totalStreams)} <span className="text-[8px] text-white/40">PLAYS</span></span>
                   <span className="text-[7px] font-medium text-white/20 uppercase mt-0.5 tracking-tight">{range.description}</span>
                 </div>
               </div>

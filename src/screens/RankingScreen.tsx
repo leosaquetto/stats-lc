@@ -186,12 +186,6 @@ export default function RankingScreen() {
     loadRankings();
   }, [activeRange, refreshNonce]);
 
-  useEffect(() => {
-    if (featuredUser?.id && featuredUserId !== featuredUser.id) {
-      setFeaturedUserId(featuredUser.id);
-    }
-  }, [featuredUser?.id, featuredUserId, setFeaturedUserId]);
-
   // Trigger flip animation when sorting type changes
   useEffect(() => {
     setSortVersion(v => v + 1);
@@ -517,7 +511,7 @@ export default function RankingScreen() {
                 )}
               </h3>
               <p className="text-xs text-white/60 font-medium">
-                Diferença de <span className="text-white font-extrabold">{diffStreams} streams</span> e <span className="text-white font-extrabold">{coreUtils.formatDuration(diffDurationMs)}</span> de audição.
+                Diferença de <span className="text-white font-extrabold">{coreUtils.formatNumber(diffStreams)} streams</span> e <span className="text-white font-extrabold">{coreUtils.formatDuration(diffDurationMs)}</span> de audição.
               </p>
             </div>
           </div>

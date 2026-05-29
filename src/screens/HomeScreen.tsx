@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,27 +12,23 @@ import { FriendActivityReel } from '../components/home/FriendActivityReel';
 import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
-import { VinylRecord } from '../components/home/VinylRecord';
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
 import { coreUtils } from '../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../services/statsService';
+import { statsCacheService } from '../services/statsCacheService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
-import { getDominantColor } from '../lib/colorUtils';
 
 import { LeoHeader } from '../components/home/LeoHeader';
-import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
-import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
+import { ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
+import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 
 const ReplaySection = React.lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
-const CircleActivityModal = React.lazy(() => import('../components/modals/CircleActivityModal').then(module => ({ default: module.CircleActivityModal })));
 const UserHistoryModal = React.lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
 const TrackLeaderboardModal = React.lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
-const TrackHistoryModal = React.lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
 const AlbumDetailModal = React.lazy(() => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal })));
 const UserAlbumHistoryModal = React.lazy(() => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal })));
 
@@ -39,83 +36,67 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+type MiniHeaderBubble = {
+  key: 'artist' | 'track' | 'album';
+  label: string;
+  title: string;
+  count: number;
+  image?: string;
+  rounded?: 'full' | 'lg' | 'xl';
+};
+
 const FloatingMiniHeader = React.memo(({
   visible,
-  primaryUser,
-  miniHeaderAlbumImage,
-  miniHeaderDominantColor,
-  miniHeaderIsPlaying,
-  hasMiniHeaderAlbumImage,
-  liveRefreshActive,
-  onRefresh,
-  onOpenUserSelector
+  items
 }: {
   visible: boolean;
-  primaryUser: any;
-  miniHeaderAlbumImage: string;
-  miniHeaderDominantColor: string;
-  miniHeaderIsPlaying: boolean;
-  hasMiniHeaderAlbumImage: boolean;
-  liveRefreshActive: boolean;
-  onRefresh: () => void;
-  onOpenUserSelector: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  items: MiniHeaderBubble[];
 }) => {
+  if (items.length === 0) return null;
+
   return (
     <header
       style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
       className={cn(
-        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-end px-4 sm:px-6 lg:px-8 py-3.5 transition-[transform,opacity] duration-300 ease-out",
+        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-center px-3 sm:px-6 lg:px-8 py-3.5 transition-[transform,opacity] duration-300 ease-out",
         visible
           ? "translate-y-0 opacity-100 pointer-events-auto"
           : "-translate-y-4 opacity-0 pointer-events-none"
       )}
     >
-      <div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/55 px-2 py-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/35">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRefresh();
-          }}
-          disabled={liveRefreshActive}
-          title="Atualizar tocando agora"
-          aria-label="Atualizar tocando agora"
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] active:scale-95 transition-all group shrink-0 disabled:opacity-50 disabled:cursor-wait"
-        >
-          <RefreshCcw
+      <div className="flex w-full max-w-[480px] items-center justify-center gap-2 overflow-x-auto no-scrollbar">
+        {items.map((item) => (
+          <motion.div
+            key={item.key}
+            layout
             className={cn(
-              "h-4 w-4 text-white/45 group-hover:text-white transition-colors",
-              liveRefreshActive && "animate-spin text-orange-500"
+              "flex min-w-0 items-center gap-2 rounded-full border border-white/12 bg-black/42 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/28",
+              item.key === 'track' ? "max-w-[190px] flex-[1_1_165px]" : "shrink-0"
             )}
-          />
-        </button>
+          >
+            {item.image ? (
+              <SmartImage
+                src={item.image}
+                className="h-8 w-8 shrink-0 object-cover"
+                fallback={item.title}
+                rounded={item.rounded || 'full'}
+              />
+            ) : (
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-500/20 bg-orange-500/12 text-[9px] font-black text-orange-300">
+                ♫
+              </div>
+            )}
 
-        <button
-          onClick={onOpenUserSelector}
-          title="Selecionar Usuário"
-          aria-label="Selecionar Usuário"
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] cursor-pointer active:scale-95 transition-all p-[1px] shrink-0 overflow-hidden"
-        >
-          <SmartImage
-            src={primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : ""}
-            className="h-full w-full object-cover"
-            fallback=""
-            rounded="full"
-          />
-        </button>
-
-        {hasMiniHeaderAlbumImage && (
-          <div className="h-12 w-12 -ml-1 shrink-0">
-            <VinylRecord
-              albumImage={miniHeaderAlbumImage}
-              dominantColor={miniHeaderDominantColor || ""}
-              isPlaying={miniHeaderIsPlaying}
-              progressMs={0}
-              durationMs={undefined}
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              hideTonearm={true}
-            />
-          </div>
-        )}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-[9px] font-black leading-none text-white/90">
+                {item.title}
+              </span>
+              <span className="text-[7px] font-black uppercase tracking-[0.14em] text-orange-300/85 leading-none">
+                {coreUtils.formatNumber(item.count)} plays
+              </span>
+            </div>
+          </motion.div>
+        ))}
       </div>
     </header>
   );
@@ -309,22 +290,15 @@ export default function HomeScreen() {
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
-  const historyOrder = useStatsStore(state => state.historyOrder);
-  const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
+  const navigate = useNavigate();
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
-  const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
   const [viewingAlbumHistoryUser, setViewingAlbumHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [avatarClickPosition, setAvatarClickPosition] = useState<{ x: number; y: number } | null>(null);
   const [selectorMode, setSelectorMode] = useState<'header' | 'mini-header'>('header');
-  const [showCircleActivity, setShowCircleActivity] = useState(false);
-  const [visibleHistory, setVisibleHistory] = useState(5);
-  const [timelineExpanded, setTimelineExpanded] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
   const [toasts, setToasts] = useState<any[]>([]);
   const [processedItems, setProcessedItems] = useState(0);
   const [refreshStepText, setRefreshStepText] = useState('Status: Ciclo Sincronizado');
@@ -336,7 +310,7 @@ export default function HomeScreen() {
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
-  const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
+  const [miniHeaderStats, setMiniHeaderStats] = useState({ artist: 0, track: 0, album: 0 });
   const isHeaderScrolledRef = useRef(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
@@ -353,7 +327,6 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
-  const liveRefreshActive = isManualLiveRefresh;
   const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
@@ -371,8 +344,24 @@ export default function HomeScreen() {
   }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id || '';
 
-  // Mini header vinyl states
+  // Mini header summary states
   const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
+  const miniHeaderMainArtist = useMemo(() => getMainArtist(miniHeaderTrack), [miniHeaderTrack]);
+  const miniHeaderArtistName = getMainArtistName(miniHeaderTrack) || 'Artista';
+  const miniHeaderArtistId =
+    miniHeaderMainArtist?.id ||
+    miniHeaderTrack?.primaryArtistId ||
+    miniHeaderTrack?.artistId ||
+    miniHeaderTrack?.albumArtistId ||
+    '';
+  const miniHeaderArtistImage =
+    miniHeaderMainArtist?.image ||
+    miniHeaderMainArtist?.avatar ||
+    miniHeaderTrack?.artistImage ||
+    miniHeaderTrack?.primaryArtistImage ||
+    miniHeaderTrack?.artists?.[0]?.image ||
+    '';
+  const miniHeaderAlbumId = miniHeaderTrack?.albumId || miniHeaderTrack?.album?.id || '';
   const miniHeaderAlbumImage = (
     miniHeaderTrack?.image ||
     miniHeaderTrack?.albumImage ||
@@ -388,10 +377,35 @@ export default function HomeScreen() {
     miniHeaderTrack?.cover ||
     ''
   );
-  const hasMiniHeaderAlbumImage = typeof miniHeaderAlbumImage === 'string' && miniHeaderAlbumImage.trim().length > 5;
-  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
-  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
-  const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
+  const miniHeaderBubbles = useMemo<MiniHeaderBubble[]>(() => {
+    if (!miniHeaderTrack?.id) return [];
+    return [
+      {
+        key: 'artist',
+        label: 'Artista',
+        title: miniHeaderArtistName,
+        count: miniHeaderStats.artist,
+        image: miniHeaderArtistImage || miniHeaderAlbumImage,
+        rounded: 'full'
+      },
+      {
+        key: 'track',
+        label: 'Música',
+        title: miniHeaderTrack?.name || 'Música',
+        count: miniHeaderStats.track,
+        image: '',
+        rounded: 'full'
+      },
+      {
+        key: 'album',
+        label: 'Álbum',
+        title: miniHeaderTrack?.albumName || miniHeaderTrack?.album?.name || 'Álbum',
+        count: miniHeaderStats.album,
+        image: miniHeaderAlbumImage,
+        rounded: 'lg'
+      }
+    ];
+  }, [miniHeaderAlbumImage, miniHeaderArtistImage, miniHeaderArtistName, miniHeaderStats, miniHeaderTrack]);
   const primaryPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const primaryTrack = primaryUser?.nowPlaying?.track;
   const primaryIsPlaying = primaryPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
@@ -478,25 +492,34 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    // Não recalcula cor dominante durante scroll
-    if (!miniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor || isHeaderScrolled) {
-      if (!isHeaderScrolled) setMiniHeaderResolvedColor('');
+    if (!primaryUser?.id || !miniHeaderTrack?.id) {
+      setMiniHeaderStats({ artist: 0, track: 0, album: 0 });
       return;
     }
 
-    getDominantColor(miniHeaderAlbumImage)
-      .then((color) => {
-        if (!cancelled) setMiniHeaderResolvedColor(color || '');
-      })
-      .catch(() => {
-        if (!cancelled) setMiniHeaderResolvedColor('');
-      });
+    let cancelled = false;
+    Promise.all([
+      miniHeaderArtistId
+        ? statsCacheService.fetchEntityStats(primaryUser.id, 'artist', miniHeaderArtistId).catch(() => 0)
+        : Promise.resolve(0),
+      statsCacheService.fetchEntityStats(primaryUser.id, 'track', miniHeaderTrack.id).catch(() => 0),
+      miniHeaderAlbumId
+        ? statsCacheService.fetchEntityStats(primaryUser.id, 'album', miniHeaderAlbumId).catch(() => 0)
+        : Promise.resolve(0),
+    ]).then(([artist, track, album]) => {
+      if (!cancelled) {
+        setMiniHeaderStats({
+          artist: artist || 0,
+          track: track || 0,
+          album: album || 0,
+        });
+      }
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor, isHeaderScrolled]);
+  }, [miniHeaderAlbumId, miniHeaderArtistId, miniHeaderTrack?.id, primaryUser?.id]);
 
   const handleRefresh = useCallback(async () => {
     // Rate limiting: prevent spam refresh
@@ -518,17 +541,6 @@ export default function HomeScreen() {
       setIsManualLiveRefresh(false);
     }
   }, [fetchGroupLive, showToast, lastRefreshTime, REFRESH_COOLDOWN_MS]);
-
-  const handleMiniHeaderUserSelectorOpen = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    setAvatarClickPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
-    });
-    setSelectorMode('mini-header');
-    setShowUserSelector(true);
-  }, []);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -814,33 +826,6 @@ export default function HomeScreen() {
     return [...friendsSelection].sort((a, b) => a.name.localeCompare(b.name));
   }, [friendsSelection]);
 
-  const recentTracks = useMemo(() => {
-    if (!Array.isArray(members)) return [];
-    return members
-      .filter(u => u && u.id)
-      .sort((a, b) => {
-        if (a.id === FEATURED_ID) return -1;
-        if (b.id === FEATURED_ID) return 1;
-        
-        const order = historyOrder || 'lastPlayed';
-        if (order === 'alphabetical') {
-          return (a.name || '').localeCompare(b.name || '');
-        } else if (order === 'custom') {
-          const arr = historyCustomOrder || [];
-          const indexA = arr.indexOf(a.id);
-          const indexB = arr.indexOf(b.id);
-          if (indexA === -1 && indexB === -1) return 0;
-          if (indexA === -1) return 1;
-          if (indexB === -1) return -1;
-          return indexA - indexB;
-        } else {
-          const timeA = new Date(a.nowPlaying?.timestamp || 0).getTime();
-          const timeB = new Date(b.nowPlaying?.timestamp || 0).getTime();
-          return timeB - timeA;
-        }
-      });
-  }, [members, FEATURED_ID, historyOrder, historyCustomOrder]);
-
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
@@ -902,7 +887,7 @@ export default function HomeScreen() {
   const handleShareReplay = useCallback(async () => {
     if (!primaryUser) return;
     const topArtist = replayArtists[0]?.name ? ` Artista #1: ${replayArtists[0].name}.` : '';
-    const text = `${primaryUser.name} ouviu ${Math.round(replayTotalMinutesCount).toLocaleString('pt-BR')} minutos de musica ${replayModalPeriod}.${topArtist}`;
+    const text = `${primaryUser.name} ouviu ${coreUtils.formatNumber(replayTotalMinutesCount)} minutos de musica ${replayModalPeriod}.${topArtist}`;
 
     try {
       if (navigator.share) {
@@ -962,16 +947,6 @@ export default function HomeScreen() {
 
           <AnimatePresence>
             <React.Suspense fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
-              <CircleActivityModal
-                isOpen={showCircleActivity}
-                onClose={() => setShowCircleActivity(false)}
-                onTrackClick={(track) => setSelectedTrack(track)}
-                onFriendClick={(friend) => {
-                  setShowCircleActivity(false);
-                  setViewingFullHistoryUser(friend);
-                }}
-              />
-
               {viewingFullHistoryUser && (
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
@@ -984,12 +959,6 @@ export default function HomeScreen() {
                 <TrackLeaderboardModal 
                   track={selectedTrack} 
                   onClose={() => setSelectedTrack(null)} 
-                />
-              )}
-              {selectedTrackHistory && (
-                <TrackHistoryModal 
-                  track={selectedTrackHistory}
-                  onClose={() => setSelectedTrackHistory(null)}
                 />
               )}
               {selectedAlbum && (
@@ -1065,14 +1034,7 @@ export default function HomeScreen() {
           {/* Top Bar Navigation - Floating */}
           <FloatingMiniHeader
             visible={isHeaderScrolled}
-            primaryUser={primaryUser}
-            miniHeaderAlbumImage={miniHeaderAlbumImage}
-            miniHeaderDominantColor={miniHeaderDominantColor}
-            miniHeaderIsPlaying={miniHeaderIsPlaying}
-            hasMiniHeaderAlbumImage={hasMiniHeaderAlbumImage}
-            liveRefreshActive={liveRefreshActive}
-            onRefresh={handleRefresh}
-            onOpenUserSelector={handleMiniHeaderUserSelectorOpen}
+            items={miniHeaderBubbles}
           />
         </>,
         document.body
@@ -1431,7 +1393,7 @@ export default function HomeScreen() {
                   excludeUserId={primaryUser.id}
                   onTrackClick={(track) => setSelectedTrack(track)}
                   onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
-                  onViewAll={() => setShowCircleActivity(true)}
+                  onViewAll={() => navigate('/circle')}
                 />
               </div>
             </motion.div>
@@ -1574,108 +1536,6 @@ export default function HomeScreen() {
       >
         <StatsAlike />
       </motion.div>
-      )}
-
-      {isAppReady && groupStats && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="px-4 sm:px-6 lg:px-8"
-        >
-        <div className="custom-scrollbar scroll-fade-v">
-          <LiveGroupOverview 
-            users={members} 
-            lastUpdate={groupStats.lastUpdated}
-          />
-        </div>
-        </motion.div>
-      )}
-
-      {!groupStats && isLoading && (
-        <div className="px-4 sm:px-6 lg:px-8">
-          <LiveGroupOverviewSkeleton />
-        </div>
-      )}
-
-      {isAppReady && (
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8 -mt-2"
-      >
-        <SectionHeader title="Timeline da Sessão" />
-      </motion.div>
-      )}
-      {isAppReady && (
-      <div className="flex flex-col gap-2 custom-scrollbar h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
-          {isLoading ? (
-            [1, 2, 3, 4, 5].map(i => (
-              <motion.div 
-                key={`hist-skeleton-${i}`} 
-                initial={{ opacity: 0, y: 15, filter: "blur(4px)" }}
-                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="flex flex-col"
-              >
-                <div className="flex items-center justify-between p-3.5 rounded-[28px] glass border-white/10 relative overflow-hidden bg-white/[0.01]">
-                  <ShimmerOverlay duration={3} />
-                  <div className="flex items-center gap-3.5 min-w-0 z-10 w-full relative">
-                    <div className="relative shrink-0">
-                      <div className="h-12 w-12 rounded-full bg-white/5 border border-white/5 shadow-inner" />
-                    </div>
-                    <div className="flex flex-col gap-2 flex-1">
-                      <div className="h-3 w-32 bg-white/10 rounded-full" />
-                      <div className="h-2 w-20 bg-white/5 rounded-full" />
-                    </div>
-                  </div>
-                  <div className="h-3 w-8 bg-white/10 rounded-full shrink-0 mr-1 relative z-10" />
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            <AnimatePresence mode="popLayout" initial={false}>
-              {recentTracks.slice(0, visibleHistory).map((user, idx) => (
-                <motion.div
-                  layout
-                  key={user.id || `hist-${idx}`}
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ 
-                    opacity: { duration: 0.2 },
-                    layout: { type: "spring", stiffness: 350, damping: 35 }
-                  }}
-                >
-                  <FriendHistoryCard
-                    user={user}
-                    index={idx}
-                    onTrackClick={setSelectedTrackHistory}
-                    onFullHistoryClick={(u) => setViewingFullHistoryUser(u)}
-                    showFullHistoryButton={timelineExpanded}
-                    showInlineHistory
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
-          
-          {!isLoading && recentTracks.length > visibleHistory && (
-            <button
-              onClick={() => {
-                setTimelineExpanded(true);
-                setVisibleHistory(recentTracks.length);
-              }}
-              className="w-full mt-2 mb-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
-            >
-              <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
-              <span>Expandir todos</span>
-            </button>
-          )}
-      </div>
       )}
 
       {/* Toast Notification Container */}

@@ -454,7 +454,7 @@ export const StatsAlike = React.memo(() => {
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-1.5 glass px-2 py-0.5 rounded-full border border-white/5 opacity-50 group-hover:opacity-100 transition-opacity">
                <Sparkles className="h-2.5 w-2.5 text-orange-500" />
-               <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60">Orbit Mode</span>
+               <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60">Modo Órbita</span>
              </div>
              <div className="flex items-center gap-1">
                <button onClick={handlePrev} className="p-1 hover:bg-white/10 rounded-full transition-colors">
@@ -640,7 +640,7 @@ const AlikeOrbitalItem = ({
               fallback=""
             />
             <div className="absolute -bottom-1 -right-1 bg-orange-500 rounded-full px-1.5 h-4 flex items-center justify-center border border-white/20 shadow-lg z-20">
-               <span className="text-[7px] font-black text-white">{userPlaycount}</span>
+               <span className="text-[7px] font-black text-white">{coreUtils.formatNumber(userPlaycount)}</span>
             </div>
             <div className="absolute -top-1.5 -left-1.5 bg-black/60 rounded-full w-5 h-5 flex items-center justify-center border border-white/10 shadow-lg z-20">
                <span className="text-[8px] font-black text-white/90">#{userPosition}</span>
@@ -687,7 +687,7 @@ const AlikeOrbitalItem = ({
               fallback=""
             />
             <div className="absolute -bottom-1 -left-1 bg-blue-500 rounded-full px-1.5 h-4 flex items-center justify-center border border-white/20 shadow-lg z-20">
-               <span className="text-[7px] font-black text-white">{friendPlaycount}</span>
+               <span className="text-[7px] font-black text-white">{coreUtils.formatNumber(friendPlaycount)}</span>
             </div>
             <div className="absolute -top-1.5 -right-1.5 bg-black/60 rounded-full w-5 h-5 flex items-center justify-center border border-white/10 shadow-lg z-20">
                <span className="text-[8px] font-black text-white/90">#{friendPosition}</span>

@@ -198,7 +198,7 @@ export const AlbumDetailModal = memo(({
 
                 <div className="flex items-center gap-2 shrink-0">
                   <span className="text-[9px] font-bold text-white/60">
-                    {track.playCount}x
+                    {coreUtils.formatNumber(track.playCount)}x
                   </span>
                   
                   {showArenaView && arenaStats[track.id] && (
@@ -214,7 +214,7 @@ export const AlbumDetailModal = memo(({
                 <div className="mt-1 border-t border-white/5 pt-2 pl-9 flex flex-col gap-1.5 text-left">
                   <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-[#FF9F0A]/90">
                     <span>🏆 TOP GLOBAL DE STREAMS:</span>
-                    <span className="text-white/40">{globalStats[track.id].totalPlays} streams globais • {globalStats[track.id].listenersCount} ouvintes</span>
+                    <span className="text-white/40">{coreUtils.formatNumber(globalStats[track.id].totalPlays)} streams globais • {coreUtils.formatNumber(globalStats[track.id].listenersCount)} ouvintes</span>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {globalStats[track.id].topListeners.map((listener: any, lIdx: number) => (
@@ -227,7 +227,7 @@ export const AlbumDetailModal = memo(({
                           alt="" 
                         />
                         <span className="text-[9px] font-bold text-white/85 truncate max-w-[70px]">{listener.name}</span>
-                        <span className="text-[9px] font-mono font-black text-orange-500">{listener.count}x</span>
+                        <span className="text-[9px] font-mono font-black text-orange-500">{coreUtils.formatNumber(listener.count)}x</span>
                       </div>
                     ))}
                     {globalStats[track.id].topListeners.length === 0 && (

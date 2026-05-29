@@ -122,7 +122,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 }}
                 className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)]"
               />
-              <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/40">Orbit Group</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/40">Órbita Group</span>
             </div>
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
               <span className="text-[7px] font-black uppercase tracking-widest text-white/30">Hoje</span>
@@ -243,7 +243,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                         )}
                       >
                         <span className="text-[8px] font-black text-white leading-none">
-                          {streamsToday}
+                          {coreUtils.formatNumber(streamsToday)}
                         </span>
                       </div>
                     </div>
@@ -402,7 +402,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
                  <div className="mt-4 pt-4 border-t border-white/5 w-full flex flex-col gap-1 items-center">
                     <span className="text-[7px] font-black text-white/10 uppercase tracking-widest">Hoje</span>
                     <span className={cn("text-[10px] font-black", isFeatured ? "text-orange-500/80" : "text-white/40")}>
-                      +{user.streamsToday}
+                      +{coreUtils.formatNumber(user.streamsToday)}
                     </span>
                  </div>
               </div>
@@ -669,7 +669,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
                     <SmartImage src={artist.image || artist.artist?.image} className="h-full w-full border border-white/10" rounded="full" fallback="" />
                     <div className="absolute -bottom-1 left-1 h-3.5 w-3.5 rounded-full bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 flex items-center justify-center text-[7px] font-black text-white z-20 shadow-lg">{idx + 1}</div>
                     <div className="absolute -top-1 -right-1 min-w-[16px] h-3.5 px-1 rounded-full bg-orange-600 border border-[#0a0a0a] flex items-center justify-center shadow-lg z-20">
-                      <span className="text-[7px] font-black text-white leading-none">{artist.playcount || artist.streams || artist.count || artist.c || 0}</span>
+                      <span className="text-[7px] font-black text-white leading-none">{coreUtils.formatNumber(artist.playcount || artist.streams || artist.count || artist.c || 0)}</span>
                     </div>
                   </div>
                   <div className="text-center w-full min-w-0 px-0.5 overflow-hidden mt-0.5">
@@ -707,7 +707,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
                     <SmartImage src={track.image || track.album?.image} className="h-full w-full border border-white/10 shadow-md shadow-black/30" rounded="lg" fallback="" />
                     <div className="absolute -bottom-1 left-1 h-3.5 w-3.5 rounded-full bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 flex items-center justify-center text-[7px] font-black text-white z-20 shadow-lg">{idx + 1}</div>
                     <div className="absolute -top-1 -right-1 min-w-[16px] h-3.5 px-1 rounded-full bg-orange-600 border border-[#0a0a0a] flex items-center justify-center shadow-lg z-20">
-                      <span className="text-[7px] font-black text-white leading-none">{track.playcount || track.streams || track.count || track.c || 0}</span>
+                      <span className="text-[7px] font-black text-white leading-none">{coreUtils.formatNumber(track.playcount || track.streams || track.count || track.c || 0)}</span>
                     </div>
                   </div>
                   <div className="flex flex-col w-full text-center min-w-0 px-0.5 overflow-hidden mt-0.5">
@@ -745,7 +745,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
                     <SmartImage src={album.image || album.album?.image} className="h-full w-full border border-white/10 shadow-md shadow-black/30" rounded="lg" fallback="" />
                     <div className="absolute -bottom-1 left-1 h-3.5 w-3.5 rounded-full bg-[#0a0a0a]/90 backdrop-blur-md border border-white/20 flex items-center justify-center text-[7px] font-black text-white z-20 shadow-lg">{idx + 1}</div>
                     <div className="absolute -top-1 -right-1 min-w-[16px] h-3.5 px-1 rounded-full bg-orange-600 border border-[#0a0a0a] flex items-center justify-center shadow-lg z-20">
-                      <span className="text-[7px] font-black text-white leading-none">{album.playcount || album.streams || album.count || album.c || 0}</span>
+                      <span className="text-[7px] font-black text-white leading-none">{coreUtils.formatNumber(album.playcount || album.streams || album.count || album.c || 0)}</span>
                     </div>
                   </div>
                   <div className="flex flex-col w-full text-center min-w-0 px-0.5 overflow-hidden mt-0.5">

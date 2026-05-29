@@ -90,7 +90,7 @@ const getDominantAlbumInsight = (member: any): string => {
   const userName = member.name || 'usuário';
 
   if (count > 0) {
-    return `álbum mais repetido por ${userName}: ${count} plays`;
+    return `álbum mais repetido por ${userName}: ${coreUtils.formatNumber(count)} plays`;
   }
 
   return `álbum que domina o topo de ${userName}`;
@@ -109,14 +109,14 @@ const getRivalryInsight = (leader: any, runnerUp: any): string => {
   }
 
   if (diff <= 5) {
-    return `disputa colada: só ${diff} plays separam os dois`;
+      return `disputa colada: só ${coreUtils.formatNumber(diff)} plays separam os dois`;
   }
 
   if (diff <= 25) {
-    return `briga aberta: ${diff} plays de diferença`;
+    return `briga aberta: ${coreUtils.formatNumber(diff)} plays de diferença`;
   }
 
-  return `${leaderName} abriu vantagem de ${diff} plays`;
+  return `${leaderName} abriu vantagem de ${coreUtils.formatNumber(diff)} plays`;
 };
 
 const getMostActiveInsight = (member: any, totalMembers: number): string => {
@@ -131,10 +131,10 @@ const getMostActiveInsight = (member: any, totalMembers: number): string => {
   }
 
   if (streams < 10) {
-    return `lidera o dia com ${streams} plays`;
+    return `lidera o dia com ${coreUtils.formatNumber(streams)} plays`;
   }
 
-  return `puxou o ritmo do círculo com ${streams} plays`;
+  return `puxou o ritmo do círculo com ${coreUtils.formatNumber(streams)} plays`;
 };
 
 const getMonthLeaderInsight = (member: any): string => {
@@ -144,7 +144,7 @@ const getMonthLeaderInsight = (member: any): string => {
 
   if (streams === 0) return 'lidera o mês';
 
-  return `lidera o mês com ${streams} plays`;
+  return `lidera o mês com ${coreUtils.formatNumber(streams)} plays`;
 };
 
 const getLiveInsight = (member: any): string => {

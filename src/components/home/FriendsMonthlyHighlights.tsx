@@ -262,9 +262,7 @@ const CompactCover = ({
   }
 
   const playCount = item.playcount || item.streams || 0;
-  const displayCount = playCount >= 1000
-    ? Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(playCount).toLowerCase()
-    : playCount;
+  const displayCount = coreUtils.formatNumber(playCount);
 
   return (
     <div className="flex flex-col items-center gap-1.5 min-w-0">

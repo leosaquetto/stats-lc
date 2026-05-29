@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronRight, Share2 } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
+import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -293,7 +294,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             key={totalMinutesCount}
             className="text-white inline-block relative"
           >
-            {Math.round(totalMinutesCount).toLocaleString('pt-BR').split('').map((char, index) => (
+            {coreUtils.formatNumber(totalMinutesCount).split('').map((char, index) => (
               <motion.span
                 key={`${totalMinutesCount}-${index}`}
                 initial={{ opacity: 0, x: -12 }}
@@ -382,7 +383,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         {artist.name}
                       </p>
                       <p className="text-[16px] font-medium text-white/78">
-                        {artist.streams.toLocaleString('pt-BR')} minutos
+                        {coreUtils.formatNumber(artist.streams)} minutos
                       </p>
                     </div>
                   </div>
@@ -431,7 +432,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         <div className="flex-1 min-w-0">
                           <p className="truncate text-[15px] font-semibold leading-tight text-white">{track.name}</p>
                           <p className="truncate text-[12px] leading-tight text-white/48">
-                            {track.artist} · {track.streams.toLocaleString('pt-BR')} reproduções
+                            {track.artist} · {coreUtils.formatNumber(track.streams)} reproduções
                           </p>
                         </div>
 
@@ -489,7 +490,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     <p className="text-[15px] font-black text-white">{index + 1}</p>
                     <p className="truncate text-[17px] font-black leading-tight text-white">{album.name}</p>
                     <p className="truncate text-[15px] leading-tight text-white/52">{album.artist}</p>
-                    <p className="text-[15px] leading-tight text-white/52">{album.streams.toLocaleString('pt-BR')} minutos</p>
+                    <p className="text-[15px] leading-tight text-white/52">{coreUtils.formatNumber(album.streams)} minutos</p>
                   </div>
                 </div>
               </motion.div>
