@@ -1397,15 +1397,15 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                                 rounded={item.presentation === 'artist' ? 'full' : '2xl'}
                                               />
                                             )}
-                                            <span className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-black bg-orange-500 px-2 text-[11px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.62)]">
+                                            <span className="glass-aura-orange absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[11px] font-black leading-none text-white">
                                               {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                             </span>
                                           </div>
-                                          <div className="mt-2 max-w-[142px] rounded-[20px] border border-white/10 bg-black/42 px-3 py-2 shadow-[0_18px_38px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+                                          <div className="glass-aura mt-2 max-w-[142px] rounded-[20px] px-3 py-2">
                                             <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-500">
                                               {item.label}
                                             </span>
-                                            <span className="mt-1 block truncate text-sm font-black leading-none text-white">
+                                            <span className="mt-1 block text-sm font-black leading-tight text-white">
                                               {item.name}
                                             </span>
                                           </div>
@@ -1433,7 +1433,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     animate={{ opacity: 1, x: 0, scale: 1, width: 62, height: 62 }}
                                     exit={{ opacity: 0, x: 26, scale: 0.74 }}
                                     transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
-                                    className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
+                                    className="glass-aura pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full text-white active:scale-95"
                                   >
                                     <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
                                     <SmartImage

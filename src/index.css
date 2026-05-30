@@ -44,6 +44,37 @@
   @apply glass rounded-3xl p-6 shadow-2xl;
 }
 
+@utility glass-aura {
+  background:
+    radial-gradient(circle at 22% 12%, rgba(255,255,255,0.34), transparent 30%),
+    radial-gradient(circle at 78% 78%, rgba(249,115,22,0.20), transparent 42%),
+    linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.032)),
+    rgba(8, 8, 10, 0.58);
+  -webkit-backdrop-filter: blur(34px) saturate(190%);
+  backdrop-filter: blur(34px) saturate(190%);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.22),
+    inset 0 -1px 0 rgba(255,255,255,0.07);
+}
+
+@utility orbit-glass {
+  @apply glass-aura;
+}
+
+@utility glass-aura-orange {
+  background:
+    radial-gradient(circle at 24% 18%, rgba(255,255,255,0.42), transparent 34%),
+    linear-gradient(135deg, rgba(255,175,72,0.88), rgba(249,115,22,0.70)),
+    rgba(249,115,22,0.72);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+  box-shadow:
+    0 14px 34px rgba(249,115,22,0.34),
+    inset 0 1px 0 rgba(255,255,255,0.34),
+    inset 0 -1px 0 rgba(95,31,0,0.22);
+}
+
 /* Liquid Glass - iOS 26 inspired premium glassmorphism */
 .liquid-glass {
   background:
@@ -228,5 +259,4 @@
 .animate-spin-vinyl {
   animation: spin-vinyl 15s linear infinite;
 }
-
 

@@ -358,7 +358,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <nav className="w-full max-w-[480px] px-4 pb-6 pb-[calc(env(safe-area-inset-bottom)+8px)] pointer-events-auto mx-auto">
           <div className="relative rounded-[9999px] overflow-visible">
             {/* Liquid Glass Container */}
-            <div className="relative rounded-[9999px] border border-white/28 bg-white/[0.14] shadow-[0_18px_54px_rgba(0,0,0,0.46),0_1px_0_rgba(255,255,255,0.24),inset_0_1px_0_rgba(255,255,255,0.42),inset_0_-26px_56px_rgba(255,255,255,0.07)] backdrop-blur-[46px] backdrop-saturate-[2.15] overflow-hidden supports-[backdrop-filter]:bg-white/[0.095]">
+            <div className="glass-aura relative rounded-[9999px] overflow-hidden supports-[backdrop-filter]:bg-black/[0.48]">
               {/* Soft frosted tint */}
               <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.35),transparent_30%),radial-gradient(circle_at_78%_72%,rgba(249,115,22,0.24),transparent_44%),linear-gradient(115deg,rgba(255,255,255,0.24)_0%,rgba(255,255,255,0.09)_35%,rgba(255,255,255,0.035)_62%,rgba(255,255,255,0.16)_100%)] pointer-events-none" />
 
@@ -392,7 +392,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       {isActive && (
                         <motion.div
                           layoutId="active-bubble"
-                          className="absolute inset-x-1 inset-y-1 rounded-[9999px] border border-white/34 bg-white/[0.24] shadow-[0_10px_28px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.55),inset_0_-16px_30px_rgba(255,255,255,0.08)] backdrop-blur-[38px] backdrop-saturate-[2.2]"
+                          className="glass-aura absolute inset-x-1 inset-y-1 rounded-[9999px] bg-white/[0.18]"
                           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                         >
                           {/* Inner highlight */}

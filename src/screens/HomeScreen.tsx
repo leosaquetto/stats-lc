@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
@@ -20,13 +20,12 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { ShimmerOverlay } from '../components/shared/CommonUI';
+import { ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 import { VinylRecord } from '../components/home/VinylRecord';
 
-const ReplaySection = React.lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
 const UserHistoryModal = React.lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
 const TrackLeaderboardModal = React.lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
 const AlbumDetailModal = React.lazy(() => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal })));
@@ -88,6 +87,201 @@ const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?:
     <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">{label}</span>
   </div>
 );
+
+const getReplayItemCount = (item: any) => Number(item?.playedCount || item?.playcount || item?.streams || item?.count || 0) || 0;
+
+const HomeReplayFilter = ({
+  activeTab,
+  selectedSubValues,
+  onActiveTabChange,
+  onSelectedSubValuesChange
+}: {
+  activeTab: ReplayFilterPeriod;
+  selectedSubValues: ReplaySelectedSubValues;
+  onActiveTabChange: (tab: ReplayFilterPeriod) => void;
+  onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
+}) => {
+  const months = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+  return (
+    <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar rounded-[28px] px-1 py-1">
+      {(['today', 'week', 'month', 'year', 'all'] as ReplayFilterPeriod[]).map((tab) => (
+        <button
+          key={tab}
+          type="button"
+          onClick={() => onActiveTabChange(tab)}
+          className={cn(
+            "shrink-0 rounded-full px-4 py-2 text-[11px] font-black lowercase tracking-tight transition-all",
+            activeTab === tab ? "glass-aura text-white" : "text-white/36"
+          )}
+        >
+          {tab === 'today' ? 'hoje' : tab === 'week' ? 'semana' : tab === 'month' ? (months[Number(selectedSubValues.month || 0)] || 'mês') : tab === 'year' ? 'ano' : 'tudo'}
+        </button>
+      ))}
+      {activeTab === 'month' && (
+        <select
+          value={selectedSubValues.month || String(new Date().getMonth()).padStart(2, '0')}
+          onChange={(event) => onSelectedSubValuesChange({ ...selectedSubValues, month: event.target.value })}
+          className="glass-aura rounded-full bg-black/40 px-3 py-2 text-[11px] font-black text-white outline-none"
+        >
+          {months.map((month, index) => <option key={month} value={String(index).padStart(2, '0')}>{month}</option>)}
+        </select>
+      )}
+    </div>
+  );
+};
+
+const HomeOrbitalHighlights = ({
+  totalMinutes,
+  artists,
+  tracks,
+  albums
+}: {
+  totalMinutes: number;
+  artists: any[];
+  tracks: any[];
+  albums: any[];
+}) => {
+  const groups = [
+    { key: 'artists', title: 'Top 5 artistas', label: 'artista', icon: UserCircle, items: artists.slice(0, 5), rounded: 'full' as const },
+    { key: 'tracks', title: 'Top 5 músicas', label: 'faixa', icon: Music2, items: tracks.slice(0, 5), rounded: '2xl' as const },
+    { key: 'albums', title: 'Top 5 álbuns', label: 'álbum', icon: Disc3, items: albums.slice(0, 5), rounded: '2xl' as const }
+  ].filter((group) => group.items.length > 0);
+
+  return (
+    <section className="relative overflow-visible px-4 sm:px-6 lg:px-8">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Sparkles className="h-5 w-5 text-orange-500" />
+          <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Seus Destaques</h2>
+        </div>
+        <div className="glass-aura flex items-center gap-2 rounded-full px-3 py-1.5">
+          <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
+          <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">min</span>
+        </div>
+      </div>
+
+      <div data-home-horizontal-scroll="true" className="-mx-4 flex snap-x gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
+        {groups.map((group, groupIndex) => {
+          const Icon = group.icon;
+          return (
+            <article key={group.key} className="glass-aura relative min-w-[86%] snap-center overflow-hidden rounded-[34px] px-5 py-5">
+              <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/12" />
+              <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
+              <div className="relative z-10 mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="glass-aura-orange flex h-9 w-9 items-center justify-center rounded-2xl">
+                    <Icon className="h-4 w-4 text-white" />
+                  </div>
+                  <div>
+                    <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-orange-300">{group.title}</span>
+                    <span className="text-[9px] font-bold text-white/38">arraste para ver o próximo</span>
+                  </div>
+                </div>
+                <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{groupIndex + 1}/{groups.length}</span>
+              </div>
+
+              <div className="relative z-10 flex flex-col gap-2.5">
+                {group.items.map((item, index) => (
+                  <motion.div
+                    key={`${group.key}-${item.id || item.name}-${index}`}
+                    className="flex items-center gap-3 rounded-[24px] bg-black/18 px-3 py-2.5 backdrop-blur-xl"
+                    animate={{ x: [0, index % 2 ? -2 : 2, 0] }}
+                    transition={{ duration: 8 + index, repeat: Infinity, ease: 'easeInOut' }}
+                  >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-black text-white/45">{index + 1}</span>
+                    <div className="relative h-12 w-12 shrink-0 overflow-visible">
+                      <div className="h-12 w-12 overflow-hidden rounded-[18px] glass-aura">
+                        <SmartImage
+                          src={item.image || item.albumImage || item.album?.image || item.artist?.image}
+                          className="h-full w-full object-cover"
+                          fallback={item.name || item.track?.name || group.label}
+                          rounded={group.rounded}
+                        />
+                      </div>
+                      <span className="glass-aura-orange absolute -bottom-1.5 -right-2 min-w-7 rounded-full px-1.5 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">{group.label}</span>
+                      <span className="mt-0.5 block line-clamp-2 text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
+  const topTrack = tracks[0];
+  const discovery = tracks.find((track) => getReplayItemCount(track) <= 2) || tracks[tracks.length - 1];
+  const perceptions = [
+    topTrack && { title: 'ritual recente', text: `Você voltou para ${topTrack.name || topTrack.track?.name} e ela puxou ${coreUtils.formatNumber(getReplayItemCount(topTrack))} reproduções.`, icon: Music2 },
+    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} plays.`, icon: UserCircle },
+    discovery && { title: 'última descoberta', text: `${discovery.name || discovery.track?.name} apareceu como uma descoberta de baixa repetição.`, icon: Sparkles },
+    recent[0] && { title: 'agora na memória', text: `Sua última reprodução registrada foi ${recent[0]?.track?.name || recent[0]?.name || 'uma faixa nova'}.`, icon: Clock3 }
+  ].filter(Boolean) as Array<{ title: string; text: string; icon: any }>;
+
+  if (perceptions.length === 0) return null;
+  return (
+    <section className="px-4 sm:px-6 lg:px-8">
+      <div className="mb-3 flex items-center gap-3">
+        <Sparkles className="h-5 w-5 text-orange-500" />
+        <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
+      </div>
+      <div data-home-horizontal-scroll="true" className="flex snap-x gap-3 overflow-x-auto no-scrollbar pb-2">
+        {perceptions.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <div key={`${item.title}-${index}`} className="glass-aura min-w-[74%] snap-center rounded-[30px] px-5 py-5">
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl glass-aura-orange">
+                <Icon className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">{item.title}</span>
+              <p className="mt-2 text-[18px] font-black leading-tight text-white">{item.text}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
+const HomeRecentPlays = ({ recent }: { recent: any[] }) => {
+  const list = recent.slice(0, 10);
+  if (list.length === 0) return null;
+  return (
+    <section className="px-4 sm:px-6 lg:px-8">
+      <div className="mb-3 flex items-center gap-3">
+        <Clock3 className="h-5 w-5 text-orange-500" />
+        <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Últimas Reproduções</h2>
+      </div>
+      <div className="glass-aura flex flex-col gap-2 rounded-[32px] p-3">
+        {list.map((item, index) => {
+          const track = item.track || item;
+          const artist = Array.isArray(track.artists)
+            ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).filter(Boolean).join(', ')
+            : track.artist?.name || item.artistName || '';
+          const playedAt = item.playedAt || item.timestamp || item.endTime || item.date;
+          return (
+            <div key={`${track.id || track.name}-${index}`} className="flex items-center gap-3 rounded-[24px] bg-white/[0.035] px-3 py-2.5">
+              <SmartImage src={track.image || track.albumImage || track.album?.image} className="h-11 w-11 object-cover" fallback={track.name || 'play'} rounded="2xl" />
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-black text-white">{track.name || 'Sem título'}</span>
+                <span className="block truncate text-xs font-semibold text-white/45">{artist}</span>
+              </div>
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-white/34">{playedAt ? coreUtils.formatRelativeTimeSP(playedAt) : 'agora'}</span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
 
 const HomeEmptyState = ({ onRetry }: { onRetry: () => void }) => (
   <motion.div
@@ -1286,97 +1480,50 @@ export default function HomeScreen() {
         )}
       </AnimatePresence>
 
-      {/* Replay Section */}
-      {isReplayInitialLoading && (
+      {isAppReady && primaryUser && (
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          className="px-4 sm:px-6 lg:px-8 py-8"
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="px-4 sm:px-6 lg:px-8"
         >
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            <div className="flex items-center justify-between">
-              <div className="h-9 w-28 rounded-2xl bg-white/10 animate-pulse" />
-              <div className="h-10 w-10 rounded-full bg-white/10 animate-pulse" />
-            </div>
-            <div className="mt-5 grid grid-cols-3 gap-2.5">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="aspect-[0.82] rounded-[18px] bg-white/[0.07] animate-pulse" />
-              ))}
-            </div>
-            <div className="mt-4 h-3 w-44 rounded-full bg-orange-500/15 animate-pulse" />
-          </div>
+          <HomeReplayFilter
+            activeTab={replayActiveTab}
+            selectedSubValues={replaySelectedSubValues}
+            onActiveTabChange={setReplayActiveTab}
+            onSelectedSubValuesChange={setReplaySelectedSubValues}
+          />
         </motion.div>
       )}
 
+      {isReplayInitialLoading && <HomeSectionLoader label="Carregando seus destaques" />}
+
       {isAppReady && primaryUser && replayState === 'error' && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="px-4 sm:px-6 lg:px-8 py-4"
-        >
-          <div className="rounded-[28px] border border-orange-500/15 bg-orange-500/[0.04] px-5 py-5 text-center shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+        <div className="px-4 sm:px-6 lg:px-8">
+          <div className="glass-aura rounded-[28px] px-5 py-5 text-center">
             <AlertTriangle className="mx-auto h-6 w-6 text-orange-400" />
-            <h2 className="mt-3 text-sm font-black uppercase tracking-[0.18em] text-white/85">Replay indisponivel</h2>
-            <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-relaxed text-white/45">
-              Nao conseguimos carregar esse periodo agora. Os demais blocos seguem funcionando.
-            </p>
-            <button
-              type="button"
-              onClick={() => setReplaySelectedSubValues((values) => ({ ...values }))}
-              className="mt-4 rounded-2xl bg-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white/75 active:scale-95"
-            >
-              Tentar novamente
-            </button>
+            <h2 className="mt-3 text-sm font-black uppercase tracking-[0.18em] text-white/85">Destaques indisponíveis</h2>
+            <p className="mx-auto mt-2 max-w-xs text-xs font-medium leading-relaxed text-white/45">Não conseguimos carregar esse período agora.</p>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
-        <div className="relative">
-          <React.Suspense fallback={<HomeSectionLoader label="Carregando replay" />}>
-            <ReplaySection
-              topArtists={replayArtists.slice(0, 20).map((a: any) => ({
-                id: a.id,
-                name: a.name,
-                image: a.image,
-                streams: getReplayMinutes(a)
-              })) || []}
-              topTracks={replayTracks.slice(0, 30).map((t: any) => ({
-                id: t.id,
-                name: t.name,
-                artist: getReplayArtistName(t),
-                image: t.image || t.albumImage,
-                streams: t.playedCount || t.streams || t.playcount || t.count || 0,
-                url: getReplayTrackUrl(t),
-                spotifyUrl: t.spotifyUrl,
-                appleMusicUrl: t.appleMusicUrl,
-                spotifyId: t.spotifyId,
-                appleMusicId: t.appleMusicId,
-                externalIds: t.externalIds || t.track?.externalIds
-              })) || []}
-              topAlbums={replayAlbums.slice(0, 15).map((a: any) => ({
-                id: a.id,
-                name: a.name,
-                artist: getReplayAlbumArtistName(a, replayTracks),
-                image: a.image,
-                streams: getReplayMinutes(a)
-              })) || []}
-              totalMinutesCount={replayTotalMinutesCount}
-              activeTab={replayActiveTab}
-              selectedSubValues={replaySelectedSubValues}
-              onActiveTabChange={setReplayActiveTab}
-              onSelectedSubValuesChange={setReplaySelectedSubValues}
-              onOpenArtistsModal={() => setOpenReplayModal('artists')}
-              onOpenSongsModal={() => setOpenReplayModal('songs')}
-              onOpenAlbumsModal={() => setOpenReplayModal('albums')}
-              onShareReplay={handleShareReplay}
-              onOpenTrack={handleOpenReplayTrack}
-              isLoading={isReplayUpdating}
-            />
-          </React.Suspense>
-        </div>
+        <HomeOrbitalHighlights
+          totalMinutes={replayTotalMinutesCount}
+          artists={replayArtists}
+          tracks={replayTracks}
+          albums={replayAlbums}
+        />
+      )}
+
+      {isAppReady && primaryUser && (
+        <HomePerceptions
+          tracks={replayTracks}
+          artists={replayArtists}
+          recent={(primaryUser.recent || (primaryUser as any).history || []).slice(0, 10)}
+        />
       )}
 
       {isAppReady && (
@@ -1417,6 +1564,17 @@ export default function HomeScreen() {
       >
         <StatsAlike />
       </motion.div>
+      )}
+
+      {isAppReady && primaryUser && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <HomeRecentPlays recent={(primaryUser.recent || (primaryUser as any).history || []).slice(0, 10)} />
+        </motion.div>
       )}
 
       {/* Toast Notification Container */}

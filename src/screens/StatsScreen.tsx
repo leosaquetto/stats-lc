@@ -7,7 +7,6 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -15,7 +14,6 @@ import {
   Calendar, 
   RefreshCcw, 
   AlertTriangle, 
-  Swords, 
   Trophy,
   Users, 
   Star, 
@@ -46,6 +44,7 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { ShareButton } from '../components/shared/ShareButton';
 import { FixedSizeList as List } from 'react-window';
 import { AutoSizer } from 'react-virtualized-auto-sizer';
+import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
 
 const AutoSizerAny = AutoSizer as any;
 
@@ -56,6 +55,7 @@ const DailyActivityHeatmap = lazy(() => import('../components/stats/DailyActivit
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
 const TrackLeaderboardModal = lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
 const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
+const ReplaySection = lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
 
 const ActivityAreaChart = lazy(async () => {
   const {
@@ -349,9 +349,6 @@ export default function StatsScreen() {
   
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const [fullUserData, setFullUserData] = useState<any>(null);
-  const [isLocalLoading, setIsLocalLoading] = useState(false);
-  const [showUserSelector, setShowUserSelector] = useState(false);
-  const [showFusionSelector, setShowFusionSelector] = useState(false);
   
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
@@ -372,6 +369,12 @@ export default function StatsScreen() {
   const [visibleItemsCount, setVisibleItemsCount] = useState(15);
   const [activeRangeStats, setActiveRangeStats] = useState<{ count: number; durationMs: number } | null>(null);
   const [currentInsightIndex, setCurrentInsightIndex] = useState(0);
+  const [statsReplayTab, setStatsReplayTab] = useState<ReplayFilterPeriod>('month');
+  const [statsReplaySubValues, setStatsReplaySubValues] = useState<ReplaySelectedSubValues>({
+    weekMode: 'last-7',
+    month: String(new Date().getMonth()).padStart(2, '0'),
+    year: String(new Date().getFullYear())
+  });
   const showScrollTopRef = useRef(false);
 
   useEffect(() => {
@@ -404,17 +407,11 @@ export default function StatsScreen() {
   };
   
   const groupStats = useStatsStore(state => state.groupStats);
-  const isGlobalLoading = useStatsStore(state => state.isLoading);
   const isOffline = useStatsStore(state => state.isOffline);
   const globalError = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
-  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
-  const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
-
-  // Cooldown for manual refresh actions
-  const { executeWithCooldown } = useRefreshCooldown(2000);
 
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const selectedUserId = featuredUserId || members[0]?.id || '';
@@ -465,28 +462,18 @@ export default function StatsScreen() {
   }, [battleOpponent]);
 
   useEffect(() => {
-    if (showFusionSelector) {
-      trackEvent('fusion_selector_opened');
-    }
-  }, [showFusionSelector]);
-
-  useEffect(() => {
     let cancelled = false;
     async function loadFullData() {
       if (!CURRENT_USER_ID) {
         setFullUserData(null);
-        setIsLocalLoading(false);
         return;
       }
 
-      setIsLocalLoading(true);
       try {
         const fullData = await statsService.getUserFullStats(CURRENT_USER_ID);
         if (!cancelled) setFullUserData(fullData);
       } catch (e) {
         if (!cancelled) console.error("Failed to load full user data", e);
-      } finally {
-        if (!cancelled) setIsLocalLoading(false);
       }
     }
     loadFullData();
@@ -1311,6 +1298,26 @@ export default function StatsScreen() {
     return { count: 0, durationMs: 0 };
   }, [activeRangeStats, currentStats, historyData]);
 
+  const chartDisplayData = useMemo(() => {
+    const hasRealData = dailyEvolutionData.length > 0 && dailyEvolutionData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
+    if (hasRealData || periodSummaryStats.count <= 0) return dailyEvolutionData;
+
+    const label = activeFilter === 'Hoje'
+      ? 'agora'
+      : activeFilter === 'Semana'
+        ? 'semana'
+        : activeFilter === 'Mês'
+          ? 'mês'
+          : activeFilter === 'Ano'
+            ? 'ano'
+            : 'total';
+    const hours = Number(((periodSummaryStats.durationMs || 0) / 3600000).toFixed(2));
+    return [
+      { date: 'start', displayLabel: 'início', timestamp: 0, streams: 0, duration: 0, hours: 0 },
+      { date: 'current', displayLabel: label, timestamp: 1, streams: periodSummaryStats.count, duration: periodSummaryStats.durationMs, hours }
+    ];
+  }, [activeFilter, dailyEvolutionData, periodSummaryStats]);
+
   const { uniqueArtists, uniqueTracks, uniqueAlbums } = useMemo(() => {
     const cardContainer = cardinalityData?.stats || cardinalityData;
     const cardItems = cardContainer?.items || cardContainer;
@@ -1489,16 +1496,25 @@ export default function StatsScreen() {
           statsService.getTopItems(CURRENT_USER_ID, 'albums', period)
         ]);
         if (cancelled) return;
-        setActivePeriodArtists(artists || []);
-        setActivePeriodTracks(tracks || []);
-        setActivePeriodAlbums(albums || []);
+        const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
+        setActivePeriodArtists((artists && artists.length > 0) ? artists : (fallbackTops.artists || []));
+        setActivePeriodTracks((tracks && tracks.length > 0) ? tracks : (fallbackTops.tracks || []));
+        setActivePeriodAlbums((albums && albums.length > 0) ? albums : (fallbackTops.albums || []));
       } catch (e) {
         if (!cancelled) {
           console.error("Failed to load period top items for StatsScreen", e);
-          setTopItemsError("Nao foi possivel carregar seus mais tocados agora.");
-          setActivePeriodArtists([]);
-          setActivePeriodTracks([]);
-          setActivePeriodAlbums([]);
+          const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
+          if ((fallbackTops.artists || fallbackTops.tracks || fallbackTops.albums)) {
+            setTopItemsError(null);
+            setActivePeriodArtists(fallbackTops.artists || []);
+            setActivePeriodTracks(fallbackTops.tracks || []);
+            setActivePeriodAlbums(fallbackTops.albums || []);
+          } else {
+            setTopItemsError("Nao foi possivel carregar seus mais tocados agora.");
+            setActivePeriodArtists([]);
+            setActivePeriodTracks([]);
+            setActivePeriodAlbums([]);
+          }
         }
       } finally {
         if (!cancelled) setIsTopItemsLoading(false);
@@ -1508,7 +1524,7 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, viewMode, topItemsRetryNonce]);
+  }, [CURRENT_USER_ID, activeFilter, viewMode, topItemsRetryNonce, user?.topItems]);
 
   const topItems = useMemo(() => {
     if (activeType === 'artists') return activePeriodArtists;
@@ -1549,117 +1565,9 @@ export default function StatsScreen() {
 
   return (
     <div className="flex flex-col gap-3 pb-32 px-4">
-      {/* Universal Period Filter (The Master Selector - Floating Glass Pill) */}
-      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full flex flex-col transition-all py-3 bg-[#050505]/75 backdrop-blur-md">
-        {/* Compact actions bar above filter */}
-        <div className="flex items-center justify-between mb-2 px-1">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowUserSelector(!showUserSelector)}
-              className={clsx(
-                "h-8 w-8 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md overflow-hidden cursor-pointer active:scale-95 transition-all p-0 shrink-0",
-                showUserSelector && "bg-white/25 border-white/25"
-              )}
-              title="Mudar Usuário"
-            >
-              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} className="h-full w-full" fallback={user.name} rounded="full" />
-            </button>
-
-            <button
-              type="button"
-              onClick={executeWithCooldown(() => fetchGroupLive())}
-              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md active:scale-95 transition-all text-white/70 cursor-pointer shrink-0"
-              title="Sincronizar"
-            >
-               <RefreshCcw className={clsx("h-3.5 w-3.5 text-white/70", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowFusionSelector(!showFusionSelector)}
-            className={clsx(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/[0.03] border border-white/10 hover:bg-white/[0.08] backdrop-blur-md transition-all cursor-pointer text-white/60 hover:text-white/90 shrink-0",
-              showFusionSelector && "bg-orange-500/20 text-orange-500 border-orange-500/20"
-            )}
-            title="Modo Fusion"
-          >
-            <Swords className="h-3 w-3" />
-            <span className="text-[9px] font-black uppercase tracking-wider">Fusion</span>
-          </button>
-
-          <AnimatePresence>
-            {showFusionSelector && (
-              <>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowFusionSelector(false)} className="fixed inset-0 z-40" />
-                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-full right-0 mt-2 w-56 glass-card border-orange-500/20 p-2 z-50 shadow-2xl backdrop-blur-3xl">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-orange-500 px-3 py-2 mb-1 border-b border-white/5 flex items-center gap-1.5"><Swords className="h-3 w-3" /> Modo Fusion</div>
-                  <div className="flex flex-col gap-1">
-                    {members.filter(m => m.id !== CURRENT_USER_ID).map((u) => (
-                      <button key={u.id} type="button" onClick={() => { setBattleOpponent(u); setShowFusionSelector(false); }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition-all text-left cursor-pointer">
-                        <SmartImage src={coreUtils.getUserAvatar(u.id, u.avatar)} className="h-8 w-8 border border-white/10" fallback={u.name} rounded="full" />
-                        <span className="text-xs font-bold text-white/80">{u.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-              </>
-            )}
-
-            {showUserSelector && (
-              <>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowUserSelector(false)} className="fixed inset-0 z-40" />
-                <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute top-12 left-0 mt-2 w-52 glass-card border-white/10 p-2 z-50 shadow-2xl backdrop-blur-3xl max-h-[300px] overflow-y-auto no-scrollbar">
-                  <div className="text-[9px] font-bold uppercase tracking-widest text-white/50 px-3 py-2 mb-1">Trocar Perfil</div>
-                  <div className="flex flex-col gap-1">
-                    {members.map((u) => (
-                      <button
-                        key={u.id}
-                        type="button"
-                        onClick={() => {
-                          setFeaturedUserId(u.id);
-                          setShowUserSelector(false);
-                          setViewMode('user');
-                        }}
-                        className={clsx(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
-                          CURRENT_USER_ID === u.id && viewMode === 'user'
-                            ? "bg-white/10 border border-white/10"
-                            : "hover:bg-white/5 opacity-70 hover:opacity-100"
-                        )}
-                      >
-                         <SmartImage src={coreUtils.getUserAvatar(u.id, u.avatar)} className="h-8 w-8 border border-white/10" fallback={u.name} rounded="full" />
-                         <span className="text-xs font-bold text-white/80">{u.name}</span>
-                         {CURRENT_USER_ID === u.id && viewMode === 'user' && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />}
-                      </button>
-                    ))}
-                    <div className="h-[1px] bg-white/5 my-1" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewMode('friends');
-                        setShowUserSelector(false);
-                      }}
-                      className={clsx(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all cursor-pointer",
-                        viewMode === 'friends' ? "bg-white/10 border border-white/10" : "hover:bg-white/5 opacity-70 hover:opacity-100"
-                      )}
-                    >
-                      <div className="h-8 w-8 rounded-full border border-white/10 flex items-center justify-center bg-white/5">
-                        <Users className="h-4 w-4 text-white/60" />
-                      </div>
-                      <span className="text-xs font-bold text-white/80">Visão do Grupo</span>
-                      {viewMode === 'friends' && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" />}
-                    </button>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </div>
-
-        <div className="relative w-full z-10 flex gap-1.5 p-1.5 bg-black/40 backdrop-blur-xl rounded-[32px] overflow-x-auto no-scrollbar border border-white/[0.08] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)]">
+      {/* Universal Period Filter */}
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full py-3">
+        <div className="glass-aura relative w-full z-10 flex gap-1.5 p-1.5 rounded-[32px] overflow-x-auto no-scrollbar">
           {/* Glossy shine reflection top half */}
           <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none rounded-t-[32px]" />
 
@@ -1761,158 +1669,86 @@ export default function StatsScreen() {
             </div>
           </motion.div>
 
-          {/* Hall of Fame - Top #1 Highlights */}
-          {!isTopItemsLoading && (activePeriodArtists?.length > 0 || activePeriodTracks?.length > 0 || activePeriodAlbums?.length > 0) && (
+          {/* Insights + Replay */}
+          {insights.length > 0 && (
             <div className="flex flex-col gap-3">
               <SectionHeader
-                title={`Hall of Fame • ${activeFilter}`}
-                icon={<Trophy className="h-3 w-3 text-yellow-500" />}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById('search-bar-ranking');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="text-[9px] font-black text-orange-500 hover:text-orange-400 transition-colors uppercase tracking-widest hover:underline cursor-pointer"
-                  >
-                    ver mais
-                  </button>
-                }
+                title="Insights de Reprodução"
+                icon={<Zap className="h-3 w-3 text-orange-500" />}
+                action={insights.length > 1 ? (
+                  <div className="glass-aura flex items-center gap-1 rounded-full px-2 py-1">
+                    <span className="mr-1 text-[9px] font-black text-white/45">{((currentInsightIndex % insights.length) + 1)}/{insights.length}</span>
+                    <button type="button" onClick={() => setCurrentInsightIndex((prev) => (prev - 1 + insights.length) % insights.length)} className="rounded-full p-1 text-white/55 active:scale-90">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={() => setCurrentInsightIndex((prev) => (prev + 1) % insights.length)} className="rounded-full p-1 text-white/55 active:scale-90">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : null}
               />
-
-              {/* New Layout: Featured Artist + Side Grid */}
-              <div className="flex flex-col gap-3">
-                {/* Featured #1 Artist - Full Width Hero */}
-                {activePeriodArtists?.[0] && (
+              {(() => {
+                const insight = insights[currentInsightIndex % insights.length];
+                if (!insight) return null;
+                return (
                   <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0 }}
-                    onClick={() => {
-                      setSelectedTrack({ ...activePeriodArtists[0], type: 'artist' });
-                    }}
-                    className="glass-card p-5 flex items-center gap-4 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+                    key={`stats-insight-${currentInsightIndex}`}
+                    initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+                    className="glass-aura relative overflow-hidden rounded-[28px] px-5 py-4"
                   >
-                    {/* Glossy shine */}
-                    <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[32px]" />
-
-                    {/* Background glow */}
-                    <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-yellow-500/15 blur-3xl group-hover:bg-yellow-500/25 transition-all" />
-
-                    {/* Crown badge */}
-                    <div className="absolute top-3 right-3">
-                      <div className="h-6 w-6 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(234,179,8,0.3)]">
-                        <Trophy className="h-3 w-3 text-yellow-500" />
+                    <div className="relative z-10 flex items-center gap-4">
+                      <div className="glass-aura-orange flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">
+                        <insight.icon className="h-5 w-5" />
                       </div>
-                    </div>
-
-                    {/* Artist Image */}
-                    <div className="relative h-20 w-20 shrink-0">
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-500 to-amber-200 blur-lg opacity-30 group-hover:opacity-50 transition-opacity" />
-                      <SmartImage
-                        src={activePeriodArtists[0]?.image || activePeriodArtists[0]?.album?.image || activePeriodArtists[0]?.artist?.image}
-                        className="h-full w-full border-2 border-white/[0.12] z-10 relative shadow-xl"
-                        rounded="full"
-                        fallback={activePeriodArtists[0]?.name || 'Top Artist'}
-                      />
-                    </div>
-
-                    {/* Artist Info */}
-                    <div className="flex flex-col gap-1.5 flex-1 min-w-0 relative z-10">
-                      <span className="text-[8px] font-black text-yellow-500 uppercase tracking-widest leading-none">#1 Artista</span>
-                      <span className="text-[16px] font-bold text-white/95 line-clamp-1 leading-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-                        {activePeriodArtists[0]?.name || '---'}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-black text-orange-500 uppercase tracking-tight">
-                          {coreUtils.formatNumber(activePeriodArtists[0]?.playcount || activePeriodArtists[0]?.streams || activePeriodArtists[0]?.count || 0)} streams
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-400">{insight.title}</span>
+                        <p className="mt-1 text-[13px] font-semibold leading-snug text-white/84">{insight.description}</p>
+                        <span className="mt-2 inline-flex rounded-full bg-orange-500/12 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-orange-300">{insight.value}</span>
                       </div>
                     </div>
                   </motion.div>
-                )}
-
-                {/* #1 Track + #1 Album - Side by Side */}
-                <div className="grid grid-cols-2 gap-3">
-                  {/* #1 Track */}
-                  {activePeriodTracks?.[0] && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                      onClick={() => {
-                        setSelectedTrack({ ...activePeriodTracks[0], type: 'track' });
-                      }}
-                      className="glass-card p-3.5 flex flex-col items-center gap-3 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                    >
-                      {/* Glossy shine */}
-                      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
-
-                      <div className="absolute top-2 right-2">
-                        <Star className="h-2.5 w-2.5 text-yellow-500/40" />
-                      </div>
-                      <div className="relative h-16 w-16">
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-orange-500/20 to-yellow-200/20 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
-                        <SmartImage
-                          src={activePeriodTracks[0]?.image || activePeriodTracks[0]?.album?.image}
-                          className="h-full w-full border border-white/[0.12] z-10 relative shadow-lg"
-                          rounded="2xl"
-                          fallback={activePeriodTracks[0]?.name || activePeriodTracks[0]?.track?.name || 'Top Track'}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center text-center gap-0.5 w-full relative z-10">
-                        <span className="text-[7px] font-black text-white/30 uppercase tracking-widest">#1 Música</span>
-                        <span className="text-[11px] font-bold text-white/95 line-clamp-2 w-full leading-tight">
-                          {activePeriodTracks[0]?.name || activePeriodTracks[0]?.track?.name || '---'}
-                        </span>
-                        <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
-                          {coreUtils.formatNumber(activePeriodTracks[0]?.playcount || activePeriodTracks[0]?.streams || activePeriodTracks[0]?.count || 0)}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* #1 Album */}
-                  {activePeriodAlbums?.[0] && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      onClick={() => {
-                        setSelectedTrack({ ...activePeriodAlbums[0], type: 'album' });
-                      }}
-                      className="glass-card p-3.5 flex flex-col items-center gap-3 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden group hover:bg-black/50 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
-                    >
-                      {/* Glossy shine */}
-                      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
-
-                      <div className="absolute top-2 right-2">
-                        <Star className="h-2.5 w-2.5 text-yellow-500/40" />
-                      </div>
-                      <div className="relative h-16 w-16">
-                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-orange-500/20 to-yellow-200/20 blur-md opacity-20 group-hover:opacity-40 transition-opacity" />
-                        <SmartImage
-                          src={activePeriodAlbums[0]?.image || activePeriodAlbums[0]?.album?.image}
-                          className="h-full w-full border border-white/[0.12] z-10 relative shadow-lg"
-                          rounded="2xl"
-                          fallback={activePeriodAlbums[0]?.name || 'Top Album'}
-                        />
-                      </div>
-                      <div className="flex flex-col items-center text-center gap-0.5 w-full relative z-10">
-                        <span className="text-[7px] font-black text-white/30 uppercase tracking-widest">#1 Álbum</span>
-                        <span className="text-[11px] font-bold text-white/95 line-clamp-2 w-full leading-tight">
-                          {activePeriodAlbums[0]?.name || '---'}
-                        </span>
-                        <span className="text-[9px] font-black text-orange-500 uppercase tracking-tighter">
-                          {coreUtils.formatNumber(activePeriodAlbums[0]?.playcount || activePeriodAlbums[0]?.streams || activePeriodAlbums[0]?.count || 0)}
-                        </span>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
             </div>
+          )}
+
+          {(activePeriodArtists.length > 0 || activePeriodTracks.length > 0 || activePeriodAlbums.length > 0) && (
+            <Suspense fallback={<div className="glass-aura h-48 rounded-[32px] animate-pulse" />}>
+              <ReplaySection
+                topArtists={activePeriodArtists.slice(0, 20).map((a: any) => ({
+                  id: a.id || a.name,
+                  name: a.name,
+                  image: a.image || a.artist?.image,
+                  streams: a.playcount || a.streams || a.count || 0
+                }))}
+                topTracks={activePeriodTracks.slice(0, 30).map((t: any) => ({
+                  id: t.id || t.name,
+                  name: t.name || t.track?.name,
+                  artist: t.artist?.name || t.artistName || t.track?.artist?.name || '',
+                  image: t.image || t.album?.image || t.albumImage,
+                  streams: t.playcount || t.streams || t.count || 0
+                }))}
+                topAlbums={activePeriodAlbums.slice(0, 15).map((a: any) => ({
+                  id: a.id || a.name,
+                  name: a.name,
+                  artist: a.artist?.name || a.artistName || '',
+                  image: a.image || a.album?.image,
+                  streams: a.playcount || a.streams || a.count || 0
+                }))}
+                totalMinutesCount={Math.max(0, Math.round((periodSummaryStats.durationMs || 0) / 60000))}
+                activeTab={statsReplayTab}
+                selectedSubValues={statsReplaySubValues}
+                onActiveTabChange={setStatsReplayTab}
+                onSelectedSubValuesChange={setStatsReplaySubValues}
+                onOpenArtistsModal={() => { setActiveType('artists'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onOpenSongsModal={() => { setActiveType('tracks'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onOpenAlbumsModal={() => { setActiveType('albums'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onOpenTrack={(track) => setSelectedTrack({ ...track, type: 'track' })}
+                isLoading={isTopItemsLoading}
+              />
+            </Suspense>
           )}
 
           {/* Análise Temporal - Gráficos */}
@@ -1984,7 +1820,7 @@ export default function StatsScreen() {
                   </div>
                 ) : (() => {
                   // Check if all data points are zero
-                  const hasRealData = dailyEvolutionData.length > 0 && dailyEvolutionData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
+                  const hasRealData = chartDisplayData.length > 0 && chartDisplayData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
 
                   if (!hasRealData) {
                     return (
@@ -2003,7 +1839,7 @@ export default function StatsScreen() {
                   return (
                     <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
                       <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
-                        <ActivityAreaChart data={dailyEvolutionData} chartMetric={chartMetric} accentColor={accentColor} />
+                        <ActivityAreaChart data={chartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
                       </Suspense>
                     </div>
                   );
@@ -2057,119 +1893,6 @@ export default function StatsScreen() {
               })()}
             </div>
           </div>
-
-          {/* Insights Fade-Rotator */}
-          {insights.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <SectionHeader 
-                title="Insights de Reprodução" 
-                icon={<Zap className="h-3 w-3 text-orange-500 animate-pulse" />} 
-                action={
-                  insights.length > 1 ? (
-                    <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 px-2 py-1 rounded-full shadow-inner">
-                      <span className="text-[9px] font-mono font-bold text-white/40 leading-none mr-2 select-none">
-                        {((currentInsightIndex % insights.length) + 1)}/{insights.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCurrentInsightIndex((prev) => (prev - 1 + insights.length) % insights.length);
-                        }}
-                        className="h-5 w-5 rounded-full bg-white/[0.03] hover:bg-white/[0.1] active:scale-90 border border-white/5 flex items-center justify-center transition-all cursor-pointer select-none text-white/60 hover:text-white/90"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCurrentInsightIndex((prev) => (prev + 1) % insights.length);
-                        }}
-                        className="h-5 w-5 rounded-full bg-white/[0.03] hover:bg-white/[0.1] active:scale-90 border border-white/5 flex items-center justify-center transition-all cursor-pointer select-none text-white/60 hover:text-white/90"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ) : null
-                }
-              />
-
-              <div className="relative min-h-[145px] w-full flex flex-col justify-center">
-                <AnimatePresence mode="wait">
-                  {(() => {
-                    const idx = currentInsightIndex % insights.length;
-                    const insight = insights[idx];
-                    if (!insight) return null;
-                    return (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-                        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                        exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
-                        transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
-                        className={clsx(
-                          "glass-card w-full p-5 flex flex-col gap-3.5 relative overflow-hidden transition-all duration-300 rounded-[24px] bg-black/40 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
-                          (insight as any).isDiscovery ? "border-orange-500/40 bg-orange-500/[0.05] shadow-[0_0_20px_rgba(249,115,22,0.15)]" : ""
-                        )}
-                      >
-                        {/* Glossy shine reflection top half */}
-                        <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/[0.06] to-transparent pointer-events-none rounded-t-[24px]" />
-
-                        <div className={clsx(
-                          "absolute -top-4 -right-4 h-24 w-24 rounded-full blur-3xl transition-all duration-500",
-                          (insight as any).isDiscovery ? "bg-orange-500/25" : "bg-orange-500/10"
-                        )} />
-
-                        <div className="flex items-center justify-between relative z-10">
-                          <div className="flex items-center gap-3">
-                            <div className={clsx(
-                              "h-8 w-8 rounded-xl flex items-center justify-center border transition-all duration-300 shadow-lg",
-                              (insight as any).isDiscovery ? "bg-gradient-to-br from-orange-500 to-orange-600 text-black border-orange-500/50 shadow-[0_0_12px_rgba(249,115,22,0.3)]" : "bg-orange-500/15 text-orange-500 border-orange-500/20"
-                            )}>
-                              <insight.icon className="h-4 w-4" />
-                            </div>
-                            <span className={clsx(
-                              "text-[10px] font-black uppercase tracking-[0.15em]",
-                              (insight as any).isDiscovery ? "text-orange-500 font-black" : "text-white/80"
-                            )}>
-                              {insight.title}
-                            </span>
-                          </div>
-
-                          {/* Dots / Page indicators */}
-                          {insights.length > 1 && (
-                            <div className="flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded-full border border-white/[0.08]">
-                              {insights.map((_, i) => (
-                                <button
-                                  key={i}
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setCurrentInsightIndex(i);
-                                  }}
-                                  className={cn(
-                                    "h-1.5 rounded-full transition-all duration-300 cursor-pointer",
-                                    i === idx ? "w-3 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "w-1.5 bg-white/10 hover:bg-white/30"
-                                  )}
-                                  aria-label={`Ir para insight ${i + 1}`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex flex-col gap-1 relative z-10 mt-1">
-                          <span className="text-sm font-medium text-white/90 leading-snug">{insight.description}</span>
-                          <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest mt-1.5">{insight.value}</span>
-                        </div>
-                      </motion.div>
-                    );
-                  })()}
-                </AnimatePresence>
-              </div>
-            </div>
-          )}
 
           {/* Rankings Section */}
           <SectionHeader 

@@ -508,7 +508,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[250px] select-none overflow-visible [perspective:1200px]"
+        className="relative h-[285px] select-none overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -527,9 +527,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           const isFarRight = position === 2;
           if (!isCentered && !isLeft && !isFarRight) return null;
 
-          const x = isPrimary ? -78 : isSecondary ? 78 : isLeft ? -154 : 154;
-          const y = isCentered ? 0 : -10;
-          const scale = isCentered ? 0.84 : 0.56;
+          const x = isPrimary ? -82 : isSecondary ? 82 : isLeft ? -166 : 166;
+          const y = isCentered ? 18 : 0;
+          const scale = isCentered ? 0.78 : 0.52;
           const opacity = isCentered ? 1 : 0.18;
           const blur = isCentered ? 'blur(0px)' : 'blur(5px)';
 
@@ -544,7 +544,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
               }}
               animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
               transition={{ type: 'spring', stiffness: 150, damping: 24 }}
-              className="absolute left-1/2 top-1/2 w-[196px] -translate-y-1/2 text-left"
+              className="absolute left-1/2 top-1/2 w-[186px] -translate-y-1/2 text-left"
             >
               <motion.div
                 animate={shouldReduceMotion || !isInsightsVisible || !isCentered ? {} : { x: [0, isPrimary ? 5 : -4, 0], y: [0, isPrimary ? -4 : 3, 0], rotate: [0, isPrimary ? 0.45 : -0.4, 0] }}
