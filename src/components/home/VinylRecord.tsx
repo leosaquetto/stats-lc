@@ -86,9 +86,6 @@ export const VinylRecord = ({
   const beatDuration    = useMemo(() => 1.4 - currentRatio * 0.7,              [currentRatio]);
   const pulseScale      = useMemo(() => 1.05 + currentRatio * 0.05,            [currentRatio]);
   const pulseOpacity    = useMemo(() => 0.45 + currentRatio * 0.25,            [currentRatio]);
-  const shimmerDuration = useStatsStore(state => state.shimmerDuration) ?? 2.8;
-  const shimmerSpeed    = useMemo(() => shimmerDuration - currentRatio * (shimmerDuration / 2), [currentRatio, shimmerDuration]);
-
   const prefersReducedMotion = typeof window !== 'undefined'
     ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
     : false;
@@ -336,19 +333,6 @@ export const VinylRecord = ({
               )}
             </motion.div>
           </AnimatePresence>
-
-          {/* Shimmer na capa — só playing */}
-          {isPlaying && (
-            <motion.div
-              className="absolute inset-0 pointer-events-none rounded-full"
-              style={{
-                background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.35) 25%, transparent 50%, rgba(255,255,255,0.15) 75%, transparent 100%)',
-                mixBlendMode: 'overlay',
-              }}
-              animate={{ rotate: 360 }}
-              transition={{ duration: shimmerSpeed, repeat: Infinity, ease: 'linear' }}
-            />
-          )}
 
           {/* Escurecimento da capa no idle — como luz apagando */}
           <AnimatePresence>

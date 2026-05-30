@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform } from 'motion/react';
-import { BarChart3, Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
+import { Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
@@ -519,9 +519,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     }
     return "";
   }, [track]);
-  const mainArtist = track ? getMainArtist(track) : null;
-  const mainArtistName = track ? getMainArtistName(track) : '';
-  const secondaryArtists = track ? getSecondaryArtists(track) : [];
+  const mainArtist = useMemo(() => track ? getMainArtist(track) : null, [track]);
+  const mainArtistName = useMemo(() => track ? getMainArtistName(track) : '', [track]);
+  const secondaryArtists = useMemo(() => track ? getSecondaryArtists(track) : [], [track]);
   const albumArtistName = useMemo(() => {
     if (!track) return '';
     const candidate =
@@ -571,6 +571,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const [listenAlbumCount, setListenAlbumCount] = useState<number | null>(null);
   const [listenAlbumLoading, setListenAlbumLoading] = useState(false);
   const [listenStats, setListenStats] = useState({ artist: 0, track: 0, album: 0 });
+  const [listenArtistStats, setListenArtistStats] = useState<Record<string, number>>({});
   const listenStatsRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -650,7 +651,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const othersPlayed = allTrackArenaUsers.some(u => u.id !== user.id);
   const showRankingSummary = !hideRankingBadge && othersPlayed;
 
-  const listenArtistId = mainArtist?.id || track?.primaryArtistId || track?.artistId;
   const listenAlbumId = track?.albumId || track?.album?.id;
   const canShowListenStats = !!track?.id;
   const listenArtistImage =
@@ -660,6 +660,36 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     track?.primaryArtistImage ||
     track?.artists?.[0]?.image ||
     '';
+  const listenArtists = useMemo(() => {
+    const rawArtists = Array.isArray(track?.artists) ? track.artists : [];
+    const findArtistImage = (artistId?: string, artistName?: string) => {
+      const normalizedName = (artistName || '').trim().toLowerCase();
+      const found = rawArtists.find((artist: any) => {
+        const id = artist?.id || artist?.statsfmId || artist?.spotifyId || artist?.appleMusicId || '';
+        const name = artist?.name || artist?.artistName || artist?.displayName || '';
+        return (artistId && id === artistId) || (!!normalizedName && name.trim().toLowerCase() === normalizedName);
+      });
+      return found?.image || found?.avatar || found?.artistImage || found?.picture || '';
+    };
+
+    const artistMap = new Map<string, { id: string; name: string; image: string }>();
+    const addArtist = (artist: any, fallbackName = 'Artista', fallbackImage = '') => {
+      const id = artist?.id || artist?.statsfmId || artist?.spotifyId || artist?.appleMusicId || '';
+      const name = artist?.name || artist?.artistName || artist?.displayName || fallbackName;
+      const key = id || name.trim().toLowerCase();
+      if (!key || artistMap.has(key)) return;
+      artistMap.set(key, {
+        id,
+        name,
+        image: artist?.image || artist?.avatar || artist?.artistImage || fallbackImage || findArtistImage(id, name) || albumImage
+      });
+    };
+
+    addArtist(mainArtist, mainArtistName || 'Artista', listenArtistImage);
+    secondaryArtists.forEach((artist) => addArtist(artist, artist.name || 'Artista'));
+
+    return Array.from(artistMap.values());
+  }, [albumImage, listenArtistImage, mainArtist, mainArtistName, secondaryArtists, track?.artists]);
   const shouldShowAlbumTitle = !!track?.albumName && (
     !isActuallyLive ||
     !listenAlbumId ||
@@ -688,12 +718,22 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
     let cancelled = false;
     setListenStatsLoading(true);
+    const artistsToFetch = listenArtists.filter(artist => artist.id);
     Promise.all([
-      listenArtistId ? statsService.fetchEntityStats(user.id, 'artist', listenArtistId).catch(() => 0) : Promise.resolve(0),
+      Promise.all(artistsToFetch.map(artist =>
+        statsService.fetchEntityStats(user.id, 'artist', artist.id).catch(() => 0)
+      )),
       statsService.fetchEntityStats(user.id, 'track', track.id).catch(() => 0),
       listenAlbumId ? statsService.fetchEntityStats(user.id, 'album', listenAlbumId).catch(() => 0) : Promise.resolve(0),
-    ]).then(([artist, trackCount, album]) => {
-      if (!cancelled) setListenStats({ artist, track: trackCount, album });
+    ]).then(([artistCounts, trackCount, album]) => {
+      if (!cancelled) {
+        const nextArtistStats = artistsToFetch.reduce<Record<string, number>>((acc, artist, index) => {
+          acc[artist.id] = artistCounts[index] || 0;
+          return acc;
+        }, {});
+        setListenArtistStats(nextArtistStats);
+        setListenStats({ artist: artistCounts[0] || 0, track: trackCount, album });
+      }
     }).finally(() => {
       if (!cancelled) setListenStatsLoading(false);
     });
@@ -701,7 +741,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     return () => {
       cancelled = true;
     };
-  }, [listenStatsOpen, canShowListenStats, user.id, listenArtistId, track?.id, listenAlbumId]);
+  }, [listenStatsOpen, canShowListenStats, user.id, listenArtists, track?.id, listenAlbumId]);
 
   useEffect(() => {
     if (!canShowListenStats || !listenAlbumId) {
@@ -731,6 +771,54 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       cancelled = true;
     };
   }, [canShowListenStats, user.id, listenAlbumId]);
+
+  const listenOrbitItems = useMemo(() => {
+    if (!track?.id) return [];
+
+    const artistItems = listenArtists.map((artist, index) => ({
+      key: `artist-${artist.id || artist.name}-${index}`,
+      id: artist.id,
+      type: 'artist',
+      label: index === 0 ? 'artista' : 'feat.',
+      count: artist.id ? (listenArtistStats[artist.id] || 0) : (index === 0 ? listenStats.artist : 0),
+      name: artist.name,
+      image: artist.image || albumImage,
+      rounded: 'full' as const,
+    }));
+
+    const mediaItems = [
+      {
+        key: 'track',
+        id: track.id,
+        type: 'track',
+        label: 'música',
+        count: listenStats.track,
+        name: track?.name || 'Música',
+        image: albumImage,
+        rounded: 'xl' as const,
+      },
+      {
+        key: 'album',
+        id: listenAlbumId || '',
+        type: 'album',
+        label: 'álbum',
+        count: listenStats.album,
+        name: track?.albumName || 'Álbum',
+        image: albumImage,
+        rounded: 'xl' as const,
+      }
+    ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0);
+
+    return [...artistItems, ...mediaItems];
+  }, [albumImage, listenAlbumId, listenArtistStats, listenArtists, listenStats, listenStatsLoading, track?.albumName, track?.id, track?.name]);
+
+  const listenOrbitPositions = [
+    { x: -70, y: -48, size: 56, rotate: -8 },
+    { x: -150, y: -14, size: 62, rotate: 7 },
+    { x: -98, y: 42, size: 58, rotate: -4 },
+    { x: -198, y: 48, size: 54, rotate: 10 },
+    { x: -224, y: -56, size: 50, rotate: -12 },
+  ];
 
   const filteredMembers = useMemo(() => {
     return getVisibleMembers(groupStats, hiddenUsers);
@@ -1089,53 +1177,70 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
                               className={cn(
-                                "flex items-center gap-3 sm:gap-4 rounded-full border border-white/10 bg-black/25 py-2.5 pl-3 pr-5 backdrop-blur-xl hover:bg-white/[0.08] transition-all cursor-pointer group/arena max-w-full",
-                                arenaExpanded ? "max-w-full flex-wrap justify-center py-2" : "shrink-0"
+                                "flex items-center gap-0 cursor-pointer group/arena max-w-full",
+                                arenaExpanded ? "max-w-full flex-wrap justify-center gap-1 py-1" : "shrink-0"
                               )}
                             >
-                              <div className="flex -space-x-2 mr-1 shrink-0">
+                              <div className="flex -space-x-2.5 shrink-0 overflow-visible py-2 pr-1">
                                 {trackArenaUsers.map((u, i) => (
                                   <motion.div
                                     key={u.id}
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: i * 0.05 }}
+                                    initial={{ opacity: 0, scale: 0.8, y: 4 }}
+                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+                                      opacity: 1,
+                                      scale: u.id === user.id ? 1.05 : 1,
+                                      x: [0, i % 2 === 0 ? -2 : 2, 0],
+                                      y: [0, i % 2 === 0 ? -4 : 3, 0],
+                                      rotate: [0, i % 2 === 0 ? -2 : 2, 0],
+                                    }}
+                                    transition={shouldReduceMotion ? { delay: i * 0.04 } : {
+                                      opacity: { delay: i * 0.04, duration: 0.18 },
+                                      scale: { delay: i * 0.04, duration: 0.22 },
+                                      x: { delay: i * 0.18, duration: 3.6 + i * 0.22, repeat: Infinity, ease: 'easeInOut' },
+                                      y: { delay: i * 0.22, duration: 3.9 + i * 0.2, repeat: Infinity, ease: 'easeInOut' },
+                                      rotate: { delay: i * 0.16, duration: 4.2 + i * 0.18, repeat: Infinity, ease: 'easeInOut' },
+                                    }}
                                     className={cn(
                                       "relative group/avatar shrink-0",
-                                      u.id === user.id ? "z-20 scale-105" : ""
+                                      u.id === user.id ? "z-20" : ""
                                     )}
                                     style={{ zIndex: trackArenaUsers.length - i }}
                                   >
                                     <div className={cn(
-                                      "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2",
-                                      u.id === user.id ? "ring-orange-500/80" : "ring-white/20 group-hover/avatar:ring-white/40"
+                                      "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+                                      u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
                                     )}>
                                       <div className="relative h-full w-full rounded-full overflow-hidden">
                                         <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
                                       </div>
                                     </div>
 
-                                    <div className={cn(
+                                    <motion.div
+                                      animate={shouldReduceMotion ? {} : {
+                                        y: [0, i % 2 === 0 ? 2 : -2, 0],
+                                        scale: [1, 1.08, 1],
+                                      }}
+                                      transition={shouldReduceMotion ? {} : {
+                                        delay: 0.12 + i * 0.17,
+                                        duration: 2.7 + i * 0.16,
+                                        repeat: Infinity,
+                                        ease: 'easeInOut',
+                                      }}
+                                      className={cn(
                                       "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
                                       u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
-                                    )}>
-                                      {u.plays}
-                                    </div>
+                                    )}
+                                    >
+                                      {coreUtils.formatNumber(u.plays)}
+                                    </motion.div>
                                   </motion.div>
                                 ))}
                               </div>
 
-                              {!arenaExpanded && (
-                                <div className="flex flex-col justify-center shrink-0 pr-1">
-                                  <span className="text-[5.5px] sm:text-[6px] font-black text-white/45 uppercase tracking-[0.28em] leading-none mb-0.5 whitespace-nowrap">ARENA</span>
-                                  <span className="text-[8px] sm:text-[10px] font-black text-white uppercase tracking-[0.02em] leading-none whitespace-nowrap">RANKING</span>
-                                </div>
-                              )}
-
                               {hasMoreArena && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setArenaExpanded(!arenaExpanded); }}
-                                  className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-white/10 flex items-center justify-center text-white/80 hover:bg-white/20 transition-all text-[8px] sm:text-[9px] font-bold ml-1"
+                                  className="ml-1 flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/35 text-[8px] sm:text-[9px] font-bold text-white/80 shadow-[0_12px_28px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all hover:bg-white/10"
                                 >
                                   {arenaExpanded ? <ChevronLeft className="h-3 w-3" /> : `+${allTrackArenaUsers.length - trackArenaUsers.length}`}
                                 </button>
@@ -1177,87 +1282,124 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           {canShowListenStats && (
                             <motion.div
                               ref={listenStatsRef}
-                              initial={{ opacity: 0, scale: 0.92, y: 5 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.92, y: 5 }}
-                              className="relative z-[85] shrink-0"
+                              initial={{ opacity: 0, scale: 0.92 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.92 }}
+                              className="pointer-events-none absolute -right-10 -top-5 z-[85] h-[132px] w-[260px]"
                             >
-                              <button
+                              <AnimatePresence>
+                                {listenStatsOpen && listenOrbitItems.map((item, index) => {
+                                  const orbit = listenOrbitPositions[index % listenOrbitPositions.length];
+                                  const orbitRound = Math.floor(index / listenOrbitPositions.length);
+                                  const x = orbit.x - orbitRound * 18;
+                                  const y = orbit.y + (orbitRound % 2 === 0 ? 0 : 18);
+
+                                  return (
+                                    <motion.button
+                                      key={item.key}
+                                      type="button"
+                                      initial={{ opacity: 0, x: 6, y: 0, scale: 0.55, filter: 'blur(10px)' }}
+                                      animate={{
+                                        opacity: 1,
+                                        x: shouldReduceMotion ? x : [x, x - 4, x + 3, x],
+                                        y: shouldReduceMotion ? y : [y, y + 4, y - 3, y],
+                                        scale: 1,
+                                        rotate: orbit.rotate,
+                                        filter: 'blur(0px)'
+                                      }}
+                                      exit={{ opacity: 0, x: 4, y: 0, scale: 0.58, filter: 'blur(10px)' }}
+                                      transition={{
+                                        opacity: { duration: 0.18 },
+                                        scale: { duration: 0.24, ease: [0.16, 1, 0.3, 1] },
+                                        x: shouldReduceMotion ? { duration: 0.24 } : { duration: 4.8 + index * 0.35, repeat: Infinity, ease: 'easeInOut' },
+                                        y: shouldReduceMotion ? { duration: 0.24 } : { duration: 5.2 + index * 0.25, repeat: Infinity, ease: 'easeInOut' },
+                                        filter: { duration: 0.2 }
+                                      }}
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        if (item.type === 'track') {
+                                          onTrackClick?.({ ...track, type: 'track' });
+                                        } else if (item.type === 'album') {
+                                          onTrackClick?.({
+                                            id: track.albumId || '',
+                                            name: track.albumName,
+                                            type: 'album',
+                                            albumName: track.albumName,
+                                            albumImage,
+                                            image: albumImage,
+                                            albumArtist: albumArtistName,
+                                            primaryArtistName: albumArtistName || mainArtistName,
+                                            artists: track.artists,
+                                            artistName: albumArtistName || mainArtistName
+                                          });
+                                        } else {
+                                          onTrackClick?.({ id: item.id || '', name: item.name, type: 'artist' });
+                                        }
+                                      }}
+                                      aria-label={`${item.label}: ${item.name}`}
+                                      className="pointer-events-auto absolute right-9 top-8 flex items-center justify-center rounded-[24px] border border-white/14 bg-black/30 shadow-[0_22px_55px_rgba(0,0,0,0.55)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/20"
+                                      style={{
+                                        width: orbit.size,
+                                        height: orbit.size,
+                                        borderRadius: item.rounded === 'full' ? 999 : 22,
+                                      }}
+                                    >
+                                      <div className="absolute inset-0 rounded-[inherit] bg-white/[0.05]" />
+                                      <SmartImage
+                                        src={item.image}
+                                        className="relative h-full w-full object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
+                                        fallback={item.name}
+                                        rounded={item.rounded}
+                                      />
+                                      <span className="absolute -bottom-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border border-orange-200/35 bg-orange-500 px-1.5 text-[8px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.62)]">
+                                        {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
+                                      </span>
+                                    </motion.button>
+                                  );
+                                })}
+                              </AnimatePresence>
+
+                              <motion.button
                                 type="button"
+                                drag="x"
+                                dragConstraints={{ left: -96, right: 0 }}
+                                dragElastic={0.16}
+                                onDragEnd={(_, info) => {
+                                  if (info.offset.x < -24 || info.velocity.x < -280) {
+                                    setListenStatsOpen(true);
+                                  } else if (info.offset.x > 18 || info.velocity.x > 260) {
+                                    setListenStatsOpen(false);
+                                  }
+                                }}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setListenStatsOpen(prev => !prev);
                                 }}
                                 aria-label="Ver contagens desta reprodução"
-                                className={cn(
-                                  "flex h-8 min-w-8 items-center justify-center gap-1 rounded-full border px-2 text-white backdrop-blur-xl shadow-[0_14px_34px_rgba(0,0,0,0.38)] active:scale-95 transition-all",
-                                  listenStatsOpen
-                                    ? "border-orange-400/45 bg-orange-500/18 text-orange-100"
-                                    : "border-white/10 bg-black/30 text-white/75 hover:bg-white/[0.08]"
-                                )}
+                                animate={{
+                                  x: listenStatsOpen ? -84 : 0,
+                                  scale: listenStatsOpen ? 1.08 : 1,
+                                  width: listenStatsOpen ? 58 : 46,
+                                  height: listenStatsOpen ? 58 : 46,
+                                }}
+                                transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                                className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
                               >
-                                <BarChart3 className="h-3 w-3 text-orange-300" />
-                                <span className="text-[7px] font-black uppercase tracking-[0.12em] leading-none">
-                                  VIEW
-                                </span>
-                              </button>
-
-                              <AnimatePresence>
-                                {listenStatsOpen && (
-                                  <motion.div
-                                    initial={{ opacity: 0, y: 10, scale: 0.94, filter: 'blur(8px)' }}
-                                    animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-                                    exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(8px)' }}
-                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                                    className="glass-card premium-gradient absolute right-0 top-10 z-[120] w-[min(86vw,336px)] rounded-[24px] border-white/15 px-4 py-3.5 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] backdrop-blur-2xl relative overflow-hidden group"
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    {/* Glossy Reflection Overlay */}
-                                    <div className="absolute inset-x-0 top-0 h-1/2 rounded-t-[24px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
-                                    <div className="relative z-10">
-                                    <div className="mb-3 flex items-center justify-between gap-3 border-b border-white/8 pb-2.5">
-                                      <span className="text-[10px] font-black uppercase tracking-[0.24em] text-white/92 drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">
-                                        MÚSICA NO TOCADOR
-                                      </span>
-                                      <span className="h-1.5 w-1.5 rounded-full bg-orange-400 shadow-[0_0_10px_rgba(251,146,60,0.55)]" />
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-3">
-                                    {[
-                                      { key: 'artist', label: 'artista', count: listenStats.artist, name: mainArtistName || 'Artista', image: listenArtistImage, rounded: 'full' },
-                                      { key: 'track', label: 'música', count: listenStats.track, name: track?.name || 'Música', image: albumImage, rounded: 'xl' },
-                                      { key: 'album', label: 'álbum', count: listenStats.album, name: track?.albumName || 'Álbum', image: albumImage, rounded: 'xl' },
-                                    ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0).map((item, index) => (
-                                      <motion.div
-                                        key={item.key}
-                                        initial={{ opacity: 0, y: 8 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.035 }}
-                                        className="flex min-w-0 flex-col items-center rounded-[18px] border border-white/12 bg-white/[0.04] px-2 py-2 text-center shadow-[0_12px_32px_rgba(0,0,0,0.42)] backdrop-blur-xl"
-                                      >
-                                        <span className="mb-2 text-[6.5px] font-black uppercase tracking-[0.18em] text-white/58">
-                                          {item.label}
-                                        </span>
-                                        <div className="relative h-14 w-14">
-                                          <SmartImage
-                                            src={item.image}
-                                            className="h-14 w-14 shadow-[0_16px_34px_rgba(0,0,0,0.45)]"
-                                            fallback={item.name}
-                                            rounded={item.rounded}
-                                          />
-                                          <span className="absolute -bottom-1 -right-1 flex h-5 min-w-[22px] items-center justify-center rounded-full bg-orange-500 px-1 text-[8px] font-black text-white shadow-[0_0_18px_rgba(249,115,22,0.48)]">
-                                            {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
-                                          </span>
-                                        </div>
-                                        <span className="mt-2 line-clamp-2 min-w-0 text-[9px] font-bold leading-[1.1] text-white/95 drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)]">
-                                          {item.name}
-                                        </span>
-                                      </motion.div>
-                                    ))}
-                                    </div>
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
+                                <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
+                                <SmartImage
+                                  src={listenArtists[0]?.image || listenArtistImage || albumImage}
+                                  className="relative h-full w-full object-cover"
+                                  fallback={mainArtistName || 'Artista'}
+                                  rounded="full"
+                                />
+                                <motion.span
+                                  initial={false}
+                                  animate={{ opacity: listenStatsOpen ? 1 : 0, scale: listenStatsOpen ? 1 : 0.72 }}
+                                  className="absolute -bottom-1 -left-1 flex h-6 min-w-6 items-center justify-center rounded-full border border-orange-200/40 bg-orange-500 px-1.5 text-[8px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.65)]"
+                                >
+                                  {listenStatsLoading ? '...' : coreUtils.formatNumber(listenStats.track || playCount || 0)}
+                                </motion.span>
+                              </motion.button>
                             </motion.div>
                           )}
                         </AnimatePresence>

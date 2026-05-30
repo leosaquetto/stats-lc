@@ -15,16 +15,16 @@ import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion'
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
 import { coreUtils } from '../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../services/statsService';
-import { statsCacheService } from '../services/statsCacheService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
+import { ShimmerOverlay } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
-import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
+import { getDominantColor } from '../lib/colorUtils';
+import { VinylRecord } from '../components/home/VinylRecord';
 
 const ReplaySection = React.lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
 const UserHistoryModal = React.lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
@@ -36,68 +36,43 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type MiniHeaderBubble = {
-  key: 'artist' | 'track' | 'album';
-  label: string;
-  title: string;
-  count: number;
-  image?: string;
-  rounded?: 'full' | 'lg' | 'xl';
-};
-
 const FloatingMiniHeader = React.memo(({
   visible,
-  items
+  albumImage,
+  dominantColor,
+  isPlaying
 }: {
   visible: boolean;
-  items: MiniHeaderBubble[];
+  albumImage: string;
+  dominantColor: string;
+  isPlaying: boolean;
 }) => {
-  if (items.length === 0) return null;
+  if (!albumImage) return null;
 
   return (
     <header
-      style={{ paddingTop: 'calc(0.875rem + env(safe-area-inset-top, 0px))' }}
       className={cn(
-        "fixed top-0 left-0 right-0 z-[150] flex items-center justify-center px-3 sm:px-6 lg:px-8 py-3.5 transition-[transform,opacity] duration-300 ease-out",
+        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[132px] overflow-hidden transition-[transform,opacity] duration-300 ease-out",
         visible
-          ? "translate-y-0 opacity-100 pointer-events-none"
-          : "-translate-y-4 opacity-0 pointer-events-none"
+          ? "translate-y-0 opacity-100"
+          : "-translate-y-4 opacity-0"
       )}
     >
-      <div className="flex w-full max-w-[480px] items-center justify-center gap-2 overflow-x-auto no-scrollbar">
-        {items.map((item) => (
-          <motion.div
-            key={item.key}
-            layout
-            className={cn(
-              "flex min-w-0 items-center gap-2 rounded-full border border-white/12 bg-black/42 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-black/28",
-              item.key === 'track' ? "max-w-[190px] flex-[1_1_165px]" : "shrink-0"
-            )}
-          >
-            {item.image ? (
-              <SmartImage
-                src={item.image}
-                className="h-8 w-8 shrink-0 object-cover"
-                fallback={item.title}
-                rounded={item.rounded || 'full'}
-              />
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-500/20 bg-orange-500/12 text-[9px] font-black text-orange-300">
-                ♫
-              </div>
-            )}
-
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate text-[9px] font-black leading-none text-white/90">
-                {item.title}
-              </span>
-              <span className="text-[7px] font-black uppercase tracking-[0.14em] text-orange-300/85 leading-none">
-                {coreUtils.formatNumber(item.count)} plays
-              </span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      <motion.div
+        initial={false}
+        animate={visible ? { y: 0, opacity: 1, scale: 1 } : { y: -18, opacity: 0, scale: 0.94 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-60px)] h-[172px] w-[172px] sm:right-[calc(50%-316px)] sm:h-[190px] sm:w-[190px]"
+      >
+        <VinylRecord
+          albumImage={albumImage}
+          dominantColor={dominantColor}
+          isPlaying={isPlaying}
+          progressMs={0}
+          durationMs={undefined}
+          hideTonearm
+        />
+      </motion.div>
     </header>
   );
 });
@@ -310,7 +285,7 @@ export default function HomeScreen() {
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
   const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
-  const [miniHeaderStats, setMiniHeaderStats] = useState({ artist: 0, track: 0, album: 0 });
+  const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
   const isHeaderScrolledRef = useRef(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
@@ -344,24 +319,8 @@ export default function HomeScreen() {
   }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id || '';
 
-  // Mini header summary states
+  // Mini header mirrors the now playing vinyl once the hero scrolls away.
   const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
-  const miniHeaderMainArtist = useMemo(() => getMainArtist(miniHeaderTrack), [miniHeaderTrack]);
-  const miniHeaderArtistName = getMainArtistName(miniHeaderTrack) || 'Artista';
-  const miniHeaderArtistId =
-    miniHeaderMainArtist?.id ||
-    miniHeaderTrack?.primaryArtistId ||
-    miniHeaderTrack?.artistId ||
-    miniHeaderTrack?.albumArtistId ||
-    '';
-  const miniHeaderArtistImage =
-    miniHeaderMainArtist?.image ||
-    miniHeaderMainArtist?.avatar ||
-    miniHeaderTrack?.artistImage ||
-    miniHeaderTrack?.primaryArtistImage ||
-    miniHeaderTrack?.artists?.[0]?.image ||
-    '';
-  const miniHeaderAlbumId = miniHeaderTrack?.albumId || miniHeaderTrack?.album?.id || '';
   const miniHeaderAlbumImage = (
     miniHeaderTrack?.image ||
     miniHeaderTrack?.albumImage ||
@@ -377,35 +336,10 @@ export default function HomeScreen() {
     miniHeaderTrack?.cover ||
     ''
   );
-  const miniHeaderBubbles = useMemo<MiniHeaderBubble[]>(() => {
-    if (!miniHeaderTrack?.id) return [];
-    return [
-      {
-        key: 'artist',
-        label: 'Artista',
-        title: miniHeaderArtistName,
-        count: miniHeaderStats.artist,
-        image: miniHeaderArtistImage || miniHeaderAlbumImage,
-        rounded: 'full'
-      },
-      {
-        key: 'track',
-        label: 'Música',
-        title: miniHeaderTrack?.name || 'Música',
-        count: miniHeaderStats.track,
-        image: '',
-        rounded: 'full'
-      },
-      {
-        key: 'album',
-        label: 'Álbum',
-        title: miniHeaderTrack?.albumName || miniHeaderTrack?.album?.name || 'Álbum',
-        count: miniHeaderStats.album,
-        image: miniHeaderAlbumImage,
-        rounded: 'lg'
-      }
-    ];
-  }, [miniHeaderAlbumImage, miniHeaderArtistImage, miniHeaderArtistName, miniHeaderStats, miniHeaderTrack]);
+  const hasMiniHeaderAlbumImage = typeof miniHeaderAlbumImage === 'string' && miniHeaderAlbumImage.trim().length > 5;
+  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
+  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
+  const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
   const primaryPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const primaryTrack = primaryUser?.nowPlaying?.track;
   const primaryIsPlaying = primaryPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
@@ -499,34 +433,25 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    if (!primaryUser?.id || !miniHeaderTrack?.id) {
-      setMiniHeaderStats({ artist: 0, track: 0, album: 0 });
+    let cancelled = false;
+
+    if (!hasMiniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
+      setMiniHeaderResolvedColor('');
       return;
     }
 
-    let cancelled = false;
-    Promise.all([
-      miniHeaderArtistId
-        ? statsCacheService.fetchEntityStats(primaryUser.id, 'artist', miniHeaderArtistId).catch(() => 0)
-        : Promise.resolve(0),
-      statsCacheService.fetchEntityStats(primaryUser.id, 'track', miniHeaderTrack.id).catch(() => 0),
-      miniHeaderAlbumId
-        ? statsCacheService.fetchEntityStats(primaryUser.id, 'album', miniHeaderAlbumId).catch(() => 0)
-        : Promise.resolve(0),
-    ]).then(([artist, track, album]) => {
-      if (!cancelled) {
-        setMiniHeaderStats({
-          artist: artist || 0,
-          track: track || 0,
-          album: album || 0,
-        });
-      }
-    });
+    getDominantColor(miniHeaderAlbumImage)
+      .then((color) => {
+        if (!cancelled) setMiniHeaderResolvedColor(color || '');
+      })
+      .catch(() => {
+        if (!cancelled) setMiniHeaderResolvedColor('');
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [miniHeaderAlbumId, miniHeaderArtistId, miniHeaderTrack?.id, primaryUser?.id]);
+  }, [hasMiniHeaderAlbumImage, miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
 
   const handleRefresh = useCallback(async () => {
     // Rate limiting: prevent spam refresh
@@ -1040,8 +965,10 @@ export default function HomeScreen() {
 
           {/* Top Bar Navigation - Floating */}
           <FloatingMiniHeader
-            visible={isHeaderScrolled}
-            items={miniHeaderBubbles}
+            visible={isHeaderScrolled && hasMiniHeaderAlbumImage}
+            albumImage={miniHeaderAlbumImage}
+            dominantColor={miniHeaderDominantColor}
+            isPlaying={miniHeaderIsPlaying}
           />
         </>,
         document.body
