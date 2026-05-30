@@ -145,7 +145,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
 
   return (
-    <div className="relative flex min-h-screen w-full max-w-[480px] mx-auto flex-col bg-[#050505] overflow-x-clip overflow-y-visible font-sans">
+    <div
+      className="app-shell relative flex w-full max-w-[480px] mx-auto flex-col overflow-x-clip overflow-y-visible font-sans"
+      style={{ ['--app-background' as string]: '#050505' }}
+    >
       {/* Scroll Fade Gradients removed to prevent overlaying headers */}
 
       {/* Offline Status */}
@@ -164,7 +167,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </AnimatePresence>
 
       {/* Scrollable Content */}
-      <main className="flex-1 w-full pt-[40px] pt-[env(safe-area-inset-top)] pb-[120px] pb-[calc(env(safe-area-inset-bottom)+100px)]">
+      <main className="flex-1 w-full pt-[max(env(safe-area-inset-top),40px)] pb-[calc(env(safe-area-inset-bottom)+100px)]">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -441,7 +444,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </div>
 
       {/* Background Atmosphere */}
-      <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden">
+      <div className="app-background pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] h-[50%] w-[70%] rounded-full bg-blue-600/[0.07] blur-[120px] animate-pulse-slow" />
         <div className="absolute bottom-[10%] right-[-10%] h-[40%] w-[60%] rounded-full bg-purple-600/[0.07] blur-[120px] animate-pulse-slow ml-auto" />
         

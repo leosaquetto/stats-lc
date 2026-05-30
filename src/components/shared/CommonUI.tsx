@@ -16,9 +16,49 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const usePrefersReducedMotion = () => {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
+
+  return prefersReducedMotion;
+};
+
+const useElementVisibility = <T extends HTMLElement>(rootMargin = '160px') => {
+  const ref = useRef<T | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [rootMargin]);
+
+  return [ref, isVisible] as const;
+};
+
 export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: { size?: number, className?: string, variant?: 'orange' | 'black' }) => {
+  const [logoRef, isVisible] = useElementVisibility<HTMLDivElement>('120px');
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const shouldAnimate = isVisible && !prefersReducedMotion;
+
   return (
     <motion.div 
+      ref={logoRef}
       className={cn("relative flex items-center justify-center", className)}
       style={{ width: size, height: size }}
       whileHover={{ scale: 1.05 }}
@@ -26,10 +66,10 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
     >
       <motion.div 
         className="absolute inset-0 rounded-full bg-orange-500/20 blur-md"
-        animate={{ 
+        animate={shouldAnimate ? { 
           scale: [1, 1.3, 1],
           opacity: [0.2, 0.4, 0.2]
-        }}
+        } : { scale: 1, opacity: 0.22 }}
         transition={{ 
           duration: 4, 
           repeat: Infinity, 
@@ -51,6 +91,8 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
   const [loading, setLoading] = useState(true);
   const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
+  const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const resolvedSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
 
@@ -75,7 +117,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
   const shouldShowFallback = (error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) && showFallback;
 
   return (
-    <div className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
+    <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
       {loading && (
         <div className="absolute inset-0 bg-white/[0.02] overflow-hidden">
           <motion.div
@@ -86,7 +128,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
               height: '100%',
             }}
             initial={{ x: '-100%' }}
-            animate={{ x: '100%' }}
+            animate={isVisible && !prefersReducedMotion ? { x: '100%' } : { x: '-100%' }}
             transition={{
               repeat: Infinity,
               duration: shimmerDuration,
@@ -220,23 +262,32 @@ export const SectionHeader = ({ title, icon: Icon, action }: { title: string, ic
 );
 
 export const ShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => (
-  <div className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
-    <motion.div
-      className="absolute inset-0"
-      initial={{ x: '-100%' }}
-      animate={{ x: '100%' }}
-      transition={{
-        repeat: Infinity,
-        duration,
-        ease: "linear",
-      }}
-      style={{
-        background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
-        willChange: 'transform'
-      }}
-    />
-  </div>
+  <VisibleShimmerOverlay duration={duration} className={className} />
 );
+
+const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => {
+  const [shimmerRef, isVisible] = useElementVisibility<HTMLDivElement>('180px');
+  const prefersReducedMotion = usePrefersReducedMotion();
+
+  return (
+    <div ref={shimmerRef} className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
+      <motion.div
+        className="absolute inset-0"
+        initial={{ x: '-100%' }}
+        animate={isVisible && !prefersReducedMotion ? { x: '100%' } : { x: '-100%' }}
+        transition={{
+          repeat: Infinity,
+          duration,
+          ease: "linear",
+        }}
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
+          willChange: isVisible && !prefersReducedMotion ? 'transform' : 'auto'
+        }}
+      />
+    </div>
+  );
+};
 
 export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { className?: string, shimmer?: boolean, rounded?: string }) => (
   <div className={cn(
@@ -250,6 +301,8 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
 );
 
 export const AnimatedNumber = ({ value }: { value: number }) => {
+  const [numberRef, isVisible] = useElementVisibility<HTMLSpanElement>('120px');
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [displayValue, setDisplayValue] = useState(value);
   const prevValueRef = useRef(value);
   const requestRef = useRef<number | undefined>(undefined);
@@ -257,10 +310,18 @@ export const AnimatedNumber = ({ value }: { value: number }) => {
 
   useEffect(() => {
     if (prevValueRef.current === value) return;
+
+    if (!isVisible || prefersReducedMotion) {
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      startTimeRef.current = undefined;
+      prevValueRef.current = value;
+      setDisplayValue(value);
+      return;
+    }
     
     const startValue = prevValueRef.current;
     const endValue = value;
-    const duration = 800;
+    const duration = 620;
 
     const animate = (time: number) => {
       if (!startTimeRef.current) startTimeRef.current = time;
@@ -286,9 +347,9 @@ export const AnimatedNumber = ({ value }: { value: number }) => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
     };
-  }, [value]);
+  }, [value, isVisible, prefersReducedMotion]);
 
-  return <span>{coreUtils.formatNumber(displayValue)}</span>;
+  return <span ref={numberRef}>{coreUtils.formatNumber(displayValue)}</span>;
 };
 
 export const MusicPlatformBadge = memo(({ userId, platform, track, className, showLabel = false, variant = "default" }: { userId?: string, platform?: any, track?: any, className?: string, showLabel?: boolean, variant?: "default" | "minimal" }) => {

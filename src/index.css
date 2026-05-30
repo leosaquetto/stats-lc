@@ -7,9 +7,33 @@
 }
 
 @layer base {
-  body {
-    @apply bg-[#050505] text-white antialiased selection:bg-orange-500/30;
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+    background: #000;
   }
+
+  body {
+    min-height: 100svh;
+    @apply bg-black text-white antialiased selection:bg-orange-500/30;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+}
+
+.app-shell {
+  min-height: 100svh;
+  background: var(--app-background, #050505);
+}
+
+.app-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
 }
 
 @utility glass {
@@ -204,6 +228,5 @@
 .animate-spin-vinyl {
   animation: spin-vinyl 15s linear infinite;
 }
-
 
 

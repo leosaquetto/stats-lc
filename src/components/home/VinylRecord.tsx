@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useId, useState } from 'react';
+import { useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -52,6 +52,41 @@ const getTextureProfile = (albumImage: string, dominantColor: string) => {
   return profile;
 };
 
+const useVinylVisibility = () => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: '220px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, isVisible] as const;
+};
+
+const usePrefersReducedMotion = () => {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setPrefersReducedMotion(media.matches);
+    update();
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
+
+  return prefersReducedMotion;
+};
+
 export const VinylRecord = ({
   albumImage,
   dominantColor,
@@ -62,13 +97,16 @@ export const VinylRecord = ({
   hideTonearm = false
 }: VinylRecordProps) => {
   const uniqueId = useId();
+  const [containerRef, isVisible] = useVinylVisibility();
   const [progressTick, setProgressTick] = useState(() => Date.now());
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const canAnimate = isVisible && !prefersReducedMotion;
 
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !isVisible) return;
     const id = window.setInterval(() => setProgressTick(Date.now()), 500);
     return () => window.clearInterval(id);
-  }, [isPlaying, progressMs, durationMs]);
+  }, [isPlaying, isVisible, progressMs, durationMs]);
 
   const realTimeProgress = useMemo(() => {
     if (!isPlaying || !progressMs || !durationMs) return progressMs || 0;
@@ -86,10 +124,6 @@ export const VinylRecord = ({
   const beatDuration    = useMemo(() => 1.4 - currentRatio * 0.7,              [currentRatio]);
   const pulseScale      = useMemo(() => 1.05 + currentRatio * 0.05,            [currentRatio]);
   const pulseOpacity    = useMemo(() => 0.45 + currentRatio * 0.25,            [currentRatio]);
-  const prefersReducedMotion = typeof window !== 'undefined'
-    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    : false;
-
   const safeDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.4), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.3), [safeDominantColor]);
@@ -118,6 +152,7 @@ export const VinylRecord = ({
 
   return (
     <div
+      ref={containerRef}
       className="relative w-full aspect-square flex items-center justify-center cursor-pointer"
       onClick={onClick}
     >
@@ -125,7 +160,7 @@ export const VinylRecord = ({
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
-        {!isPlaying && (
+        {!isPlaying && canAnimate && (
           <motion.div
             className="absolute inset-[-8%] rounded-full pointer-events-none z-0"
             initial={{ opacity: 0 }}
@@ -174,12 +209,12 @@ export const VinylRecord = ({
             : 'none'
         }}
         animate={
-          isPlaying && !prefersReducedMotion
+          isPlaying && canAnimate
             ? { rotate: 360, opacity: 1, scale: 1 }
-            : { rotate: [-3, 3, -3], opacity: [0.65, 0.82, 0.65], scale: [0.99, 1.01, 0.99] }
+            : canAnimate ? { rotate: [-3, 3, -3], opacity: [0.65, 0.82, 0.65], scale: [0.99, 1.01, 0.99] } : { rotate: 0, opacity: isPlaying ? 1 : 0.74, scale: 1 }
         }
         transition={
-          isPlaying && !prefersReducedMotion
+          isPlaying && canAnimate
             ? { duration: 3, repeat: Infinity, ease: 'linear' }
             : { duration: 12, repeat: Infinity, ease: 'easeInOut' }
         }
@@ -271,7 +306,7 @@ export const VinylRecord = ({
             background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.13) 7%, transparent 14%, transparent 50%, rgba(255,255,255,0.06) 57%, transparent 64%)',
             mixBlendMode: 'overlay',
           }}
-          animate={{ rotate: 360 }}
+          animate={isPlaying && canAnimate ? { rotate: 360 } : { rotate: 0 }}
           transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
         />
 
@@ -287,7 +322,7 @@ export const VinylRecord = ({
         />
 
         {/* Glow pulsante atrás da capa — só playing */}
-        {isPlaying && (
+        {isPlaying && canAnimate && (
           <motion.div
             className="absolute inset-[22%] rounded-full pointer-events-none"
             style={{
@@ -354,7 +389,7 @@ export const VinylRecord = ({
 
         {/* Partículas de poeira — só idle */}
         <AnimatePresence>
-          {!isPlaying && !prefersReducedMotion && (
+          {!isPlaying && canAnimate && (
             <motion.div
               className="absolute inset-0 rounded-full pointer-events-none z-30 overflow-hidden"
               initial={{ opacity: 0 }}
