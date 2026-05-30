@@ -399,11 +399,11 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     const isLive = insight.type === 'live';
 
     return (
-      <div className="flex flex-col items-center gap-3">
-        <div className="relative h-[178px] w-[178px] shrink-0">
+      <div className="flex flex-col items-center gap-2">
+        <div className="relative h-[118px] w-[118px] shrink-0">
           <div className="pointer-events-none absolute inset-0 rounded-full border border-white/8" />
-          <div className="pointer-events-none absolute inset-[16px] rounded-full border-2 border-dashed border-orange-500/15" />
-          <div className="pointer-events-none absolute inset-[44px] rounded-full border border-orange-500/25 shadow-[0_0_34px_rgba(249,115,22,0.14)]" />
+          <div className="pointer-events-none absolute inset-[11px] rounded-full border border-dashed border-orange-500/15" />
+          <div className="pointer-events-none absolute inset-[30px] rounded-full border border-orange-500/25 shadow-[0_0_24px_rgba(249,115,22,0.12)]" />
 
           <motion.div
             animate={shouldReduceMotion || !isInsightsVisible ? {} : { y: [0, -4, 0] }}
@@ -412,71 +412,71 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           >
             {isRivalry ? (
               <div className="relative flex h-full w-full items-center justify-center">
-                <div className="z-10 flex h-16 w-16 items-center justify-center rounded-full border border-orange-500/45 bg-orange-500/8 text-2xl font-black text-orange-400 shadow-[0_0_36px_rgba(249,115,22,0.22)]">VS</div>
+                <div className="z-10 flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/45 bg-orange-500/8 text-lg font-black text-orange-400 shadow-[0_0_28px_rgba(249,115,22,0.2)]">VS</div>
                 {insight.users[0] && (
-                  <div className="absolute right-[10%] top-[12%] h-14 w-14 overflow-hidden rounded-full border-2 border-orange-500/65 shadow-2xl shadow-orange-500/25">
+                  <div className="absolute right-[8%] top-[10%] h-10 w-10 overflow-hidden rounded-full border-2 border-orange-500/65 shadow-2xl shadow-orange-500/25">
                     <SmartImage src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
                   </div>
                 )}
                 {insight.users[1] && (
-                  <div className="absolute bottom-[13%] left-[11%] h-14 w-14 overflow-hidden rounded-full border-2 border-orange-500/65 shadow-2xl shadow-orange-500/25">
+                  <div className="absolute bottom-[10%] left-[9%] h-10 w-10 overflow-hidden rounded-full border-2 border-orange-500/65 shadow-2xl shadow-orange-500/25">
                     <SmartImage src={coreUtils.getUserAvatar(insight.users[1].id, insight.users[1].avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
                   </div>
                 )}
               </div>
             ) : isMatch ? (
               <div className="relative flex h-full w-full items-center justify-center">
-                <Heart className="z-10 h-9 w-9 fill-red-400 text-red-400 drop-shadow-[0_0_20px_rgba(248,113,113,0.55)]" />
+                <Heart className="z-10 h-7 w-7 fill-red-400 text-red-400 drop-shadow-[0_0_18px_rgba(248,113,113,0.5)]" />
                 {insight.users.slice(0, 2).map((user: any, idx: number) => (
-                  <div key={user.id} className="absolute h-14 w-14 overflow-hidden rounded-full border-2 border-red-500/60 shadow-2xl shadow-red-500/25" style={idx === 0 ? { top: '14%', left: '18%' } : { bottom: '14%', right: '18%' }}>
+                  <div key={user.id} className="absolute h-10 w-10 overflow-hidden rounded-full border-2 border-red-500/60 shadow-2xl shadow-red-500/25" style={idx === 0 ? { top: '13%', left: '16%' } : { bottom: '13%', right: '16%' }}>
                     <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
                   </div>
                 ))}
               </div>
             ) : isAlbum && insight.albumArt ? (
-              <div className="relative flex h-full w-full items-center justify-center p-8">
+              <div className="relative flex h-full w-full items-center justify-center p-5">
                 <div className="relative h-full w-full overflow-hidden rounded-full border-3 border-orange-500/55 shadow-2xl shadow-orange-500/25">
                   <SmartImage src={insight.albumArt} rounded="full" className="h-full w-full object-cover" fallback="" />
                   <div className="absolute inset-0 rounded-full shadow-[inset_0_0_34px_rgba(0,0,0,0.45)]" />
                 </div>
-                <div className="absolute right-[13%] top-[22%] flex h-9 min-w-9 items-center justify-center rounded-full border-2 border-orange-500/40 bg-orange-600 px-1.5 shadow-[0_10px_26px_rgba(249,115,22,0.28)]">
-                  <span className="text-xs font-black leading-none text-white">
+                <div className="absolute right-[10%] top-[18%] flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-orange-500/40 bg-orange-600 px-1.5 shadow-[0_10px_22px_rgba(249,115,22,0.25)]">
+                  <span className="text-[10px] font-black leading-none text-white">
                     {coreUtils.formatNumber(getItemCount(insight.users[0]?.topItems?.albums?.[0]))}
                   </span>
                 </div>
               </div>
             ) : (
-              <div className="relative flex h-full w-full items-center justify-center p-8">
+              <div className="relative flex h-full w-full items-center justify-center p-5">
                 {insight.users[0] && (
                   <div className="h-full w-full overflow-hidden rounded-full border-3 border-orange-500/60 shadow-2xl shadow-orange-500/25">
                     <SmartImage src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
                   </div>
                 )}
                 {isLive && (
-                  <div className="absolute bottom-3 right-3 h-3.5 w-3.5 rounded-full bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.8)]" />
+                  <div className="absolute bottom-2.5 right-2.5 h-3 w-3 rounded-full bg-green-500 shadow-[0_0_16px_rgba(34,197,94,0.75)]" />
                 )}
               </div>
             )}
           </motion.div>
         </div>
 
-        <div className="flex max-w-[270px] flex-col items-center gap-2 text-center">
+        <div className="flex max-w-[176px] flex-col items-center gap-1.5 text-center">
           <div className="flex items-center gap-2">
             {insight.icon}
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-500">
+            <span className="text-[8px] font-black uppercase tracking-[0.18em] text-orange-500">
               {insight.title}
             </span>
           </div>
-          <h3 className="max-w-full truncate text-2xl font-black leading-none text-white">
+          <h3 className="max-w-full truncate text-[20px] font-black leading-none text-white">
             {insight.primary}
           </h3>
-          <p className="line-clamp-2 text-sm font-medium leading-snug text-white/58">
+          <p className="line-clamp-2 text-[12px] font-medium leading-snug text-white/58">
             {insight.secondary}
           </p>
           {isRivalry && insight.users?.[0] && insight.users?.[1] && (
             <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/8 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.12)]">
-              <Zap className="h-3.5 w-3.5 text-orange-500" />
-              <span className="text-sm font-black text-orange-400">
+              <Zap className="h-3 w-3 text-orange-500" />
+              <span className="text-xs font-black text-orange-400">
                 {coreUtils.formatNumber(Math.abs((insight.users[0].streamsToday || 0) - (insight.users[1].streamsToday || 0)))}
               </span>
             </div>
@@ -508,28 +508,30 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[340px] select-none overflow-visible [perspective:1200px]"
+        className="relative h-[250px] select-none overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        <div className="pointer-events-none absolute left-1/2 top-[48%] h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.035] bg-gradient-to-b from-white/[0.02] to-transparent" />
-        <div className="pointer-events-none absolute left-1/2 top-[48%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.03]" />
+        <div className="pointer-events-none absolute left-1/2 top-[50%] h-48 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.028] bg-gradient-to-b from-white/[0.015] to-transparent" />
+        <div className="pointer-events-none absolute left-1/2 top-[50%] h-56 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.025]" />
 
         {insights.map((insight, index) => {
           const position = (index - activeInsightIndex + insights.length) % insights.length;
-          const isCentered = position === 0;
-          const isRight = position === 1;
+          const isPrimary = position === 0;
+          const isSecondary = position === 1;
+          const isCentered = isPrimary || isSecondary;
           const isLeft = position === insights.length - 1;
-          if (!isCentered && !isRight && !isLeft) return null;
+          const isFarRight = position === 2;
+          if (!isCentered && !isLeft && !isFarRight) return null;
 
-          const x = isCentered ? 0 : isRight ? 118 : -118;
-          const y = isCentered ? 0 : -18;
-          const scale = isCentered ? 1 : 0.72;
-          const opacity = isCentered ? 1 : 0.36;
-          const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
+          const x = isPrimary ? -78 : isSecondary ? 78 : isLeft ? -154 : 154;
+          const y = isCentered ? 0 : -10;
+          const scale = isCentered ? 0.84 : 0.56;
+          const opacity = isCentered ? 1 : 0.18;
+          const blur = isCentered ? 'blur(0px)' : 'blur(5px)';
 
           return (
             <motion.button
@@ -537,15 +539,15 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
               key={insight.key}
               onClick={() => {
                 setIsAutoPaused(true);
-                if (isCentered) insight.onClick?.();
+                if (isPrimary) insight.onClick?.();
                 else goToInsight(index);
               }}
               animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
               transition={{ type: 'spring', stiffness: 150, damping: 24 }}
-              className="absolute left-1/2 top-1/2 w-[300px] -translate-y-1/2 text-left"
+              className="absolute left-1/2 top-1/2 w-[196px] -translate-y-1/2 text-left"
             >
               <motion.div
-                animate={shouldReduceMotion || !isInsightsVisible || !isCentered ? {} : { x: [0, 8, -5, 0], y: [0, -6, 4, 0], rotate: [0, 0.7, -0.5, 0] }}
+                animate={shouldReduceMotion || !isInsightsVisible || !isCentered ? {} : { x: [0, isPrimary ? 5 : -4, 0], y: [0, isPrimary ? -4 : 3, 0], rotate: [0, isPrimary ? 0.45 : -0.4, 0] }}
                 transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
               >
                 {renderInsightCore(insight)}

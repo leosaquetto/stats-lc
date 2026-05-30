@@ -1334,7 +1334,7 @@ export default function HomeScreen() {
       )}
 
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
-        <div className="relative [contain:layout_paint] [content-visibility:auto] [contain-intrinsic-size:720px]">
+        <div className="relative">
           <React.Suspense fallback={<HomeSectionLoader label="Carregando replay" />}>
             <ReplaySection
               topArtists={replayArtists.slice(0, 20).map((a: any) => ({
@@ -1385,7 +1385,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:520px]"
+        className="px-4 sm:px-6 lg:px-8"
       >
         <FriendsMonthlyHighlights
           periodQuery={replayPeriodQuery}
@@ -1401,7 +1401,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:620px]"
+        className="px-4 sm:px-6 lg:px-8"
       >
         <HomeInsights onFriendClick={(friend) => setViewingFullHistoryUser(friend)} />
       </motion.div>
@@ -1413,7 +1413,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:560px]"
+        className="px-4 sm:px-6 lg:px-8"
       >
         <StatsAlike />
       </motion.div>

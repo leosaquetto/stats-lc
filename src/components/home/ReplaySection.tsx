@@ -163,7 +163,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
   return (
     <div
-      className="relative isolate w-full overflow-hidden px-4 py-5 sm:px-6 lg:px-8 [contain:layout_paint]"
+      className="relative isolate w-full overflow-visible px-4 py-4 sm:px-6 lg:px-8"
       style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
     >
       <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.22)_0%,rgba(239,92,38,0.12)_42%,rgba(0,0,0,0)_72%)]" />
@@ -180,15 +180,15 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       <div className="relative z-10 space-y-5">
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-4 pl-4">
-          <h2 className="text-[38px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
+          <h2 className="text-[34px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
           <button
             type="button"
             onClick={onShareReplay}
-            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-all active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-all active:scale-95"
             title="Compartilhar Replay"
             aria-label="Compartilhar Replay"
           >
-            <Share2 className="h-5 w-5" />
+            <Share2 className="h-[18px] w-[18px]" />
           </button>
         </div>
 
@@ -287,8 +287,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {hasData && <div className={cn("ml-4 max-w-[300px] transition-opacity duration-300", isLoading && "opacity-55")}>
-        <p className="text-[26px] font-black leading-[1.08] tracking-[-0.035em] text-white/46">
+      {hasData && <div className={cn("ml-4 max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
+        <p className="text-[24px] font-black leading-[1.08] tracking-[-0.035em] text-white/46">
           <span>Você ouviu </span>
           <motion.span
             key={totalMinutesCount}
@@ -334,7 +334,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenArtistsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[19px] font-black leading-none tracking-[-0.025em] text-white">Seus artistas mais ouvidos</h3>
+              <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Seus artistas mais ouvidos</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
@@ -347,8 +347,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="relative w-[44vw] max-w-[176px]">
-                  <div className="relative h-[248px] w-full overflow-hidden rounded-[18px] bg-white/5 shadow-xl">
+                <div className="relative w-[41vw] max-w-[164px]">
+                  <div className="relative h-[230px] w-full overflow-hidden rounded-[18px] bg-white/5 shadow-xl">
                     <SmartImage
                       src={artist.image || ''}
                       className="w-full h-full object-cover"
@@ -357,7 +357,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     />
 
                     {/* Número do Ranking - SEM drop-shadow */}
-                    <span className="absolute left-3.5 top-3 z-10 text-[50px] font-black leading-none tracking-[-0.08em] text-white">
+                    <span className="absolute left-3.5 top-3 z-10 text-[46px] font-black leading-none tracking-[-0.08em] text-white">
                       {index + 1}
                     </span>
 
@@ -376,7 +376,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     />
 
                     {/* Gradiente escuro inferior */}
-                    <div className="absolute inset-x-0 bottom-0 z-10 h-28 pointer-events-none bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 z-10 h-24 pointer-events-none bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
                     <div className="absolute bottom-4 left-3 right-3 z-20 flex flex-col items-center text-center">
                       <p className="w-full truncate text-[17px] font-black leading-tight text-white">
@@ -402,13 +402,13 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenSongsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[19px] font-black leading-none tracking-[-0.025em] text-white">Suas músicas mais ouvidas</h3>
+              <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Suas músicas mais ouvidas</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
           <div data-home-horizontal-scroll="true" className="overflow-x-auto snap-x pl-4 pr-4 hide-scrollbar scroll-pl-4">
-            <div className="flex gap-5">
+            <div className="flex gap-4">
               {Array.from({ length: Math.ceil(visibleTracks.length / 4) }).map((_, pageIndex) => (
                 <div key={pageIndex} className="flex flex-col snap-start flex-shrink-0">
                   {visibleTracks.slice(pageIndex * 4, (pageIndex + 1) * 4).map((track, indexInPage) => {
@@ -416,9 +416,9 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     return (
                       <div
                         key={replayItemKey('track', track, globalIndex)}
-                        className="flex h-[54px] w-[calc(100vw-48px)] max-w-[328px] items-center gap-3 border-b border-white/10"
+                        className="flex h-[50px] w-[calc(100vw-76px)] max-w-[296px] items-center gap-2.5 border-b border-white/10"
                       >
-                        <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-[9px] bg-white/5 shadow-lg">
+                        <div className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-[8px] bg-white/5 shadow-lg">
                           <ReplayTrackImage
                             src={track.image || ''}
                             fallback={track.name || 'Música'}
@@ -430,7 +430,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         </span>
 
                         <div className="flex-1 min-w-0">
-                          <p className="truncate text-[14px] font-semibold leading-tight text-white">{track.name}</p>
+                          <p className="truncate text-[13px] font-semibold leading-tight text-white">{track.name}</p>
                           <p className="truncate text-[12px] leading-tight text-white/48">
                             {track.artist} · {coreUtils.formatNumber(track.streams)} reproduções
                           </p>
@@ -463,7 +463,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               onClick={onOpenAlbumsModal}
               className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
-              <h3 className="text-[19px] font-black leading-none tracking-[-0.025em] text-white">Seus álbuns mais ouvidos</h3>
+              <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Seus álbuns mais ouvidos</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
@@ -472,7 +472,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             {limitedAlbums.map((album, index) => (
               <motion.div
                 key={replayItemKey('album', album, index)}
-                className="flex-shrink-0 snap-start w-[36vw] max-w-[144px]"
+                className="flex-shrink-0 snap-start w-[33vw] max-w-[132px]"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >

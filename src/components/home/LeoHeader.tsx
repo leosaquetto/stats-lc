@@ -853,7 +853,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     }
 
     if (leftIntent) {
-      setListenStatsActiveIndex(current => Math.min(current + 1, Math.max(0, listenOrbitItems.length - 1)));
+      setListenStatsActiveIndex(current => listenOrbitItems.length > 0 ? (current + 1) % listenOrbitItems.length : 0);
       return;
     }
 
@@ -1331,21 +1331,21 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               initial={{ opacity: 0, scale: 0.92 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.92 }}
-                              className="pointer-events-none absolute -right-10 -top-5 z-[85] h-[190px] w-[310px]"
+                              className="pointer-events-none absolute -right-9 -top-5 z-[85] h-[190px] w-[230px]"
                             >
                               <AnimatePresence>
                                 {listenStatsOpen && (
                                   <motion.div
                                     data-home-horizontal-scroll="true"
-                                    initial={{ opacity: 0, x: 26, scale: 0.92, filter: 'blur(8px)' }}
+                                    initial={{ opacity: 0, x: 46, scale: 0.9, filter: 'blur(8px)' }}
                                     animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
-                                    exit={{ opacity: 0, x: 18, scale: 0.94, filter: 'blur(8px)' }}
+                                    exit={{ opacity: 0, x: 36, scale: 0.94, filter: 'blur(8px)' }}
                                     transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.7 }}
                                     drag="x"
                                     dragConstraints={{ left: -76, right: 76 }}
                                     dragElastic={0.12}
                                     onDragEnd={handleListenStatsDragEnd}
-                                    className="pointer-events-auto absolute right-14 top-0 h-[178px] w-[230px] touch-pan-y select-none"
+                                    className="pointer-events-auto absolute right-0 top-0 h-[178px] w-[214px] touch-pan-y select-none"
                                   >
                                     <div className="pointer-events-none absolute inset-0 rounded-full border border-white/[0.035]" />
                                     <div className="pointer-events-none absolute right-1 top-4 h-32 w-32 rounded-full bg-orange-500/10 blur-2xl" />
@@ -1355,7 +1355,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       if (relative < -1 || relative > 2) return null;
 
                                       const isActiveCard = relative === 0;
-                                      const x = relative === 0 ? 0 : relative === 1 ? 64 : relative === 2 ? 96 : -46;
+                                      const x = relative === 0 ? 0 : relative === 1 ? 52 : relative === 2 ? 78 : -40;
                                       const y = relative === 0 ? 0 : relative === 1 ? -10 : relative === 2 ? 8 : 10;
                                       const scale = relative === 0 ? 1 : relative === 1 ? 0.78 : 0.62;
                                       const opacity = relative === 0 ? 1 : relative === 1 ? 0.48 : 0.22;
@@ -1372,7 +1372,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                           }}
                                           animate={{ x, y, scale, opacity, filter: blur, zIndex: isActiveCard ? 30 : 10 - Math.abs(relative), rotate: relative === 0 ? 0 : relative > 0 ? 4 : -5 }}
                                           transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-                                          className="absolute right-0 top-3 flex w-[150px] flex-col items-center text-center"
+                                          className="absolute right-0 top-3 flex w-[142px] flex-col items-center text-center"
                                         >
                                           <div className={cn(
                                             "relative flex h-[92px] w-[92px] items-center justify-center border border-white/14 bg-black/28 shadow-[0_20px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl",
@@ -1401,7 +1401,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                               {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                             </span>
                                           </div>
-                                          <div className="mt-2 max-w-[150px] rounded-[20px] border border-white/10 bg-black/42 px-3 py-2 shadow-[0_18px_38px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
+                                          <div className="mt-2 max-w-[142px] rounded-[20px] border border-white/10 bg-black/42 px-3 py-2 shadow-[0_18px_38px_rgba(0,0,0,0.35)] backdrop-blur-2xl">
                                             <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-500">
                                               {item.label}
                                             </span>
@@ -1416,47 +1416,35 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 )}
                               </AnimatePresence>
 
-                              <motion.button
-                                type="button"
-                                drag="x"
-                                dragConstraints={{ left: -112, right: 0 }}
-                                dragElastic={0.1}
-                                onDragEnd={handleListenStatsDragEnd}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setListenStatsOpen(prev => !prev);
-                                }}
-                                aria-label="Ver contagens desta reprodução"
-                                animate={{
-                                  x: listenStatsOpen ? -102 : 0,
-                                  scale: listenStatsOpen ? 1.04 : 1,
-                                  width: listenStatsOpen ? 66 : 58,
-                                  height: listenStatsOpen ? 66 : 58,
-                                }}
-                                transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
-                                className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
-                              >
-                                <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
-                                <SmartImage
-                                  src={listenArtists[0]?.image || listenArtistImage || albumImage}
-                                  className="relative h-full w-full object-cover"
-                                  fallback={mainArtistName || 'Artista'}
-                                  rounded="full"
-                                />
-                                <motion.span
-                                  initial={false}
-                                  animate={{ opacity: listenStatsOpen ? 1 : 0, scale: listenStatsOpen ? 1 : 0.72 }}
-                                  className="absolute -bottom-1 -left-1 flex h-6 min-w-6 items-center justify-center rounded-full border border-orange-200/40 bg-orange-500 px-1.5 text-[8px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.65)]"
-                                >
-                                  {listenStatsLoading
-                                    ? '...'
-                                    : coreUtils.formatNumber(
-                                        listenArtists[0]?.id
-                                          ? (listenArtistStats[listenArtists[0].id] || 0)
-                                          : listenStats.artist
-                                      )}
-                                </motion.span>
-                              </motion.button>
+                              <AnimatePresence>
+                                {!listenStatsOpen && (
+                                  <motion.button
+                                    type="button"
+                                    drag="x"
+                                    dragConstraints={{ left: -112, right: 0 }}
+                                    dragElastic={0.1}
+                                    onDragEnd={handleListenStatsDragEnd}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setListenStatsOpen(true);
+                                    }}
+                                    aria-label="Ver contagens desta reprodução"
+                                    initial={{ opacity: 0, x: 22, scale: 0.84 }}
+                                    animate={{ opacity: 1, x: 0, scale: 1, width: 62, height: 62 }}
+                                    exit={{ opacity: 0, x: 26, scale: 0.74 }}
+                                    transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
+                                    className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
+                                  >
+                                    <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
+                                    <SmartImage
+                                      src={listenArtists[0]?.image || listenArtistImage || albumImage}
+                                      className="relative h-full w-full object-cover"
+                                      fallback={mainArtistName || 'Artista'}
+                                      rounded="full"
+                                    />
+                                  </motion.button>
+                                )}
+                              </AnimatePresence>
                             </motion.div>
                           )}
                         </AnimatePresence>
