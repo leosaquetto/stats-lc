@@ -54,7 +54,7 @@ const FloatingMiniHeader = React.memo(({
   return (
     <header
       className={cn(
-        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[132px] overflow-hidden transition-[transform,opacity] duration-300 ease-out",
+        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(150px+env(safe-area-inset-top,0px))] overflow-visible transition-[transform,opacity] duration-300 ease-out",
         visible
           ? "translate-y-0 opacity-100"
           : "-translate-y-4 opacity-0"
@@ -64,7 +64,7 @@ const FloatingMiniHeader = React.memo(({
         initial={false}
         animate={visible ? { y: 0, opacity: 1, scale: 1 } : { y: -18, opacity: 0, scale: 0.94 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="pointer-events-auto absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-60px)] h-[172px] w-[172px] sm:right-[calc(50%-316px)] sm:h-[190px] sm:w-[190px]"
+        className="pointer-events-auto absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-78px)] h-[188px] w-[188px] sm:right-[calc(50%-326px)] sm:h-[206px] sm:w-[206px]"
       >
         <VinylRecord
           albumImage={albumImage}
@@ -1312,7 +1312,7 @@ export default function HomeScreen() {
       )}
 
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
-        <div className="relative [contain:layout_paint]">
+        <div className="relative [contain:layout_paint] [content-visibility:auto] [contain-intrinsic-size:720px]">
           <React.Suspense fallback={<HomeSectionLoader label="Carregando replay" />}>
             <ReplaySection
               topArtists={replayArtists.slice(0, 20).map((a: any) => ({
@@ -1363,7 +1363,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:520px]"
       >
         <FriendsMonthlyHighlights
           periodQuery={replayPeriodQuery}
@@ -1379,7 +1379,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:620px]"
       >
         <HomeInsights onFriendClick={(friend) => setViewingFullHistoryUser(friend)} />
       </motion.div>
@@ -1391,7 +1391,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        className="px-4 sm:px-6 lg:px-8 [content-visibility:auto] [contain-intrinsic-size:560px]"
       >
         <StatsAlike />
       </motion.div>
