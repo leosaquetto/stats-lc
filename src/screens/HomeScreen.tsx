@@ -9,7 +9,7 @@ import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, In
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
-import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
+import { MONTHS_SHORT, type ReplayFilterPeriod, type ReplaySelectedSubValues, type ReplayWeekMode } from '../components/home/replayUtils';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
@@ -51,19 +51,17 @@ const FloatingMiniHeader = React.memo(({
   if (!albumImage) return null;
 
   return (
-    <header
-      className={cn(
-        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(150px+env(safe-area-inset-top,0px))] overflow-visible",
-        visible
-          ? "opacity-100"
-          : "opacity-0"
-      )}
+    <motion.header
+      initial={false}
+      animate={visible ? { opacity: 1 } : { opacity: 0 }}
+      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      className="pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(130px+env(safe-area-inset-top,0px))] overflow-visible"
     >
       <motion.div
         initial={false}
-        animate={visible ? { y: 0, opacity: 1, scale: 1, rotate: 0 } : { y: -32, opacity: 0, scale: 0.82, rotate: -7 }}
-        transition={{ type: 'spring', stiffness: 560, damping: 30, mass: 0.72 }}
-        className="pointer-events-auto absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-78px)] h-[188px] w-[188px] sm:right-[calc(50%-326px)] sm:h-[206px] sm:w-[206px]"
+        animate={visible ? { y: 0, opacity: 1, scale: 1, rotate: 0 } : { y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
+        transition={{ type: 'spring', stiffness: 520, damping: 28, mass: 0.7 }}
+        className="pointer-events-auto absolute right-[-62px] top-[calc(env(safe-area-inset-top,0px)-66px)] h-[158px] w-[158px] sm:right-[calc(50%-304px)] sm:h-[176px] sm:w-[176px]"
       >
         <VinylRecord
           albumImage={albumImage}
@@ -75,7 +73,7 @@ const FloatingMiniHeader = React.memo(({
           hideTonearm
         />
       </motion.div>
-    </header>
+    </motion.header>
   );
 });
 
@@ -89,6 +87,17 @@ const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?:
 );
 
 const getReplayItemCount = (item: any) => Number(item?.playedCount || item?.playcount || item?.streams || item?.count || 0) || 0;
+const getReplayItemArtist = (item: any) => {
+  const direct = item?.artistName || item?.artist?.name || item?.album?.artist?.name || item?.track?.artist?.name || item?.albumArtist || item?.artist;
+  if (typeof direct === 'string' && direct.trim()) return direct;
+  if (Array.isArray(item?.artists) && item.artists.length > 0) {
+    return item.artists.map((artist: any) => typeof artist === 'string' ? artist : artist?.name).filter(Boolean).join(', ');
+  }
+  if (Array.isArray(item?.track?.artists) && item.track.artists.length > 0) {
+    return item.track.artists.map((artist: any) => typeof artist === 'string' ? artist : artist?.name).filter(Boolean).join(', ');
+  }
+  return '';
+};
 
 const HomeReplayFilter = ({
   activeTab,
@@ -101,30 +110,100 @@ const HomeReplayFilter = ({
   onActiveTabChange: (tab: ReplayFilterPeriod) => void;
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
 }) => {
-  const months = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+  const currentMonth = new Date().getMonth();
+  const availableMonths = MONTHS_SHORT.slice(0, currentMonth + 1);
+  const years = [2024, 2025, 2026];
+  const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
+    { key: 'today', label: 'hoje' },
+    { key: 'week', label: 'semana' },
+    { key: 'month', label: 'mês' },
+    { key: 'year', label: 'ano' },
+    { key: 'all', label: 'tudo' }
+  ];
+
   return (
-    <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar rounded-[28px] px-1 py-1">
-      {(['today', 'week', 'month', 'year', 'all'] as ReplayFilterPeriod[]).map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={() => onActiveTabChange(tab)}
-          className={cn(
-            "shrink-0 rounded-full px-4 py-2 text-[11px] font-black lowercase tracking-tight transition-all",
-            activeTab === tab ? "glass-aura text-white" : "text-white/36"
-          )}
-        >
-          {tab === 'today' ? 'hoje' : tab === 'week' ? 'semana' : tab === 'month' ? (months[Number(selectedSubValues.month || 0)] || 'mês') : tab === 'year' ? 'ano' : 'tudo'}
-        </button>
-      ))}
+    <div className="space-y-3">
+      <div data-home-horizontal-scroll="true" className="flex w-full items-center gap-2 overflow-x-auto no-scrollbar pl-1">
+        {periodTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onActiveTabChange(tab.key)}
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-black lowercase transition-colors",
+              activeTab === tab.key ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]" : "text-white/38"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'week' && (
+        <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1">
+          {[
+            { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
+            { key: 'current' as ReplayWeekMode, label: 'esta semana' }
+          ].map((option) => {
+            const isSelected = selectedSubValues.weekMode === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, weekMode: option.key })}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-black transition-colors",
+                  isSelected ? "bg-white/14 text-white" : "bg-white/[0.025] text-white/42"
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {activeTab === 'month' && (
-        <select
-          value={selectedSubValues.month || String(new Date().getMonth()).padStart(2, '0')}
-          onChange={(event) => onSelectedSubValuesChange({ ...selectedSubValues, month: event.target.value })}
-          className="glass-aura rounded-full bg-black/40 px-3 py-2 text-[11px] font-black text-white outline-none"
-        >
-          {months.map((month, index) => <option key={month} value={String(index).padStart(2, '0')}>{month}</option>)}
-        </select>
+        <div data-home-horizontal-scroll="true" className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-1">
+          {availableMonths.map((month, index) => {
+            const value = String(index).padStart(2, '0');
+            const isSelected = selectedSubValues.month === value;
+            return (
+              <button
+                key={month}
+                type="button"
+                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
+                className={cn(
+                  "shrink-0 text-[18px] font-black tracking-[-0.02em] transition-colors",
+                  isSelected ? "text-white" : "text-white/22"
+                )}
+              >
+                {month}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {activeTab === 'year' && (
+        <div data-home-horizontal-scroll="true" className="flex items-center gap-3 overflow-x-auto no-scrollbar pl-1">
+          {years.map((year) => {
+            const isSelected = selectedSubValues.year === String(year);
+            return (
+              <button
+                key={year}
+                type="button"
+                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) })}
+                className={cn(
+                  "shrink-0 rounded-full px-5 py-2 text-[14px] font-black transition-colors",
+                  isSelected ? "bg-white/14 text-white" : "bg-white/[0.025] text-white/42"
+                )}
+              >
+                {year}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -143,8 +222,8 @@ const HomeOrbitalHighlights = ({
 }) => {
   const groups = [
     { key: 'artists', title: 'Top 5 artistas', label: 'artista', icon: UserCircle, items: artists.slice(0, 5), rounded: 'full' as const },
-    { key: 'tracks', title: 'Top 5 músicas', label: 'faixa', icon: Music2, items: tracks.slice(0, 5), rounded: '2xl' as const },
-    { key: 'albums', title: 'Top 5 álbuns', label: 'álbum', icon: Disc3, items: albums.slice(0, 5), rounded: '2xl' as const }
+    { key: 'tracks', title: 'Top 5 músicas', label: '', icon: Music2, items: tracks.slice(0, 5), rounded: '2xl' as const },
+    { key: 'albums', title: 'Top 5 álbuns', label: '', icon: Disc3, items: albums.slice(0, 5), rounded: '2xl' as const }
   ].filter((group) => group.items.length > 0);
 
   return (
@@ -165,7 +244,7 @@ const HomeOrbitalHighlights = ({
         {groups.map((group, groupIndex) => {
           const Icon = group.icon;
           return (
-            <article key={group.key} className="glass-aura relative min-w-[86%] snap-center overflow-hidden rounded-[34px] px-5 py-5">
+            <article key={group.key} className="relative min-w-[86%] snap-center overflow-hidden rounded-[34px] bg-white/[0.035] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[30px]">
               <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/12" />
               <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
               <div className="relative z-10 mb-4 flex items-center justify-between">
@@ -185,7 +264,7 @@ const HomeOrbitalHighlights = ({
                 {group.items.map((item, index) => (
                   <motion.div
                     key={`${group.key}-${item.id || item.name}-${index}`}
-                    className="flex items-center gap-3 rounded-[24px] bg-black/18 px-3 py-2.5 backdrop-blur-xl"
+                    className="flex items-center gap-3 rounded-[24px] bg-black/10 px-3 py-2.5 backdrop-blur-xl"
                     animate={{ x: [0, index % 2 ? -2 : 2, 0] }}
                     transition={{ duration: 8 + index, repeat: Infinity, ease: 'easeInOut' }}
                   >
@@ -202,8 +281,11 @@ const HomeOrbitalHighlights = ({
                       <span className="glass-aura-orange absolute -bottom-1.5 -right-2 min-w-7 rounded-full px-1.5 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="block text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">{group.label}</span>
-                      <span className="mt-0.5 block line-clamp-2 text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
+                      {group.label ? <span className="block text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">{group.label}</span> : null}
+                      <span className="block line-clamp-1 text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
+                      {group.key !== 'artists' && getReplayItemArtist(item) ? (
+                        <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/46">{getReplayItemArtist(item)}</span>
+                      ) : null}
                     </div>
                   </motion.div>
                 ))}
@@ -219,12 +301,16 @@ const HomeOrbitalHighlights = ({
 const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
   const topTrack = tracks[0];
   const discovery = tracks.find((track) => getReplayItemCount(track) <= 2) || tracks[tracks.length - 1];
+  const topTrackArtist = topTrack ? getReplayItemArtist(topTrack) : '';
+  const discoveryArtist = discovery ? getReplayItemArtist(discovery) : '';
+  const recentTrack = recent[0]?.track || recent[0];
+  const recentArtist = recentTrack ? getReplayItemArtist(recentTrack) : '';
   const perceptions = [
-    topTrack && { title: 'ritual recente', text: `Você voltou para ${topTrack.name || topTrack.track?.name} e ela puxou ${coreUtils.formatNumber(getReplayItemCount(topTrack))} reproduções.`, icon: Music2 },
-    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} plays.`, icon: UserCircle },
-    discovery && { title: 'última descoberta', text: `${discovery.name || discovery.track?.name} apareceu como uma descoberta de baixa repetição.`, icon: Sparkles },
-    recent[0] && { title: 'agora na memória', text: `Sua última reprodução registrada foi ${recent[0]?.track?.name || recent[0]?.name || 'uma faixa nova'}.`, icon: Clock3 }
-  ].filter(Boolean) as Array<{ title: string; text: string; icon: any }>;
+    topTrack && { title: 'ritual recente', text: `${topTrack.name || topTrack.track?.name}${topTrackArtist ? `, de ${topTrackArtist}` : ''}, puxou ${coreUtils.formatNumber(getReplayItemCount(topTrack))} plays.`, icon: Music2, image: topTrack.image || topTrack.albumImage || topTrack.album?.image },
+    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} plays.`, icon: UserCircle, image: artists[0].image || artists[0].artist?.image },
+    discovery && { title: 'descoberta', text: `${discovery.name || discovery.track?.name}${discoveryArtist ? `, de ${discoveryArtist}` : ''}, apareceu com baixa repetição.`, icon: Sparkles, image: discovery.image || discovery.albumImage || discovery.album?.image },
+    recentTrack && { title: 'agora na memória', text: `${recentTrack.name || 'uma faixa nova'}${recentArtist ? `, de ${recentArtist}` : ''}, foi sua última reprodução.`, icon: Clock3, image: recentTrack.image || recentTrack.albumImage || recentTrack.album?.image }
+  ].filter(Boolean) as Array<{ title: string; text: string; icon: any; image?: string }>;
 
   if (perceptions.length === 0) return null;
   return (
@@ -233,16 +319,23 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
         <Sparkles className="h-5 w-5 text-orange-500" />
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
       </div>
-      <div data-home-horizontal-scroll="true" className="flex snap-x gap-3 overflow-x-auto no-scrollbar pb-2">
+      <div data-home-horizontal-scroll="true" className="flex snap-x gap-2.5 overflow-x-auto no-scrollbar pb-2">
         {perceptions.map((item, index) => {
           const Icon = item.icon;
           return (
-            <div key={`${item.title}-${index}`} className="glass-aura min-w-[74%] snap-center rounded-[30px] px-5 py-5">
-              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl glass-aura-orange">
-                <Icon className="h-5 w-5 text-white" />
+            <div
+              key={`${item.title}-${index}`}
+              className="relative min-w-[56%] snap-center overflow-hidden rounded-[24px] bg-white/[0.035] px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.32)] backdrop-blur-[28px]"
+            >
+              {item.image ? (
+                <img src={item.image} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.16]" loading="lazy" decoding="async" />
+              ) : null}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-black/20 via-black/35 to-orange-950/20" />
+              <div className="relative z-10 mb-3 flex h-8 w-8 items-center justify-center rounded-xl glass-aura-orange">
+                <Icon className="h-4 w-4 text-white" />
               </div>
-              <span className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">{item.title}</span>
-              <p className="mt-2 text-[18px] font-black leading-tight text-white">{item.text}</p>
+              <span className="relative z-10 text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{item.title}</span>
+              <p className="relative z-10 mt-1.5 line-clamp-3 text-[13px] font-black leading-tight text-white">{item.text}</p>
             </div>
           );
         })}
