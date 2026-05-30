@@ -478,34 +478,50 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="grid select-none grid-cols-2 gap-3 overflow-visible"
+        className="relative h-[268px] select-none overflow-hidden rounded-[34px] border border-white/[0.04] bg-white/[0.012] px-3 py-4 shadow-[0_22px_58px_rgba(0,0,0,0.32)]"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        {[0, 1].map((offset) => {
-          const index = (activeInsightIndex + offset) % insights.length;
-          const insight = insights[index];
-          if (!insight) return null;
-          return (
-            <motion.button
-              type="button"
-              key={`${insight.key}-${index}`}
-              onClick={() => {
-                setIsAutoPaused(true);
-                insight.onClick?.();
-              }}
-              initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="min-w-0 text-left"
-            >
-              {renderInsightCard(insight)}
-            </motion.button>
-          );
-        })}
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[286px] w-[286px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[224px] w-[224px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/[0.18]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[118px] w-[118px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.2] bg-black/12 shadow-[0_0_38px_rgba(249,115,22,0.08)]" />
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/25 bg-black/40"
+          animate={shouldReduceMotion || !isInsightsVisible ? {} : { rotate: 360 }}
+          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
+          style={{ transformOrigin: 'center' }}
+        >
+          <span className="absolute -right-[88px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-orange-500/55 shadow-[0_0_18px_rgba(249,115,22,0.45)]" />
+        </motion.div>
+
+        <div className="relative z-10 h-full">
+          {[0, 1].map((offset) => {
+            const index = (activeInsightIndex + offset) % insights.length;
+            const insight = insights[index];
+            if (!insight) return null;
+            const isPrimary = offset === 0;
+            return (
+              <motion.button
+                type="button"
+                key={`${insight.key}-${index}`}
+                onClick={() => {
+                  setIsAutoPaused(true);
+                  insight.onClick?.();
+                }}
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className={`absolute w-[154px] text-left ${isPrimary ? "left-0 top-7" : "right-0 bottom-5"}`}
+              >
+                {renderInsightCard(insight)}
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

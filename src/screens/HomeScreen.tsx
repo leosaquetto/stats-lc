@@ -130,15 +130,15 @@ const HomeReplayFilter = ({
 
   return (
     <div className="space-y-2.5">
-      <div data-home-horizontal-scroll="true" className="grid w-full grid-cols-5 gap-1.5">
+      <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1 pr-1">
         {periodTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => onActiveTabChange(tab.key)}
             className={cn(
-              "min-w-0 rounded-full px-1.5 py-1.5 text-[12px] font-black lowercase transition-colors",
-              activeTab === tab.key ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]" : "text-white/38"
+              "shrink-0 rounded-full px-4 py-2 text-[13px] font-black lowercase transition-colors",
+              activeTab === tab.key ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]" : "bg-white/[0.025] text-white/42"
             )}
           >
             {tab.label}
@@ -171,7 +171,7 @@ const HomeReplayFilter = ({
       )}
 
       {activeTab === 'month' && (
-        <div data-home-horizontal-scroll="true" className="grid grid-cols-6 gap-x-1.5 gap-y-1 pl-1">
+        <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1 pr-1">
           {availableMonths.map((month, index) => {
             const value = String(index).padStart(2, '0');
             const isSelected = selectedSubValues.month === value;
@@ -183,8 +183,8 @@ const HomeReplayFilter = ({
                 disabled={isFuture}
                 onClick={() => !isFuture && onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
                 className={cn(
-                  "min-w-0 rounded-full px-1 py-1 text-[10px] font-black lowercase transition-colors",
-                  isSelected ? "bg-white/12 text-white" : isFuture ? "text-white/10" : "text-white/26"
+                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-black lowercase transition-colors",
+                  isSelected ? "bg-white/14 text-white" : isFuture ? "text-white/12" : "bg-white/[0.025] text-white/42"
                 )}
               >
                 {month}
@@ -231,6 +231,7 @@ const HomeOrbitalHighlights = ({
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const highlightsContentHeight = "h-[560px]";
   const groups = [
     { key: 'artists', title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 8) },
     { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 5) },
@@ -240,6 +241,9 @@ const HomeOrbitalHighlights = ({
   useEffect(() => {
     if (activeIndex >= groups.length) setActiveIndex(0);
   }, [activeIndex, groups.length]);
+
+  const rankNumberClass = "absolute left-3 top-2 z-20 text-[54px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]";
+  const countBadgeClass = "absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/10 bg-orange-600 px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl";
 
   const goTo = useCallback((index: number) => {
     if (groups.length === 0) return;
@@ -277,17 +281,17 @@ const HomeOrbitalHighlights = ({
   const renderArtists = (items: any[]) => {
     const featured = items.slice(0, 6);
     return (
-      <div className="relative h-[304px] overflow-visible">
-        <div className="grid h-full grid-cols-3 grid-rows-2 gap-3">
+      <div className={cn("relative overflow-visible", highlightsContentHeight)}>
+        <div className="grid h-full grid-cols-3 grid-rows-2 gap-x-4 gap-y-4">
           {featured.map((item, index) => {
             return (
               <motion.div
                 key={`${item.id || item.name}-${index}`}
-                className="relative overflow-visible rounded-[22px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
+                className="relative overflow-visible rounded-[24px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
                 animate={{ y: [0, index % 2 ? 2 : -2, 0] }}
                 transition={{ duration: 11 + index * 0.7, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <div className="absolute inset-0 overflow-hidden rounded-[22px]">
+                <div className="absolute inset-0 overflow-hidden rounded-[24px]">
                   <SmartImage
                     src={getReplayItemImage(item)}
                     className="absolute inset-0 h-full w-full object-cover"
@@ -296,14 +300,14 @@ const HomeOrbitalHighlights = ({
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-transparent to-black/78" />
                 </div>
-                <span className="absolute -left-1.5 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full bg-black/62 px-2 text-[15px] font-black leading-none text-white backdrop-blur-xl">
+                <span className={rankNumberClass}>
                   {index + 1}
                 </span>
-                <span className="glass-aura-orange absolute -right-2 top-3 z-20 min-w-9 rounded-full px-2 py-0.5 text-center text-[9px] font-black text-white">
+                <span className={countBadgeClass}>
                   {coreUtils.formatNumber(getReplayItemCount(item))}
                 </span>
-                <div className="absolute inset-x-2.5 bottom-2.5 z-10">
-                  <span className="block truncate text-[13px] font-black leading-tight text-white">
+                <div className="absolute inset-x-3 bottom-3 z-10">
+                  <span className="block truncate text-[14px] font-black leading-tight text-white">
                     {item.name || 'sem nome'}
                   </span>
                   <span className="mt-0.5 block text-[10px] font-black text-white/72">
@@ -319,31 +323,31 @@ const HomeOrbitalHighlights = ({
   };
 
   const renderTracks = (items: any[]) => (
-    <div className="grid gap-2.5">
+    <div className={cn("grid content-stretch gap-3", highlightsContentHeight)}>
       {items.map((item, index) => (
-        <div key={`${item.id || item.name}-${index}`} className="flex items-center gap-3 rounded-[24px] bg-black/15 px-3 py-2.5 backdrop-blur-2xl">
-          <div className="relative h-12 w-12 shrink-0">
+        <div key={`${item.id || item.name}-${index}`} className="flex min-h-0 items-center gap-3 rounded-[24px] bg-black/15 px-3 py-3 backdrop-blur-2xl">
+          <div className="relative h-16 w-16 shrink-0">
             <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
-            <span className="absolute -right-2 top-1/2 flex h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 px-1.5 text-[10px] font-black text-white backdrop-blur-xl">#{index + 1}</span>
+            <span className="absolute left-1.5 top-1 text-[30px] font-black leading-none text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.46)]">{index + 1}</span>
           </div>
           <div className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
             <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/48">{getReplayItemArtist(item)}</span>
           </div>
-          <span className="glass-aura-orange min-w-10 rounded-full px-2 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+          <span className="flex h-10 min-w-10 items-center justify-center rounded-full border border-white/10 bg-orange-600 px-2 text-[12px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
         </div>
       ))}
     </div>
   );
 
   const renderAlbums = (items: any[]) => (
-    <div className="grid grid-cols-2 gap-3">
+    <div className={cn("grid grid-cols-2 gap-3 overflow-visible", highlightsContentHeight)}>
       {items.map((item, index) => (
         <div key={`${item.id || item.name}-${index}`} className="min-w-0">
           <div className="relative aspect-square overflow-visible rounded-[20px]">
             <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
-            <span className="absolute left-2 top-2 rounded-full bg-black/62 px-2 py-1 text-[10px] font-black text-white backdrop-blur-xl">#{index + 1}</span>
-            <span className="glass-aura-orange absolute -right-2 top-3 min-w-9 rounded-full px-2 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+            <span className={rankNumberClass}>{index + 1}</span>
+            <span className={countBadgeClass}>{coreUtils.formatNumber(getReplayItemCount(item))}</span>
           </div>
           <span className="mt-2 block truncate text-left text-[12px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
           <span className="mt-0.5 block truncate text-left text-[10px] font-semibold text-white/45">{getReplayItemArtist(item)}</span>
@@ -353,6 +357,8 @@ const HomeOrbitalHighlights = ({
   );
 
   if (groups.length === 0) return null;
+  const activeGroup = groups[activeIndex] || groups[0];
+  const ActiveIcon = activeGroup.icon;
 
   return (
     <section className="relative overflow-visible px-4 sm:px-6 lg:px-8">
@@ -370,55 +376,57 @@ const HomeOrbitalHighlights = ({
 
       <div
         data-home-horizontal-scroll="true"
-        className="relative h-[416px] select-none overflow-visible [perspective:1200px]"
+        className="relative select-none overflow-visible"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        {groups.map((group, groupIndex) => {
-          const Icon = group.icon;
-          const relative = (groupIndex - activeIndex + groups.length) % groups.length;
-          const isActive = relative === 0;
-          const isNext = relative === 1;
-          const isPrev = relative === groups.length - 1;
-          if (!isActive && !isNext && !isPrev) return null;
-          const x = isActive ? 0 : isNext ? 106 : -106;
-          const y = isActive ? 0 : 12;
-          const scale = isActive ? 1 : 0.82;
-          const opacity = isActive ? 1 : 0.28;
-          const blur = isActive ? 'blur(0px)' : 'blur(6px)';
-          return (
-            <motion.article
-              key={group.key}
-              onClick={() => !isActive && goTo(groupIndex)}
-              animate={{ x: `calc(-50% + ${x}px)`, y, scale, opacity, filter: blur, zIndex: isActive ? 30 : 8 }}
-              transition={{ type: 'spring', stiffness: 155, damping: 24 }}
-              className="absolute left-1/2 top-0 w-[min(100%,398px)] overflow-hidden rounded-[34px] bg-white/[0.026] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[34px]"
-            >
-              <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/12" />
-              <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
-              <div className="relative z-10 mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="glass-aura-orange flex h-9 w-9 items-center justify-center rounded-2xl">
-                    <Icon className="h-4 w-4 text-white" />
-                  </div>
-                  <div>
-                    <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-orange-300">{group.title}</span>
-                    <span className="text-[9px] font-bold text-white/38">arraste para ver o próximo</span>
-                  </div>
-                </div>
-                <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
+        <motion.article
+          key={activeGroup.key}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+          className="relative mx-auto w-full max-w-[398px] overflow-hidden rounded-[34px] bg-white/[0.026] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[34px]"
+        >
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
+          <div className="relative z-10 mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+                <ActiveIcon className="h-4 w-4 text-orange-300" />
               </div>
+              <div>
+                <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-orange-300">{activeGroup.title}</span>
+                <span className="text-[9px] font-bold text-white/38">arraste para ver o próximo</span>
+              </div>
+            </div>
+            <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
+          </div>
 
-              <div className="relative z-10">
-                {group.key === 'artists' && renderArtists(group.items)}
-                {group.key === 'tracks' && renderTracks(group.items)}
-                {group.key === 'albums' && renderAlbums(group.items)}
-              </div>
-            </motion.article>
-          );
-        })}
+          <div className="relative z-10">
+            {activeGroup.key === 'artists' && renderArtists(activeGroup.items)}
+            {activeGroup.key === 'tracks' && renderTracks(activeGroup.items)}
+            {activeGroup.key === 'albums' && renderAlbums(activeGroup.items)}
+          </div>
+        </motion.article>
+
+        {groups.length > 1 && (
+          <div className="mt-3 flex justify-center gap-1.5">
+            {groups.map((group, index) => (
+              <button
+                key={group.key}
+                type="button"
+                onClick={() => goTo(index)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
+                )}
+                aria-label={`Abrir ${group.title}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -477,7 +485,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
 
   if (perceptions.length === 0) return null;
   return (
-    <section className="mt-6 px-4 sm:px-6 lg:px-8">
+    <section className="mt-10 px-4 sm:px-6 lg:px-8">
       <div className="mb-3 flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-orange-500" />
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
@@ -1548,120 +1556,7 @@ export default function HomeScreen() {
       {/* Primary Highlight: Dynamic User */}
       <AnimatePresence mode="wait">
         {!isAppReady && !error ? (
-          <motion.div
-            key="loading-splash"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center px-6 gap-6 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
-          >
-            {/* Logo Container */}
-            <div className="flex items-center gap-4">
-              {/* Animated Icon - 3 bars equalizer */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="relative w-12 h-12 flex items-end justify-center gap-1.5"
-              >
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-orange-500/20 blur-xl rounded-full" />
-
-                {/* Left bar */}
-                <motion.div
-                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
-                  animate={{
-                    scaleY: [0.65, 0.95, 0.65],
-                    opacity: [0.7, 1, 0.7]
-                  }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0
-                  }}
-                />
-
-                {/* Center bar - tallest */}
-                <motion.div
-                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
-                  animate={{
-                    scaleY: [0.85, 1.12, 0.85],
-                    opacity: [0.8, 1, 0.8]
-                  }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0.15
-                  }}
-                />
-
-                {/* Right bar */}
-                <motion.div
-                  className="relative w-2.5 h-full bg-orange-500 rounded-full origin-bottom"
-                  animate={{
-                    scaleY: [0.55, 0.85, 0.55],
-                    opacity: [0.7, 1, 0.7]
-                  }}
-                  transition={{
-                    duration: 1.2,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0.3
-                  }}
-                />
-              </motion.div>
-
-              {/* Text logo - single line */}
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <span className="text-4xl font-black text-white tracking-tight leading-none whitespace-nowrap">
-                  stats.lc
-                </span>
-              </motion.div>
-            </div>
-
-            {/* Tagline */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center"
-            >
-              <span className="text-xs font-medium text-white/50 tracking-wide">
-                sintonizando seu círculo…
-              </span>
-            </motion.div>
-
-            {/* Subtle pulse indicator */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="flex items-center gap-1.5 mt-2"
-            >
-              <motion.div
-                className="h-1 w-1 rounded-full bg-orange-500/60"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
-                transition={{ duration: 1.8, repeat: Infinity, delay: 0 }}
-              />
-              <motion.div
-                className="h-1 w-1 rounded-full bg-orange-500/60"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
-                transition={{ duration: 1.8, repeat: Infinity, delay: 0.3 }}
-              />
-              <motion.div
-                className="h-1 w-1 rounded-full bg-orange-500/60"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0.8, 0.4] }}
-                transition={{ duration: 1.8, repeat: Infinity, delay: 0.6 }}
-              />
-            </motion.div>
-          </motion.div>
+          <div key="home-boot-placeholder" className="min-h-[72vh]" aria-busy="true" />
         ) : error ? (
             <motion.div 
              key="error"
