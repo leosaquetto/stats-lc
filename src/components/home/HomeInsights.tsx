@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { Zap, Heart, Flame, Sparkles, Trophy, Clock, Disc3, Radio } from 'lucide-react';
-import { SmartImage, SectionHeader } from '../shared/CommonUI';
+import { SmartImage } from '../shared/CommonUI';
 import { getVisibleMembers } from '../../lib/memberSelectors';
 
 interface HomeInsightsProps {
@@ -318,6 +318,18 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   const visibleInsights = React.useMemo(() => {
     if (insights.length <= 2) return insights;
+    const albumInsight = insights.find((insight) => insight.type === 'album');
+    const rivalryInsight = insights.find((insight) => insight.type === 'rivalry');
+    const curated = [albumInsight, rivalryInsight].filter(Boolean) as any[];
+
+    if (curated.length === 2) return curated;
+
+    const rotated = [insights[insightOffset % insights.length], insights[(insightOffset + 1) % insights.length]];
+    if (curated.length === 1) {
+      const fallback = rotated.find((insight) => insight.key !== curated[0].key) || insights.find((insight) => insight.key !== curated[0].key);
+      return fallback ? [curated[0], fallback] : curated;
+    }
+
     return [insights[insightOffset % insights.length], insights[(insightOffset + 1) % insights.length]];
   }, [insightOffset, insights]);
 
@@ -341,11 +353,11 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         transition={{ duration: 0.4 }}
         onClick={insight.onClick}
         className={`relative overflow-visible ${insight.onClick ? 'cursor-pointer' : ''}`}
-        style={{ minHeight: '320px' }}
+        style={{ minHeight: '330px' }}
       >
-        <div className={`flex ${orbitOnLeft ? 'flex-row' : 'flex-row-reverse'} items-center gap-6 p-6 rounded-[32px] bg-black/20 border border-white/5 ${insight.onClick ? 'hover:border-orange-500/20' : ''} overflow-visible backdrop-blur-sm`}>
+        <div className={`flex ${orbitOnLeft ? 'flex-row' : 'flex-row-reverse'} items-center gap-6 overflow-visible px-1 py-7 ${insight.onClick ? 'transition-opacity hover:opacity-90' : ''}`}>
           {/* Orbital Stage */}
-          <div className="relative shrink-0" style={{ width: '240px', height: '240px' }}>
+          <div className="relative shrink-0" style={{ width: '260px', height: '260px' }}>
             {/* Orbital Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Outer ring */}
@@ -353,6 +365,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
               {/* Dotted ring */}
               <div className="absolute w-[85%] h-[85%] rounded-full border-2 border-dashed border-orange-500/15" />
+              <div className="absolute h-[62%] w-[62%] rounded-full border border-orange-500/25 shadow-[0_0_44px_rgba(249,115,22,0.12)]" />
 
               {/* Orange arc */}
               {(isActive || isAlbum || isLive) && (
@@ -394,13 +407,13 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             >
               {isRivalry ? (
                 <div className="relative flex items-center justify-center w-full h-full">
-                  <div className="text-orange-500 font-black text-3xl z-10 drop-shadow-[0_0_20px_rgba(249,115,22,0.6)]">VS</div>
+                  <div className="z-10 flex h-20 w-20 items-center justify-center rounded-full border border-orange-500/45 bg-orange-500/8 text-3xl font-black text-orange-400 shadow-[0_0_42px_rgba(249,115,22,0.22)] drop-shadow-[0_0_20px_rgba(249,115,22,0.6)]">VS</div>
                   {insight.users[0] && (
                     <motion.div
                       animate={shouldReduceMotion ? {} : { y: [0, -2, 0] }}
                       transition={{ duration: 4, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 0.5 }}
-                      className="absolute h-16 w-16 rounded-full overflow-hidden border-3 border-orange-500/60 shadow-2xl shadow-orange-500/30"
-                      style={{ top: '20%', left: '15%' }}
+                      className="absolute h-[74px] w-[74px] overflow-hidden rounded-full border-3 border-orange-500/60 shadow-2xl shadow-orange-500/30"
+                      style={{ top: '11%', right: '8%' }}
                     >
                       <SmartImage
                         src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
@@ -414,8 +427,8 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                     <motion.div
                       animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
                       transition={{ duration: 4.5, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 1 }}
-                      className="absolute h-16 w-16 rounded-full overflow-hidden border-3 border-orange-500/60 shadow-2xl shadow-orange-500/30"
-                      style={{ bottom: '20%', right: '15%' }}
+                      className="absolute h-[74px] w-[74px] overflow-hidden rounded-full border-3 border-orange-500/60 shadow-2xl shadow-orange-500/30"
+                      style={{ bottom: '10%', left: '12%' }}
                     >
                       <SmartImage
                         src={coreUtils.getUserAvatar(insight.users[1].id, insight.users[1].avatar)}
@@ -461,29 +474,30 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   )}
                 </div>
               ) : isAlbum && insight.albumArt ? (
-                <div className="relative flex items-center justify-center w-full h-full p-12">
-                  <div className="h-full w-full rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl shadow-orange-500/20">
+                <div className="relative flex h-full w-full items-center justify-center p-10">
+                  <div className="absolute left-[3%] top-[6%] h-[58px] w-[58px] overflow-hidden rounded-full border-2 border-orange-500/55 shadow-[0_0_32px_rgba(249,115,22,0.22)]">
                     <SmartImage
-                      src={insight.albumArt}
-                      rounded="lg"
+                      src={coreUtils.getUserAvatar(insight.users[0]?.id, insight.users[0]?.avatar)}
+                      rounded="full"
                       className="h-full w-full object-cover"
                       fallback=""
                     />
                   </div>
+                  <div className="relative h-full w-full overflow-hidden rounded-full border-3 border-orange-500/55 shadow-2xl shadow-orange-500/25">
+                    <SmartImage
+                      src={insight.albumArt}
+                      rounded="full"
+                      className="h-full w-full object-cover"
+                      fallback=""
+                    />
+                    <div className="absolute inset-0 rounded-full shadow-[inset_0_0_42px_rgba(0,0,0,0.45)]" />
+                  </div>
                   {insight.users[0] && (
-                    <motion.div
-                      animate={shouldReduceMotion ? {} : { y: [0, -2, 0] }}
-                      transition={{ duration: 4, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut' }}
-                      className="absolute h-12 w-12 rounded-full overflow-hidden border-3 border-blue-500/60 shadow-2xl"
-                      style={{ bottom: '8%', right: '8%' }}
-                    >
-                      <SmartImage
-                        src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)}
-                        rounded="full"
-                        className="h-full w-full object-cover"
-                        fallback=""
-                      />
-                    </motion.div>
+                    <div className="absolute right-[13%] top-[23%] flex h-12 min-w-[48px] items-center justify-center rounded-full border-2 border-orange-500/40 bg-orange-600 px-2 shadow-[0_10px_30px_rgba(249,115,22,0.28)]">
+                      <span className="text-base font-black leading-none text-white">
+                        {coreUtils.formatNumber(getItemCount(insight.users[0]?.topItems?.albums?.[0]))}
+                      </span>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -511,19 +525,27 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           </div>
 
           {/* Text Content */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center gap-3">
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
             <div className="flex items-center gap-2">
               {insight.icon}
-              <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em]">
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-orange-500">
                 {insight.title}
               </span>
             </div>
-            <h3 className="text-xl font-bold text-white leading-tight line-clamp-2">
+            <h3 className="text-2xl font-black leading-tight text-white line-clamp-2">
               {insight.primary}
             </h3>
-            <p className="text-sm font-medium text-white/60 leading-relaxed line-clamp-3">
+            <p className="text-lg font-medium leading-relaxed text-white/58 line-clamp-3">
               {insight.secondary}
             </p>
+            {isRivalry && insight.users?.[0] && insight.users?.[1] && (
+              <div className="mt-1 inline-flex w-fit items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/8 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.12)]">
+                <Zap className="h-3.5 w-3.5 text-orange-500" />
+                <span className="text-sm font-black text-orange-400">
+                  {coreUtils.formatNumber(Math.abs((insight.users[0].streamsToday || 0) - (insight.users[1].streamsToday || 0)))}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -531,11 +553,13 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   };
 
   return (
-    <div className="flex flex-col gap-4 mb-3 mt-1">
-      <SectionHeader
-        title="Insights do Dia"
-        icon={<Sparkles className="h-3 w-3 text-orange-500" />}
-      />
+    <div className="mb-3 mt-1 flex flex-col gap-4 overflow-visible">
+      <div className="flex items-center gap-3 px-1">
+        <Sparkles className="h-5 w-5 text-orange-500" />
+        <h2 className="text-[13px] font-black uppercase tracking-[0.36em] text-white/86">
+          Insights do Dia
+        </h2>
+      </div>
 
       <div className="flex flex-col gap-6">
         {visibleInsights.map((insight, index) => (

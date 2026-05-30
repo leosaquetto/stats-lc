@@ -54,16 +54,16 @@ const FloatingMiniHeader = React.memo(({
   return (
     <header
       className={cn(
-        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(150px+env(safe-area-inset-top,0px))] overflow-visible transition-[transform,opacity] duration-300 ease-out",
+        "pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(150px+env(safe-area-inset-top,0px))] overflow-visible",
         visible
-          ? "translate-y-0 opacity-100"
-          : "-translate-y-4 opacity-0"
+          ? "opacity-100"
+          : "opacity-0"
       )}
     >
       <motion.div
         initial={false}
-        animate={visible ? { y: 0, opacity: 1, scale: 1 } : { y: -18, opacity: 0, scale: 0.94 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        animate={visible ? { y: 0, opacity: 1, scale: 1, rotate: 0 } : { y: -32, opacity: 0, scale: 0.82, rotate: -7 }}
+        transition={{ type: 'spring', stiffness: 560, damping: 30, mass: 0.72 }}
         className="pointer-events-auto absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-78px)] h-[188px] w-[188px] sm:right-[calc(50%-326px)] sm:h-[206px] sm:w-[206px]"
       >
         <VinylRecord
@@ -305,6 +305,7 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
+  const horizontalTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
@@ -430,7 +431,28 @@ export default function HomeScreen() {
 
   const stopPullToRefreshOnHorizontalGesture = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement | null;
-    if (target?.closest('[data-home-horizontal-scroll="true"]')) {
+    const insideHorizontalArea = !!target?.closest('[data-home-horizontal-scroll="true"]');
+    const touch = event.touches[0];
+
+    if (!insideHorizontalArea || !touch) {
+      horizontalTouchStartRef.current = null;
+      return;
+    }
+
+    if (event.type === 'touchstart') {
+      horizontalTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+      return;
+    }
+
+    const start = horizontalTouchStartRef.current;
+    if (!start) return;
+
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX > 10 && absX > absY * 1.2) {
       event.nativeEvent.stopImmediatePropagation();
     }
   }, []);

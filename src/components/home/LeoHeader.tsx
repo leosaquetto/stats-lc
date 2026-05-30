@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, memo } from 'react';
-import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
@@ -468,13 +468,6 @@ LiveTrackProgress.displayName = 'LiveTrackProgress';
 export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
-  const { scrollY } = useScroll();
-  const rawY       = useTransform(scrollY, [0, 300], [0, -90]);
-  const rawScale   = useTransform(scrollY, [0, 300], [1, 0.52]);
-  const rawOpacity = useTransform(scrollY, [0, 200], [1, 0]);
-  const yOffset    = shouldReduceMotion ? 0 : rawY;
-  const sScale     = shouldReduceMotion ? 1 : rawScale;
-  const sOpacity   = shouldReduceMotion ? 1 : rawOpacity;
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -812,7 +805,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       }
     ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0);
 
-    return [...artistItems, ...mediaItems];
+    return [...artistItems.slice(1), ...mediaItems];
   }, [albumImage, listenAlbumId, listenArtistStats, listenArtists, listenStats, listenStatsLoading, track?.albumName, track?.id, track?.name]);
 
   const listenOrbitPositions = [
@@ -965,7 +958,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         </div>
         {track && (
           <div className="absolute right-[-142px] top-[-58px] h-[330px] w-[330px] sm:right-[-188px] sm:top-[-82px] sm:h-[470px] sm:w-[470px] shrink-0 z-20 pointer-events-auto">
-            <motion.div style={{ y: yOffset, scale: sScale, opacity: sOpacity }} className="w-full h-full overflow-visible">
+            <div className="w-full h-full overflow-visible">
               <VinylRecord
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
@@ -974,7 +967,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 durationMs={durationMs || undefined}
                 onClick={handleVinylClick}
               />
-            </motion.div>
+            </div>
           </div>
         )}
         <div className="relative z-30 px-0 sm:px-2 pt-0 pb-3 sm:pb-4 overflow-visible">
@@ -1199,9 +1192,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     transition={shouldReduceMotion ? { delay: i * 0.04 } : {
                                       opacity: { delay: i * 0.04, duration: 0.18 },
                                       scale: { delay: i * 0.04, duration: 0.22 },
-                                      x: { delay: i * 0.22, duration: 6.2 + i * 0.34, repeat: Infinity, ease: 'easeInOut' },
-                                      y: { delay: i * 0.26, duration: 6.8 + i * 0.3, repeat: Infinity, ease: 'easeInOut' },
-                                      rotate: { delay: i * 0.2, duration: 7.2 + i * 0.28, repeat: Infinity, ease: 'easeInOut' },
+                                      x: { delay: i * 0.22, duration: 8.8 + i * 0.42, repeat: Infinity, ease: 'easeInOut' },
+                                      y: { delay: i * 0.26, duration: 9.6 + i * 0.38, repeat: Infinity, ease: 'easeInOut' },
+                                      rotate: { delay: i * 0.2, duration: 10.4 + i * 0.34, repeat: Infinity, ease: 'easeInOut' },
                                     }}
                                     className={cn(
                                       "relative group/avatar shrink-0",
@@ -1304,18 +1297,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       initial={{ opacity: 0, x: 6, y: 0, scale: 0.55, filter: 'blur(10px)' }}
                                       animate={{
                                         opacity: 1,
-                                        x: shouldReduceMotion ? x : [x, x - 4, x + 3, x],
-                                        y: shouldReduceMotion ? y : [y, y + 4, y - 3, y],
+                                        x,
+                                        y,
                                         scale: 1,
                                         rotate: orbit.rotate,
                                         filter: 'blur(0px)'
                                       }}
                                       exit={{ opacity: 0, x: 4, y: 0, scale: 0.58, filter: 'blur(10px)' }}
                                       transition={{
-                                        opacity: { duration: 0.18 },
-                                        scale: { duration: 0.24, ease: [0.16, 1, 0.3, 1] },
-                                        x: shouldReduceMotion ? { duration: 0.24 } : { duration: 7.6 + index * 0.5, repeat: Infinity, ease: 'easeInOut' },
-                                        y: shouldReduceMotion ? { duration: 0.24 } : { duration: 8.2 + index * 0.42, repeat: Infinity, ease: 'easeInOut' },
+                                        opacity: { duration: 0.14 },
+                                        scale: { type: 'spring', stiffness: 560, damping: 27, mass: 0.65 },
+                                        x: { type: 'spring', stiffness: 540, damping: 31, mass: 0.7 },
+                                        y: { type: 'spring', stiffness: 540, damping: 31, mass: 0.7 },
                                         filter: { duration: 0.2 }
                                       }}
                                       onClick={(event) => {
@@ -1345,16 +1338,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                         item.presentation === 'album' ? "rounded-[18px]" : "rounded-[24px]"
                                       )}
                                       style={{
-                                        width: item.presentation === 'album' ? orbit.size + 4 : orbit.size,
-                                        height: item.presentation === 'album' ? orbit.size + 8 : orbit.size,
-                                        borderRadius: item.rounded === 'full' ? 999 : 22,
+                                        width: item.presentation === 'album' ? orbit.size + 14 : orbit.size,
+                                        height: item.presentation === 'album' ? orbit.size + 14 : orbit.size,
+                                        borderRadius: item.rounded === 'full' ? 999 : 18,
                                       }}
                                     >
                                       <div className="absolute inset-0 rounded-[inherit] bg-white/[0.05]" />
                                       {item.presentation === 'album' ? (
-                                        <div className="relative h-full w-full overflow-hidden rounded-[16px] border border-white/18 bg-white/[0.08] p-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                                          <div className="absolute inset-y-[3px] left-[5px] z-20 w-[5px] rounded-full bg-white/18 shadow-[2px_0_8px_rgba(255,255,255,0.18)]" />
-                                          <div className="absolute inset-0 z-20 bg-[linear-gradient(115deg,rgba(255,255,255,0.24)_0%,transparent_32%,rgba(255,255,255,0.12)_58%,transparent_100%)] pointer-events-none" />
+                                        <div className="relative h-full w-full overflow-hidden rounded-[18px] border border-white/22 bg-white/[0.11] p-[5px] shadow-[inset_0_1px_0_rgba(255,255,255,0.32),0_12px_28px_rgba(0,0,0,0.48)]">
+                                          <div className="absolute inset-y-[5px] left-[7px] z-30 w-[8px] rounded-full bg-white/24 shadow-[3px_0_10px_rgba(255,255,255,0.22)]" />
+                                          <div className="absolute inset-y-[6px] left-[18px] z-30 w-px bg-black/35" />
+                                          <div className="pointer-events-none absolute inset-0 z-30 bg-[linear-gradient(116deg,rgba(255,255,255,0.34)_0%,rgba(255,255,255,0.08)_22%,transparent_38%,rgba(255,255,255,0.18)_62%,transparent_100%)]" />
+                                          <div className="pointer-events-none absolute inset-[4px] z-20 rounded-[14px] border border-white/18 shadow-[inset_10px_0_18px_rgba(255,255,255,0.12),inset_-10px_0_18px_rgba(0,0,0,0.22)]" />
                                           <SmartImage
                                             src={item.image}
                                             className="relative h-full w-full rounded-[13px] object-cover"
@@ -1384,8 +1379,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               <motion.button
                                 type="button"
                                 drag="x"
-                                dragConstraints={{ left: -96, right: 0 }}
-                                dragElastic={0.16}
+                                dragConstraints={{ left: -104, right: 0 }}
+                                dragElastic={0.1}
                                 onDragEnd={(_, info) => {
                                   if (info.offset.x < -24 || info.velocity.x < -280) {
                                     setListenStatsOpen(true);
@@ -1399,12 +1394,12 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }}
                                 aria-label="Ver contagens desta reprodução"
                                 animate={{
-                                  x: listenStatsOpen ? -84 : 0,
-                                  scale: listenStatsOpen ? 1.08 : 1,
-                                  width: listenStatsOpen ? 62 : 50,
-                                  height: listenStatsOpen ? 62 : 50,
+                                  x: listenStatsOpen ? -92 : 0,
+                                  scale: listenStatsOpen ? 1.06 : 1,
+                                  width: listenStatsOpen ? 70 : 58,
+                                  height: listenStatsOpen ? 70 : 58,
                                 }}
-                                transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                                transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
                                 className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
                               >
                                 <div className="absolute inset-0 rounded-full bg-white/[0.06]" />

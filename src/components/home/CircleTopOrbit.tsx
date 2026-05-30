@@ -10,7 +10,7 @@ import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Music, Disc, Mic2 } from 'lucide-react';
+import { Crown, Music, Disc, Mic2 } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -73,49 +73,53 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }
 
   return (
-    <div className="relative min-h-[620px] overflow-visible py-6 px-4">
+    <div className="relative min-h-[700px] overflow-visible px-3 py-7">
       {/* Background Gradients */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
+      <div className="absolute left-1/2 top-[42%] h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[110px] -z-10" />
 
-      {/* Period Label */}
-      <div className="flex items-center justify-between mb-6">
-        <span className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.18em] text-white/55 backdrop-blur-xl">
+      {/* Section Header */}
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/85">
+          Top 1 do Círculo
+        </h2>
+        <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.18em] text-white/55 backdrop-blur-xl">
           {periodLabel}
         </span>
       </div>
 
       {/* Orbit Stage */}
-      <div className="relative mx-auto h-[520px] w-full max-w-[390px] overflow-visible mb-8">
+      <div className="relative mx-auto mb-8 h-[540px] w-full max-w-[430px] overflow-visible">
         {/* Orbital Rings - Behind everything */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
           {/* Outer ring */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] rounded-full border border-white/5" />
+          <div className="absolute top-1/2 left-1/2 h-[390px] w-[390px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/8 shadow-[0_0_60px_rgba(249,115,22,0.06)]" />
 
           {/* Dotted ring */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] rounded-full border-2 border-dashed border-orange-500/15" />
+          <div className="absolute top-1/2 left-1/2 h-[318px] w-[318px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/14" />
 
           {/* Inner orange ring */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[190px] h-[190px] rounded-full border border-orange-500/30" />
+          <div className="absolute top-1/2 left-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/35 shadow-[0_0_42px_rgba(249,115,22,0.12)]" />
 
           {/* Light points */}
           <motion.div
             animate={shouldReduceMotion ? {} : { opacity: [0.3, 0.8, 0.3], scale: [0.8, 1.2, 0.8] }}
             transition={{ duration: 3, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut' }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px]"
+            className="absolute top-1/2 left-1/2 h-[390px] w-[390px] -translate-x-1/2 -translate-y-1/2"
           >
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-orange-500/60 blur-[2px]" />
           </motion.div>
           <motion.div
             animate={shouldReduceMotion ? {} : { opacity: [0.4, 1, 0.4], scale: [0.9, 1.3, 0.9] }}
             transition={{ duration: 4, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 1 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px]"
+            className="absolute top-1/2 left-1/2 h-[318px] w-[318px] -translate-x-1/2 -translate-y-1/2"
           >
             <div className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-orange-500/50 blur-[1px]" />
           </motion.div>
           <motion.div
             animate={shouldReduceMotion ? {} : { opacity: [0.5, 0.9, 0.5], scale: [1, 1.4, 1] }}
             transition={{ duration: 3.5, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 2 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[190px] h-[190px]"
+            className="absolute top-1/2 left-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2"
           >
             <div className="absolute top-1/4 right-0 w-1.5 h-1.5 rounded-full bg-orange-500/70 blur-[1px]" />
           </motion.div>
@@ -136,7 +140,8 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
               transition={{ duration: 5, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut' }}
               className="relative"
             >
-              <div className="h-32 w-32 rounded-full border-3 border-orange-500 overflow-hidden shadow-2xl shadow-orange-500/20">
+              <div className="absolute inset-[-20px] rounded-full border border-orange-500/20 shadow-[0_0_54px_rgba(249,115,22,0.2)]" />
+              <div className="h-36 w-36 overflow-hidden rounded-full border-3 border-orange-500 shadow-2xl shadow-orange-500/25">
                 <SmartImage
                   src={coreUtils.getUserAvatar(activeUser.id, activeUser.avatar)}
                   rounded="full"
@@ -148,11 +153,12 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
               <div className="absolute inset-0 rounded-full shadow-[0_0_40px_rgba(249,115,22,0.3)]" />
             </motion.div>
             <div className="flex flex-col items-center gap-1">
-              <span className="text-sm font-bold text-white text-center max-w-[140px] truncate">
+              <span className="max-w-[190px] truncate text-center text-3xl font-black leading-none text-white">
                 {activeUser.name}
               </span>
-              <div className="px-2.5 py-1 rounded-full bg-orange-600 border border-black shadow-lg">
-                <span className="text-[9px] font-black text-white leading-none">TOP 1</span>
+              <div className="mt-1 flex items-center gap-1.5 rounded-full border border-orange-500/60 bg-black/55 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.22)] backdrop-blur-xl">
+                <Crown className="h-3 w-3 text-orange-500" />
+                <span className="text-[10px] font-black uppercase leading-none tracking-[0.1em] text-orange-400">TOP 1</span>
               </div>
             </div>
           </motion.div>
@@ -172,7 +178,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             <motion.div
               animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
               transition={{ duration: 6, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 0.5 }}
-              className="absolute top-[8%] right-[8%]"
+              className="absolute right-[4%] top-[7%]"
             >
               <OrbitalSatellite
                 item={topArtist}
@@ -186,7 +192,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             <motion.div
               animate={shouldReduceMotion ? {} : { y: [0, -4, 0] }}
               transition={{ duration: 7, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 1 }}
-              className="absolute left-[2%] bottom-[20%]"
+              className="absolute bottom-[19%] left-[-1%]"
               style={{ transform: 'rotate(-3deg)' }}
             >
               <OrbitalSatellite
@@ -201,7 +207,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             <motion.div
               animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
               transition={{ duration: 6.5, repeat: shouldReduceMotion ? 0 : Infinity, ease: 'easeInOut', delay: 1.5 }}
-              className="absolute right-[2%] bottom-[20%]"
+              className="absolute bottom-[19%] right-[-1%]"
               style={{ transform: 'rotate(3deg)' }}
             >
               <OrbitalSatellite
@@ -215,24 +221,28 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
         </AnimatePresence>
       </div>
 
-      {/* Members Dock - Separated */}
-      <div className="relative mx-auto max-w-[390px]">
-        <div className="glass-card border-white/8 bg-white/[0.02] rounded-[28px] p-4">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/40">
-              Seu Círculo
-            </span>
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/20">
-              ·
-            </span>
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-orange-500/60">
-              Deslize para Explorar
-            </span>
-          </div>
-          <div
-            data-home-horizontal-scroll="true"
-            className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide"
-          >
+      {/* Members Orbit Rail */}
+      <div className="relative mx-auto h-[146px] max-w-[430px] overflow-visible">
+        <div className="pointer-events-none absolute left-1/2 top-[56%] h-40 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.035] bg-gradient-to-b from-white/[0.025] to-transparent" />
+        <div className="pointer-events-none absolute left-1/2 top-[56%] h-24 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.06]" />
+        <div className="pointer-events-none absolute left-1/2 top-[58%] h-24 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.025] blur-2xl" />
+
+        <div className="absolute left-1/2 top-0 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/35 px-4 py-2 shadow-[0_14px_42px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+          <span className="text-[8px] font-black uppercase tracking-[0.24em] text-white/42">
+            Seu Círculo
+          </span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/18">
+            ·
+          </span>
+          <span className="text-[8px] font-black uppercase tracking-[0.24em] text-orange-500/82">
+            Deslize
+          </span>
+        </div>
+
+        <div
+          data-home-horizontal-scroll="true"
+          className="absolute inset-x-0 bottom-0 z-20 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 pt-10 scrollbar-hide [perspective:900px]"
+        >
             {members.map((member) => {
               const tops = periodTops[member.id] || member.topItems;
               const hasData = tops?.tracks?.[0] || tops?.artists?.[0] || tops?.albums?.[0];
@@ -245,13 +255,19 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   key={member.id}
                   onClick={() => setActiveUserId(member.id)}
                   className={cn(
-                    "shrink-0 snap-center transition-all duration-300",
-                    isActive ? "scale-110" : "scale-100 opacity-60 hover:opacity-100"
+                    "relative shrink-0 snap-center transition-all duration-300",
+                    isActive ? "z-20 scale-[1.12]" : "scale-95 opacity-50 hover:opacity-85"
                   )}
                 >
+                  {isActive && (
+                    <motion.div
+                      layoutId="circle-top-active-avatar"
+                      className="absolute inset-[-8px] rounded-full border-2 border-orange-500/80 bg-orange-500/10 shadow-[0_0_34px_rgba(249,115,22,0.32)]"
+                    />
+                  )}
                   <div className={cn(
-                    "h-14 w-14 rounded-full border-2 overflow-hidden shadow-lg transition-all duration-300",
-                    isActive ? "border-orange-500 ring-4 ring-orange-500/20 shadow-orange-500/30" : "border-white/10"
+                    "relative h-16 w-16 overflow-hidden rounded-full border-2 shadow-[0_16px_28px_rgba(0,0,0,0.5)] transition-all duration-300",
+                    isActive ? "border-orange-500 shadow-orange-500/25" : "border-white/10"
                   )}>
                     <SmartImage
                       src={coreUtils.getUserAvatar(member.id, member.avatar)}
@@ -263,7 +279,6 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                 </button>
               );
             })}
-          </div>
         </div>
       </div>
     </div>
