@@ -220,7 +220,6 @@ function useLivePlaybackProgress({
     nowPlaying?.progressMs,
     nowPlaying?.playedMs,
     normalizedDurationMs,
-    nowPlaying,
   ]);
 
   const rawProgressMs = calculateSnapshotProgress(snapshotRef.current);
@@ -260,6 +259,14 @@ function useLivePlaybackProgress({
 
     return () => window.clearTimeout(timer);
   }, [isNow, completionDurationMs, fetchGroupLive, snapshotVersion]);
+
+  useEffect(() => {
+    if (!isNow || !snapshotRef.current) return;
+    const timer = window.setInterval(() => {
+      setSnapshotVersion(version => version + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isNow, trackId]);
 
   const progressAnimationMs = normalizedDurationMs
     ? Math.max(0, normalizedDurationMs - cappedProgressMs)
@@ -421,16 +428,13 @@ export const LiveTrackProgress = memo(({
           </div>
           <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
             <div
-              key={`${timestamp}-${durationMs}-${Math.round(progressScale * 1000)}`}
-              className={cn(
-                "h-full w-full rounded-full relative",
-                isNowPlaying && progressAnimationMs && progressAnimationMs > 0 ? "live-progress-fill" : ""
-              )}
+              className="h-full w-full rounded-full relative"
               style={{
                 transform: `scaleX(${progressScale})`,
                 transformOrigin: 'left center',
-                ['--progress-start' as any]: progressScale,
-                ['--progress-duration' as any]: `${Math.max(0, progressAnimationMs || 0)}ms`,
+                transition: isNowPlaying && progressAnimationMs && progressAnimationMs > 0
+                  ? 'transform 1s linear'
+                  : undefined,
                 background: dominantColor
                   ? (() => {
                       const visibleColor = ensureVisibility(dominantColor, 120, 0.4);

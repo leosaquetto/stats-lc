@@ -275,37 +275,39 @@ const HomeOrbitalHighlights = ({
   }, [activeIndex, goTo]);
 
   const renderArtists = (items: any[]) => {
-    const featured = items.slice(0, 4);
+    const featured = items.slice(0, 6);
     return (
       <div className="relative h-[304px] overflow-visible">
-        <div className="grid h-full grid-cols-2 gap-3">
+        <div className="grid h-full grid-cols-3 grid-rows-2 gap-3">
           {featured.map((item, index) => {
             return (
               <motion.div
                 key={`${item.id || item.name}-${index}`}
-                className="relative overflow-hidden rounded-[24px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
+                className="relative overflow-visible rounded-[22px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
                 animate={{ y: [0, index % 2 ? 2 : -2, 0] }}
                 transition={{ duration: 11 + index * 0.7, repeat: Infinity, ease: 'easeInOut' }}
               >
-                <SmartImage
-                  src={getReplayItemImage(item)}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  fallback={item.name}
-                  rounded="none"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-transparent to-black/78" />
-                <span className="absolute left-3 top-2 text-[48px] font-black leading-none text-white">
+                <div className="absolute inset-0 overflow-hidden rounded-[22px]">
+                  <SmartImage
+                    src={getReplayItemImage(item)}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    fallback={item.name}
+                    rounded="none"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-transparent to-black/78" />
+                </div>
+                <span className="absolute -left-1.5 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full bg-black/62 px-2 text-[15px] font-black leading-none text-white backdrop-blur-xl">
                   {index + 1}
                 </span>
-                <span className="glass-aura-orange absolute right-2 top-2 min-w-11 rounded-full px-2.5 py-1 text-center text-[11px] font-black text-white">
+                <span className="glass-aura-orange absolute -right-2 top-3 z-20 min-w-9 rounded-full px-2 py-0.5 text-center text-[9px] font-black text-white">
                   {coreUtils.formatNumber(getReplayItemCount(item))}
                 </span>
-                <div className="absolute inset-x-3 bottom-3">
-                  <span className="block truncate text-[16px] font-black leading-tight text-white">
+                <div className="absolute inset-x-2.5 bottom-2.5 z-10">
+                  <span className="block truncate text-[13px] font-black leading-tight text-white">
                     {item.name || 'sem nome'}
                   </span>
-                  <span className="mt-0.5 block text-[12px] font-black text-white/72">
-                    {coreUtils.formatNumber(getReplayItemCount(item))} plays
+                  <span className="mt-0.5 block text-[10px] font-black text-white/72">
+                    {coreUtils.formatNumber(getReplayMinutes(item))} min
                   </span>
                 </div>
               </motion.div>
@@ -475,7 +477,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
 
   if (perceptions.length === 0) return null;
   return (
-    <section className="px-4 sm:px-6 lg:px-8">
+    <section className="mt-6 px-4 sm:px-6 lg:px-8">
       <div className="mb-3 flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-orange-500" />
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
@@ -753,7 +755,6 @@ export default function HomeScreen() {
   const [headerHighlight, setHeaderHighlight] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
-  const [isReplayVisualWarmupReady, setIsReplayVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
@@ -776,6 +777,7 @@ export default function HomeScreen() {
   });
   const toastIdRef = useRef(0);
   const horizontalTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const hasReleasedHomeRef = useRef(false);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
@@ -829,94 +831,26 @@ export default function HomeScreen() {
   ], []);
 
   useEffect(() => {
-    if (!groupStats) {
+    if (!primaryUser) {
       setIsVisualWarmupReady(false);
       return;
     }
 
-    let cancelled = false;
-    const urls = new Set<string>();
-    const addUrl = (value: unknown) => {
-      if (typeof value === 'string' && value.trim().length > 5) urls.add(value);
-    };
+    const urls = [miniHeaderAlbumImage, coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar)]
+      .filter((url): url is string => typeof url === 'string' && url.trim().length > 5);
 
-    addUrl(miniHeaderAlbumImage);
-    allMembers.slice(0, 8).forEach((member: any) => {
-      addUrl(coreUtils.getUserAvatar(member.id, member.avatar));
-      addUrl(member.nowPlaying?.track?.image);
-      addUrl(member.nowPlaying?.track?.albumImage);
-      addUrl(member.nowPlaying?.track?.album?.image);
-      ['artists', 'tracks', 'albums'].forEach((key) => {
-        (member.topItems?.[key] || []).slice(0, 3).forEach((item: any) => addUrl(getReplayItemImage(item)));
-      });
-    });
-
-    if (urls.size === 0) {
+    if (urls.length === 0) {
       setIsVisualWarmupReady(true);
       return;
     }
 
-    setIsVisualWarmupReady(false);
-    const warmImage = (url: string) => new Promise<void>((resolve) => {
-      const image = new Image();
-      const done = () => resolve();
-      const timer = window.setTimeout(done, 1800);
-      image.onload = () => {
-        window.clearTimeout(timer);
-        if (image.decode) {
-          image.decode().then(done).catch(done);
-        } else {
-          done();
-        }
-      };
-      image.onerror = done;
-      image.decoding = 'async';
-      image.src = url;
-    });
-
-    const urlsToWarm = Array.from(urls).slice(0, 34);
-    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 2600));
-    Promise.race([
-      Promise.all(urlsToWarm.map(warmImage)).then(() => undefined),
-      timeout,
-    ]).finally(() => {
-      if (!cancelled) setIsVisualWarmupReady(true);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [allMembers, groupStats, miniHeaderAlbumImage]);
-
-  useEffect(() => {
-    if (replayState === 'idle' || replayState === 'loading') {
-      setIsReplayVisualWarmupReady(false);
-      return;
-    }
-
-    if (replayState === 'error') {
-      setIsReplayVisualWarmupReady(true);
-      return;
-    }
-
     let cancelled = false;
-    const urls = new Set<string>();
-    [...replayTopItems.artists.slice(0, 4), ...replayTopItems.tracks.slice(0, 5), ...replayTopItems.albums.slice(0, 6)]
-      .forEach((item) => {
-        const imageUrl = getReplayItemImage(item);
-        if (typeof imageUrl === 'string' && imageUrl.trim().length > 5) urls.add(imageUrl);
-      });
+    setIsVisualWarmupReady(false);
 
-    if (urls.size === 0) {
-      setIsReplayVisualWarmupReady(true);
-      return;
-    }
-
-    setIsReplayVisualWarmupReady(false);
     const warmImage = (url: string) => new Promise<void>((resolve) => {
       const image = new Image();
       const done = () => resolve();
-      const timer = window.setTimeout(done, 1200);
+      const timer = window.setTimeout(done, 1500);
       image.onload = () => {
         window.clearTimeout(timer);
         if (image.decode) {
@@ -932,16 +866,16 @@ export default function HomeScreen() {
 
     const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
     Promise.race([
-      Promise.all(Array.from(urls).map(warmImage)).then(() => undefined),
+      Promise.all(urls.map(warmImage)).then(() => undefined),
       timeout,
     ]).finally(() => {
-      if (!cancelled) setIsReplayVisualWarmupReady(true);
+      if (!cancelled) setIsVisualWarmupReady(true);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [replayState, replayTopItems]);
+  }, [miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
 
   useEffect(() => {
     let frame = 0;
@@ -1150,39 +1084,17 @@ export default function HomeScreen() {
     }
   }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
 
+  // Mark Home as ready after the primary hero/vinyl assets are stable.
+  // Replay/"Seus Destaques" keeps loading below and never blocks the first usable frame.
   useEffect(() => {
-    const nowPlaying = primaryUser?.nowPlaying;
-    const track = nowPlaying?.track as any;
-    if (!primaryUser?.id || nowPlaying?.isNow !== true || !track) return;
+    const hasCoreData = !isLoading && !!groupStats && !!primaryUser;
 
-    const durationMs = Number(nowPlaying.durationMs || track.durationMs || track.duration_ms || 0);
-    if (!Number.isFinite(durationMs) || durationMs <= 0) return;
+    if (hasReleasedHomeRef.current && hasCoreData) {
+      setIsAppReady(true);
+      return;
+    }
 
-    const progressMs = Number(nowPlaying.progressMs || track.progressMs || track.progress_ms || 0);
-    const timestampMs = nowPlaying.timestamp ? new Date(nowPlaying.timestamp).getTime() : Date.now();
-    const elapsedSincePayload = Number.isFinite(timestampMs) ? Math.max(0, Date.now() - timestampMs) : 0;
-    const remainingMs = durationMs - Math.max(0, progressMs) - elapsedSincePayload;
-    const delay = Math.min(Math.max(remainingMs + 1500, 1200), 45000);
-
-    const timer = window.setTimeout(() => {
-      fetchGroupLive(false);
-    }, delay);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    primaryUser?.id,
-    primaryUser?.nowPlaying?.track?.id,
-    primaryUser?.nowPlaying?.timestamp,
-    primaryUser?.nowPlaying?.isNow,
-    primaryUser?.nowPlaying?.progressMs,
-    primaryUser?.nowPlaying?.durationMs,
-    fetchGroupLive
-  ]);
-
-  // Mark app as ready only after the first Home frame can render without section-by-section popping.
-  useEffect(() => {
-    const replaySettled = !primaryUser || replayState === 'ready' || replayState === 'error';
-    const ready = !isLoading && !!groupStats && isVisualWarmupReady && replaySettled && isReplayVisualWarmupReady;
+    const ready = hasCoreData && isVisualWarmupReady;
 
     if (!ready) {
       setIsAppReady(false);
@@ -1194,6 +1106,7 @@ export default function HomeScreen() {
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
           if (cancelled) return;
+          hasReleasedHomeRef.current = true;
           setIsAppReady(true);
           window.__STATS_LC_DISMISS_SPLASH__?.();
         });
@@ -1204,7 +1117,7 @@ export default function HomeScreen() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [isLoading, groupStats, isVisualWarmupReady, isReplayVisualWarmupReady, primaryUser, replayState]);
+  }, [isLoading, groupStats, isVisualWarmupReady, primaryUser]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
