@@ -221,7 +221,13 @@ export default function App() {
 
   useEffect(() => {
     if (!initialBootSettled) return;
-    window.__STATS_LC_DISMISS_SPLASH__?.();
+    const hash = window.location.hash || '#/';
+    if (hash === '#/' || hash === '' || hash === '#') return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.__STATS_LC_DISMISS_SPLASH__?.();
+      });
+    });
   }, [initialBootSettled]);
 
   useEffect(() => {

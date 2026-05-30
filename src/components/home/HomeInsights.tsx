@@ -45,6 +45,11 @@ const normalizeName = (name: string): string => {
   return (name || '').toLowerCase().trim();
 };
 
+const firstName = (name?: string): string => {
+  if (!name) return '';
+  return name.trim().split(/\s+/)[0] || name;
+};
+
 const buildMatchReason = (match: any): string => {
   if (!match) return 'sem match claro ainda — comparação em aberto';
 
@@ -122,7 +127,7 @@ const getRivalryInsight = (leader: any, runnerUp: any): string => {
   const leaderStreams = leader.streamsToday || 0;
   const runnerUpStreams = runnerUp.streamsToday || 0;
   const diff = Math.abs(leaderStreams - runnerUpStreams);
-  const leaderName = leader.name || 'líder';
+  const leaderName = firstName(leader.name) || 'líder';
 
   if (diff === 0) {
     return 'empate técnico no momento';
@@ -268,7 +273,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'orange',
         icon: <Zap className="h-2.5 w-2.5 text-orange-400" />,
         title: 'Mais Ativo Hoje',
-        primary: mostActive.name,
+        primary: firstName(mostActive.name),
         secondary: getMostActiveInsight(mostActive, activeMembers.length),
         users: [mostActive],
         onClick: () => onFriendClick(mostActive),
@@ -279,7 +284,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'red',
         icon: <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />,
         title: 'Match do Dia',
-        primary: `${match.u1.name} + ${match.u2.name}`,
+        primary: `${firstName(match.u1.name)} + ${firstName(match.u2.name)}`,
         secondary: buildMatchReason(match),
         users: [match.u1, match.u2],
         type: 'match'
@@ -289,7 +294,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'white',
         icon: <Trophy className="h-2.5 w-2.5 text-yellow-300" />,
         title: 'Líder do Mês',
-        primary: topMonth.name,
+        primary: firstName(topMonth.name),
         secondary: getMonthLeaderInsight(topMonth),
         users: [topMonth],
         onClick: () => onFriendClick(topMonth),
@@ -300,7 +305,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'green',
         icon: <Radio className="h-2.5 w-2.5 text-green-300" />,
         title: 'No Ar Agora',
-        primary: liveUser.name,
+        primary: firstName(liveUser.name),
         secondary: getLiveInsight(liveUser),
         users: [liveUser],
         onClick: () => onFriendClick(liveUser),
@@ -311,7 +316,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'blue',
         icon: <Disc3 className="h-2.5 w-2.5 text-blue-300" />,
         title: 'Álbum Dominante',
-        primary: albumUser.topItems.albums[0].name || albumUser.name,
+        primary: albumUser.topItems.albums[0].name || firstName(albumUser.name),
         secondary: getDominantAlbumInsight(albumUser),
         users: [albumUser],
         onClick: () => onFriendClick(albumUser),
@@ -323,7 +328,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         tone: 'purple',
         icon: <Clock className="h-2.5 w-2.5 text-violet-300" />,
         title: runnerUp ? 'Disputa do Dia' : 'Última Sintonia',
-        primary: runnerUp ? `${mostActive?.name} vs ${runnerUp.name}` : lateUser?.name,
+        primary: runnerUp ? `${firstName(mostActive?.name)} vs ${firstName(runnerUp.name)}` : firstName(lateUser?.name),
         secondary: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'última atividade registrada',
         users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : [],
         type: runnerUp ? 'rivalry' : 'late'
@@ -400,7 +405,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
     return (
       <div className="flex flex-col items-center gap-2">
-        <div className="relative h-[118px] w-[118px] shrink-0">
+        <div className="relative h-[104px] w-[104px] shrink-0">
           <div className="pointer-events-none absolute inset-0 rounded-full border border-white/8" />
           <div className="pointer-events-none absolute inset-[11px] rounded-full border border-dashed border-orange-500/15" />
           <div className="pointer-events-none absolute inset-[30px] rounded-full border border-orange-500/25 shadow-[0_0_24px_rgba(249,115,22,0.12)]" />
@@ -428,7 +433,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
               <div className="relative flex h-full w-full items-center justify-center">
                 <Heart className="z-10 h-7 w-7 fill-red-400 text-red-400 drop-shadow-[0_0_18px_rgba(248,113,113,0.5)]" />
                 {insight.users.slice(0, 2).map((user: any, idx: number) => (
-                  <div key={user.id} className="absolute h-10 w-10 overflow-hidden rounded-full border-2 border-red-500/60 shadow-2xl shadow-red-500/25" style={idx === 0 ? { top: '13%', left: '16%' } : { bottom: '13%', right: '16%' }}>
+                  <div key={`${user.id}-${idx}`} className="absolute h-10 w-10 overflow-hidden rounded-full border-2 border-red-500/60 shadow-2xl shadow-red-500/25" style={idx === 0 ? { top: '13%', left: '16%' } : { bottom: '13%', right: '16%' }}>
                     <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
                   </div>
                 ))}
@@ -460,17 +465,17 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           </motion.div>
         </div>
 
-        <div className="flex max-w-[176px] flex-col items-center gap-1.5 text-center">
+        <div className="flex max-w-[160px] flex-col items-center gap-1.5 text-center">
           <div className="flex items-center gap-2">
             {insight.icon}
             <span className="text-[8px] font-black uppercase tracking-[0.18em] text-orange-500">
               {insight.title}
             </span>
           </div>
-          <h3 className="max-w-full truncate text-[20px] font-black leading-none text-white">
+          <h3 className="max-w-full text-[17px] font-black leading-none text-white">
             {insight.primary}
           </h3>
-          <p className="line-clamp-2 text-[12px] font-medium leading-snug text-white/58">
+          <p className="text-[11px] font-medium leading-snug text-white/58">
             {insight.secondary}
           </p>
           {isRivalry && insight.users?.[0] && insight.users?.[1] && (
@@ -487,7 +492,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   };
 
   return (
-    <div className="mb-3 mt-1 flex flex-col gap-3 overflow-visible">
+    <div className="mb-0 mt-1 flex flex-col gap-2 overflow-visible">
       <div className="flex items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-3">
           <Sparkles className="h-5 w-5 text-orange-500" />
@@ -508,7 +513,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[285px] select-none overflow-visible [perspective:1200px]"
+        className="relative h-[242px] select-none overflow-visible [perspective:1200px]"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -527,9 +532,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           const isFarRight = position === 2;
           if (!isCentered && !isLeft && !isFarRight) return null;
 
-          const x = isPrimary ? -82 : isSecondary ? 82 : isLeft ? -166 : 166;
-          const y = isCentered ? 18 : 0;
-          const scale = isCentered ? 0.78 : 0.52;
+          const x = isPrimary ? -72 : isSecondary ? 72 : isLeft ? -144 : 144;
+          const y = isCentered ? 12 : 2;
+          const scale = isCentered ? 0.74 : 0.5;
           const opacity = isCentered ? 1 : 0.18;
           const blur = isCentered ? 'blur(0px)' : 'blur(5px)';
 
@@ -544,7 +549,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
               }}
               animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
               transition={{ type: 'spring', stiffness: 150, damping: 24 }}
-              className="absolute left-1/2 top-1/2 w-[186px] -translate-y-1/2 text-left"
+              className="absolute left-1/2 top-[54%] w-[170px] -translate-y-1/2 text-left"
             >
               <motion.div
                 animate={shouldReduceMotion || !isInsightsVisible || !isCentered ? {} : { x: [0, isPrimary ? 5 : -4, 0], y: [0, isPrimary ? -4 : 3, 0], rotate: [0, isPrimary ? 0.45 : -0.4, 0] }}

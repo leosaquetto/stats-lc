@@ -31,8 +31,8 @@ const EqualizerIcon = () => (
     {[...Array(3)].map((_, i) => (
       <motion.div
         key={i}
-        className="w-[2px] bg-orange-500 rounded-[1px]"
-        animate={{ height: ["30%", "100%", "40%"] }}
+        className="h-full w-[2px] origin-bottom rounded-[1px] bg-orange-500 will-change-transform"
+        animate={{ scaleY: [0.3, 1, 0.4] }}
         transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
       />
     ))}
@@ -244,12 +244,10 @@ export const FriendHistoryCard = memo(({
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, x: -20, filter: "blur(4px)" }}
-      whileInView={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true, margin: "-20px" }}
       transition={{
-        layout: { duration: 0.3, ease: "easeOut" },
         opacity: { duration: animationDuration },
         x: { delay: Math.min((index % 4) * animationDelay, animationDelay * 5), duration: animationDuration, ease: [0.16, 1, 0.3, 1] }
       }}
@@ -257,14 +255,13 @@ export const FriendHistoryCard = memo(({
     >
       {/* Card principal */}
       <div className={cn(
-        "flex flex-col rounded-[24px] border overflow-hidden transition-all",
+        "flex flex-col rounded-[24px] border overflow-hidden transition-colors duration-200",
         "glass border-white/10"
       )}>
         {/* Header do usuário */}
         <motion.button
-          layout="position"
           onClick={() => setIsStatsExpanded(!isStatsExpanded)}
-          className="flex items-center justify-between py-2.5 px-3.5 group transition-all relative"
+          className="flex items-center justify-between py-2.5 px-3.5 group transition-colors relative"
           whileHover={{ scale: 1.01 }}
         >
           <div className="flex items-center gap-3 min-w-0">
@@ -338,9 +335,9 @@ export const FriendHistoryCard = memo(({
         <AnimatePresence>
           {isStatsExpanded && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >

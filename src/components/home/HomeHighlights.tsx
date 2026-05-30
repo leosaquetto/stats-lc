@@ -193,7 +193,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
 
                 return (
                   <motion.div
-                    key={user.id}
+                    key={`${user.id}-${i}`}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
                       opacity: hasZeroStreams ? 0.5 : 1,
@@ -358,7 +358,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
           return (
             <motion.div 
               layout
-              key={user.id}
+              key={`${user.id}-${i}`}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ 
@@ -463,7 +463,7 @@ export const FriendsLiveCarousel = React.memo(() => {
 
           return (
             <motion.div
-              key={friend.id}
+              key={`${friend.id}-${idx}`}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.1 }}

@@ -10,7 +10,7 @@ import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ChevronLeft, ChevronRight, Crown, Disc, List, Mic2, Music, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crown, Disc, Mic2, Music } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -47,7 +47,6 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const [orbitRef, isOrbitVisible] = useOrbitVisibility();
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [mode, setMode] = useState<'orbit' | 'normal'>('orbit');
 
   const validMembers = useMemo(() => {
     return members.filter(m => {
@@ -134,72 +133,20 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
           Top 1 do Círculo
         </h2>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl min-[390px]:inline-flex">
+          <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
             {periodLabel}
           </span>
-          <button
-            type="button"
-            onClick={() => setMode(current => current === 'orbit' ? 'normal' : 'orbit')}
-            className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 bg-black/35 px-3 shadow-[0_14px_38px_rgba(0,0,0,0.32)] backdrop-blur-xl"
-          >
-            {mode === 'orbit' ? <List className="h-3 w-3 text-orange-500" /> : <Sparkles className="h-3 w-3 text-orange-500" />}
-            <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
-              {mode === 'orbit' ? 'Modo Normal' : 'Modo Órbita'}
-            </span>
-          </button>
-          {mode === 'orbit' && (
-            <div className="hidden items-center gap-1 sm:flex">
-              <button type="button" onClick={handlePrev} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
-                <ChevronLeft className="h-3.5 w-3.5 text-white/35" />
-              </button>
-              <button type="button" onClick={handleNext} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
-                <ChevronRight className="h-3.5 w-3.5 text-white/35" />
-              </button>
-            </div>
-          )}
+          <div className="hidden items-center gap-1 sm:flex">
+            <button type="button" onClick={handlePrev} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+              <ChevronLeft className="h-3.5 w-3.5 text-white/35" />
+            </button>
+            <button type="button" onClick={handleNext} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
+              <ChevronRight className="h-3.5 w-3.5 text-white/35" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {mode === 'normal' ? (
-        <div className="grid gap-3">
-          {validMembers.map((member, index) => {
-            const tops = periodTops[member.id] || member.topItems || { artists: [], tracks: [], albums: [] };
-            const artist = tops.artists?.[0];
-            const track = tops.tracks?.[0];
-            const album = tops.albums?.[0];
-
-            return (
-              <button
-                type="button"
-                key={member.id}
-                onClick={() => {
-                  setActiveIndex(index);
-                  setMode('orbit');
-                }}
-                className="glass-card flex items-center gap-3 rounded-[24px] border-white/8 bg-white/[0.025] p-3 text-left transition-colors hover:bg-white/[0.045]"
-              >
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-white/15">
-                  <SmartImage
-                    src={coreUtils.getUserAvatar(member.id, member.avatar)}
-                    rounded="full"
-                    className="h-full w-full object-cover"
-                    fallback=""
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black text-white">{member.name}</span>
-                  <span className="mt-0.5 block truncate text-[10px] font-bold text-white/45">
-                    {artist?.name || track?.name || album?.name || 'Sem top disponível'}
-                  </span>
-                </div>
-                <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.16em] text-orange-400">
-                  Top 1
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
         <div
           ref={orbitRef}
           data-home-horizontal-scroll="true"
@@ -232,7 +179,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
 
             return (
               <motion.div
-                key={member.id}
+                key={`${member.id}-${index}`}
                 animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
                 transition={{ type: 'spring', stiffness: 160, damping: 24 }}
                 className="absolute left-1/2 top-[48%] w-[292px]"
@@ -263,7 +210,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                       </div>
                     </div>
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
-                      {member.name}
+                      {member.name.split(/\s+/)[0] || member.name}
                     </span>
                     <div className="flex items-center gap-1.5 rounded-full border border-orange-500/55 bg-black/55 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.22)] backdrop-blur-xl">
                       <Crown className="h-3 w-3 text-orange-500" />
@@ -282,7 +229,6 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             <ChevronRight className="h-4 w-4 text-white/45" />
           </button>
         </div>
-      )}
     </div>
   );
 });

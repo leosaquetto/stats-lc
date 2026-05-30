@@ -64,6 +64,7 @@ const ScrollingTrackTitle = React.memo(({
 interface LiveTrackProgressProps {
   progressMs?: number;
   progressPercent?: number;
+  progressAnimationMs?: number;
   durationMs?: number;
   timestamp: string | number;
   isNowPlaying: boolean;
@@ -138,11 +139,10 @@ function useLivePlaybackProgress({
   durationMs?: number | null;
   fetchGroupLive: (force?: boolean) => Promise<void>;
 }) {
-  const shouldReduceMotion = useReducedMotion();
   const snapshotRef = React.useRef<PlaybackSnapshot | null>(null);
   const completedPlaybackKeyRef = React.useRef<string | null>(null);
   const checkingPlaybackKeyRef = React.useRef<string | null>(null);
-  const [tick, setTick] = useState(() => Date.now());
+  const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [isCheckingNext, setIsCheckingNext] = useState(false);
 
@@ -160,6 +160,7 @@ function useLivePlaybackProgress({
       checkingPlaybackKeyRef.current = null;
       setIsFinished(false);
       setIsCheckingNext(false);
+      setSnapshotVersion(version => version + 1);
       return;
     }
 
@@ -185,7 +186,7 @@ function useLivePlaybackProgress({
       checkingPlaybackKeyRef.current = null;
       setIsFinished(false);
       setIsCheckingNext(false);
-      setTick(now);
+      setSnapshotVersion(version => version + 1);
       return;
     }
 
@@ -203,7 +204,7 @@ function useLivePlaybackProgress({
           baseProgressMs: explicitProgressMs,
           receivedAt: now,
         };
-        setTick(now);
+        setSnapshotVersion(version => version + 1);
       }
     }
   }, [
@@ -222,24 +223,7 @@ function useLivePlaybackProgress({
     nowPlaying,
   ]);
 
-  useEffect(() => {
-    if (!isNow || isFinished) return;
-
-    if (shouldReduceMotion) {
-      const id = window.setInterval(() => setTick(Date.now()), 1000);
-      return () => window.clearInterval(id);
-    }
-
-    let frame = 0;
-    const loop = () => {
-      setTick(Date.now());
-      frame = window.requestAnimationFrame(loop);
-    };
-    frame = window.requestAnimationFrame(loop);
-    return () => window.cancelAnimationFrame(frame);
-  }, [isNow, isFinished, shouldReduceMotion]);
-
-  const rawProgressMs = calculateSnapshotProgress(snapshotRef.current, tick);
+  const rawProgressMs = calculateSnapshotProgress(snapshotRef.current);
   const cappedProgressMs = normalizedDurationMs
     ? Math.min(rawProgressMs, normalizedDurationMs)
     : rawProgressMs;
@@ -251,29 +235,40 @@ function useLivePlaybackProgress({
   useEffect(() => {
     const snapshot = snapshotRef.current;
     if (!isNow || !snapshot) return;
-    if (rawProgressMs < completionDurationMs + COMPLETE_MARGIN_MS) return;
     if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
 
-    completedPlaybackKeyRef.current = snapshot.playbackKey;
-    checkingPlaybackKeyRef.current = snapshot.playbackKey;
-    setIsCheckingNext(true);
+    const nowProgress = calculateSnapshotProgress(snapshot);
+    const delay = Math.max(0, completionDurationMs + COMPLETE_MARGIN_MS - nowProgress);
+    const timer = window.setTimeout(() => {
+      if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
+      completedPlaybackKeyRef.current = snapshot.playbackKey;
+      checkingPlaybackKeyRef.current = snapshot.playbackKey;
+      setIsCheckingNext(true);
 
-    fetchGroupLive(true)
-      .catch(() => undefined)
-      .finally(() => {
-        if (checkingPlaybackKeyRef.current === snapshot.playbackKey) {
-          checkingPlaybackKeyRef.current = null;
-          setIsCheckingNext(false);
-          if (snapshotRef.current?.playbackKey === snapshot.playbackKey) {
-            setIsFinished(true);
+      fetchGroupLive(true)
+        .catch(() => undefined)
+        .finally(() => {
+          if (checkingPlaybackKeyRef.current === snapshot.playbackKey) {
+            checkingPlaybackKeyRef.current = null;
+            setIsCheckingNext(false);
+            if (snapshotRef.current?.playbackKey === snapshot.playbackKey) {
+              setIsFinished(true);
+            }
           }
-        }
-      });
-  }, [isNow, completionDurationMs, rawProgressMs, fetchGroupLive]);
+        });
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [isNow, completionDurationMs, fetchGroupLive, snapshotVersion]);
+
+  const progressAnimationMs = normalizedDurationMs
+    ? Math.max(0, normalizedDurationMs - cappedProgressMs)
+    : 0;
 
   return {
     progressMs: cappedProgressMs,
     progressPercent,
+    progressAnimationMs,
     isFinished,
     isCheckingNext,
     shouldSpinVinyl: isNow && !isFinished,
@@ -283,6 +278,7 @@ function useLivePlaybackProgress({
 export const LiveTrackProgress = memo(({
   progressMs,
   progressPercent,
+  progressAnimationMs,
   durationMs,
   timestamp,
   isNowPlaying,
@@ -335,6 +331,7 @@ export const LiveTrackProgress = memo(({
   }, [timestamp, durationMs, isNowPlaying]);
 
   const currentProgress = isNowPlaying ? (progressPercent ?? 0) : 100;
+  const progressScale = Math.min(1, Math.max(0, currentProgress / 100));
   const elapsedMs = useMemo(() => progressMs ?? ((currentProgress / 100) * (durationMs || 0)), [currentProgress, durationMs, progressMs]);
 
   const dateObj = new Date(timestamp);
@@ -424,9 +421,16 @@ export const LiveTrackProgress = memo(({
           </div>
           <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
             <div
-              className="h-full rounded-full transition-all duration-1000 relative"
+              key={`${timestamp}-${durationMs}-${Math.round(progressScale * 1000)}`}
+              className={cn(
+                "h-full w-full rounded-full relative",
+                isNowPlaying && progressAnimationMs && progressAnimationMs > 0 ? "live-progress-fill" : ""
+              )}
               style={{
-                width: `${currentProgress}%`,
+                transform: `scaleX(${progressScale})`,
+                transformOrigin: 'left center',
+                ['--progress-start' as any]: progressScale,
+                ['--progress-duration' as any]: `${Math.max(0, progressAnimationMs || 0)}ms`,
                 background: dominantColor
                   ? (() => {
                       const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
@@ -567,6 +571,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const [listenStats, setListenStats] = useState({ artist: 0, track: 0, album: 0 });
   const [listenArtistStats, setListenArtistStats] = useState<Record<string, number>>({});
   const listenStatsRef = React.useRef<HTMLDivElement>(null);
+  const listenDeckTouchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!albumImage) {
@@ -866,6 +871,44 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     }
   }, [listenOrbitItems.length, listenStatsActiveIndex, listenStatsOpen]);
 
+  const handleListenDeckTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    listenDeckTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleListenDeckTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = listenDeckTouchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+      event.stopPropagation();
+    }
+  }, []);
+
+  const handleListenDeckTouchEnd = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = listenDeckTouchStartRef.current;
+    const touch = event.changedTouches[0];
+    listenDeckTouchStartRef.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 34 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+
+    if (dx < 0) {
+      setListenStatsActiveIndex(current => listenOrbitItems.length > 0 ? (current + 1) % listenOrbitItems.length : 0);
+      return;
+    }
+
+    if (listenStatsActiveIndex <= 0) {
+      setListenStatsOpen(false);
+    } else {
+      setListenStatsActiveIndex(current => Math.max(0, current - 1));
+    }
+  }, [listenOrbitItems.length, listenStatsActiveIndex]);
+
   const filteredMembers = useMemo(() => {
     return getVisibleMembers(groupStats, hiddenUsers);
   }, [groupStats, hiddenUsers]);
@@ -1038,18 +1081,20 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 {/* Avatar com ring animado quando tocando */}
                 <motion.div
                   onClick={(e) => {
+                    if (!onAvatarClick) return;
                     e.stopPropagation();
-                    onAvatarClick?.(e);
+                    onAvatarClick(e);
                   }}
-                  role="button"
-                  tabIndex={0}
+                  role={onAvatarClick ? "button" : undefined}
+                  tabIndex={onAvatarClick ? 0 : undefined}
                   onKeyDown={(e) => {
+                    if (!onAvatarClick) return;
                     if (e.key === 'Enter' || e.key === ' ') {
-                      onAvatarClick?.(e as any);
+                      onAvatarClick(e as any);
                     }
                   }}
-                  className="relative shrink-0 cursor-pointer"
-                  whileTap={{ scale: 0.95 }}
+                  className={cn("relative shrink-0", onAvatarClick && "cursor-pointer")}
+                  whileTap={onAvatarClick ? { scale: 0.95 } : undefined}
                 >
                   {isActuallyLive && (
                     <motion.div
@@ -1197,6 +1242,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                          <LiveTrackProgress
                             progressMs={livePlayback.progressMs}
                             progressPercent={livePlayback.progressPercent}
+                            progressAnimationMs={livePlayback.progressAnimationMs}
                             durationMs={durationMs || undefined}
                             timestamp={nowPlaying.timestamp}
                             isNowPlaying={isActuallyLive}
@@ -1230,7 +1276,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               <div className="flex -space-x-2.5 shrink-0 overflow-visible py-2 pr-1">
                                 {trackArenaUsers.map((u, i) => (
                                   <motion.div
-                                    key={u.id}
+                                    key={`${u.id}-${i}`}
                                     initial={{ opacity: 0, scale: 0.8, y: 4 }}
                                     animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
                                       opacity: 1,
@@ -1341,10 +1387,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
                                     exit={{ opacity: 0, x: 36, scale: 0.94, filter: 'blur(8px)' }}
                                     transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.7 }}
-                                    drag="x"
-                                    dragConstraints={{ left: -76, right: 76 }}
-                                    dragElastic={0.12}
-                                    onDragEnd={handleListenStatsDragEnd}
+                                    onTouchStart={handleListenDeckTouchStart}
+                                    onTouchMove={handleListenDeckTouchMove}
+                                    onTouchEnd={handleListenDeckTouchEnd}
+                                    onTouchCancel={() => { listenDeckTouchStartRef.current = null; }}
                                     className="pointer-events-auto absolute right-0 top-0 h-[178px] w-[214px] touch-pan-y select-none"
                                   >
                                     <div className="pointer-events-none absolute inset-0 rounded-full border border-white/[0.035]" />
@@ -1375,37 +1421,28 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                           className="absolute right-0 top-3 flex w-[142px] flex-col items-center text-center"
                                         >
                                           <div className={cn(
-                                            "relative flex h-[92px] w-[92px] items-center justify-center border border-white/14 bg-black/28 shadow-[0_20px_48px_rgba(0,0,0,0.55)] backdrop-blur-2xl",
+                                            "glass-aura relative flex h-[92px] w-[92px] items-center justify-center shadow-[0_20px_48px_rgba(0,0,0,0.55)]",
                                             item.presentation === 'artist' ? "rounded-full" : "rounded-[22px]"
                                           )}>
                                             <div className="absolute inset-0 rounded-[inherit] bg-white/[0.055]" />
-                                            {item.presentation === 'album' ? (
-                                              <div className="relative h-full w-full overflow-hidden rounded-[20px] border border-white/22 bg-white/[0.11] p-[6px] shadow-[inset_0_1px_0_rgba(255,255,255,0.32)]">
-                                                <div className="absolute inset-y-[6px] left-[8px] z-30 w-[8px] rounded-full bg-white/24 shadow-[3px_0_10px_rgba(255,255,255,0.22)]" />
-                                                <div className="absolute inset-y-[7px] left-[20px] z-30 w-px bg-black/35" />
-                                                <div className="pointer-events-none absolute inset-0 z-30 bg-[linear-gradient(116deg,rgba(255,255,255,0.34)_0%,rgba(255,255,255,0.08)_22%,transparent_38%,rgba(255,255,255,0.18)_62%,transparent_100%)]" />
-                                                <SmartImage src={item.image} className="relative h-full w-full rounded-[15px] object-cover" fallback={item.name} rounded="lg" />
-                                              </div>
-                                            ) : (
-                                              <SmartImage
-                                                src={item.image}
-                                                className={cn(
-                                                  "relative h-full w-full object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]",
-                                                  item.presentation === 'track' && "[&_img]:scale-125"
-                                                )}
-                                                fallback={item.name}
-                                                rounded={item.presentation === 'artist' ? 'full' : '2xl'}
-                                              />
-                                            )}
+                                            <SmartImage
+                                              src={item.image}
+                                              className={cn(
+                                                "relative h-full w-full object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]",
+                                                item.presentation === 'track' && "[&_img]:scale-125"
+                                              )}
+                                              fallback={item.name}
+                                              rounded={item.presentation === 'artist' ? 'full' : '2xl'}
+                                            />
                                             <span className="glass-aura-orange absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-[11px] font-black leading-none text-white">
                                               {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                             </span>
                                           </div>
-                                          <div className="glass-aura mt-2 max-w-[142px] rounded-[20px] px-3 py-2">
-                                            <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-500">
+                                          <div className="glass-aura mt-2 max-w-[150px] rounded-[20px] px-3 py-2">
+                                            <span className="block text-[7px] font-black uppercase tracking-[0.22em] text-orange-500">
                                               {item.label}
                                             </span>
-                                            <span className="mt-1 block text-sm font-black leading-tight text-white">
+                                            <span className="mt-1 block text-[12px] font-black leading-tight text-white">
                                               {item.name}
                                             </span>
                                           </div>
@@ -1430,10 +1467,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     }}
                                     aria-label="Ver contagens desta reprodução"
                                     initial={{ opacity: 0, x: 22, scale: 0.84 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1, width: 62, height: 62 }}
+                                    animate={{ opacity: 1, x: 0, scale: 1 }}
                                     exit={{ opacity: 0, x: 26, scale: 0.74 }}
                                     transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
-                                    className="glass-aura pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full text-white active:scale-95"
+                                    className="glass-aura pointer-events-auto absolute right-0 top-7 flex h-[62px] w-[62px] touch-pan-y items-center justify-center overflow-visible rounded-full text-white active:scale-95"
                                   >
                                     <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
                                     <SmartImage

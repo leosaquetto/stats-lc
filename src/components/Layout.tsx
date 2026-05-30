@@ -17,19 +17,19 @@ const EqualizerIcon = () => {
   return (
     <div className="flex items-end gap-[1.5px] h-3 w-3.5 shrink-0 select-none pb-[1px]" aria-hidden="true">
       <motion.span
-        animate={{ height: ["20%", "90%", "20%"] }}
+        animate={{ scaleY: [0.2, 0.9, 0.2] }}
         transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", repeatType: "mirror" }}
-        className="w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
+        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
       <motion.span
-        animate={{ height: ["35%", "100%", "35%"] }}
+        animate={{ scaleY: [0.35, 1, 0.35] }}
         transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut", repeatType: "mirror", delay: 0.15 }}
-        className="w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
+        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
       <motion.span
-        animate={{ height: ["15%", "80%", "15%"] }}
+        animate={{ scaleY: [0.15, 0.8, 0.15] }}
         transition={{ repeat: Infinity, duration: 0.7, ease: "easeInOut", repeatType: "mirror", delay: 0.3 }}
-        className="w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
+        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
     </div>
   );
@@ -140,6 +140,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     { label: 'Órbita', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
     { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
   ];
+  const activeNavIndex = Math.max(0, navItems.findIndex(item => item.activePaths.includes(location.pathname)));
 
   const lastUpdate = groupStats?.lastUpdated;
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
@@ -155,10 +156,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       <AnimatePresence>
         {isOffline && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="z-[100] bg-red-500/10 border-b border-red-500/20 px-4 py-1.5 flex items-center justify-center gap-2"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="z-[100] min-h-7 bg-red-500/10 border-b border-red-500/20 px-4 py-1.5 flex items-center justify-center gap-2"
           >
             <WifiOff className="h-3 w-3 text-red-500" />
             <span className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em]">Modo Offline</span>
@@ -200,7 +201,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 damping: 25,
                 mass: 0.8
               }}
-              layout
               onClick={() => {
                 if (syncDidDragRef.current) {
                   syncDidDragRef.current = false;
@@ -217,18 +217,16 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
             >
               <motion.div 
-                layout="position"
                 className={clsx(
                   "flex items-center min-w-0",
                   shouldShowExpanded ? "gap-2" : "gap-1"
                 )}
               >
                 <motion.div 
-                  layout="position"
                   className={clsx(
-                    "flex items-center min-w-0 transition-all duration-300",
+                    "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300",
                     shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar max-w-[95vw] py-1.5 px-0.5 gap-2" 
+                      ? "overflow-x-auto no-scrollbar w-[min(95vw,456px)] py-1.5 px-0.5 gap-2" 
                       : "-space-x-1.5"
                   )}
                   onPointerDown={(event) => {
@@ -267,40 +265,29 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                     return (
                       <motion.div 
-                        layout 
-                        key={user.id}
+                        key={`${user.id}-${index}`}
                         animate={isBubbleHighlighted ? {
                           scale: [1, 1.2, 1],
-                          filter: [
-                            "drop-shadow(0px 0px 0px rgba(249,115,22,0))",
-                            "drop-shadow(0px 0px 8px rgba(249,115,22,0.6))",
-                            "drop-shadow(0px 0px 0px rgba(249,115,22,0))"
-                          ]
                         } : {}}
                         transition={{ duration: 2, ease: "easeInOut" }}
                         className={clsx(
-                          "flex items-center gap-2 shrink-0 min-w-0 transition-all duration-300",
+                          "flex items-center gap-2 shrink-0 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
                           shouldShowExpanded && "bg-white/[0.07] hover:bg-white/[0.12] pr-3.5 pl-1.5 py-1.5 rounded-full border border-white/10 backdrop-blur-xl shadow-xl hover:scale-[1.02] active:scale-[0.98]",
                           isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
                         )}
                       >
                         {/* Avatar container with Equalizer Overlay (only when expanded) */}
                         <motion.div 
-                          layout="position"
                           className="relative shrink-0"
                           animate={isBubbleHighlighted ? {
-                            boxShadow: [
-                              "0 0 0 0px rgba(249,115,22,0)",
-                              "0 0 0 3px rgba(249,115,22,0.6)",
-                              "0 0 0 0px rgba(249,115,22,0)"
-                            ]
+                            scale: [1, 1.08, 1]
                           } : {}}
                           transition={{ duration: 2, ease: "easeInOut" }}
                           style={{ borderRadius: "9999px" }}
                         >
-                          <motion.div layout="position" className={clsx(
-                            "rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-all duration-300",
-                            shouldShowExpanded ? "h-6.5 w-6.5" : "h-5 w-5"
+                          <div className={clsx(
+                            "h-6.5 w-6.5 rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-transform duration-300",
+                            !shouldShowExpanded && "scale-[0.77]"
                           )}>
                             <SmartImage 
                               src={userAvatar} 
@@ -308,7 +295,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                               rounded="full" 
                               fallback={user.name?.charAt(0) || "👤"}
                             />
-                          </motion.div>
+                          </div>
                           
                           {/* Status Indicator (Equalizer) - overlay on bottom right (ONLY WHEN EXPANDED) */}
                           {shouldShowExpanded && user.nowPlaying?.isNow && (
@@ -322,12 +309,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         <AnimatePresence mode="popLayout" initial={false}>
                           {shouldShowExpanded && (
                             <motion.div
-                              layout="position"
-                              initial={{ opacity: 0, width: 0, x: -5 }}
-                              animate={{ opacity: 1, width: "auto", x: 0 }}
-                              exit={{ opacity: 0, width: 0, x: -5 }}
+                              initial={{ opacity: 0, x: -5 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -5 }}
                               transition={{ duration: 0.25 }}
-                              className="flex flex-col min-w-0 text-left max-w-[140px] overflow-hidden"
+                              className="flex w-[140px] flex-col overflow-hidden text-left"
                             >
                               <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
                                 {uSongName}
@@ -345,7 +331,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                 {/* Global Equalizer in Minimized mode when someone is playing */}
                 {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
-                  <motion.div layout="position" className="opacity-80">
+                  <motion.div className="opacity-80">
                     <EqualizerIcon />
                   </motion.div>
                 )}
@@ -377,6 +363,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
               {/* Navigation Items Grid */}
               <div className="relative grid grid-cols-4 gap-0 px-3 py-3 min-h-[82px]">
+                <motion.div
+                  className="glass-aura pointer-events-none absolute bottom-3 left-3 top-3 w-[calc((100%_-_1.5rem)/4)] rounded-[9999px] bg-white/[0.18]"
+                  animate={{ x: `calc(${activeNavIndex} * 100%)` }}
+                  transition={{ type: "spring", bounce: 0.18, duration: 0.45 }}
+                >
+                  <div className="absolute inset-x-4 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/65 to-transparent rounded-t-[9999px]" />
+                  <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_35%_20%,rgba(255,255,255,0.22),transparent_45%),radial-gradient(circle_at_50%_105%,rgba(249,115,22,0.22),transparent_62%)]" />
+                </motion.div>
                 {navItems.map((item) => {
                   const isActive = item.activePaths.includes(location.pathname);
                   const Icon = item.icon;
@@ -388,21 +382,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       aria-label={item.label}
                       className="relative flex flex-col items-center justify-center gap-1.5 outline-none touch-manipulation min-h-[56px]"
                     >
-                      {/* Active bubble/pill */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="active-bubble"
-                          className="glass-aura absolute inset-x-1 inset-y-1 rounded-[9999px] bg-white/[0.18]"
-                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                        >
-                          {/* Inner highlight */}
-                          <div className="absolute inset-x-4 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/65 to-transparent rounded-t-[9999px]" />
-
-                          {/* Warm active refraction */}
-                          <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_35%_20%,rgba(255,255,255,0.22),transparent_45%),radial-gradient(circle_at_50%_105%,rgba(249,115,22,0.22),transparent_62%)]" />
-                        </motion.div>
-                      )}
-
                       {/* Icon and Label */}
                       <motion.div
                         className="relative z-10 flex flex-col items-center gap-1"

@@ -99,6 +99,13 @@ const getReplayItemArtist = (item: any) => {
   return '';
 };
 
+const getReplayItemImage = (item: any) => item?.image || item?.albumImage || item?.album?.image || item?.artist?.image || item?.track?.image || item?.track?.albumImage || '';
+
+const getFirstName = (name?: string) => {
+  if (!name) return '';
+  return name.trim().split(/\s+/)[0] || name;
+};
+
 const HomeReplayFilter = ({
   activeTab,
   selectedSubValues,
@@ -111,7 +118,7 @@ const HomeReplayFilter = ({
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
 }) => {
   const currentMonth = new Date().getMonth();
-  const availableMonths = MONTHS_SHORT.slice(0, currentMonth + 1);
+  const availableMonths = MONTHS_SHORT;
   const years = [2024, 2025, 2026];
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
     { key: 'today', label: 'hoje' },
@@ -122,15 +129,15 @@ const HomeReplayFilter = ({
   ];
 
   return (
-    <div className="space-y-3">
-      <div data-home-horizontal-scroll="true" className="flex w-full items-center gap-2 overflow-x-auto no-scrollbar pl-1">
+    <div className="space-y-2.5">
+      <div data-home-horizontal-scroll="true" className="grid w-full grid-cols-5 gap-1.5">
         {periodTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => onActiveTabChange(tab.key)}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-black lowercase transition-colors",
+              "min-w-0 rounded-full px-1.5 py-1.5 text-[12px] font-black lowercase transition-colors",
               activeTab === tab.key ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]" : "text-white/38"
             )}
           >
@@ -164,18 +171,20 @@ const HomeReplayFilter = ({
       )}
 
       {activeTab === 'month' && (
-        <div data-home-horizontal-scroll="true" className="flex items-center gap-5 overflow-x-auto no-scrollbar pl-1">
+        <div data-home-horizontal-scroll="true" className="grid grid-cols-6 gap-x-1.5 gap-y-1 pl-1">
           {availableMonths.map((month, index) => {
             const value = String(index).padStart(2, '0');
             const isSelected = selectedSubValues.month === value;
+            const isFuture = index > currentMonth;
             return (
               <button
                 key={month}
                 type="button"
-                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
+                disabled={isFuture}
+                onClick={() => !isFuture && onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
                 className={cn(
-                  "shrink-0 text-[18px] font-black tracking-[-0.02em] transition-colors",
-                  isSelected ? "text-white" : "text-white/22"
+                  "min-w-0 rounded-full px-1 py-1 text-[10px] font-black lowercase transition-colors",
+                  isSelected ? "bg-white/12 text-white" : isFuture ? "text-white/10" : "text-white/26"
                 )}
               >
                 {month}
@@ -220,11 +229,128 @@ const HomeOrbitalHighlights = ({
   tracks: any[];
   albums: any[];
 }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const groups = [
-    { key: 'artists', title: 'Top 5 artistas', label: 'artista', icon: UserCircle, items: artists.slice(0, 5), rounded: 'full' as const },
-    { key: 'tracks', title: 'Top 5 músicas', label: '', icon: Music2, items: tracks.slice(0, 5), rounded: '2xl' as const },
-    { key: 'albums', title: 'Top 5 álbuns', label: '', icon: Disc3, items: albums.slice(0, 5), rounded: '2xl' as const }
+    { key: 'artists', title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 8) },
+    { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 5) },
+    { key: 'albums', title: 'Top álbuns', icon: Disc3, items: albums.slice(0, 6) }
   ].filter((group) => group.items.length > 0);
+
+  useEffect(() => {
+    if (activeIndex >= groups.length) setActiveIndex(0);
+  }, [activeIndex, groups.length]);
+
+  const goTo = useCallback((index: number) => {
+    if (groups.length === 0) return;
+    setActiveIndex((index + groups.length) % groups.length);
+  }, [groups.length]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+      event.stopPropagation();
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 38 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    goTo(activeIndex + (dx < 0 ? 1 : -1));
+  }, [activeIndex, goTo]);
+
+  const renderArtists = (items: any[]) => {
+    const featured = items.slice(0, 4);
+    return (
+      <div className="relative h-[304px] overflow-visible">
+        <div className="grid h-full grid-cols-2 gap-3">
+          {featured.map((item, index) => {
+            return (
+              <motion.div
+                key={`${item.id || item.name}-${index}`}
+                className="relative overflow-hidden rounded-[24px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
+                animate={{ y: [0, index % 2 ? 2 : -2, 0] }}
+                transition={{ duration: 11 + index * 0.7, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <SmartImage
+                  src={getReplayItemImage(item)}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  fallback={item.name}
+                  rounded="none"
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-transparent to-black/78" />
+                <span className="absolute left-3 top-2 text-[48px] font-black leading-none text-white">
+                  {index + 1}
+                </span>
+                <span className="glass-aura-orange absolute right-2 top-2 min-w-11 rounded-full px-2.5 py-1 text-center text-[11px] font-black text-white">
+                  {coreUtils.formatNumber(getReplayItemCount(item))}
+                </span>
+                <div className="absolute inset-x-3 bottom-3">
+                  <span className="block truncate text-[16px] font-black leading-tight text-white">
+                    {item.name || 'sem nome'}
+                  </span>
+                  <span className="mt-0.5 block text-[12px] font-black text-white/72">
+                    {coreUtils.formatNumber(getReplayItemCount(item))} plays
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTracks = (items: any[]) => (
+    <div className="grid gap-2.5">
+      {items.map((item, index) => (
+        <div key={`${item.id || item.name}-${index}`} className="flex items-center gap-3 rounded-[24px] bg-black/15 px-3 py-2.5 backdrop-blur-2xl">
+          <div className="relative h-12 w-12 shrink-0">
+            <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
+            <span className="absolute -right-2 top-1/2 flex h-6 min-w-6 -translate-y-1/2 items-center justify-center rounded-full bg-black/65 px-1.5 text-[10px] font-black text-white backdrop-blur-xl">#{index + 1}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
+            <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/48">{getReplayItemArtist(item)}</span>
+          </div>
+          <span className="glass-aura-orange min-w-10 rounded-full px-2 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderAlbums = (items: any[]) => (
+    <div className="grid grid-cols-2 gap-3">
+      {items.map((item, index) => (
+        <div key={`${item.id || item.name}-${index}`} className="min-w-0">
+          <div className="relative aspect-square overflow-visible rounded-[20px]">
+            <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
+            <span className="absolute left-2 top-2 rounded-full bg-black/62 px-2 py-1 text-[10px] font-black text-white backdrop-blur-xl">#{index + 1}</span>
+            <span className="glass-aura-orange absolute -right-2 top-3 min-w-9 rounded-full px-2 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+          </div>
+          <span className="mt-2 block truncate text-left text-[12px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
+          <span className="mt-0.5 block truncate text-left text-[10px] font-semibold text-white/45">{getReplayItemArtist(item)}</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (groups.length === 0) return null;
 
   return (
     <section className="relative overflow-visible px-4 sm:px-6 lg:px-8">
@@ -233,18 +359,41 @@ const HomeOrbitalHighlights = ({
           <Sparkles className="h-5 w-5 text-orange-500" />
           <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Seus Destaques</h2>
         </div>
-        <div className="glass-aura flex items-center gap-2 rounded-full px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-full bg-black/25 px-3 py-1.5">
           <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
           <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
           <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">min</span>
         </div>
       </div>
 
-      <div data-home-horizontal-scroll="true" className="-mx-4 flex snap-x gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
+      <div
+        data-home-horizontal-scroll="true"
+        className="relative h-[416px] select-none overflow-visible [perspective:1200px]"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartRef.current = null; }}
+      >
         {groups.map((group, groupIndex) => {
           const Icon = group.icon;
+          const relative = (groupIndex - activeIndex + groups.length) % groups.length;
+          const isActive = relative === 0;
+          const isNext = relative === 1;
+          const isPrev = relative === groups.length - 1;
+          if (!isActive && !isNext && !isPrev) return null;
+          const x = isActive ? 0 : isNext ? 106 : -106;
+          const y = isActive ? 0 : 12;
+          const scale = isActive ? 1 : 0.82;
+          const opacity = isActive ? 1 : 0.28;
+          const blur = isActive ? 'blur(0px)' : 'blur(6px)';
           return (
-            <article key={group.key} className="relative min-w-[86%] snap-center overflow-hidden rounded-[34px] bg-white/[0.035] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[30px]">
+            <motion.article
+              key={group.key}
+              onClick={() => !isActive && goTo(groupIndex)}
+              animate={{ x: `calc(-50% + ${x}px)`, y, scale, opacity, filter: blur, zIndex: isActive ? 30 : 8 }}
+              transition={{ type: 'spring', stiffness: 155, damping: 24 }}
+              className="absolute left-1/2 top-0 w-[min(100%,398px)] overflow-hidden rounded-[34px] bg-white/[0.026] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[34px]"
+            >
               <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/12" />
               <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
               <div className="relative z-10 mb-4 flex items-center justify-between">
@@ -257,40 +406,15 @@ const HomeOrbitalHighlights = ({
                     <span className="text-[9px] font-bold text-white/38">arraste para ver o próximo</span>
                   </div>
                 </div>
-                <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{groupIndex + 1}/{groups.length}</span>
+                <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
               </div>
 
-              <div className="relative z-10 flex flex-col gap-2.5">
-                {group.items.map((item, index) => (
-                  <motion.div
-                    key={`${group.key}-${item.id || item.name}-${index}`}
-                    className="flex items-center gap-3 rounded-[24px] bg-black/10 px-3 py-2.5 backdrop-blur-xl"
-                    animate={{ x: [0, index % 2 ? -2 : 2, 0] }}
-                    transition={{ duration: 8 + index, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-black text-white/45">{index + 1}</span>
-                    <div className="relative h-12 w-12 shrink-0 overflow-visible">
-                      <div className="h-12 w-12 overflow-hidden rounded-[18px] glass-aura">
-                        <SmartImage
-                          src={item.image || item.albumImage || item.album?.image || item.artist?.image}
-                          className="h-full w-full object-cover"
-                          fallback={item.name || item.track?.name || group.label}
-                          rounded={group.rounded}
-                        />
-                      </div>
-                      <span className="glass-aura-orange absolute -bottom-1.5 -right-2 min-w-7 rounded-full px-1.5 py-1 text-center text-[10px] font-black text-white">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {group.label ? <span className="block text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">{group.label}</span> : null}
-                      <span className="block line-clamp-1 text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
-                      {group.key !== 'artists' && getReplayItemArtist(item) ? (
-                        <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/46">{getReplayItemArtist(item)}</span>
-                      ) : null}
-                    </div>
-                  </motion.div>
-                ))}
+              <div className="relative z-10">
+                {group.key === 'artists' && renderArtists(group.items)}
+                {group.key === 'tracks' && renderTracks(group.items)}
+                {group.key === 'albums' && renderAlbums(group.items)}
               </div>
-            </article>
+            </motion.article>
           );
         })}
       </div>
@@ -299,6 +423,8 @@ const HomeOrbitalHighlights = ({
 };
 
 const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
   const discovery = tracks.find((track) => getReplayItemCount(track) <= 2) || tracks[tracks.length - 1];
   const topTrackArtist = topTrack ? getReplayItemArtist(topTrack) : '';
@@ -306,11 +432,46 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
   const recentTrack = recent[0]?.track || recent[0];
   const recentArtist = recentTrack ? getReplayItemArtist(recentTrack) : '';
   const perceptions = [
-    topTrack && { title: 'ritual recente', text: `${topTrack.name || topTrack.track?.name}${topTrackArtist ? `, de ${topTrackArtist}` : ''}, puxou ${coreUtils.formatNumber(getReplayItemCount(topTrack))} plays.`, icon: Music2, image: topTrack.image || topTrack.albumImage || topTrack.album?.image },
-    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} plays.`, icon: UserCircle, image: artists[0].image || artists[0].artist?.image },
-    discovery && { title: 'descoberta', text: `${discovery.name || discovery.track?.name}${discoveryArtist ? `, de ${discoveryArtist}` : ''}, apareceu com baixa repetição.`, icon: Sparkles, image: discovery.image || discovery.albumImage || discovery.album?.image },
-    recentTrack && { title: 'agora na memória', text: `${recentTrack.name || 'uma faixa nova'}${recentArtist ? `, de ${recentArtist}` : ''}, foi sua última reprodução.`, icon: Clock3, image: recentTrack.image || recentTrack.albumImage || recentTrack.album?.image }
+    topTrack && { title: 'ritual recente', text: `Você ouviu ${topTrack.name || topTrack.track?.name}${topTrackArtist ? `, de ${topTrackArtist}` : ''}, ${coreUtils.formatNumber(getReplayItemCount(topTrack))} vezes neste período.`, icon: Music2, image: getReplayItemImage(topTrack) },
+    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} reproduções.`, icon: UserCircle, image: getReplayItemImage(artists[0]) },
+    discovery && { title: 'baixa repetição', text: `${discovery.name || discovery.track?.name}${discoveryArtist ? `, de ${discoveryArtist}` : ''}, foi uma das faixas que você menos repetiu neste recorte.`, icon: Sparkles, image: getReplayItemImage(discovery) },
+    recentTrack && { title: 'última descoberta', text: `${recentTrack.name || 'uma faixa nova'}${recentArtist ? `, de ${recentArtist}` : ''}, aparece como sua reprodução mais recente.`, icon: Clock3, image: getReplayItemImage(recentTrack) }
   ].filter(Boolean) as Array<{ title: string; text: string; icon: any; image?: string }>;
+
+  useEffect(() => {
+    if (activeIndex >= perceptions.length) setActiveIndex(0);
+  }, [activeIndex, perceptions.length]);
+
+  const goTo = useCallback((index: number) => {
+    if (perceptions.length === 0) return;
+    setActiveIndex((index + perceptions.length) % perceptions.length);
+  }, [perceptions.length]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.25) event.stopPropagation();
+  }, []);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 38 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    goTo(activeIndex + (dx < 0 ? 1 : -1));
+  }, [activeIndex, goTo]);
 
   if (perceptions.length === 0) return null;
   return (
@@ -319,13 +480,33 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
         <Sparkles className="h-5 w-5 text-orange-500" />
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
       </div>
-      <div data-home-horizontal-scroll="true" className="flex snap-x gap-2.5 overflow-x-auto no-scrollbar pb-2">
+      <div
+        data-home-horizontal-scroll="true"
+        className="relative h-[214px] overflow-visible [perspective:1000px]"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStartRef.current = null; }}
+      >
         {perceptions.map((item, index) => {
           const Icon = item.icon;
+          const relative = (index - activeIndex + perceptions.length) % perceptions.length;
+          const isPrimary = relative === 0;
+          const isSecondary = relative === 1;
+          const isPrev = relative === perceptions.length - 1;
+          if (!isPrimary && !isSecondary && !isPrev) return null;
+          const x = isPrimary ? -78 : isSecondary ? 78 : 0;
+          const y = isPrev ? 16 : 0;
+          const scale = isPrimary || isSecondary ? 1 : 0.78;
+          const opacity = isPrimary || isSecondary ? 1 : 0.2;
+          const blur = isPrimary || isSecondary ? 'blur(0px)' : 'blur(8px)';
           return (
-            <div
+            <motion.div
               key={`${item.title}-${index}`}
-              className="relative min-w-[56%] snap-center overflow-hidden rounded-[24px] bg-white/[0.035] px-4 py-4 shadow-[0_18px_45px_rgba(0,0,0,0.32)] backdrop-blur-[28px]"
+              onClick={() => !isPrimary && !isSecondary ? goTo(index) : undefined}
+              animate={{ x: `calc(-50% + ${x}px)`, y, scale, opacity, filter: blur, zIndex: isPrimary || isSecondary ? 20 : 5 }}
+              transition={{ type: 'spring', stiffness: 155, damping: 24 }}
+              className="absolute left-1/2 top-0 h-[198px] w-[calc(50%-10px)] overflow-hidden rounded-[24px] bg-white/[0.026] px-3.5 py-3.5 shadow-[0_18px_45px_rgba(0,0,0,0.32)] backdrop-blur-[34px]"
             >
               {item.image ? (
                 <img src={item.image} alt="" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.16]" loading="lazy" decoding="async" />
@@ -335,8 +516,8 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
                 <Icon className="h-4 w-4 text-white" />
               </div>
               <span className="relative z-10 text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{item.title}</span>
-              <p className="relative z-10 mt-1.5 line-clamp-3 text-[13px] font-black leading-tight text-white">{item.text}</p>
-            </div>
+              <p className="relative z-10 mt-1.5 text-[11px] font-black leading-snug text-white">{item.text}</p>
+            </motion.div>
           );
         })}
       </div>
@@ -571,6 +752,8 @@ export default function HomeScreen() {
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
   const [isAppReady, setIsAppReady] = useState(false);
+  const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
+  const [isReplayVisualWarmupReady, setIsReplayVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(0);
@@ -593,7 +776,6 @@ export default function HomeScreen() {
   });
   const toastIdRef = useRef(0);
   const horizontalTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const userTrackStatsForLayout = useStatsStore(state => state.userTrackStats);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
@@ -631,18 +813,7 @@ export default function HomeScreen() {
   const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
   const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
   const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
-  const primaryPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
-  const primaryTrack = primaryUser?.nowPlaying?.track;
-  const primaryIsPlaying = primaryPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
-  const visibleMembersCount = members.length || 1;
-  const currentTrackId = (primaryTrack as any)?.id;
-  const currentTrackArenaPlayCount = currentTrackId && Array.isArray(members)
-    ? members
-        .reduce((total, member) => total + (userTrackStatsForLayout[`${member.id}:${currentTrackId}`] || 0), 0)
-    : 0;
-  const friendActivityOffset = primaryIsPlaying
-    ? (currentTrackArenaPlayCount > visibleMembersCount ? "-mt-16" : "-mt-18")
-    : "-mt-14";
+  const friendActivityOffset = "-mt-16";
   const replayPeriodQuery = useMemo(
     () => getReplayQuery(replayActiveTab, replaySelectedSubValues),
     [replayActiveTab, replaySelectedSubValues]
@@ -656,6 +827,121 @@ export default function HomeScreen() {
     { left: '83%', duration: 2.9, delay: 0.95 },
     { left: '91.5%', duration: 3.7, delay: 0.55 },
   ], []);
+
+  useEffect(() => {
+    if (!groupStats) {
+      setIsVisualWarmupReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const urls = new Set<string>();
+    const addUrl = (value: unknown) => {
+      if (typeof value === 'string' && value.trim().length > 5) urls.add(value);
+    };
+
+    addUrl(miniHeaderAlbumImage);
+    allMembers.slice(0, 8).forEach((member: any) => {
+      addUrl(coreUtils.getUserAvatar(member.id, member.avatar));
+      addUrl(member.nowPlaying?.track?.image);
+      addUrl(member.nowPlaying?.track?.albumImage);
+      addUrl(member.nowPlaying?.track?.album?.image);
+      ['artists', 'tracks', 'albums'].forEach((key) => {
+        (member.topItems?.[key] || []).slice(0, 3).forEach((item: any) => addUrl(getReplayItemImage(item)));
+      });
+    });
+
+    if (urls.size === 0) {
+      setIsVisualWarmupReady(true);
+      return;
+    }
+
+    setIsVisualWarmupReady(false);
+    const warmImage = (url: string) => new Promise<void>((resolve) => {
+      const image = new Image();
+      const done = () => resolve();
+      const timer = window.setTimeout(done, 1800);
+      image.onload = () => {
+        window.clearTimeout(timer);
+        if (image.decode) {
+          image.decode().then(done).catch(done);
+        } else {
+          done();
+        }
+      };
+      image.onerror = done;
+      image.decoding = 'async';
+      image.src = url;
+    });
+
+    const urlsToWarm = Array.from(urls).slice(0, 34);
+    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 2600));
+    Promise.race([
+      Promise.all(urlsToWarm.map(warmImage)).then(() => undefined),
+      timeout,
+    ]).finally(() => {
+      if (!cancelled) setIsVisualWarmupReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [allMembers, groupStats, miniHeaderAlbumImage]);
+
+  useEffect(() => {
+    if (replayState === 'idle' || replayState === 'loading') {
+      setIsReplayVisualWarmupReady(false);
+      return;
+    }
+
+    if (replayState === 'error') {
+      setIsReplayVisualWarmupReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    const urls = new Set<string>();
+    [...replayTopItems.artists.slice(0, 4), ...replayTopItems.tracks.slice(0, 5), ...replayTopItems.albums.slice(0, 6)]
+      .forEach((item) => {
+        const imageUrl = getReplayItemImage(item);
+        if (typeof imageUrl === 'string' && imageUrl.trim().length > 5) urls.add(imageUrl);
+      });
+
+    if (urls.size === 0) {
+      setIsReplayVisualWarmupReady(true);
+      return;
+    }
+
+    setIsReplayVisualWarmupReady(false);
+    const warmImage = (url: string) => new Promise<void>((resolve) => {
+      const image = new Image();
+      const done = () => resolve();
+      const timer = window.setTimeout(done, 1200);
+      image.onload = () => {
+        window.clearTimeout(timer);
+        if (image.decode) {
+          image.decode().then(done).catch(done);
+        } else {
+          done();
+        }
+      };
+      image.onerror = done;
+      image.decoding = 'async';
+      image.src = url;
+    });
+
+    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
+    Promise.race([
+      Promise.all(Array.from(urls).map(warmImage)).then(() => undefined),
+      timeout,
+    ]).finally(() => {
+      if (!cancelled) setIsReplayVisualWarmupReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [replayState, replayTopItems]);
 
   useEffect(() => {
     let frame = 0;
@@ -832,7 +1118,8 @@ export default function HomeScreen() {
       localStorage.getItem('stats-lc-has-selected-user') === '1';
 
     if (!featuredUserId && members.length > 0 && !hasPreviouslySelectedUser) {
-      setShowInitialModal(true);
+      setFeaturedUserId(members[0].id);
+      setShowInitialModal(false);
       return;
     }
 
@@ -858,7 +1145,8 @@ export default function HomeScreen() {
       prefetchUserTops(primaryUser.id);
       prefetchNextFriend(primaryUser.id);
     } else if (allMembers.length > 0) {
-      setShowInitialModal(true);
+      setFeaturedUserId(allMembers[0].id);
+      setShowInitialModal(false);
     }
   }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
 
@@ -891,16 +1179,32 @@ export default function HomeScreen() {
     fetchGroupLive
   ]);
 
-  // Mark app as ready when group data is available; the empty-user state renders below.
+  // Mark app as ready only after the first Home frame can render without section-by-section popping.
   useEffect(() => {
-    if (!isLoading && groupStats) {
-      // Small delay to ensure smooth transition
-      const timer = setTimeout(() => setIsAppReady(true), 300);
-      return () => clearTimeout(timer);
-    } else {
+    const replaySettled = !primaryUser || replayState === 'ready' || replayState === 'error';
+    const ready = !isLoading && !!groupStats && isVisualWarmupReady && replaySettled && isReplayVisualWarmupReady;
+
+    if (!ready) {
       setIsAppReady(false);
+      return;
     }
-  }, [isLoading, groupStats]);
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (cancelled) return;
+          setIsAppReady(true);
+          window.__STATS_LC_DISMISS_SPLASH__?.();
+        });
+      });
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isLoading, groupStats, isVisualWarmupReady, isReplayVisualWarmupReady, primaryUser, replayState]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -1110,7 +1414,7 @@ export default function HomeScreen() {
           />
 
           <AnimatePresence>
-            <React.Suspense fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
+            <React.Suspense key="home-detail-modals" fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
               {viewingFullHistoryUser && (
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
@@ -1140,6 +1444,7 @@ export default function HomeScreen() {
               )}
             </React.Suspense>
             <TopArtistsModal
+              key="home-top-artists-modal"
               isOpen={openReplayModal === 'artists'}
               onClose={() => setOpenReplayModal(null)}
               artists={replayArtists.slice(0, 20).map((a: any) => ({
@@ -1151,6 +1456,7 @@ export default function HomeScreen() {
               period={replayModalPeriod}
             />
             <TopSongsModal
+              key="home-top-songs-modal"
               isOpen={openReplayModal === 'songs'}
               onClose={() => setOpenReplayModal(null)}
               tracks={replayTracks.slice(0, 30).map((t: any) => ({
@@ -1163,6 +1469,7 @@ export default function HomeScreen() {
               period={replayModalPeriod}
             />
             <TopAlbumsModal
+              key="home-top-albums-modal"
               isOpen={openReplayModal === 'albums'}
               onClose={() => setOpenReplayModal(null)}
               albums={replayAlbums.slice(0, 15).map((a: any) => ({
@@ -1177,6 +1484,7 @@ export default function HomeScreen() {
 
             {/* Explosão contextual de usuários */}
             <UserSelectorExplosion
+              key="home-user-selector-explosion"
               isOpen={showUserSelector}
               members={members}
               featuredUserId={featuredUserId || ''}
@@ -1247,9 +1555,9 @@ export default function HomeScreen() {
       <AnimatePresence>
         {showPipelineSync && (
           <motion.div
-            initial={{ opacity: 0, height: 0, scale: 0.95, y: -10 }}
-            animate={{ opacity: 1, height: 'auto', scale: 1, y: 0 }}
-            exit={{ opacity: 0, height: 0, scale: 0.95, y: -10 }}
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
             transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
             className="mx-4 sm:mx-6 lg:mx-8 mb-6 relative overflow-hidden"
           >
@@ -1305,8 +1613,8 @@ export default function HomeScreen() {
               {/* Enhanced Progress Indicator */}
               <div className="relative w-full h-[3px] bg-white/5 rounded-full overflow-hidden">
                 <motion.div 
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-orange-600 via-white/80 to-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.8)] z-10"
-                  animate={{ width: `${refreshProgress}%` }}
+                  className="absolute inset-y-0 left-0 w-full origin-left bg-gradient-to-r from-orange-600 via-white/80 to-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.8)] z-10"
+                  animate={{ scaleX: refreshProgress / 100 }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
                 {/* Secondary Pulse Animation */}
@@ -1543,20 +1851,11 @@ export default function HomeScreen() {
                   user={primaryUser}
                   streamsToday={primaryUser.streamsToday || 0}
                   onTrackClick={(track) => setSelectedTrack(track)}
-                  onAvatarClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setAvatarClickPosition({
-                      x: rect.left + rect.width / 2,
-                      y: rect.top + rect.height / 2
-                    });
-                    setSelectorMode('header');
-                    setShowUserSelector(true);
-                  }}
                   isHighlighted={headerHighlight}
                 />
               </div>
 
-              <div className={cn("px-4 sm:px-6 lg:px-8 transition-[margin] duration-500", friendActivityOffset)}>
+              <div className={cn("px-4 sm:px-6 lg:px-8", friendActivityOffset)}>
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
                   onTrackClick={(track) => setSelectedTrack(track)}

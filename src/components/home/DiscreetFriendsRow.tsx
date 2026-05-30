@@ -77,7 +77,7 @@ export const DiscreetFriendsRow = ({
             return (
               <motion.div
                 layout
-                key={user.id}
+                key={`${user.id}-${index}`}
                 initial={{ opacity: 0, scale: 0.8, x: 20 }}
                 animate={{ 
                   opacity: 1, 

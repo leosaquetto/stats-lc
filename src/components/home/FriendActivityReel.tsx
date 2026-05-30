@@ -18,19 +18,19 @@ interface FriendActivityReelProps {
 const EqualizerIcon = () => (
   <div className="flex items-center gap-[1px] h-1.5">
     <motion.div
-      animate={{ height: ["20%", "100%", "50%", "100%", "20%"] }}
+      animate={{ scaleY: [0.2, 1, 0.5, 1, 0.2] }}
       transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-      className="w-[1.2px] bg-orange-500 rounded-full will-change-[height]"
+      className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
     <motion.div
-      animate={{ height: ["50%", "20%", "100%", "20%", "50%"] }}
+      animate={{ scaleY: [0.5, 0.2, 1, 0.2, 0.5] }}
       transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-      className="w-[1.2px] bg-orange-500 rounded-full will-change-[height]"
+      className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
     <motion.div
-      animate={{ height: ["100%", "50%", "20%", "50%", "100%"] }}
+      animate={{ scaleY: [1, 0.5, 0.2, 0.5, 1] }}
       transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
-      className="w-[1.2px] bg-orange-500 rounded-full will-change-[height]"
+      className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
   </div>
 );
@@ -92,7 +92,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
             return (
               <motion.div
-                key={friend.id}
+                key={`${friend.id}-${idx}`}
                 className="flex-shrink-0 w-[144px] group cursor-pointer transform-gpu"
                 style={{ contentVisibility: idx > 2 ? 'auto' : 'visible', containIntrinsicSize: '144px 180px' }}
                 onClick={() => onFriendClick(friend)}
