@@ -355,15 +355,21 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <nav className="w-full max-w-[480px] px-4 pb-6 pb-[calc(env(safe-area-inset-bottom)+8px)] pointer-events-auto mx-auto">
           <div className="relative rounded-[9999px] overflow-visible">
             {/* Liquid Glass Container */}
-            <div className="relative bg-black/45 backdrop-blur-2xl rounded-[9999px] border border-white/16 shadow-[0_8px_32px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.1)] overflow-hidden">
+            <div className="relative rounded-[9999px] border border-white/22 bg-white/[0.105] shadow-[0_18px_45px_rgba(0,0,0,0.45),0_1px_0_rgba(255,255,255,0.18),inset_0_1px_0_rgba(255,255,255,0.28),inset_0_-20px_45px_rgba(255,255,255,0.045)] backdrop-blur-[34px] backdrop-saturate-[1.85] overflow-hidden supports-[backdrop-filter]:bg-white/[0.075]">
+              {/* Soft frosted tint */}
+              <div className="absolute inset-0 rounded-[9999px] bg-[linear-gradient(115deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0.08)_33%,rgba(255,255,255,0.03)_64%,rgba(255,255,255,0.14)_100%)] pointer-events-none" />
+
+              {/* Left glass bloom */}
+              <div className="absolute -left-8 -top-8 h-28 w-36 rounded-full bg-white/20 blur-2xl pointer-events-none" />
+
               {/* Top highlight reflection */}
-              <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-8 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/45 to-transparent pointer-events-none" />
 
               {/* Bottom highlight reflection */}
-              <div className="absolute inset-x-0 bottom-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent pointer-events-none" />
+              <div className="absolute inset-x-10 bottom-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
               {/* Inner glow for depth */}
-              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none rounded-[9999px]" />
+              <div className="absolute inset-[1px] rounded-[9999px] border border-white/[0.075] bg-gradient-to-b from-white/[0.06] via-transparent to-black/[0.08] pointer-events-none" />
 
               {/* Navigation Items Grid */}
               <div className="relative grid grid-cols-4 gap-0 px-3 py-3 min-h-[82px]">
@@ -382,14 +388,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       {isActive && (
                         <motion.div
                           layoutId="active-bubble"
-                          className="absolute inset-x-1 inset-y-1 rounded-[9999px] bg-gradient-to-b from-orange-500/20 to-orange-600/10 border border-orange-500/30 shadow-[0_4px_16px_rgba(249,115,22,0.3),inset_0_1px_0_rgba(255,255,255,0.1)] backdrop-blur-sm"
+                          className="absolute inset-x-1 inset-y-1 rounded-[9999px] border border-white/24 bg-white/[0.16] shadow-[0_10px_28px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.38),inset_0_-14px_28px_rgba(255,255,255,0.055)] backdrop-blur-2xl backdrop-saturate-[1.9]"
                           transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                         >
                           {/* Inner highlight */}
-                          <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-orange-300/40 to-transparent rounded-t-[9999px]" />
+                          <div className="absolute inset-x-4 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/65 to-transparent rounded-t-[9999px]" />
 
-                          {/* Orange glow behind */}
-                          <div className="absolute inset-0 bg-orange-500/10 blur-md rounded-[9999px] -z-10" />
+                          {/* Warm active refraction */}
+                          <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_35%_20%,rgba(255,255,255,0.22),transparent_45%),radial-gradient(circle_at_50%_105%,rgba(249,115,22,0.22),transparent_62%)]" />
                         </motion.div>
                       )}
 

@@ -784,6 +784,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       name: artist.name,
       image: artist.image || albumImage,
       rounded: 'full' as const,
+      presentation: 'artist' as const,
     }));
 
     const mediaItems = [
@@ -796,6 +797,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         name: track?.name || 'Música',
         image: albumImage,
         rounded: 'xl' as const,
+        presentation: 'track' as const,
       },
       {
         key: 'album',
@@ -806,6 +808,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         name: track?.albumName || 'Álbum',
         image: albumImage,
         rounded: 'xl' as const,
+        presentation: 'album' as const,
       }
     ].filter(item => item.key !== 'album' || listenStatsLoading || item.count > 0);
 
@@ -813,11 +816,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [albumImage, listenAlbumId, listenArtistStats, listenArtists, listenStats, listenStatsLoading, track?.albumName, track?.id, track?.name]);
 
   const listenOrbitPositions = [
-    { x: -70, y: -48, size: 56, rotate: -8 },
-    { x: -150, y: -14, size: 62, rotate: 7 },
-    { x: -98, y: 42, size: 58, rotate: -4 },
-    { x: -198, y: 48, size: 54, rotate: 10 },
-    { x: -224, y: -56, size: 50, rotate: -12 },
+    { x: -70, y: -50, size: 62, rotate: -8 },
+    { x: -152, y: -12, size: 62, rotate: 7 },
+    { x: -98, y: 44, size: 60, rotate: -4 },
+    { x: -200, y: 50, size: 56, rotate: 10 },
+    { x: -226, y: -58, size: 54, rotate: -12 },
   ];
 
   const filteredMembers = useMemo(() => {
@@ -1196,9 +1199,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     transition={shouldReduceMotion ? { delay: i * 0.04 } : {
                                       opacity: { delay: i * 0.04, duration: 0.18 },
                                       scale: { delay: i * 0.04, duration: 0.22 },
-                                      x: { delay: i * 0.18, duration: 3.6 + i * 0.22, repeat: Infinity, ease: 'easeInOut' },
-                                      y: { delay: i * 0.22, duration: 3.9 + i * 0.2, repeat: Infinity, ease: 'easeInOut' },
-                                      rotate: { delay: i * 0.16, duration: 4.2 + i * 0.18, repeat: Infinity, ease: 'easeInOut' },
+                                      x: { delay: i * 0.22, duration: 6.2 + i * 0.34, repeat: Infinity, ease: 'easeInOut' },
+                                      y: { delay: i * 0.26, duration: 6.8 + i * 0.3, repeat: Infinity, ease: 'easeInOut' },
+                                      rotate: { delay: i * 0.2, duration: 7.2 + i * 0.28, repeat: Infinity, ease: 'easeInOut' },
                                     }}
                                     className={cn(
                                       "relative group/avatar shrink-0",
@@ -1222,7 +1225,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       }}
                                       transition={shouldReduceMotion ? {} : {
                                         delay: 0.12 + i * 0.17,
-                                        duration: 2.7 + i * 0.16,
+                                        duration: 4.4 + i * 0.24,
                                         repeat: Infinity,
                                         ease: 'easeInOut',
                                       }}
@@ -1311,8 +1314,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       transition={{
                                         opacity: { duration: 0.18 },
                                         scale: { duration: 0.24, ease: [0.16, 1, 0.3, 1] },
-                                        x: shouldReduceMotion ? { duration: 0.24 } : { duration: 4.8 + index * 0.35, repeat: Infinity, ease: 'easeInOut' },
-                                        y: shouldReduceMotion ? { duration: 0.24 } : { duration: 5.2 + index * 0.25, repeat: Infinity, ease: 'easeInOut' },
+                                        x: shouldReduceMotion ? { duration: 0.24 } : { duration: 7.6 + index * 0.5, repeat: Infinity, ease: 'easeInOut' },
+                                        y: shouldReduceMotion ? { duration: 0.24 } : { duration: 8.2 + index * 0.42, repeat: Infinity, ease: 'easeInOut' },
                                         filter: { duration: 0.2 }
                                       }}
                                       onClick={(event) => {
@@ -1337,20 +1340,39 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                         }
                                       }}
                                       aria-label={`${item.label}: ${item.name}`}
-                                      className="pointer-events-auto absolute right-9 top-8 flex items-center justify-center rounded-[24px] border border-white/14 bg-black/30 shadow-[0_22px_55px_rgba(0,0,0,0.55)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/20"
+                                      className={cn(
+                                        "pointer-events-auto absolute right-9 top-8 flex items-center justify-center border border-white/14 bg-black/30 shadow-[0_22px_55px_rgba(0,0,0,0.55)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/20",
+                                        item.presentation === 'album' ? "rounded-[18px]" : "rounded-[24px]"
+                                      )}
                                       style={{
-                                        width: orbit.size,
-                                        height: orbit.size,
+                                        width: item.presentation === 'album' ? orbit.size + 4 : orbit.size,
+                                        height: item.presentation === 'album' ? orbit.size + 8 : orbit.size,
                                         borderRadius: item.rounded === 'full' ? 999 : 22,
                                       }}
                                     >
                                       <div className="absolute inset-0 rounded-[inherit] bg-white/[0.05]" />
-                                      <SmartImage
-                                        src={item.image}
-                                        className="relative h-full w-full object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
-                                        fallback={item.name}
-                                        rounded={item.rounded}
-                                      />
+                                      {item.presentation === 'album' ? (
+                                        <div className="relative h-full w-full overflow-hidden rounded-[16px] border border-white/18 bg-white/[0.08] p-[3px] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
+                                          <div className="absolute inset-y-[3px] left-[5px] z-20 w-[5px] rounded-full bg-white/18 shadow-[2px_0_8px_rgba(255,255,255,0.18)]" />
+                                          <div className="absolute inset-0 z-20 bg-[linear-gradient(115deg,rgba(255,255,255,0.24)_0%,transparent_32%,rgba(255,255,255,0.12)_58%,transparent_100%)] pointer-events-none" />
+                                          <SmartImage
+                                            src={item.image}
+                                            className="relative h-full w-full rounded-[13px] object-cover"
+                                            fallback={item.name}
+                                            rounded="lg"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <SmartImage
+                                          src={item.image}
+                                          className={cn(
+                                            "relative h-full w-full object-cover shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]",
+                                            item.presentation === 'track' && "[&_img]:scale-125"
+                                          )}
+                                          fallback={item.name}
+                                          rounded={item.rounded}
+                                        />
+                                      )}
                                       <span className="absolute -bottom-1.5 -right-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border border-orange-200/35 bg-orange-500 px-1.5 text-[8px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.62)]">
                                         {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                       </span>
@@ -1379,8 +1401,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 animate={{
                                   x: listenStatsOpen ? -84 : 0,
                                   scale: listenStatsOpen ? 1.08 : 1,
-                                  width: listenStatsOpen ? 58 : 46,
-                                  height: listenStatsOpen ? 58 : 46,
+                                  width: listenStatsOpen ? 62 : 50,
+                                  height: listenStatsOpen ? 62 : 50,
                                 }}
                                 transition={{ type: 'spring', stiffness: 360, damping: 30 }}
                                 className="pointer-events-auto absolute right-0 top-7 flex touch-pan-y items-center justify-center overflow-visible rounded-full border border-white/15 bg-black/30 text-white shadow-[0_18px_44px_rgba(0,0,0,0.48)] backdrop-blur-2xl active:scale-95 supports-[backdrop-filter]:bg-black/18"
@@ -1397,7 +1419,13 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                   animate={{ opacity: listenStatsOpen ? 1 : 0, scale: listenStatsOpen ? 1 : 0.72 }}
                                   className="absolute -bottom-1 -left-1 flex h-6 min-w-6 items-center justify-center rounded-full border border-orange-200/40 bg-orange-500 px-1.5 text-[8px] font-black leading-none text-white shadow-[0_0_24px_rgba(249,115,22,0.65)]"
                                 >
-                                  {listenStatsLoading ? '...' : coreUtils.formatNumber(listenStats.track || playCount || 0)}
+                                  {listenStatsLoading
+                                    ? '...'
+                                    : coreUtils.formatNumber(
+                                        listenArtists[0]?.id
+                                          ? (listenArtistStats[listenArtists[0].id] || 0)
+                                          : listenStats.artist
+                                      )}
                                 </motion.span>
                               </motion.button>
                             </motion.div>

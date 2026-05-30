@@ -40,12 +40,14 @@ const FloatingMiniHeader = React.memo(({
   visible,
   albumImage,
   dominantColor,
-  isPlaying
+  isPlaying,
+  onClick
 }: {
   visible: boolean;
   albumImage: string;
   dominantColor: string;
   isPlaying: boolean;
+  onClick: () => void;
 }) => {
   if (!albumImage) return null;
 
@@ -62,7 +64,7 @@ const FloatingMiniHeader = React.memo(({
         initial={false}
         animate={visible ? { y: 0, opacity: 1, scale: 1 } : { y: -18, opacity: 0, scale: 0.94 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-60px)] h-[172px] w-[172px] sm:right-[calc(50%-316px)] sm:h-[190px] sm:w-[190px]"
+        className="pointer-events-auto absolute right-[-76px] top-[calc(env(safe-area-inset-top,0px)-60px)] h-[172px] w-[172px] sm:right-[calc(50%-316px)] sm:h-[190px] sm:w-[190px]"
       >
         <VinylRecord
           albumImage={albumImage}
@@ -70,6 +72,7 @@ const FloatingMiniHeader = React.memo(({
           isPlaying={isPlaying}
           progressMs={0}
           durationMs={undefined}
+          onClick={onClick}
           hideTonearm
         />
       </motion.div>
@@ -590,86 +593,6 @@ export default function HomeScreen() {
     }
   }, [isLoading, groupStats]);
 
-  const [swipeDirection, setSwipeDirection] = useState<number>(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-
-  const goToNextUser = () => {
-    if (members.length <= 1) return;
-    setSwipeDirection(1);
-    const currentIndex = members.findIndex(m => m.id === FEATURED_ID);
-    const nextIndex = (currentIndex + 1) % members.length;
-    setFeaturedUserId(members[nextIndex].id);
-    trackEvent('user_navigated', { method: 'swipe_right', targetUserId: members[nextIndex].id, targetUserName: members[nextIndex].name });
-  };
-
-  const goToPrevUser = () => {
-    if (members.length <= 1) return;
-    setSwipeDirection(-1);
-    const currentIndex = members.findIndex(m => m.id === FEATURED_ID);
-    const prevIndex = (currentIndex - 1 + members.length) % members.length;
-    setFeaturedUserId(members[prevIndex].id);
-    trackEvent('user_navigated', { method: 'swipe_left', targetUserId: members[prevIndex].id, targetUserName: members[prevIndex].name });
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.targetTouches[0].clientX);
-    setTouchStartY(e.targetTouches[0].clientY);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null || touchStartY === null) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-    
-    const diffX = touchStartX - touchEndX;
-    const diffY = touchStartY - touchEndY;
-    
-    // Confirma se o deslize foi principalmente horizontal com limite de 65px
-    if (Math.abs(diffX) > Math.abs(diffY)) {
-      const minSwipeDistance = 65;
-      if (Math.abs(diffX) > minSwipeDistance) {
-        if (diffX > 0) {
-          // Deslizou para a esquerda (próximo amigo)
-          goToNextUser();
-        } else {
-          // Deslizou para a direita (amigo anterior)
-          goToPrevUser();
-        }
-      }
-    }
-    
-    setTouchStartX(null);
-    setTouchStartY(null);
-  };
-
-  const cycleUser = () => {
-    goToNextUser();
-  };
-
-  const slideVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 100 : direction < 0 ? -100 : 0,
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: {
-        x: { type: 'spring' as const, stiffness: 350, damping: 35 },
-        opacity: { duration: 0.25 },
-      }
-    },
-    exit: (direction: number) => ({
-      x: direction < 0 ? 100 : direction > 0 ? -100 : 0,
-      opacity: 0,
-      transition: {
-        x: { type: 'spring' as const, stiffness: 350, damping: 35 },
-        opacity: { duration: 0.2 },
-      }
-    })
-  };
-
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
     const handleOpenHistory = (e: any) => {
@@ -969,6 +892,7 @@ export default function HomeScreen() {
             albumImage={miniHeaderAlbumImage}
             dominantColor={miniHeaderDominantColor}
             isPlaying={miniHeaderIsPlaying}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           />
         </>,
         document.body
@@ -1297,16 +1221,13 @@ export default function HomeScreen() {
           >
             <motion.div 
               key={primaryUser.id}
-              custom={swipeDirection}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col gap-3 overflow-visible"
             >
               <div 
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
                 className="relative -mt-[4px] touch-pan-y overflow-visible"
               >
                 <LeoHeader
