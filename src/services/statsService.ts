@@ -212,13 +212,16 @@ const fetchFromApi = async <T>(
 
   const cacheKey = getApiCacheKey(endpoint, finalParams, sendsForceParam);
   const now = Date.now();
+  const shouldUseResponseCache = endpoint !== '/api/group-live';
 
-  if (!forceRefresh && useDedupe) {
+  if (!forceRefresh && useDedupe && shouldUseResponseCache) {
     const cached = apiResponseCache.get(cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.data as T;
     }
+  }
 
+  if (!forceRefresh && useDedupe) {
     const running = apiRequestInFlight.get(cacheKey);
     if (running) {
       return running as Promise<T>;
@@ -228,7 +231,7 @@ const fetchFromApi = async <T>(
   const request = (async (): Promise<T> => {
     try {
       const response = await api.get(endpoint, { params: finalParams, signal: requestOptions.signal });
-      if (!forceRefresh) {
+      if (!forceRefresh && shouldUseResponseCache) {
         apiResponseCache.set(cacheKey, {
           data: response.data,
           expiresAt: Date.now() + API_RESPONSE_CACHE_TTL,

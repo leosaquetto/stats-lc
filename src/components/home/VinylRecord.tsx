@@ -44,7 +44,8 @@ const getTextureProfile = (albumImage: string, dominantColor: string) => {
   if (cached) return cached;
 
   const seed = hashString(key);
-  const variant = seed % VINYL_TEXTURE_COUNT;
+  const rawVariant = (seed + Math.floor(seededValue(seed, 4) * 1000)) % VINYL_TEXTURE_COUNT;
+  const variant = rawVariant;
   const profile = { seed, variant };
 
   if (vinylTextureCache.size > 120) {
@@ -126,23 +127,22 @@ export const VinylRecord = ({
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 34 }, (_, i) => {
+    return Array.from({ length: 75 }, (_, i) => {
       const angle = seededValue(textureSeed, i) * 360;
-      const inner = 20 + seededValue(textureSeed, i + 12) * 9;
-      const length = 9 + seededValue(textureSeed, i + 45) * 17;
-      const outer = Math.min(48.8, inner + length);
-      const width = 0.32 + seededValue(textureSeed, i + 88) * 0.9;
-      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 1.8;
-      return { angle, inner, outer, width, bend, opacity: 0.38 + seededValue(textureSeed, i + 137) * 0.28 };
+      const inner = 20 + seededValue(textureSeed, i + 41) * 8;
+      const outer = Math.min(49.5, inner + 15 + seededValue(textureSeed, i + 73) * 25);
+      const width = 0.6 + seededValue(textureSeed, i + 101) * 3.4;
+      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 2.0;
+      return { angle, inner, outer, width, bend, opacity: 0.85 + seededValue(textureSeed, i + 137) * 0.15 };
     });
   }, [textureSeed, textureVariant]);
   const splatterDrops = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 22 }, (_, i) => ({
-      angle: seededValue(textureSeed, i + 313) * 360,
-      radius: 21 + seededValue(textureSeed, i + 154) * 27,
-      size: 0.35 + seededValue(textureSeed, i + 99) * 0.95,
-      opacity: 0.38 + seededValue(textureSeed, i + 242) * 0.3,
+    return Array.from({ length: 40 }, (_, i) => ({
+      angle: seededValue(textureSeed, i + 411) * 360,
+      radius: 22 + seededValue(textureSeed, i + 439) * 26,
+      size: 0.5 + seededValue(textureSeed, i + 467) * 2.0,
+      opacity: 0.7 + seededValue(textureSeed, i + 491) * 0.3,
     }));
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
@@ -272,7 +272,7 @@ export const VinylRecord = ({
                     key={`${uniqueId}-streak-${i}`}
                     d={`M 50 ${50 - s.inner} Q ${50 + s.bend} ${50 - (s.inner + s.outer) / 2}, 50 ${50 - s.outer}`}
                     fill="none"
-                    stroke="rgba(255,255,255,0.76)"
+                    stroke="rgba(255,255,255,0.98)"
                     strokeWidth={s.width}
                     strokeLinecap="round"
                     opacity={s.opacity}
@@ -285,7 +285,7 @@ export const VinylRecord = ({
                     cx="50"
                     cy={50 - drop.radius}
                     r={drop.size}
-                    fill="rgba(255,255,255,0.72)"
+                    fill="rgba(255,255,255,0.98)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
                   />

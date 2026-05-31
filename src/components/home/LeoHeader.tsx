@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, memo } from 'react';
+import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Headphones, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
+import { Repeat, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
@@ -77,9 +77,67 @@ interface LiveTrackProgressProps {
   dominantColor?: string | null;
 }
 
+function formatTrackTime(ms: number) {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+const LiveElapsedTime = memo(({
+  baseMs,
+  durationMs,
+  isRunning,
+  className
+}: {
+  baseMs: number;
+  durationMs?: number;
+  isRunning: boolean;
+  className?: string;
+}) => {
+  const labelRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    const base = Number.isFinite(baseMs) ? Math.max(0, baseMs) : 0;
+    const max = typeof durationMs === 'number' && Number.isFinite(durationMs) && durationMs > 0
+      ? durationMs
+      : Infinity;
+    const startedAt = performance.now();
+
+    const renderTime = () => {
+      const nextMs = isRunning ? base + (performance.now() - startedAt) : base;
+      if (labelRef.current) {
+        labelRef.current.textContent = formatTrackTime(Math.min(nextMs, max));
+      }
+    };
+
+    renderTime();
+
+    if (!isRunning) return;
+
+    const timer = window.setInterval(renderTime, 1000);
+    document.addEventListener('visibilitychange', renderTime);
+
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', renderTime);
+    };
+  }, [baseMs, durationMs, isRunning]);
+
+  return (
+    <span ref={labelRef} className={className}>
+      {formatTrackTime(baseMs)}
+    </span>
+  );
+});
+
+LiveElapsedTime.displayName = 'LiveElapsedTime';
+
 const COMPLETE_MARGIN_MS = 2500;
 const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
+const COMPLETION_RECHECK_INTERVAL_MS = 5000;
+const MAX_COMPLETION_RECHECKS = 6;
 
 type PlaybackSnapshot = {
   playbackKey: string;
@@ -109,15 +167,20 @@ function inferProgressMsFromTimestamp(nowPlaying: any, durationMs: number | null
   const explicitProgressMs = readProgressMs(nowPlaying);
   if (explicitProgressMs != null) return explicitProgressMs;
 
-  const endedAt = readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp);
+  const startedAt = readTimeMs(
+    nowPlaying?.playedAt ??
+    nowPlaying?.startedAt ??
+    nowPlaying?.startTime ??
+    nowPlaying?.timestamp
+  );
+  if (startedAt) {
+    return Math.max(0, Math.min(durationMs, now - startedAt));
+  }
+
+  const endedAt = readTimeMs(nowPlaying?.endTime);
   if (endedAt) {
     const inferredStart = endedAt - durationMs;
     return Math.max(0, Math.min(durationMs, now - inferredStart));
-  }
-
-  const startedAt = readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.startedAt ?? nowPlaying?.startTime);
-  if (startedAt) {
-    return Math.max(0, Math.min(durationMs, now - startedAt));
   }
 
   return null;
@@ -165,6 +228,7 @@ function useLivePlaybackProgress({
   const snapshotRef = React.useRef<PlaybackSnapshot | null>(null);
   const completedPlaybackKeyRef = React.useRef<string | null>(null);
   const checkingPlaybackKeyRef = React.useRef<string | null>(null);
+  const completionCheckAttemptsRef = React.useRef<Record<string, number>>({});
   const [snapshotVersion, setSnapshotVersion] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [isCheckingNext, setIsCheckingNext] = useState(false);
@@ -181,6 +245,7 @@ function useLivePlaybackProgress({
       snapshotRef.current = null;
       completedPlaybackKeyRef.current = null;
       checkingPlaybackKeyRef.current = null;
+      completionCheckAttemptsRef.current = {};
       setIsFinished(false);
       setIsCheckingNext(false);
       setSnapshotVersion(version => version + 1);
@@ -193,9 +258,9 @@ function useLivePlaybackProgress({
     const now = Date.now();
     const inferredProgressMs = inferProgressMsFromTimestamp(nowPlaying, normalizedDurationMs, now);
     const startedAt =
-      readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.startedAt ?? nowPlaying?.startTime) ??
-      (normalizedDurationMs && readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp)
-        ? readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp)! - normalizedDurationMs
+      readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.startedAt ?? nowPlaying?.startTime ?? nowPlaying?.timestamp) ??
+      (normalizedDurationMs && readTimeMs(nowPlaying?.endTime)
+        ? readTimeMs(nowPlaying?.endTime)! - normalizedDurationMs
         : null);
     const fallbackProgressMs = inferredProgressMs ?? (startedAt ? Math.max(0, now - startedAt) : 0);
     const previous = snapshotRef.current;
@@ -211,6 +276,7 @@ function useLivePlaybackProgress({
       };
       completedPlaybackKeyRef.current = null;
       checkingPlaybackKeyRef.current = null;
+      completionCheckAttemptsRef.current = {};
       setIsFinished(false);
       setIsCheckingNext(false);
       setSnapshotVersion(version => version + 1);
@@ -264,10 +330,12 @@ function useLivePlaybackProgress({
     if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
 
     const nowProgress = calculateSnapshotProgress(snapshot);
-    const delay = Math.max(0, completionDurationMs + COMPLETE_MARGIN_MS - nowProgress);
+    const attempts = completionCheckAttemptsRef.current[snapshot.playbackKey] || 0;
+    const delay = attempts > 0
+      ? COMPLETION_RECHECK_INTERVAL_MS
+      : Math.max(0, completionDurationMs + COMPLETE_MARGIN_MS - nowProgress);
     const timer = window.setTimeout(() => {
       if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
-      completedPlaybackKeyRef.current = snapshot.playbackKey;
       checkingPlaybackKeyRef.current = snapshot.playbackKey;
       setIsCheckingNext(true);
 
@@ -278,7 +346,14 @@ function useLivePlaybackProgress({
             checkingPlaybackKeyRef.current = null;
             setIsCheckingNext(false);
             if (snapshotRef.current?.playbackKey === snapshot.playbackKey) {
-              setIsFinished(true);
+              const nextAttempts = (completionCheckAttemptsRef.current[snapshot.playbackKey] || 0) + 1;
+              completionCheckAttemptsRef.current[snapshot.playbackKey] = nextAttempts;
+              if (nextAttempts >= MAX_COMPLETION_RECHECKS) {
+                completedPlaybackKeyRef.current = snapshot.playbackKey;
+                setIsFinished(true);
+              } else {
+                setSnapshotVersion(version => version + 1);
+              }
             }
           }
         });
@@ -381,13 +456,6 @@ export const LiveTrackProgress = memo(({
       ? `ONTEM ÀS ${timeStr}`
       : `${formatDateSP(dateObj)} ÀS ${timeStr}`;
 
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
   return (
     <AnimatePresence mode="wait">
       {(!isNowPlaying || (isNowPlaying && !durationMs && !minPlayTime)) ? (
@@ -444,9 +512,12 @@ export const LiveTrackProgress = memo(({
           className="flex flex-col gap-1 w-full"
         >
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-0.5">
-              <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
-              {formatTime(elapsedMs)}
-            </span>
+              <LiveElapsedTime
+                baseMs={elapsedMs}
+                durationMs={durationMs}
+                isRunning={isNowPlaying}
+                className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
+              />
             <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
               <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
               <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
@@ -455,7 +526,7 @@ export const LiveTrackProgress = memo(({
               <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
             </div>
             <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.08em] tabular-nums">
-              {formatTime(durationMs)}
+              {formatTrackTime(durationMs)}
             </span>
           </div>
           <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
@@ -1172,12 +1243,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                   </div>
 
                   {/* Streams hoje */}
-                  <div className={cn(
-                    "flex h-6 max-w-[min(62vw,220px)] -ml-1 items-center gap-1 rounded-full border px-2 backdrop-blur-xl transition-all duration-500",
-                    isActuallyLive
-                      ? "bg-black/20 border-white/20 shadow-[0_0_22px_rgba(249,115,22,0.10)]"
-                      : "bg-black/15 border-white/10"
-                  )}>
+                  <div
+                    className="glass -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full px-2 transition-all duration-500"
+                    style={{ border: 0 }}
+                  >
                     <TrendingUp className={cn(
                       "h-2.5 w-2.5 shrink-0 transition-colors duration-500",
                       isActuallyLive ? "text-orange-400" : "text-white/30"
@@ -1384,8 +1453,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               {playCount === undefined ? (
                                 <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
                               ) : (
-                                <div className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 bg-black/20 px-3 backdrop-blur-xl">
-                                  <Headphones className={cn(
+                                <div
+                                  className="glass flex h-7 items-center gap-1.5 rounded-full px-3"
+                                  style={{ border: 0 }}
+                                >
+                                  <Repeat className={cn(
                                     "h-2.5 w-2.5 transition-colors duration-500",
                                     isActuallyLive ? "text-orange-400" : "text-white/40"
                                   )} />
@@ -1399,7 +1471,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
                                     isActuallyLive ? "text-white/60" : "text-white/40"
                                   )}>
-                                    PLAYS
+                                    REPEATS
                                   </span>
                                 </div>
                               )}
@@ -1416,7 +1488,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               exit={{ opacity: 0, scale: 0.92 }}
                               className={cn(
                                 "pointer-events-none absolute -top-5 z-[85] h-[190px] w-[230px]",
-                                listenStatsOpen ? "-right-4" : "-right-[34px]"
+                                listenStatsOpen ? "-right-4" : "-right-[40px]"
                               )}
                             >
                               <AnimatePresence>
@@ -1506,17 +1578,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       setListenStatsOpen(true);
                                     }}
                                     aria-label="Ver contagens desta reprodução"
-                                    initial={{ opacity: 0, x: 22, scale: 0.84 }}
+                                    initial={{ opacity: 0, x: 18, scale: 0.9 }}
                                     animate={{
-                                      opacity: isActuallyLive ? 1 : 0.42,
-                                      x: [0, -2, 0],
-                                      y: [0, 3, 0],
+                                      opacity: backendIsLive ? 1 : 0.42,
+                                      x: 0,
+                                      y: 0,
                                       scale: 1,
-                                      rotate: [0, -2, 0],
+                                      rotate: 0,
                                     }}
-                                    exit={{ opacity: 0, x: 26, scale: 0.74 }}
-                                    transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
-                                    className="pointer-events-auto absolute right-0 top-7 flex h-[62px] w-[62px] touch-pan-y items-center justify-center overflow-visible rounded-full border-0 bg-black/18 text-white shadow-[0_20px_44px_rgba(0,0,0,0.44)] backdrop-blur-[26px] active:scale-95"
+                                    exit={{ opacity: 0, x: 18, scale: 0.88 }}
+                                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                                    className="pointer-events-auto absolute -right-1 top-6 flex h-[70px] w-[70px] touch-pan-y items-center justify-center overflow-visible rounded-full border-0 bg-black/18 text-white shadow-[0_20px_44px_rgba(0,0,0,0.44)] backdrop-blur-[26px] active:scale-95"
                                   >
                                     <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
                                     <SmartImage

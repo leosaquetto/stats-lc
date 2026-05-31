@@ -13,6 +13,13 @@ import { coreUtils } from '../services/statsCore';
 import { SmartImage } from './shared/CommonUI';
 import { getCanonicalMembers } from '../lib/memberSelectors';
 
+const NAV_ITEMS = [
+  { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
+  { label: 'Stats', icon: AudioLines, path: '/highlights', activePaths: ['/highlights'] },
+  { label: 'Órbita', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
+  { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
+];
+
 const EqualizerIcon = () => {
   return (
     <div className="flex items-end gap-[1.5px] h-3 w-3.5 shrink-0 select-none pb-[1px]" aria-hidden="true">
@@ -34,6 +41,71 @@ const EqualizerIcon = () => {
     </div>
   );
 };
+
+const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
+  const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
+
+  return (
+    <nav className="w-full max-w-[460px] px-6 pb-6 pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
+      <div className="relative rounded-[9999px]">
+        <div className="glass-aura relative rounded-[9999px] overflow-hidden">
+          <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+
+          <div className="relative grid grid-cols-4 gap-0 px-2 py-2.5 min-h-[74px]">
+            <motion.div
+              className="pointer-events-none absolute bottom-2 left-2 top-2 w-[calc((100%_-_1rem)/4)] rounded-[9999px] bg-white/[0.04]"
+              animate={{ x: `calc(${activeNavIndex} * 100%)` }}
+              transition={{ type: "spring", bounce: 0.12, duration: 0.38 }}
+            />
+            {NAV_ITEMS.map((item, index) => {
+              const isActive = index === activeNavIndex;
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  aria-label={item.label}
+                  className="relative flex flex-col items-center justify-center gap-1 outline-none touch-manipulation select-none"
+                >
+                  <motion.div
+                    className="relative z-10 flex flex-col items-center gap-1"
+                    whileTap={{ scale: 0.94 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                  >
+                    <div className="relative flex h-7 w-7 items-center justify-center">
+                      <Icon
+                        className={clsx(
+                          "transition-all duration-300 ease-out",
+                          isActive
+                            ? "h-[25px] w-[25px] text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.35)]"
+                            : "h-[24px] w-[24px] text-white/45 hover:text-white/75"
+                        )}
+                        strokeWidth={isActive ? 2.3 : 1.7}
+                      />
+                    </div>
+
+                    <span className={clsx(
+                      "text-[9px] font-bold tracking-[0.12em] transition-all duration-300 leading-none mt-0.5",
+                      isActive
+                        ? "text-orange-500 font-extrabold"
+                        : "text-white/40 font-medium"
+                    )}>
+                      {item.label}
+                    </span>
+                  </motion.div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+});
+
+BottomNavigation.displayName = 'BottomNavigation';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -150,14 +222,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   
   const shouldShowExpanded = isSyncInfoExpanded;
   
-  const navItems = [
-    { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
-    { label: 'Stats', icon: AudioLines, path: '/highlights', activePaths: ['/highlights'] },
-    { label: 'Órbita', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
-    { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
-  ];
-  const activeNavIndex = Math.max(0, navItems.findIndex(item => item.activePaths.includes(location.pathname)));
-
   const lastUpdate = groupStats?.lastUpdated;
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
   const isHomeRoute = location.pathname === '/';
@@ -365,86 +429,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         </AnimatePresence>
 
         {/* Navigation - Liquid Glass Capsule */}
-        <nav className="w-full max-w-[480px] px-4 pb-6 pb-[calc(env(safe-area-inset-bottom)+8px)] pointer-events-auto mx-auto">
-          <div className="relative rounded-[9999px] overflow-visible">
-            {/* Liquid Glass Container */}
-            <div className="glass-aura relative rounded-[9999px] overflow-hidden supports-[backdrop-filter]:bg-black/[0.48]">
-              {/* Soft frosted tint */}
-              <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.35),transparent_30%),radial-gradient(circle_at_78%_72%,rgba(249,115,22,0.24),transparent_44%),linear-gradient(115deg,rgba(255,255,255,0.24)_0%,rgba(255,255,255,0.09)_35%,rgba(255,255,255,0.035)_62%,rgba(255,255,255,0.16)_100%)] pointer-events-none" />
-
-              {/* Left glass bloom */}
-              <div className="absolute -left-8 -top-8 h-28 w-36 rounded-full bg-white/28 blur-2xl pointer-events-none" />
-              <div className="absolute right-8 bottom-[-42px] h-28 w-44 rounded-full bg-orange-500/18 blur-3xl pointer-events-none" />
-
-              {/* Top highlight reflection */}
-              <div className="absolute inset-x-8 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/45 to-transparent pointer-events-none" />
-
-              {/* Bottom highlight reflection */}
-              <div className="absolute inset-x-10 bottom-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
-
-              {/* Inner glow for depth */}
-              <div className="absolute inset-[1px] rounded-[9999px] border border-white/[0.11] bg-gradient-to-b from-white/[0.11] via-white/[0.015] to-black/[0.05] pointer-events-none" />
-
-              {/* Navigation Items Grid */}
-              <div className="relative grid grid-cols-4 gap-0 px-3 py-3 min-h-[82px]">
-                <motion.div
-                  className="glass-aura pointer-events-none absolute bottom-3 left-3 top-3 w-[calc((100%_-_1.5rem)/4)] rounded-[9999px] bg-white/[0.18]"
-                  animate={{ x: `calc(${activeNavIndex} * 100%)` }}
-                  transition={{ type: "spring", bounce: 0.18, duration: 0.45 }}
-                >
-                  <div className="absolute inset-x-4 top-[1px] h-[1px] bg-gradient-to-r from-transparent via-white/65 to-transparent rounded-t-[9999px]" />
-                  <div className="absolute inset-0 rounded-[9999px] bg-[radial-gradient(circle_at_35%_20%,rgba(255,255,255,0.22),transparent_45%),radial-gradient(circle_at_50%_105%,rgba(249,115,22,0.22),transparent_62%)]" />
-                </motion.div>
-                {navItems.map((item) => {
-                  const isActive = item.activePaths.includes(location.pathname);
-                  const Icon = item.icon;
-
-                  return (
-                    <Link
-                      key={item.path}
-                      to={item.path}
-                      aria-label={item.label}
-                      className="relative flex flex-col items-center justify-center gap-1.5 outline-none touch-manipulation min-h-[56px]"
-                    >
-                      {/* Icon and Label */}
-                      <motion.div
-                        className="relative z-10 flex flex-col items-center gap-1"
-                        whileTap={{ scale: 0.9 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                      >
-                        <motion.div
-                          animate={{
-                            y: isActive ? -1 : 0
-                          }}
-                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                        >
-                          <Icon
-                            className={clsx(
-                              "transition-all duration-300",
-                              isActive
-                                ? "h-[30px] w-[30px] text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]"
-                                : "h-[28px] w-[28px] text-white/45 hover:text-white/65"
-                            )}
-                            strokeWidth={isActive ? 2.2 : 1.8}
-                          />
-                        </motion.div>
-
-                        <span className={clsx(
-                          "text-[9px] font-black uppercase tracking-[0.18em] transition-all duration-300 leading-none",
-                          isActive
-                            ? "text-orange-400"
-                            : "text-white/40"
-                        )}>
-                          {item.label}
-                        </span>
-                      </motion.div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </nav>
+        <BottomNavigation pathname={location.pathname} />
       </div>
 
       {/* Background Atmosphere */}
