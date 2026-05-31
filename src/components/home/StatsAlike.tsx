@@ -669,7 +669,7 @@ const AlikeOrbitalItem = ({
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
-            <div className="absolute -bottom-2 -right-3 bg-orange-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center border-2 border-black/80 shadow-[0_8px_18px_rgba(249,115,22,0.32)] z-20">
+            <div className="absolute -bottom-2 -right-3 bg-orange-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(249,115,22,0.32)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(userPlaycount)}</span>
             </div>
             <div className="absolute -top-2 -left-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
@@ -716,7 +716,7 @@ const AlikeOrbitalItem = ({
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
-            <div className="absolute -bottom-2 -left-3 bg-blue-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center border-2 border-black/80 shadow-[0_8px_18px_rgba(59,130,246,0.28)] z-20">
+            <div className="absolute -bottom-2 -left-3 bg-blue-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(59,130,246,0.28)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(friendPlaycount)}</span>
             </div>
             <div className="absolute -top-2 -right-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">

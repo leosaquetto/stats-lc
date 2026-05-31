@@ -294,6 +294,59 @@ Lazy-load por aba:
 - `AlikeScreen` apenas quando a aba `Afinidade` estiver ativa;
 - manter fallback curto, como `Carregando seção`, para nao gerar tela preta.
 
+## 11. Registrar decisoes visuais recentes da Home
+
+**Contexto**
+
+Durante o polimento mobile da Home, algumas correcoes resolveram bugs reais de splash, progresso ao vivo, scroll e sobreposicao visual. Estes pontos devem virar regra de manutencao para evitar regressao quando `HomeScreen`, `LeoHeader` ou `HomeInsights` forem mexidos de novo.
+
+**Home boot / splash**
+
+- Manter apenas a splash estatica do `index.html`.
+- Evitar recriar splash visual dentro de `src/screens/HomeScreen.tsx`.
+- Depois que a Home libera a interface, ela nao deve voltar para splash por causa de refresh/live update.
+- Em carregamento lento, preferir placeholder neutro/altura estavel a alternar blocos visuais que causam flicker.
+
+**`LeoHeader` / progresso ao vivo**
+
+- A barra de progresso nao deve depender da identidade inteira de `nowPlaying`.
+- Evitar `key` dinamica no fill da barra de progresso, porque isso remonta a animacao e reinicia visualmente.
+- O progresso deve partir de snapshot estavel com `playbackKey`, `trackId`, `progressMs`/`playedMs`, `durationMs` e `receivedAt`.
+- `LeoHeader` pode atualizar o progresso localmente; nao usar heartbeat global do store para isso sem uma razao forte.
+- A mascara/fade do titulo da musica so deve existir quando o titulo realmente precisa rolar. Em texto estatico, ela corta a primeira letra.
+
+**`Seus Destaques` em `HomeScreen`**
+
+- Padrao visual atual:
+  - posicao do ranking = numero grande branco sobre a imagem;
+  - metrica/playcount = badge laranja separada;
+  - artistas mostram minutos no texto inferior;
+  - evitar badge preta/circular para posicao nessa secao.
+- `Top artistas`, `Top musicas` e `Top albuns` devem manter a mesma altura vertical para nao gerar salto entre abas internas.
+- Ainda vale evoluir a altura fixa atual para medida responsiva por viewport/container.
+
+**`Perceptions`**
+
+- Nao deixar `Perceptions` colado em `Seus Destaques`; manter respiro vertical claro entre as secoes.
+- Se a secao ganhar mais conteudo, preservar swipe horizontal sem capturar scroll vertical da pagina.
+
+**`Insights do Dia`**
+
+- A intencao visual e orbita, nao grid simples de cards.
+- A composicao orbital precisa ficar contida no container para nao atravessar viewport nem travar scroll.
+- Se voltar a usar cards orbitando, limitar `left/right/top/bottom`, `overflow` e `z-index` para nao invadir `Stats Alike` ou o footer.
+
+**Filtros / carrosseis**
+
+- Filtros principais (`hoje`, `semana`, `mes`, `ano`, `tudo`) e meses devem funcionar como carrossel horizontal no mobile.
+- Areas com `data-home-horizontal-scroll="true"` devem aceitar gesto horizontal, mas preservar scroll vertical quando o gesto principal for vertical.
+
+**Pendencias relacionadas**
+
+- Padronizar badges entre `Seus Destaques`, `ReplaySection` e o popover de contagens do `LeoHeader`.
+- Reduzir custo de animacoes e imagens nas secoes da Home com lazy/priority por bloco.
+- Criar um pequeno guia visual da Home se novas secoes forem adicionadas, para evitar cada ajuste recriar um padrao diferente.
+
 ## Ordem sugerida de ataque
 
 1. Corrigir o warning Vite de `useStatsStore.ts`.
@@ -302,3 +355,4 @@ Lazy-load por aba:
 4. Revisar keys em modais e `StatsScreen`.
 5. Evoluir a aba `Duelos` dentro de `CircleScreen`.
 6. Consolidar sanitizacao de cache persistido.
+7. Padronizar badges e alturas responsivas das secoes visuais da Home.

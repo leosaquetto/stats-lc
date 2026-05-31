@@ -884,17 +884,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     listenDeckTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, []);
 
-  const handleListenDeckTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = listenDeckTouchStartRef.current;
-    const touch = event.touches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 16 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-      event.stopPropagation();
-    }
-  }, []);
-
   const handleListenDeckTouchEnd = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const start = listenDeckTouchStartRef.current;
     const touch = event.changedTouches[0];
@@ -1384,7 +1373,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               initial={{ opacity: 0, scale: 0.92 }}
                               animate={{ opacity: 1, scale: 1 }}
                               exit={{ opacity: 0, scale: 0.92 }}
-                              className="pointer-events-none absolute -right-4 -top-5 z-[85] h-[190px] w-[230px]"
+                              className={cn(
+                                "pointer-events-none absolute -top-5 z-[85] h-[190px] w-[230px]",
+                                listenStatsOpen ? "-right-4" : "-right-[34px]"
+                              )}
                             >
                               <AnimatePresence>
                                 {listenStatsOpen && (
@@ -1395,7 +1387,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     exit={{ opacity: 0, x: 36, scale: 0.94, filter: 'blur(8px)' }}
                                     transition={{ type: 'spring', stiffness: 500, damping: 34, mass: 0.7 }}
                                     onTouchStart={handleListenDeckTouchStart}
-                                    onTouchMove={handleListenDeckTouchMove}
                                     onTouchEnd={handleListenDeckTouchEnd}
                                     onTouchCancel={() => { listenDeckTouchStartRef.current = null; }}
                                     className="pointer-events-auto absolute right-0 top-0 h-[178px] w-[214px] touch-pan-y select-none"
@@ -1429,7 +1420,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                           className="absolute right-0 top-3 flex w-[142px] flex-col items-center text-center"
                                         >
                                           <div className={cn(
-                                            "glass-aura relative flex h-[92px] w-[92px] items-center justify-center !border-white/10 shadow-[0_20px_48px_rgba(0,0,0,0.55)]",
+                                            "relative flex h-[92px] w-[92px] items-center justify-center border-0 bg-black/18 shadow-[0_20px_48px_rgba(0,0,0,0.55)] backdrop-blur-[26px]",
                                             item.presentation === 'artist' ? "rounded-full" : "rounded-[22px]"
                                           )}>
                                             <div className="absolute inset-0 rounded-[inherit] bg-white/[0.055]" />
@@ -1442,11 +1433,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                               fallback={item.name}
                                               rounded={item.presentation === 'artist' ? 'full' : '2xl'}
                                             />
-                                            <span className="absolute -right-3 -top-3 flex h-10 min-w-10 items-center justify-center rounded-full border border-white/10 bg-orange-600 px-2 text-[14px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+                                            <span className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-orange-600 px-2 text-[11px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">
                                               {listenStatsLoading ? '...' : coreUtils.formatNumber(item.count)}
                                             </span>
                                           </div>
-                                          <div className="glass-aura mt-2 max-w-[150px] rounded-[20px] px-3 py-2 !border-white/10 shadow-[0_16px_34px_rgba(0,0,0,0.42)]">
+                                          <div className="mt-2 max-w-[150px] rounded-[20px] border-0 bg-black/22 px-3 py-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-[26px]">
                                             <span className="block text-[7px] font-black uppercase tracking-[0.22em] text-orange-500">
                                               {item.label}
                                             </span>
@@ -1475,10 +1466,16 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     }}
                                     aria-label="Ver contagens desta reprodução"
                                     initial={{ opacity: 0, x: 22, scale: 0.84 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                                    animate={{
+                                      opacity: isActuallyLive ? 1 : 0.42,
+                                      x: [0, -2, 0],
+                                      y: [0, 3, 0],
+                                      scale: 1,
+                                      rotate: [0, -2, 0],
+                                    }}
                                     exit={{ opacity: 0, x: 26, scale: 0.74 }}
-                                    transition={{ type: 'spring', stiffness: 560, damping: 32, mass: 0.68 }}
-                                    className="glass-aura pointer-events-auto absolute right-0 top-7 flex h-[62px] w-[62px] touch-pan-y items-center justify-center overflow-visible rounded-full !border-white/10 text-white active:scale-95"
+                                    transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+                                    className="pointer-events-auto absolute right-0 top-7 flex h-[62px] w-[62px] touch-pan-y items-center justify-center overflow-visible rounded-full border-0 bg-black/18 text-white shadow-[0_20px_44px_rgba(0,0,0,0.44)] backdrop-blur-[26px] active:scale-95"
                                   >
                                     <div className="absolute inset-0 rounded-full bg-white/[0.06]" />
                                     <SmartImage

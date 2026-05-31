@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import PullToRefresh from 'react-simple-pull-to-refresh';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
@@ -51,29 +50,35 @@ const FloatingMiniHeader = React.memo(({
   if (!albumImage) return null;
 
   return (
-    <motion.header
-      initial={false}
-      animate={visible ? { opacity: 1 } : { opacity: 0 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-      className="pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(130px+env(safe-area-inset-top,0px))] overflow-visible"
-    >
-      <motion.div
-        initial={false}
-        animate={visible ? { y: 0, opacity: 1, scale: 1, rotate: 0 } : { y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
-        transition={{ type: 'spring', stiffness: 520, damping: 28, mass: 0.7 }}
-        className="pointer-events-auto absolute right-[-62px] top-[calc(env(safe-area-inset-top,0px)-66px)] h-[158px] w-[158px] sm:right-[calc(50%-304px)] sm:h-[176px] sm:w-[176px]"
-      >
-        <VinylRecord
-          albumImage={albumImage}
-          dominantColor={dominantColor}
-          isPlaying={isPlaying}
-          progressMs={0}
-          durationMs={undefined}
-          onClick={onClick}
-          hideTonearm
-        />
-      </motion.div>
-    </motion.header>
+    <AnimatePresence>
+      {visible && (
+        <motion.header
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isPlaying ? 1 : 0.42 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className="pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(130px+env(safe-area-inset-top,0px))] overflow-visible"
+        >
+          <motion.div
+            initial={{ y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
+            animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
+            transition={{ type: 'spring', stiffness: 520, damping: 28, mass: 0.7 }}
+            className="pointer-events-auto absolute right-[-62px] top-[calc(env(safe-area-inset-top,0px)-66px)] h-[158px] w-[158px] sm:right-[calc(50%-304px)] sm:h-[176px] sm:w-[176px]"
+          >
+            <VinylRecord
+              albumImage={albumImage}
+              dominantColor={dominantColor}
+              isPlaying={isPlaying}
+              progressMs={0}
+              durationMs={undefined}
+              onClick={onClick}
+              hideTonearm
+            />
+          </motion.div>
+        </motion.header>
+      )}
+    </AnimatePresence>
   );
 });
 
@@ -183,8 +188,8 @@ const HomeReplayFilter = ({
                 disabled={isFuture}
                 onClick={() => !isFuture && onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
                 className={cn(
-                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-black lowercase transition-colors",
-                  isSelected ? "bg-white/14 text-white" : isFuture ? "text-white/12" : "bg-white/[0.025] text-white/42"
+                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold lowercase transition-colors",
+                  isSelected ? "text-white" : isFuture ? "text-white/12" : "text-white/42"
                 )}
               >
                 {month}
@@ -234,7 +239,7 @@ const HomeOrbitalHighlights = ({
   const highlightsContentHeight = "h-[560px]";
   const groups = [
     { key: 'artists', title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 8) },
-    { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 5) },
+    { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 14) },
     { key: 'albums', title: 'Top álbuns', icon: Disc3, items: albums.slice(0, 6) }
   ].filter((group) => group.items.length > 0);
 
@@ -242,8 +247,8 @@ const HomeOrbitalHighlights = ({
     if (activeIndex >= groups.length) setActiveIndex(0);
   }, [activeIndex, groups.length]);
 
-  const rankNumberClass = "absolute left-3 top-2 z-20 text-[54px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]";
-  const countBadgeClass = "absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/10 bg-orange-600 px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl";
+  const rankNumberClass = "absolute left-3 top-2 z-20 text-[50px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]";
+  const countBadgeClass = "absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full bg-orange-600 px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl";
 
   const goTo = useCallback((index: number) => {
     if (groups.length === 0) return;
@@ -254,17 +259,6 @@ const HomeOrbitalHighlights = ({
     const touch = event.touches[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  }, []);
-
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    const touch = event.touches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-      event.stopPropagation();
-    }
   }, []);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -323,19 +317,27 @@ const HomeOrbitalHighlights = ({
   };
 
   const renderTracks = (items: any[]) => (
-    <div className={cn("grid content-stretch gap-3", highlightsContentHeight)}>
+    <div className="grid grid-cols-2 gap-x-3 gap-y-4">
       {items.map((item, index) => (
-        <div key={`${item.id || item.name}-${index}`} className="flex min-h-0 items-center gap-3 rounded-[24px] bg-black/15 px-3 py-3 backdrop-blur-2xl">
-          <div className="relative h-16 w-16 shrink-0">
-            <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
-            <span className="absolute left-1.5 top-1 text-[30px] font-black leading-none text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.46)]">{index + 1}</span>
+        <motion.div
+          key={`${item.id || item.name}-${index}`}
+          className="min-w-0"
+          animate={{ y: [0, index % 2 ? -3 : 3, 0] }}
+          transition={{ duration: 9 + index * 0.18, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <div className="relative aspect-square overflow-hidden rounded-[24px] bg-black/18 shadow-[0_18px_42px_rgba(0,0,0,0.42)]">
+            <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="none" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-transparent to-black/62" />
+            <span className={countBadgeClass}>{coreUtils.formatNumber(getReplayItemCount(item))}</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
-            <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/48">{getReplayItemArtist(item)}</span>
+          <div className="mt-2 flex items-start gap-2">
+            <span className="shrink-0 text-[24px] font-black leading-none text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.48)]">{index + 1}</span>
+            <div className="min-w-0">
+              <span className="line-clamp-2 text-[12px] font-black leading-[1.05] text-white">{item.name || item.track?.name || 'sem nome'}</span>
+              <span className="mt-1 block truncate text-[10px] font-semibold text-white/48">{getReplayItemArtist(item)}</span>
+            </div>
           </div>
-          <span className="flex h-10 min-w-10 items-center justify-center rounded-full border border-white/10 bg-orange-600 px-2 text-[12px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">{coreUtils.formatNumber(getReplayItemCount(item))}</span>
-        </div>
+        </motion.div>
       ))}
     </div>
   );
@@ -346,11 +348,11 @@ const HomeOrbitalHighlights = ({
         <div key={`${item.id || item.name}-${index}`} className="min-w-0">
           <div className="relative aspect-square overflow-visible rounded-[20px]">
             <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
-            <span className={rankNumberClass}>{index + 1}</span>
+            <span className="absolute left-3 top-2 z-20 text-[42px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]">{index + 1}</span>
             <span className={countBadgeClass}>{coreUtils.formatNumber(getReplayItemCount(item))}</span>
           </div>
-          <span className="mt-2 block truncate text-left text-[12px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
-          <span className="mt-0.5 block truncate text-left text-[10px] font-semibold text-white/45">{getReplayItemArtist(item)}</span>
+          <span className="mt-2 line-clamp-2 text-left text-[12px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
+          <span className="mt-0.5 block truncate text-left text-[10px] font-semibold text-white/45">{getReplayItemArtist(item)} - {coreUtils.formatNumber(getReplayMinutes(item))} min</span>
         </div>
       ))}
     </div>
@@ -378,7 +380,6 @@ const HomeOrbitalHighlights = ({
         data-home-horizontal-scroll="true"
         className="relative select-none overflow-visible"
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
@@ -389,8 +390,16 @@ const HomeOrbitalHighlights = ({
           transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
           className="relative mx-auto w-full max-w-[398px] overflow-hidden rounded-[34px] bg-white/[0.026] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[34px]"
         >
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
-          <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]" />
+          <motion.div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 42, repeat: Infinity, ease: 'linear' }}
+          />
+          <motion.div
+            className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]"
+            animate={{ rotate: -360 }}
+            transition={{ duration: 58, repeat: Infinity, ease: 'linear' }}
+          />
           <div className="relative z-10 mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
@@ -463,15 +472,6 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, []);
 
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    const touch = event.touches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.25) event.stopPropagation();
-  }, []);
-
   const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
     const touch = event.changedTouches[0];
@@ -494,7 +494,6 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
         data-home-horizontal-scroll="true"
         className="relative h-[214px] overflow-visible [perspective:1000px]"
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
@@ -514,8 +513,8 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
             <motion.div
               key={`${item.title}-${index}`}
               onClick={() => !isPrimary && !isSecondary ? goTo(index) : undefined}
-              animate={{ x: `calc(-50% + ${x}px)`, y, scale, opacity, filter: blur, zIndex: isPrimary || isSecondary ? 20 : 5 }}
-              transition={{ type: 'spring', stiffness: 155, damping: 24 }}
+              animate={{ x: `calc(-50% + ${x}px)`, y: [y, y - 5, y], scale, opacity, filter: blur, zIndex: isPrimary || isSecondary ? 20 : 5 }}
+              transition={{ y: { duration: 8 + index * 0.6, repeat: Infinity, ease: 'easeInOut' }, default: { type: 'spring', stiffness: 155, damping: 24 } }}
               className="absolute left-1/2 top-0 h-[198px] w-[calc(50%-10px)] overflow-hidden rounded-[24px] bg-white/[0.026] px-3.5 py-3.5 shadow-[0_18px_45px_rgba(0,0,0,0.32)] backdrop-blur-[34px]"
             >
               {item.image ? (
@@ -740,7 +739,6 @@ export default function HomeScreen() {
   const isOffline = useStatsStore(state => state.isOffline);
   const error = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
-  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const prefetchNextFriend = useStatsStore(state => state.prefetchNextFriend);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -764,9 +762,6 @@ export default function HomeScreen() {
   const [isAppReady, setIsAppReady] = useState(false);
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
-  const [isManualLiveRefresh, setIsManualLiveRefresh] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState(0);
-  const REFRESH_COOLDOWN_MS = 2000; // 2 seconds
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
   const isHeaderScrolledRef = useRef(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
@@ -784,7 +779,6 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
-  const horizontalTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const hasReleasedHomeRef = useRef(false);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
@@ -891,8 +885,8 @@ export default function HomeScreen() {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-        const shouldBeScrolled = scrollY >= 160;
-        const shouldBeReset = scrollY <= 90;
+        const shouldBeScrolled = scrollY >= 340;
+        const shouldBeReset = scrollY <= 240;
 
         let nextValue = isHeaderScrolledRef.current;
         if (!isHeaderScrolledRef.current && shouldBeScrolled) {
@@ -944,34 +938,6 @@ export default function HomeScreen() {
     }, 4500);
   }, []);
 
-  const stopPullToRefreshOnHorizontalGesture = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const target = event.target as HTMLElement | null;
-    const insideHorizontalArea = !!target?.closest('[data-home-horizontal-scroll="true"]');
-    const touch = event.touches[0];
-
-    if (!insideHorizontalArea || !touch) {
-      horizontalTouchStartRef.current = null;
-      return;
-    }
-
-    if (event.type === 'touchstart') {
-      horizontalTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
-      return;
-    }
-
-    const start = horizontalTouchStartRef.current;
-    if (!start) return;
-
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-
-    if (absX > 10 && absX > absY * 1.2) {
-      event.nativeEvent.stopImmediatePropagation();
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
@@ -992,27 +958,6 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [hasMiniHeaderAlbumImage, miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
-
-  const handleRefresh = useCallback(async () => {
-    // Rate limiting: prevent spam refresh
-    const now = Date.now();
-    if (now - lastRefreshTime < REFRESH_COOLDOWN_MS) {
-      showToast('Now Playing', 'Aguarde alguns segundos antes de atualizar novamente.', 'error');
-      return;
-    }
-
-    setIsManualLiveRefresh(true);
-    setLastRefreshTime(now);
-    try {
-      await fetchGroupLive(false);
-      showToast('Now Playing', 'Tocando agora atualizado.', 'success');
-    } catch (err: any) {
-      console.error(err);
-      showToast('Now Playing', 'Não foi possível atualizar o tocando agora.', 'error');
-    } finally {
-      setIsManualLiveRefresh(false);
-    }
-  }, [fetchGroupLive, showToast, lastRefreshTime, REFRESH_COOLDOWN_MS]);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -1436,40 +1381,8 @@ export default function HomeScreen() {
         document.body
       )}
 
-      <PullToRefresh
-      onRefresh={handleRefresh}
-      pullDownThreshold={80}
-      maxPullDownDistance={120}
-      resistance={2.5}
-      pullingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1.8rem+env(safe-area-inset-top,0px))] pb-10 gap-3 border-b border-orange-500/15 select-none bg-black/85 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-          <div className="relative h-14 w-14 rounded-full border border-orange-500/30 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
-            <div className="absolute inset-1 rounded-full border border-orange-400/20" />
-            <RefreshCcw className="h-5 w-5 text-orange-300" />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/75">Puxe para atualizar</span>
-            <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-orange-300/70">Sincronizar círculo</span>
-          </div>
-        </div>
-      }
-      refreshingContent={
-        <div className="flex flex-col items-center justify-center pt-[calc(1.8rem+env(safe-area-inset-top,0px))] pb-10 gap-3 border-b border-orange-500/15 select-none bg-black/90 backdrop-blur-2xl shadow-[0_20px_70px_rgba(0,0,0,0.55)]">
-          <div className="relative h-14 w-14 rounded-full border border-orange-500/40 bg-orange-500/15 flex items-center justify-center shadow-[0_0_34px_rgba(249,115,22,0.30)]">
-            <motion.div className="absolute inset-0 rounded-full border-2 border-orange-500/30 border-t-orange-300" animate={{ rotate: 360 }} transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }} />
-            <RefreshCcw className="h-5 w-5 text-orange-400 animate-spin" />
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/80">Atualizando</span>
-            <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-orange-300/75">Buscando atividade recente</span>
-          </div>
-        </div>
-      }
-    >
       <div
-        className="flex flex-col gap-3 pt-24"
-        onTouchStartCapture={stopPullToRefreshOnHorizontalGesture}
-        onTouchMoveCapture={stopPullToRefreshOnHorizontalGesture}
+        className="flex flex-col gap-3 pt-24 pb-[calc(11rem+env(safe-area-inset-bottom,0px))]"
       >
 
       {/* Custom Background Sync Bar */}
@@ -1778,7 +1691,7 @@ export default function HomeScreen() {
       )}
 
       {/* Toast Notification Container */}
-      <div className="fixed bottom-24 right-4 z-[200] flex flex-col gap-3 pointer-events-none w-[calc(100%-32px)] sm:w-80">
+      <div className="fixed bottom-[calc(10rem+env(safe-area-inset-bottom,0px))] right-4 z-[200] flex flex-col gap-3 pointer-events-none w-[calc(100%-32px)] sm:w-80">
         <AnimatePresence>
           {toasts.map((toast) => (
             <motion.div
@@ -1827,9 +1740,7 @@ export default function HomeScreen() {
           ))}
         </AnimatePresence>
       </div>
-
       </div>
-    </PullToRefresh>
     </>
   );
 }

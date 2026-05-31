@@ -372,17 +372,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, []);
 
-  const handleTouchMove = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    const touch = event.touches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      event.stopPropagation();
-    }
-  }, []);
-
   const handleTouchEnd = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const start = touchStartRef.current;
     const touch = event.changedTouches[0];
@@ -404,10 +393,10 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     const isLive = insight.type === 'live';
 
     return (
-      <div className="relative flex h-full min-h-[172px] flex-col overflow-hidden rounded-[28px] border border-white/[0.055] bg-white/[0.028] px-3.5 py-3.5 text-left shadow-[0_18px_44px_rgba(0,0,0,0.34)] backdrop-blur-[30px]">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.035] via-transparent to-orange-950/[0.08]" />
+      <div className="relative flex h-full min-h-[150px] flex-col overflow-visible px-2 py-2 text-left">
+        <div className="pointer-events-none absolute inset-[-10px] rounded-[30px] bg-black/18 blur-2xl" />
         {isAlbum && insight.albumArt ? (
-          <SmartImage src={insight.albumArt} rounded="none" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.12]" fallback="" />
+          <SmartImage src={insight.albumArt} rounded="3xl" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.08]" fallback="" />
         ) : null}
 
         <div className="relative z-10 mb-3 flex items-start justify-between gap-2">
@@ -436,7 +425,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             ) : null}
           </div>
 
-          <div className="glass-aura-orange flex h-7 w-7 shrink-0 items-center justify-center rounded-xl">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)]">
             {insight.icon}
           </div>
         </div>
@@ -445,7 +434,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
           <span className="mb-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-orange-400">
             {insight.title}
           </span>
-          <h3 className="line-clamp-2 text-[17px] font-black leading-[1.02] text-white">
+          <h3 className="line-clamp-2 text-[18px] font-black leading-[1.02] text-white">
             {insight.primary}
           </h3>
           <p className="mt-2 line-clamp-3 text-[10.5px] font-medium leading-snug text-white/58">
@@ -481,7 +470,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         className="relative h-[268px] select-none overflow-hidden rounded-[34px] border border-white/[0.04] bg-white/[0.012] px-3 py-4 shadow-[0_22px_58px_rgba(0,0,0,0.32)]"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
@@ -513,9 +501,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   insight.onClick?.();
                 }}
                 initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                className={`absolute w-[154px] text-left ${isPrimary ? "left-0 top-7" : "right-0 bottom-5"}`}
+                animate={{
+                  opacity: 1,
+                  y: isPrimary ? [0, -8, 0] : [0, 7, 0],
+                  x: isPrimary ? [0, 5, 0] : [0, -5, 0],
+                  rotate: isPrimary ? [0, -1.5, 0] : [0, 1.5, 0],
+                }}
+                transition={{ duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                className={`absolute w-[160px] text-left ${isPrimary ? "left-1 top-6" : "right-1 bottom-4"}`}
               >
                 {renderInsightCard(insight)}
               </motion.button>
