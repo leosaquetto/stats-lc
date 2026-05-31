@@ -593,6 +593,13 @@ export const LiveTrackProgress = memo(({
 
 LiveTrackProgress.displayName = 'LiveTrackProgress';
 
+const ARENA_BADGE_SLOT_SIZE = 30;
+const ARENA_BADGE_VISIBLE_SLOTS = 4;
+const ARENA_BADGE_MORE_SLOT = ARENA_BADGE_VISIBLE_SLOTS;
+const ARENA_BADGE_LEFT_PAD = 20;
+
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
 const ArenaRankingBubble = ({
   user,
   index,
@@ -611,29 +618,25 @@ const ArenaRankingBubble = ({
   isHiddenInitial: boolean;
 }) => {
   const isSelected = user.id === selectedUserId;
-  const x = useTransform(dragX, value => index * 30 + Number(value));
+  const x = useTransform(dragX, value => {
+    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
+    const visiblePosition = Math.max(0, Math.min(ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE, position));
+    return ARENA_BADGE_LEFT_PAD + visiblePosition;
+  });
   const scale = useTransform(dragX, value => {
-    const position = index * 30 + Number(value);
+    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
     const baseScale = isSelected ? 1.05 : 1;
 
-    if (position < -16) return 0.08;
-    if (position < 0) return Math.max(0.08, baseScale * ((position + 16) / 16));
-
-    if (isHiddenInitial) {
-      if (position >= 120) return 0.08;
-      const progress = Math.max(0, Math.min(1, (120 - position) / 30));
-      return 0.08 + (baseScale - 0.08) * progress;
-    }
+    if (position < 0) return baseScale * clamp01((position + ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
+    if (isHiddenInitial) return baseScale * clamp01((ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE - position) / ARENA_BADGE_SLOT_SIZE);
 
     return baseScale;
   });
   const opacity = useTransform(dragX, value => {
-    const position = index * 30 + Number(value);
+    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
 
-    if (position < -16) return 0;
-    if (position < 0) return Math.max(0, (position + 16) / 16);
-
-    if (isHiddenInitial) return position >= 120 ? 0 : Math.max(0, Math.min(1, (120 - position) / 24));
+    if (position <= -ARENA_BADGE_SLOT_SIZE) return 0;
+    if (isHiddenInitial && position >= ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE) return 0;
 
     return 1;
   });
@@ -661,7 +664,7 @@ const ArenaRankingBubble = ({
       )}
       style={{
         zIndex: total + 2 - index,
-        x: shouldReduceMotion ? index * 30 : x,
+        x: shouldReduceMotion ? ARENA_BADGE_LEFT_PAD + index * ARENA_BADGE_SLOT_SIZE : x,
         scale: shouldReduceMotion ? (isHiddenInitial ? 0 : isSelected ? 1.05 : 1) : scale,
         opacity: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : opacity,
       }}
@@ -701,8 +704,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailX = useMotionValue(0);
-  const arenaMoreOpacity = useTransform(arenaTrailX, [-38, -12, 0], [0, 0.45, 1]);
-  const arenaMoreScale = useTransform(arenaTrailX, [-38, -12, 0], [0.76, 0.94, 1]);
+  const arenaMoreOpacity = useTransform(arenaTrailX, value => Number(value) <= -ARENA_BADGE_SLOT_SIZE ? 0 : 1);
+  const arenaMoreScale = useTransform(arenaTrailX, [-ARENA_BADGE_SLOT_SIZE, 0], [0, 1]);
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -898,7 +901,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const hiddenArenaCount = trailingArenaUsers.length;
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
   const selectedHiddenInArena = selectedArenaIndex >= arenaPageSize;
-  const arenaDragDistance = Math.max(0, hiddenArenaCount * 30);
+  const arenaDragDistance = Math.max(0, hiddenArenaCount * ARENA_BADGE_SLOT_SIZE);
   const arenaRenderableUsers = trackArenaUsers.slice(0, arenaPageSize + hiddenArenaCount);
 
 
@@ -1532,7 +1535,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="relative h-[58px] w-[178px] overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
+	                                className="relative h-[58px] w-[184px] overflow-hidden py-2 pr-0 sm:w-[200px]"
 	                              >
 	                                <motion.div
 	                                  className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
@@ -1568,7 +1571,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    }}
 	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute left-[122px] top-1/2 z-[8] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      "pointer-events-none absolute left-[140px] top-1/2 z-[8] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
 	                                      selectedHiddenInArena
 	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
 	                                        : "border-white/10 bg-black/50"
