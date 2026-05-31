@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
-import { useStatsStore } from '../../store/useStatsStore';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -33,8 +32,6 @@ const seededValue = (seed: number, index: number) => {
   return x - Math.floor(x);
 };
 
-const VINYL_TEXTURE_COUNT = 3;
-
 const vinylTextureCache = new Map<string, { seed: number; variant: number }>();
 
 const getTextureProfile = (albumImage: string, dominantColor: string) => {
@@ -43,8 +40,7 @@ const getTextureProfile = (albumImage: string, dominantColor: string) => {
   if (cached) return cached;
 
   const seed = hashString(key);
-  const rawVariant = (seed + Math.floor(seededValue(seed, 4) * 1000)) % VINYL_TEXTURE_COUNT;
-  const variant = rawVariant;
+  const variant = 0;
   const profile = { seed, variant };
 
   if (vinylTextureCache.size > 120) {
@@ -109,11 +105,10 @@ export const VinylRecord = ({
   }, [progressMs, durationMs]);
 
   const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
-  const vinylTextureMode = useStatsStore(state => state.vinylTextureMode);
   const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
   const textureSeed       = textureProfile.seed;
-  const textureVariant    = vinylTextureMode === 'shuffle' ? textureProfile.variant : Math.max(0, Math.min(2, Number(vinylTextureMode) - 1));
-  const textureName       = textureVariant === 0 ? 'classic' : textureVariant === 1 ? 'marble' : 'splatter';
+  const textureVariant: number = 0;
+  const textureName       = 'classic';
   const safeDominantColor = useMemo(() => {
     const saturation = getSaturation(baseDominantColor);
     const brightness = getPerceivedBrightness(baseDominantColor);

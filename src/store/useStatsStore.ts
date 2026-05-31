@@ -444,6 +444,7 @@ const sanitizePreferences = (
   if (state.shimmerDuration !== undefined) {
     updates.shimmerDuration = clampNumber(state.shimmerDuration, 2.8, 0.5, 5);
   }
+  updates.vinylTextureMode = '1';
 
   return updates;
 };
@@ -531,7 +532,7 @@ interface StatsState {
   animationDuration: number;
   animationDelay: number;
   shimmerDuration: number;
-  vinylTextureMode: 'shuffle' | '1' | '2' | '3';
+  vinylTextureMode: '1';
 
   // Actions
   setPushNotificationsEnabled: (enabled: boolean) => void;
@@ -545,7 +546,7 @@ interface StatsState {
   setAnimationDuration: (duration: number) => void;
   setAnimationDelay: (delay: number) => void;
   setShimmerDuration: (duration: number) => void;
-  setVinylTextureMode: (mode: 'shuffle' | '1' | '2' | '3') => void;
+  setVinylTextureMode: (mode: '1') => void;
 }
 
 /**
@@ -776,7 +777,7 @@ export const useStatsStore = create<StatsState>()(
       animationDuration: 0.4,
       animationDelay: 0.04,
       shimmerDuration: 2.8,
-      vinylTextureMode: 'shuffle',
+      vinylTextureMode: '1',
 
       setPushNotificationsEnabled: (enabled: boolean) => set({ pushNotificationsEnabled: enabled }),
       setNotifyOnNewStreams: (enabled: boolean) => set({ notifyOnNewStreams: enabled }),
@@ -793,8 +794,8 @@ export const useStatsStore = create<StatsState>()(
       setAnimationDuration: (duration: number) => set({ animationDuration: clampNumber(duration, 0.4, 0.05, 3) }),
       setAnimationDelay: (delay: number) => set({ animationDelay: clampNumber(delay, 0.04, 0, 0.5) }),
       setShimmerDuration: (duration: number) => set({ shimmerDuration: clampNumber(duration, 2.8, 0.5, 5) }),
-      setVinylTextureMode: (mode: 'shuffle' | '1' | '2' | '3') => {
-        set({ vinylTextureMode: ['1', '2', '3', 'shuffle'].includes(mode) ? mode : 'shuffle' });
+      setVinylTextureMode: () => {
+        set({ vinylTextureMode: '1' });
       },
 
       // Setter para cache de stats

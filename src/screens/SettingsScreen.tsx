@@ -864,29 +864,24 @@ export default function SettingsScreen() {
                  <div className="flex items-center justify-between gap-4">
                     <div className="flex flex-col gap-1">
                        <span className="text-[13px] font-bold text-white/90">Modelo padrão do vinil</span>
-                       <span className="text-[10px] text-white/30">Fixe uma textura para testar ou deixe alternar automaticamente.</span>
+                       <span className="text-[10px] text-white/30">Modelo liso fixado enquanto refinamos as outras texturas.</span>
                     </div>
                     <Disc className="h-4 w-4 shrink-0 text-white/25" />
                  </div>
 
-                 <div className="grid grid-cols-4 gap-2">
+                 <div className="grid grid-cols-1 gap-2">
                    {[
-                     { value: 'shuffle', label: 'Shuffle' },
-                     { value: '1', label: '1' },
-                     { value: '2', label: '2' },
-                     { value: '3', label: '3' },
+                     { value: '1', label: 'Modelo 1' },
                    ].map((option) => {
                      const active = vinylTextureMode === option.value;
                      return (
                        <button
                          key={option.value}
                          onClick={() => {
-                           setVinylTextureMode(option.value as 'shuffle' | '1' | '2' | '3');
+                           setVinylTextureMode('1');
                            showToast(
                              'Vinil',
-                             option.value === 'shuffle'
-                               ? 'Os vinis voltaram a alternar entre os 3 modelos.'
-                               : `Modelo ${option.value} fixado para teste.`,
+                             'Modelo 1 fixado para todos os vinis.',
                              'info'
                            );
                          }}

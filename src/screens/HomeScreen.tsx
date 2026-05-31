@@ -141,6 +141,19 @@ const getReplayItemArtist = (item: any) => {
 const getReplayItemImage = (item: any) => item?.image || item?.albumImage || item?.album?.image || item?.artist?.image || item?.track?.image || item?.track?.albumImage || '';
 const getReplayItemTitle = (item: any) => item?.name || item?.track?.name || item?.album?.name || item?.artist?.name || 'sem nome';
 
+const getHighlightOrbitSeed = (value: string) => {
+  let seed = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    seed = (Math.imul(seed, 31) + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(seed);
+};
+
+const seededUnit = (seed: number, index: number) => {
+  const value = Math.sin(seed + index * 91.7) * 10000;
+  return value - Math.floor(value);
+};
+
 const getFirstName = (name?: string) => {
   if (!name) return '';
   return name.trim().split(/\s+/)[0] || name;
@@ -328,12 +341,26 @@ const HomeOrbitalHighlights = ({
     if (!primary) return null;
     const isArtist = kind === 'artists';
     const isTrack = kind === 'tracks';
-    const satellitePositions = [
-      { x: -118, y: -76, size: 68, rotate: -7 },
-      { x: 118, y: -68, size: 64, rotate: 6 },
-      { x: -112, y: 86, size: 60, rotate: 5 },
-      { x: 112, y: 88, size: 60, rotate: -5 },
+    const orbitSeed = getHighlightOrbitSeed(`${kind}:${items.map((item) => item?.id || getReplayItemTitle(item)).join('|')}`);
+    const baseSatellitePositions = [
+      { x: -126, y: -82, width: 92, height: 108, rotate: -8, opacity: 0.9 },
+      { x: 126, y: -76, width: 90, height: 106, rotate: 7, opacity: 0.84 },
+      { x: -124, y: 92, width: 88, height: 104, rotate: 5, opacity: 0.8 },
+      { x: 124, y: 92, width: 88, height: 104, rotate: -5, opacity: 0.76 },
     ];
+    const positionOffset = orbitSeed % baseSatellitePositions.length;
+    const satellitePositions = baseSatellitePositions.map((_, index) => {
+      const base = baseSatellitePositions[(index + positionOffset) % baseSatellitePositions.length];
+      const side = base.x < 0 ? -1 : 1;
+      return {
+        ...base,
+        x: base.x + (seededUnit(orbitSeed, index) - 0.5) * 22 * side,
+        y: base.y + (seededUnit(orbitSeed, index + 11) - 0.5) * 24,
+        rotate: base.rotate + (seededUnit(orbitSeed, index + 23) - 0.5) * 10,
+        width: base.width + Math.round((seededUnit(orbitSeed, index + 31) - 0.5) * 10),
+        height: base.height + Math.round((seededUnit(orbitSeed, index + 43) - 0.5) * 12),
+      };
+    });
     const primaryImageSize = isArtist ? "h-[182px] w-[136px] sm:h-[194px] sm:w-[146px]" : "h-[156px] w-[156px] sm:h-[164px] sm:w-[164px]";
     const primaryRadius = isArtist ? "rounded-[24px]" : "rounded-[28px]";
 
@@ -355,18 +382,26 @@ const HomeOrbitalHighlights = ({
               className="absolute left-1/2 top-[47%] overflow-hidden rounded-[18px] bg-black shadow-[0_18px_38px_rgba(0,0,0,0.45)]"
               initial={{ opacity: 0, scale: 0.72, x: `calc(-50% + ${position.x}px)`, y: `calc(-50% + ${position.y + 12}px)` }}
               animate={{
-                opacity: 0.78,
+                opacity: position.opacity,
                 scale: 1,
                 x: `calc(-50% + ${position.x}px)`,
                 y: `calc(-50% + ${position.y}px)`,
                 rotate: position.rotate,
               }}
               transition={{ type: 'spring', stiffness: 165, damping: 24, delay: 0.06 + index * 0.04 }}
-              style={{ width: position.size, height: position.size }}
+              style={{ width: position.width, height: position.height }}
             >
               <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/10 to-black/58" />
-              <span className="absolute left-1.5 top-1 text-[18px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]">{index + 2}</span>
+              <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/10 to-black/78" />
+              <span className="absolute left-2 top-1.5 text-[22px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.65)]">{index + 2}</span>
+              <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
+                <span className="block truncate text-[9.5px] font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]">
+                  {getReplayItemTitle(item)}
+                </span>
+                <span className="mt-0.5 block truncate text-[7.5px] font-black uppercase tracking-[0.08em] text-orange-200/85">
+                  {metricLabel(item, kind)}
+                </span>
+              </div>
             </motion.div>
           );
         })}
@@ -430,6 +465,31 @@ const HomeOrbitalHighlights = ({
           transition={{ type: 'spring', stiffness: 170, damping: 24 }}
           className="relative mx-auto w-full max-w-[430px] overflow-visible"
         >
+          {groups.length > 1 && (
+            <div className="pointer-events-none absolute inset-x-0 top-14 h-[290px] overflow-hidden">
+              {[-1, 1].map((direction) => {
+                const group = groups[(activeIndex + direction + groups.length) % groups.length];
+                const item = group?.items?.[0];
+                if (!group || !item) return null;
+                return (
+                  <motion.div
+                    key={`highlight-backdrop-${group.key}-${direction}`}
+                    className={cn(
+                      "absolute top-[74px] h-[136px] w-[136px] overflow-hidden rounded-[28px] bg-black shadow-[0_24px_52px_rgba(0,0,0,0.5)]",
+                      direction < 0 ? "left-[-24px]" : "right-[-24px]"
+                    )}
+                    initial={{ opacity: 0, scale: 0.8, x: direction * 18 }}
+                    animate={{ opacity: 0.2, scale: 0.92, x: 0, rotate: direction * 7 }}
+                    transition={{ type: 'spring', stiffness: 150, damping: 24 }}
+                    style={{ filter: 'blur(5px)' }}
+                  >
+                    <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
+                    <div className="absolute inset-0 bg-black/38" />
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
           <div className="relative z-10 mb-2 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] backdrop-blur-2xl">
@@ -632,7 +692,6 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
 
 const HomeRecentPlays = ({ recent }: { recent: any[] }) => {
   const list = recent.slice(0, 10);
-  if (list.length === 0) return null;
   return (
     <section className="px-4 sm:px-6 lg:px-8">
       <div className="mb-3 flex items-center gap-3">
@@ -640,6 +699,12 @@ const HomeRecentPlays = ({ recent }: { recent: any[] }) => {
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Últimas Reproduções</h2>
       </div>
       <div className="glass-aura flex flex-col gap-2 rounded-[32px] p-3">
+        {list.length === 0 && (
+          <div className="flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 text-center">
+            <Clock3 className="h-5 w-5 text-white/18" />
+            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/32">Nenhuma reprodução recente confirmada</span>
+          </div>
+        )}
         {list.map((item, index) => {
           const track = item.track || item;
           const artist = Array.isArray(track.artists)
@@ -830,11 +895,7 @@ const getReplayTrackUrl = (track: any) => {
 
 export default function HomeScreen() {
   const hasBootReadySession = () => {
-    try {
-      return window.__STATS_LC_HOME_READY__ === true || sessionStorage.getItem('stats-lc-home-boot-ready') === '1';
-    } catch {
-      return window.__STATS_LC_HOME_READY__ === true;
-    }
+    return window.__STATS_LC_HOME_READY__ === true;
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const isLoading = useStatsStore(state => state.isLoading);
@@ -843,6 +904,8 @@ export default function HomeScreen() {
   const error = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
+  const getHistoryCache = useStatsStore(state => state.getHistoryCache);
+  const setHistoryCache = useStatsStore(state => state.setHistoryCache);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
@@ -876,6 +939,8 @@ export default function HomeScreen() {
   const [circleTopState, setCircleTopState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [circleTopPeriodTops, setCircleTopPeriodTops] = useState<Record<string, { artists: any[]; tracks: any[]; albums: any[] }>>({});
   const [alikePrepState, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [recentPrepState, setRecentPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
   const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
@@ -969,7 +1034,8 @@ export default function HomeScreen() {
     (
       (replayState === 'ready' || replayState === 'error') &&
       (circleTopState === 'ready' || circleTopState === 'error') &&
-      (alikePrepState === 'ready' || alikePrepState === 'error')
+      (alikePrepState === 'ready' || alikePrepState === 'error') &&
+      (recentPrepState === 'ready' || recentPrepState === 'error')
     );
 
   const pipelineStreamLinesMemo = useMemo(() => [
@@ -1210,9 +1276,6 @@ export default function HomeScreen() {
           if (cancelled) return;
           hasReleasedHomeRef.current = true;
           window.__STATS_LC_HOME_READY__ = true;
-          try {
-            sessionStorage.setItem('stats-lc-home-boot-ready', '1');
-          } catch {}
           window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
           setIsAppReady(true);
           window.__STATS_LC_DISMISS_SPLASH__?.();
@@ -1424,6 +1487,52 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [groupStats, membersSignature, prefetchUserTops]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const directRecent = (primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 10);
+
+    if (!primaryUser?.id) {
+      setResolvedRecentPlays([]);
+      setRecentPrepState('idle');
+      return;
+    }
+
+    if (directRecent.length > 0) {
+      setResolvedRecentPlays(directRecent);
+      setHistoryCache(primaryUser.id, directRecent);
+      setRecentPrepState('ready');
+      return;
+    }
+
+    const cachedRecent = getHistoryCache(primaryUser.id);
+    if (cachedRecent?.length) {
+      setResolvedRecentPlays(cachedRecent.slice(0, 10));
+      setRecentPrepState('ready');
+      return;
+    }
+
+    setRecentPrepState('loading');
+    statsService.fetchRecent(primaryUser.id, 10, 0)
+      .then((items) => {
+        if (cancelled) return;
+        const nextRecent = (items || []).slice(0, 10);
+        setResolvedRecentPlays(nextRecent);
+        if (nextRecent.length > 0) {
+          setHistoryCache(primaryUser.id, nextRecent);
+        }
+        setRecentPrepState('ready');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setResolvedRecentPlays([]);
+        setRecentPrepState('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, setHistoryCache]);
 
   const replayArtists = replayTopItems.artists || [];
   const replayTracks = replayTopItems.tracks || [];
@@ -1847,7 +1956,7 @@ export default function HomeScreen() {
         <HomePerceptions
           tracks={replayTracks}
           artists={replayArtists}
-          recent={(primaryUser.recent || (primaryUser as any).history || []).slice(0, 10)}
+          recent={resolvedRecentPlays}
         />
       )}
 
@@ -1899,7 +2008,7 @@ export default function HomeScreen() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <HomeRecentPlays recent={(primaryUser.recent || (primaryUser as any).history || []).slice(0, 10)} />
+          <HomeRecentPlays recent={resolvedRecentPlays} />
         </motion.div>
       )}
 

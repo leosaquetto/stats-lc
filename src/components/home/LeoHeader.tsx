@@ -761,9 +761,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id]);
 
   const trackArenaUsers = allTrackArenaUsers;
-  const hiddenArenaCount = Math.max(0, allTrackArenaUsers.length - 4);
+  const [arenaPageIndex, setArenaPageIndex] = useState(0);
+  const arenaPageSize = 4;
+  const arenaPageCount = Math.max(1, Math.ceil(trackArenaUsers.length / arenaPageSize));
+  const arenaPageStart = Math.min(arenaPageIndex, arenaPageCount - 1) * arenaPageSize;
+  const visibleArenaUsers = trackArenaUsers.slice(arenaPageStart, arenaPageStart + arenaPageSize);
+  const hiddenArenaCount = Math.max(0, trackArenaUsers.length - arenaPageStart - arenaPageSize);
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
-  const selectedHiddenInArena = selectedArenaIndex >= 4;
+  const selectedHiddenInArena = selectedArenaIndex >= arenaPageStart + arenaPageSize;
+
+  useEffect(() => {
+    setArenaPageIndex(0);
+  }, [track?.id, trackArenaUsers.length]);
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
   const isYesterday = nowPlaying?.timestamp ? isYesterdaySP(new Date(nowPlaying.timestamp)) : false;
@@ -1391,34 +1400,45 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               whileTap={{ scale: 0.98 }}
                               className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
                             >
-                              <div data-home-horizontal-scroll="true" className="w-[136px] overflow-x-auto overflow-y-visible no-scrollbar py-2 pl-0.5 pr-2 [mask-image:linear-gradient(90deg,transparent_0%,black_9%,black_88%,transparent_100%)] cursor-grab active:cursor-grabbing sm:w-[148px]">
-                                <div className="flex min-w-max snap-x gap-0">
-                                  <AnimatePresence initial={false}>
-                                    {trackArenaUsers.map((u, i) => (
+                              <motion.div
+                                data-home-horizontal-scroll="true"
+                                drag={arenaPageCount > 1 && !shouldReduceMotion ? "x" : false}
+                                dragConstraints={{ left: 0, right: 0 }}
+                                dragElastic={0.18}
+                                onDragEnd={(_, info) => {
+                                  if (Math.abs(info.offset.x) < 26) return;
+                                  setArenaPageIndex((page) => {
+                                    const direction = info.offset.x < 0 ? 1 : -1;
+                                    return Math.max(0, Math.min(arenaPageCount - 1, page + direction));
+                                  });
+                                }}
+                                className="flex w-[176px] items-center overflow-visible py-2 pl-0.5 pr-0 cursor-grab active:cursor-grabbing sm:w-[192px]"
+                              >
+                                <div className="flex min-w-0 items-center gap-0 overflow-visible">
+                                  <AnimatePresence initial={false} mode="popLayout">
+                                    {visibleArenaUsers.map((u, i) => (
                                       <motion.div
-                                        key={`${u.id}-${i}`}
+                                        key={`${u.id}-${arenaPageStart + i}`}
                                         layout
-                                        initial={{ opacity: 0, scale: 0.32, y: 10 }}
+                                        initial={{ opacity: 0, scale: 0.18, y: 12, rotate: -10 }}
                                         animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
                                           opacity: 1,
                                           scale: u.id === user.id ? 1.05 : 1,
-                                          x: [0, i % 2 === 0 ? -1.8 : 1.8, 0],
-                                          y: [0, i % 2 === 0 ? -3.5 : 2.5, 0],
-                                          rotate: [0, i % 2 === 0 ? -1.5 : 1.5, 0],
+                                          y: 0,
+                                          rotate: 0,
                                         }}
                                         transition={shouldReduceMotion ? { delay: i * 0.03 } : {
                                           opacity: { delay: i * 0.025, duration: 0.14 },
-                                          scale: { type: 'spring', stiffness: 420, damping: 22, delay: i * 0.025 },
-                                          x: { delay: i * 0.18, duration: 8.2 + i * 0.36, repeat: Infinity, ease: 'easeInOut' },
-                                          y: { delay: i * 0.22, duration: 9 + i * 0.32, repeat: Infinity, ease: 'easeInOut' },
-                                          rotate: { delay: i * 0.2, duration: 10 + i * 0.28, repeat: Infinity, ease: 'easeInOut' },
+                                          scale: { type: 'spring', stiffness: 520, damping: 20, delay: i * 0.025 },
+                                          y: { type: 'spring', stiffness: 520, damping: 20, delay: i * 0.025 },
+                                          rotate: { type: 'spring', stiffness: 520, damping: 22, delay: i * 0.025 },
                                         }}
-                                        exit={{ opacity: 0, scale: 0.26, y: 10 }}
+                                        exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
                                         className={cn(
-                                          "relative -mr-2.5 shrink-0 snap-start group/avatar",
+                                          "relative -mr-2.5 shrink-0 group/avatar",
                                           u.id === user.id ? "z-20" : ""
                                         )}
-                                        style={{ zIndex: trackArenaUsers.length - i }}
+                                        style={{ zIndex: visibleArenaUsers.length - i }}
                                       >
                                         <div className={cn(
                                           "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
@@ -1450,23 +1470,28 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       </motion.div>
                                     ))}
                                   </AnimatePresence>
+                                  <AnimatePresence initial={false}>
+                                    {hiddenArenaCount > 0 && (
+                                      <motion.div
+                                        key={`arena-more-${arenaPageStart}-${hiddenArenaCount}`}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.2, y: 10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.18, y: -8 }}
+                                        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                                        className={cn(
+                                          "relative -mr-0 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+                                          selectedHiddenInArena
+                                            ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
+                                            : "border-white/10 bg-black/50"
+                                        )}
+                                      >
+                                        +{hiddenArenaCount}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
                                 </div>
-                              </div>
-                              {hiddenArenaCount > 0 && (
-                                <motion.div
-                                  layout
-                                  initial={{ opacity: 0, scale: 0.72 }}
-                                  animate={{ opacity: 1, scale: 1 }}
-                                  className={cn(
-                                    "ml-1 flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full border px-2 text-[9px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-10 sm:min-w-10",
-                                    selectedHiddenInArena
-                                      ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-                                      : "border-white/10 bg-black/50"
-                                  )}
-                                >
-                                  +{hiddenArenaCount}
-                                </motion.div>
-                              )}
+                              </motion.div>
                             </motion.div>
                           ) : (
                             <motion.div
