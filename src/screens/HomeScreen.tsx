@@ -14,6 +14,7 @@ import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion'
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
 import { coreUtils } from '../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../services/statsService';
+import { statsCacheService } from '../services/statsCacheService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 
 import { LeoHeader } from '../components/home/LeoHeader';
@@ -503,15 +504,17 @@ const HomeOrbitalHighlights = ({
 
   return (
     <section className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
           <Sparkles className="h-5 w-5 text-orange-500" />
           <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Seus Destaques</h2>
+          <span className="text-white/18">·</span>
+          <span className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-orange-300">{activeGroup.title}</span>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-black/25 px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1.5">
           <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
           <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
-          <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/38">min</span>
+          <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">min</span>
         </div>
       </div>
 
@@ -524,14 +527,9 @@ const HomeOrbitalHighlights = ({
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
         <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
-          <div className="relative z-10 mb-2 flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] backdrop-blur-2xl">
-                <ActiveIcon className="h-4 w-4 text-orange-300" />
-              </div>
-              <div className="min-w-0">
-                <span className="block truncate text-[11px] font-black uppercase tracking-[0.18em] text-orange-300 sm:tracking-[0.24em]">{activeGroup.title}</span>
-              </div>
+          <div className="relative z-10 mb-1 flex h-7 items-center justify-between gap-3">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] backdrop-blur-2xl">
+              <ActiveIcon className="h-3.5 w-3.5 text-orange-300" />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {groups.length > 1 && (
@@ -544,7 +542,6 @@ const HomeOrbitalHighlights = ({
                   </button>
                 </div>
               )}
-              <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
             </div>
           </div>
 
@@ -1574,7 +1571,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [groupStats, membersSignature, replayPeriodKey]);
+  }, [membersSignature, replayPeriodKey]);
 
   useEffect(() => {
     if (!groupStats || members.length === 0) {
@@ -1597,11 +1594,14 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [groupStats, membersSignature, prefetchUserTops]);
+  }, [membersSignature, prefetchUserTops]);
 
   useEffect(() => {
     let cancelled = false;
-    const directRecent = (primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 10);
+      const normalizeRecentItems = (items: any[]) => items
+        .map(statsService.normalizeRecentStream)
+        .filter((item: any) => item?.track?.name);
+      const directRecent = normalizeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 20);
 
     if (!primaryUser?.id) {
       setResolvedRecentPlays([]);
@@ -1609,34 +1609,28 @@ export default function HomeScreen() {
       return;
     }
 
-    if (directRecent.length > 0) {
-      setResolvedRecentPlays(directRecent);
-      setHistoryCache(primaryUser.id, directRecent);
-      writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, directRecent);
-      setRecentPrepState('ready');
-      return;
+      const cachedRecent = normalizeRecentItems(getHistoryCache(primaryUser.id) || []);
+      const sessionRecent = normalizeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
+    const preparedRecent = [cachedRecent, sessionRecent, directRecent]
+      .sort((a, b) => b.length - a.length)[0] || [];
+
+    if (preparedRecent.length > 0) {
+      setResolvedRecentPlays(preparedRecent.slice(0, 10));
     }
 
-    const cachedRecent = getHistoryCache(primaryUser.id);
-    if (cachedRecent?.length) {
-      setResolvedRecentPlays(cachedRecent.slice(0, 10));
-      setRecentPrepState('ready');
-      return;
-    }
-
-    const sessionRecent = readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`);
-    if (sessionRecent?.length) {
-      setResolvedRecentPlays(sessionRecent.slice(0, 10));
+    if (preparedRecent.length >= 20) {
+      setHistoryCache(primaryUser.id, preparedRecent);
+      writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, preparedRecent);
       setRecentPrepState('ready');
       return;
     }
 
     setRecentPrepState('loading');
-    statsService.fetchRecent(primaryUser.id, 10, 0)
+    statsCacheService.fetchPaginatedHistory(primaryUser.id, 0, 20)
       .then((items) => {
         if (cancelled) return;
-        const nextRecent = (items || []).slice(0, 10);
-        setResolvedRecentPlays(nextRecent);
+        const nextRecent = items?.length ? items : preparedRecent;
+        setResolvedRecentPlays(nextRecent.slice(0, 10));
         if (nextRecent.length > 0) {
           setHistoryCache(primaryUser.id, nextRecent);
           writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, nextRecent);
@@ -1645,8 +1639,8 @@ export default function HomeScreen() {
       })
       .catch(() => {
         if (cancelled) return;
-        setResolvedRecentPlays([]);
-        setRecentPrepState('error');
+        setResolvedRecentPlays(preparedRecent.slice(0, 10));
+        setRecentPrepState(preparedRecent.length > 0 ? 'ready' : 'error');
       });
 
     return () => {

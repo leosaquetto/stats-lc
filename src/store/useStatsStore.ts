@@ -736,6 +736,9 @@ export const useStatsStore = create<StatsState>()(
           }
 
           const fetchedAt = Date.now();
+          get().setTopItemsCache(existingTracksKey, topItems.tracks || []);
+          get().setTopItemsCache(existingArtistsKey, topItems.artists || []);
+          get().setTopItemsCache(existingAlbumsKey, topItems.albums || []);
 
           if ((import.meta as any).env?.DEV) {
             console.log(`[prefetchUserTops] Fetched topItems for ${userId}:`, {

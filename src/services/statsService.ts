@@ -27,6 +27,7 @@ const getBaseUrl = () => {
 };
 
 const API_BASE_URL = getBaseUrl();
+const GENIUS_EMBED_TIMEOUT_MS = 7000;
 
 if ((import.meta as any).env?.DEV) {
   console.log('[statsService] API_BASE_URL:', API_BASE_URL);
@@ -50,6 +51,63 @@ const getArtistName = (artist: any) => {
   if (!artist) return undefined;
   if (typeof artist === 'string') return artist;
   return artist.name || artist.artistName || artist.displayName;
+};
+
+const decodeHtml = (value: string) => {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
+};
+
+const htmlToText = (value: string) => {
+  return decodeHtml(
+    value
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(p|div|section|h[1-6])>/gi, '\n')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, '')
+  )
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+const extractGeniusEmbedLyrics = (script: string) => {
+  const encodedMatch = script.match(/document\.write\(JSON\.parse\('((?:\\.|[^'])*)'\)\)/);
+  if (!encodedMatch) return null;
+
+  try {
+    const htmlJson = JSON.parse(`"${encodedMatch[1].replace(/\\'/g, "'")}"`);
+    const html = JSON.parse(htmlJson);
+    const bodyMatch = html.match(/<div\b[^>]*class=["'][^"']*\brg_embed_body\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    return bodyMatch ? htmlToText(bodyMatch[1]) : null;
+  } catch {
+    return null;
+  }
+};
+
+const fetchGeniusEmbedLyrics = async (songId: string | number) => {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), GENIUS_EMBED_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(`https://genius.com/songs/${encodeURIComponent(String(songId))}/embed.js`, {
+      headers: {
+        Accept: 'text/javascript,application/javascript;q=0.9,*/*;q=0.8',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) return null;
+    return extractGeniusEmbedLyrics(await response.text());
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 };
 
 const normalizeTrack = (track: any) => {
@@ -87,6 +145,37 @@ const normalizeTrack = (track: any) => {
     appleMusicId: track.appleMusicId,
     catalogAvailability: track.catalogAvailability,
     externalIds: track.externalIds
+  };
+};
+
+const normalizeRecentStream = (stream: any) => {
+  if (!stream) return stream;
+
+  const rawTrack = stream.track || {};
+  const track = normalizeTrack({
+    ...rawTrack,
+    id: rawTrack.id ?? stream.trackId,
+    name: rawTrack.name || stream.trackName,
+    durationMs: rawTrack.durationMs ?? stream.durationMs ?? stream.playedMs,
+    image: rawTrack.image || stream.trackImage || stream.albumImage || stream.album?.image,
+    artists: rawTrack.artists?.length ? rawTrack.artists : stream.artists || stream.album?.artists || [],
+    primaryArtist: rawTrack.primaryArtist || stream.primaryArtist || stream.albumArtist,
+    primaryArtistId: rawTrack.primaryArtistId || stream.primaryArtistId || stream.albumArtistId,
+    primaryArtistName: rawTrack.primaryArtistName || stream.primaryArtistName || stream.albumArtistName,
+    album: rawTrack.album || stream.album,
+    albums: rawTrack.albums || stream.albums,
+    albumId: rawTrack.albumId || stream.albumId,
+    albumName: rawTrack.albumName || stream.albumName,
+    albumImage: rawTrack.albumImage || stream.albumImage,
+    albumArtist: rawTrack.albumArtist || stream.albumArtist,
+    albumArtistId: rawTrack.albumArtistId || stream.albumArtistId,
+    albumArtistName: rawTrack.albumArtistName || stream.albumArtistName,
+  });
+
+  return {
+    ...stream,
+    track,
+    durationMs: stream.durationMs ?? track?.durationMs,
   };
 };
 
@@ -311,6 +400,7 @@ let liveRequestInFlight: Promise<GroupStats> | null = null;
 
 export const statsService = {
   normalizeMember,
+  normalizeRecentStream,
   getUsers: () => ([] as any[]),
 
   /**
@@ -346,7 +436,7 @@ export const statsService = {
         resolveAlbums: 1,
       });
       if ((import.meta as any).env?.DEV) console.log(`[statsService] fetchRecent for ${userId}:`, res);
-      return res?.items || [];
+      return (res?.items || []).map(normalizeRecentStream);
     } catch (e) {
       console.error(`Failed to fetch recents for ${userId}`);
       return [];
@@ -792,6 +882,12 @@ export const statsService = {
     }
 
     try {
+      const match = await this.fetchLyricsMatch(title, artist);
+      if (match.hasLyrics && match.match?.id != null) {
+        const lyrics = await fetchGeniusEmbedLyrics(match.match.id);
+        if (lyrics) return { ...match, lyrics };
+      }
+
       return await fetchFromApi<LyricsFullResponse>('/api/lyrics', {
         title: title.trim(),
         ...(artist?.trim() ? { artist: artist.trim() } : {}),

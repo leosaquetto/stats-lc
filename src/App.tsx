@@ -20,7 +20,7 @@ const SettingsScreen = lazy(loadSettingsScreen);
 const CircleScreen = lazy(loadCircleScreen);
 const preloadSecondaryRoutes = () => Promise.allSettled([
   loadStatsScreen(),
-  loadCircleScreen(),
+  loadCircleScreen().then(module => module.preloadCircleSections()),
   loadSettingsScreen(),
   preloadHomeDetailModals(),
 ]);

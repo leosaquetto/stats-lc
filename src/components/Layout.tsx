@@ -48,13 +48,13 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
   const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
 
   return (
-    <nav className="w-full max-w-[460px] px-6 pb-6 pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
+    <nav className="w-full pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
       <div className="relative rounded-[9999px]">
         <div className="glass-aura relative rounded-[9999px] overflow-hidden">
           <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
           <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
-          <div className="relative grid grid-cols-4 gap-0 px-2 py-2.5 min-h-[74px]">
+          <div className="relative grid min-h-[68px] grid-cols-4 gap-0 px-2 py-2">
             <motion.div
               className="pointer-events-none absolute bottom-2 left-2 top-2 w-[calc((100%_-_1rem)/4)] rounded-[9999px] bg-white/[0.04]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
@@ -317,7 +317,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
   const [entityStats, setEntityStats] = React.useState({ artist: 0, track: 0, album: 0 });
   const [artistStats, setArtistStats] = React.useState<Array<{ id: string; name: string; image: string; key: string; count: number }>>([]);
-  const [circleFirstListen, setCircleFirstListen] = React.useState<{ userName: string; playedAt: number } | null>(null);
+  const [circleFirstListen, setCircleFirstListen] = React.useState<{ user: any; playedAt: number } | null>(null);
   const [hasFriendHistory, setHasFriendHistory] = React.useState(false);
   const [trackHistory, setTrackHistory] = React.useState<{ firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number }>({
     firstPlayedAt: 0,
@@ -400,7 +400,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       setArtistStats(nextArtistStats);
       setEntityStats({ artist: primaryArtistCount, track: trackCount, album });
       setTrackHistory(summarizeTrackHistory(history, user?.nowPlaying?.timestamp));
-      setCircleFirstListen(friendsWithHistory[0] ? { userName: getTrackArtistName({ artist: { name: friendsWithHistory[0].member.name } }), playedAt: friendsWithHistory[0].playedAt } : null);
+      setCircleFirstListen(friendsWithHistory.length > 0 && friendEntries[0]
+        ? { user: friendEntries[0].member, playedAt: friendEntries[0].playedAt }
+        : null);
       setHasFriendHistory(friendsWithHistory.length > 0);
     });
 
@@ -421,13 +423,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       .slice(0, 5);
   }, [members, trackId, userTrackStats]);
   const hasPreviousTrackHistory = !!trackHistory.firstPlayedAt;
-  const circleFirstName = circleFirstListen?.userName.split(/\s+/)[0] || '';
+  const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0] || '';
   const circleFirstInsight = circleFirstListen
-    ? `${circleFirstName} foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
+    ? circleFirstListen.user.id === user.id
+      ? `Você foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
+      : `${circleFirstName} foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
     : '';
   const circleFallbackInsight = hasFriendHistory
     ? 'O círculo tem histórico nessa faixa, mas sem primeira reprodução confiável.'
-    : `Por enquanto, essa faixa é praticamente sua no círculo. ${albumName !== 'Álbum' ? `Ela está ligada ao álbum ${albumName}.` : 'Sem reproduções de amigos registradas.'}`;
+    : 'Por enquanto só você ouviu essa faixa.';
 
   const handleLyrics = async () => {
     if (!track?.name) return;
@@ -450,7 +454,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       <motion.button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="pointer-events-auto relative mb-6 mb-[calc(env(safe-area-inset-bottom)+12px)] mr-4 flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.22] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
+        className="pointer-events-auto relative mb-[calc(env(safe-area-inset-bottom)+12px)] flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.22] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
         whileTap={{ scale: 0.94 }}
         aria-label="Abrir stats da música"
       >
@@ -560,25 +564,25 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
 
               {hasPreviousTrackHistory ? (
-                <div className="mt-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-[20px] bg-black/18 p-3">
-                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">1ª vez</span>
+                <div className="mt-3">
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
+                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Primeiro stream</span>
                       <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.firstPlayedAt)}</span>
                     </div>
-                    <div className="rounded-[20px] bg-black/18 p-3">
-                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">última</span>
+                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
+                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Último stream</span>
                       <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.lastPlayedAt)}</span>
                     </div>
-                  </div>
-                  {trackHistory.bestYear && (
-                    <div className="rounded-[20px] bg-black/18 p-3">
-                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">ano pico</span>
+                    {trackHistory.bestYear && (
+                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
+                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Mais ouviu em</span>
                       <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">
-                        {trackHistory.bestYear} · {trackHistory.bestYearCount}
+                        {trackHistory.bestYearCount}x em {trackHistory.bestYear}
                       </span>
                     </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="mt-3 rounded-[22px] bg-orange-500/[0.09] px-4 py-3 text-[11px] font-black leading-snug text-orange-100/86">
@@ -586,8 +590,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              <div className="mt-3 rounded-[22px] bg-white/[0.04] px-4 py-3 text-[11px] font-bold leading-snug text-white/55">
-                {circleFirstListen ? circleFirstInsight : circleFallbackInsight}
+              <div className="mt-3 flex items-center gap-2.5 rounded-[22px] bg-white/[0.04] px-3 py-3 text-[11px] font-bold leading-snug text-white/55">
+                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/[0.055]">
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(
+                      circleFirstListen?.user?.id || user.id,
+                      circleFirstListen?.user?.avatar || user.avatar
+                    )}
+                    className="h-full w-full object-cover"
+                    rounded="full"
+                    fallback=""
+                  />
+                </div>
+                <span>{circleFirstListen ? circleFirstInsight : circleFallbackInsight}</span>
               </div>
 
               {trackLinks.length > 0 && (
@@ -988,7 +1003,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           )}
         </AnimatePresence>
 
-        <div className="flex w-full max-w-[460px] items-end justify-center gap-2 px-2">
+        <div className="flex w-full max-w-[480px] items-end justify-center gap-2 px-3">
           {/* Navigation - Liquid Glass Capsule */}
           <div className="min-w-0 flex-1">
             <BottomNavigation pathname={location.pathname} />

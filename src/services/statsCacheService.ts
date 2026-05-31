@@ -122,10 +122,12 @@ export const statsCacheService = {
     if (offset === 0) {
       const cached = store.getHistoryCache(userId);
       if (cached && cached.length >= limit) {
-        return cached.slice(0, limit);
+        const normalizedCached = cached.map(statsService.normalizeRecentStream);
+        store.setHistoryCache(userId, normalizedCached);
+        return normalizedCached.slice(0, limit);
       }
       if (isOffline) {
-        return cached ? cached.slice(0, limit) : [];
+        return cached ? cached.map(statsService.normalizeRecentStream).slice(0, limit) : [];
       }
     }
 

@@ -15,10 +15,22 @@ import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
 import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
 
-const RankingScreen = lazy(() => import('./RankingScreen'));
-const AlikeScreen = lazy(() => import('./AlikeScreen'));
-const UserHistoryModal = lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
-const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
+const loadRankingScreen = () => import('./RankingScreen');
+const loadAlikeScreen = () => import('./AlikeScreen');
+const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
+const loadTrackHistoryModal = () => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal }));
+
+export const preloadCircleSections = () => Promise.allSettled([
+  loadRankingScreen(),
+  loadAlikeScreen(),
+  loadUserHistoryModal(),
+  loadTrackHistoryModal(),
+]);
+
+const RankingScreen = lazy(loadRankingScreen);
+const AlikeScreen = lazy(loadAlikeScreen);
+const UserHistoryModal = lazy(loadUserHistoryModal);
+const TrackHistoryModal = lazy(loadTrackHistoryModal);
 
 type CircleTab = 'ranking' | 'duels' | 'affinity';
 

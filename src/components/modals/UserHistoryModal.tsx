@@ -7,11 +7,7 @@ import { SmartImage } from '../shared/CommonUI';
 import { MusicCard } from '../shared/MusicCard';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { FixedSizeList as List } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
 import { useStatsStore } from '../../store/useStatsStore';
-
-const AutoSizerAny = AutoSizer as any;
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,12 +31,6 @@ interface HistoryRowProps {
 
 const HistoryRow = React.memo(({ index, style, data }: HistoryRowProps) => {
   const { items, user, onTrackClick, hasMore, loadingMore, loadMoreItems, groupStats } = data;
-
-  useEffect(() => {
-    if (index === items.length && hasMore && !loadingMore) {
-      loadMoreItems();
-    }
-  }, [index, items.length, hasMore, loadingMore, loadMoreItems]);
 
   if (index === items.length) {
     if (hasMore) {
@@ -515,29 +505,26 @@ export const UserHistoryModal = ({
                 {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)}
              </div>
            ) : renderedListItems.length > 0 ? (
-             <div className="h-full w-full">
-               <AutoSizerAny>
-                 {({ height, width }: { height: number, width: number }) => (
-                   <List
-                     height={height}
-                     itemCount={renderedListItems.length + (hasMore ? 1 : 0)}
-                     itemSize={93}
-                     width={width}
-                     itemData={{
-                       items: renderedListItems,
-                       user,
-                       onTrackClick,
-                       hasMore,
-                       loadingMore,
-                       loadMoreItems: () => loadData(offset + LIMIT),
-                       groupStats
-                     }}
-                     className="no-scrollbar"
-                   >
-                     {HistoryRow}
-                   </List>
-                 )}
-               </AutoSizerAny>
+             <div className="h-full w-full overflow-y-auto no-scrollbar">
+               {[
+                 ...renderedListItems,
+                 ...(hasMore ? [{ type: 'load-more', id: 'load-more' }] : [])
+               ].map((item, index, listItems) => (
+                 <HistoryRow
+                   key={item.id}
+                   index={item.type === 'load-more' ? renderedListItems.length : index}
+                   style={{ height: item.type === 'header' ? 44 : 93 }}
+                   data={{
+                     items: renderedListItems,
+                     user,
+                     onTrackClick,
+                     hasMore: item.type === 'load-more' && listItems.length > renderedListItems.length,
+                     loadingMore,
+                     loadMoreItems: () => loadData(offset + LIMIT),
+                     groupStats
+                   }}
+                 />
+               ))}
              </div>
            ) : (
              <div className="py-20 text-center opacity-30 italic uppercase tracking-widest text-xs">Sem dados correspondentes</div>
