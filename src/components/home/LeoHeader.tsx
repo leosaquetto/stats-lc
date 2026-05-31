@@ -761,18 +761,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id]);
 
   const trackArenaUsers = allTrackArenaUsers;
-  const [arenaPageIndex, setArenaPageIndex] = useState(0);
   const arenaPageSize = 4;
-  const arenaPageCount = Math.max(1, Math.ceil(trackArenaUsers.length / arenaPageSize));
-  const arenaPageStart = Math.min(arenaPageIndex, arenaPageCount - 1) * arenaPageSize;
-  const visibleArenaUsers = trackArenaUsers.slice(arenaPageStart, arenaPageStart + arenaPageSize);
-  const hiddenArenaCount = Math.max(0, trackArenaUsers.length - arenaPageStart - arenaPageSize);
+  const visibleArenaUsers = trackArenaUsers.slice(0, arenaPageSize);
+  const trailingArenaUsers = trackArenaUsers.slice(arenaPageSize);
+  const hiddenArenaCount = trailingArenaUsers.length;
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
-  const selectedHiddenInArena = selectedArenaIndex >= arenaPageStart + arenaPageSize;
+  const selectedHiddenInArena = selectedArenaIndex >= arenaPageSize;
+  const arenaDragDistance = Math.max(0, hiddenArenaCount * 30 + (hiddenArenaCount > 0 ? 48 : 0));
 
-  useEffect(() => {
-    setArenaPageIndex(0);
-  }, [track?.id, trackArenaUsers.length]);
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
   const isYesterday = nowPlaying?.timestamp ? isYesterdaySP(new Date(nowPlaying.timestamp)) : false;
@@ -1395,34 +1391,31 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               </span>
                             </div>
                           ) : showRankingSummary ? (
-                            <motion.div
-                              onClick={() => onTrackClick?.({ ...track, type: 'track' })}
-                              whileTap={{ scale: 0.98 }}
-                              className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
-                            >
-                              <motion.div
-                                data-home-horizontal-scroll="true"
-                                drag={arenaPageCount > 1 && !shouldReduceMotion ? "x" : false}
-                                dragConstraints={{ left: 0, right: 0 }}
-                                dragElastic={0.18}
-                                onDragEnd={(_, info) => {
-                                  if (Math.abs(info.offset.x) < 26) return;
-                                  setArenaPageIndex((page) => {
-                                    const direction = info.offset.x < 0 ? 1 : -1;
-                                    return Math.max(0, Math.min(arenaPageCount - 1, page + direction));
-                                  });
-                                }}
-                                className="flex w-[176px] items-center overflow-visible py-2 pl-0.5 pr-0 cursor-grab active:cursor-grabbing sm:w-[192px]"
-                              >
-                                <div className="flex min-w-0 items-center gap-0 overflow-visible">
-                                  <AnimatePresence initial={false} mode="popLayout">
-                                    {visibleArenaUsers.map((u, i) => (
-                                      <motion.div
-                                        key={`${u.id}-${arenaPageStart + i}`}
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.18, y: 12, rotate: -10 }}
-                                        animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
-                                          opacity: 1,
+	                            <motion.div
+	                              onClick={() => onTrackClick?.({ ...track, type: 'track' })}
+	                              whileTap={{ scale: 0.98 }}
+	                              className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
+	                            >
+	                              <motion.div
+	                                key={`arena-trail-${track.id || track.name || 'track'}`}
+	                                data-home-horizontal-scroll="true"
+	                                drag={hiddenArenaCount > 0 && !shouldReduceMotion ? "x" : false}
+	                                dragConstraints={{ left: -arenaDragDistance, right: 0 }}
+	                                dragElastic={0.12}
+	                                dragMomentum={false}
+	                                className="flex w-[176px] items-center overflow-visible py-2 pl-0.5 pr-0 cursor-grab active:cursor-grabbing sm:w-[192px]"
+	                              >
+	                                <motion.div
+	                                  className="flex min-w-0 items-center gap-0 overflow-visible"
+	                                  initial={shouldReduceMotion ? false : { x: 0 }}
+	                                >
+	                                  {visibleArenaUsers.map((u, i) => (
+	                                      <motion.div
+	                                        key={`${u.id}-primary-${i}`}
+	                                        layout
+	                                        initial={{ opacity: 0, scale: 0.18, y: 12, rotate: -10 }}
+	                                        animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                          opacity: 1,
                                           scale: u.id === user.id ? 1.05 : 1,
                                           y: 0,
                                           rotate: 0,
@@ -1434,14 +1427,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                           rotate: { type: 'spring', stiffness: 520, damping: 22, delay: i * 0.025 },
                                         }}
                                         exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
-                                        className={cn(
-                                          "relative -mr-2.5 shrink-0 group/avatar",
-                                          u.id === user.id ? "z-20" : ""
-                                        )}
-                                        style={{ zIndex: visibleArenaUsers.length - i }}
-                                      >
-                                        <div className={cn(
-                                          "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+	                                        className={cn(
+	                                          "relative -mr-2.5 shrink-0 group/avatar",
+	                                          u.id === user.id ? "z-20" : ""
+	                                        )}
+	                                        style={{ zIndex: trackArenaUsers.length + 2 - i }}
+	                                      >
+	                                        <div className={cn(
+	                                          "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
                                           u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
                                         )}>
                                           <div className="relative h-full w-full rounded-full overflow-hidden">
@@ -1465,34 +1458,86 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                             u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
                                           )}
                                         >
-                                          {coreUtils.formatNumber(u.plays)}
-                                        </motion.div>
-                                      </motion.div>
-                                    ))}
-                                  </AnimatePresence>
-                                  <AnimatePresence initial={false}>
-                                    {hiddenArenaCount > 0 && (
-                                      <motion.div
-                                        key={`arena-more-${arenaPageStart}-${hiddenArenaCount}`}
-                                        layout
-                                        initial={{ opacity: 0, scale: 0.2, y: 10 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.18, y: -8 }}
-                                        transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                                        className={cn(
-                                          "relative -mr-0 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
-                                          selectedHiddenInArena
-                                            ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-                                            : "border-white/10 bg-black/50"
-                                        )}
-                                      >
-                                        +{hiddenArenaCount}
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
-                                </div>
-                              </motion.div>
-                            </motion.div>
+	                                          {coreUtils.formatNumber(u.plays)}
+	                                        </motion.div>
+	                                      </motion.div>
+	                                    ))}
+	                                  {hiddenArenaCount > 0 && (
+	                                    <motion.div
+	                                      key={`arena-more-${hiddenArenaCount}`}
+	                                      layout
+	                                      initial={{ opacity: 0, scale: 0.2, y: 10 }}
+	                                      animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                        opacity: 1,
+	                                        scale: 1,
+	                                        y: 0,
+	                                      }}
+	                                      transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+	                                      className={cn(
+	                                        "relative -mr-2.5 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                        selectedHiddenInArena
+	                                          ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
+	                                          : "border-white/10 bg-black/50"
+	                                      )}
+	                                    >
+	                                      +{hiddenArenaCount}
+	                                    </motion.div>
+	                                  )}
+	                                  {trailingArenaUsers.map((u, i) => (
+	                                    <motion.div
+	                                      key={`${u.id}-trailing-${i}`}
+	                                      layout
+	                                      initial={{ opacity: 0, scale: 0.16, y: 10, rotate: 9 }}
+	                                      animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                        opacity: 1,
+	                                        scale: u.id === user.id ? 1.05 : 1,
+	                                        y: 0,
+	                                        rotate: 0,
+	                                      }}
+	                                      transition={shouldReduceMotion ? { delay: i * 0.03 } : {
+	                                        opacity: { delay: 0.04 + i * 0.025, duration: 0.14 },
+	                                        scale: { type: 'spring', stiffness: 520, damping: 20, delay: 0.04 + i * 0.025 },
+	                                        y: { type: 'spring', stiffness: 520, damping: 20, delay: 0.04 + i * 0.025 },
+	                                        rotate: { type: 'spring', stiffness: 520, damping: 22, delay: 0.04 + i * 0.025 },
+	                                      }}
+	                                      className={cn(
+	                                        "relative -mr-2.5 shrink-0 group/avatar",
+	                                        u.id === user.id ? "z-20" : ""
+	                                      )}
+	                                      style={{ zIndex: trailingArenaUsers.length - i }}
+	                                    >
+	                                      <div className={cn(
+	                                        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+	                                        u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
+	                                      )}>
+	                                        <div className="relative h-full w-full rounded-full overflow-hidden">
+	                                          <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
+	                                        </div>
+	                                      </div>
+
+	                                      <motion.div
+	                                        animate={shouldReduceMotion ? {} : {
+	                                          y: [0, i % 2 === 0 ? 2 : -2, 0],
+	                                          scale: [1, 1.08, 1],
+	                                        }}
+	                                        transition={shouldReduceMotion ? {} : {
+	                                          delay: 0.22 + i * 0.17,
+	                                          duration: 4.4 + i * 0.24,
+	                                          repeat: Infinity,
+	                                          ease: 'easeInOut',
+	                                        }}
+	                                        className={cn(
+	                                          "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
+	                                          u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
+	                                        )}
+	                                      >
+	                                        {coreUtils.formatNumber(u.plays)}
+	                                      </motion.div>
+	                                    </motion.div>
+	                                  ))}
+	                                </motion.div>
+	                              </motion.div>
+	                            </motion.div>
                           ) : (
                             <motion.div
                               onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}

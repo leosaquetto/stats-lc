@@ -301,6 +301,10 @@ const HomeOrbitalHighlights = ({
     if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
     return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
   };
+  const detailLabel = (item: any, kind: HomeHighlightKind) => {
+    if (kind === 'tracks' || kind === 'albums') return getReplayItemArtist(item);
+    return '';
+  };
 
   const goTo = useCallback((index: number) => {
     if (groups.length === 0) return;
@@ -335,12 +339,11 @@ const HomeOrbitalHighlights = ({
     goTo(activeIndex + (dx < 0 ? 1 : -1));
   }, [activeIndex, goTo]);
 
-  const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind) => {
+  const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
     const primary = items[0];
     const satellites = items.slice(1, 5);
     if (!primary) return null;
     const isArtist = kind === 'artists';
-    const isTrack = kind === 'tracks';
     const orbitSeed = getHighlightOrbitSeed(`${kind}:${items.map((item) => item?.id || getReplayItemTitle(item)).join('|')}`);
     const baseSatellitePositions = [
       { x: -126, y: -82, width: 92, height: 108, rotate: -8, opacity: 0.9 },
@@ -395,6 +398,11 @@ const HomeOrbitalHighlights = ({
               <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/10 to-black/78" />
               <span className="absolute left-2 top-1.5 text-[22px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.65)]">{index + 2}</span>
               <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
+                {detailLabel(item, kind) && (
+                  <span className="mb-0.5 block truncate text-[7px] font-black uppercase tracking-[0.08em] text-white/62">
+                    {detailLabel(item, kind)}
+                  </span>
+                )}
                 <span className="block truncate text-[9.5px] font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]">
                   {getReplayItemTitle(item)}
                 </span>
@@ -415,17 +423,21 @@ const HomeOrbitalHighlights = ({
         >
           <div className={cn("relative overflow-hidden bg-black shadow-[0_24px_62px_rgba(0,0,0,0.58)]", primaryImageSize, primaryRadius)}>
             <SmartImage src={getReplayItemImage(primary)} className="absolute inset-0 h-full w-full object-cover" fallback={getReplayItemTitle(primary)} rounded="none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-transparent to-black/72" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-black/8 to-black/82" />
             <span className="absolute left-3 top-2 z-20 text-[52px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.55)]">1</span>
-            <div className="absolute bottom-3 right-3 z-20 rounded-full bg-orange-600/92 px-2.5 py-1 text-[9px] font-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.36)]">
-              {metricLabel(primary, kind)}
+            <div className="absolute bottom-3 left-3 right-3 z-20 min-w-0">
+              {detailLabel(primary, kind) && (
+                <span className="mb-0.5 block truncate text-[8px] font-black uppercase tracking-[0.1em] text-white/64">
+                  {detailLabel(primary, kind)}
+                </span>
+              )}
+              <span className="block truncate text-[15px] font-black leading-tight text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.72)]">
+                {getReplayItemTitle(primary)}
+              </span>
+              <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-[0.08em] text-orange-200/90">
+                {metricLabel(primary, kind)}
+              </span>
             </div>
-          </div>
-          <div className="mt-3 w-[250px] text-center">
-            <span className="block truncate text-[18px] font-black leading-tight text-white">{getReplayItemTitle(primary)}</span>
-            <span className="mt-1 block truncate text-[11px] font-semibold text-white/48">
-              {isTrack ? getReplayItemArtist(primary) : kind === 'albums' ? getReplayItemArtist(primary) : 'artista principal do período'}
-            </span>
           </div>
         </motion.div>
       </div>
@@ -458,38 +470,7 @@ const HomeOrbitalHighlights = ({
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        <motion.article
-          key={activeGroup.key}
-          initial={{ opacity: 0, x: 18, scale: 0.98 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 170, damping: 24 }}
-          className="relative mx-auto w-full max-w-[430px] overflow-visible"
-        >
-          {groups.length > 1 && (
-            <div className="pointer-events-none absolute inset-x-0 top-14 h-[290px] overflow-hidden">
-              {[-1, 1].map((direction) => {
-                const group = groups[(activeIndex + direction + groups.length) % groups.length];
-                const item = group?.items?.[0];
-                if (!group || !item) return null;
-                return (
-                  <motion.div
-                    key={`highlight-backdrop-${group.key}-${direction}`}
-                    className={cn(
-                      "absolute top-[74px] h-[136px] w-[136px] overflow-hidden rounded-[28px] bg-black shadow-[0_24px_52px_rgba(0,0,0,0.5)]",
-                      direction < 0 ? "left-[-24px]" : "right-[-24px]"
-                    )}
-                    initial={{ opacity: 0, scale: 0.8, x: direction * 18 }}
-                    animate={{ opacity: 0.2, scale: 0.92, x: 0, rotate: direction * 7 }}
-                    transition={{ type: 'spring', stiffness: 150, damping: 24 }}
-                    style={{ filter: 'blur(5px)' }}
-                  >
-                    <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
-                    <div className="absolute inset-0 bg-black/38" />
-                  </motion.div>
-                );
-              })}
-            </div>
-          )}
+        <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
           <div className="relative z-10 mb-2 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] backdrop-blur-2xl">
@@ -514,10 +495,33 @@ const HomeOrbitalHighlights = ({
             </div>
           </div>
 
-          <div className="relative z-10">
-            {renderHighlightOrbit(activeGroup.items, activeGroup.key)}
+          <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
+            {groups.map((group, index) => {
+              const relative = (index - activeIndex + groups.length) % groups.length;
+              const isCentered = relative === 0;
+              const isRight = relative === 1;
+              const isLeft = relative === groups.length - 1;
+              if (!isCentered && !isRight && !isLeft) return null;
+              const x = isCentered ? 0 : isRight ? 142 : -142;
+              const y = isCentered ? 0 : -22;
+              const scale = isCentered ? 1 : 0.7;
+              const opacity = isCentered ? 1 : 0.28;
+              const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
+              return (
+                <motion.div
+                  key={`highlight-orbit-${group.key}`}
+                  className="absolute inset-0"
+                  animate={{ x, y, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
+                  transition={{ type: 'spring', stiffness: 160, damping: 24 }}
+                  onClick={() => !isCentered && goTo(index)}
+                  aria-hidden={!isCentered}
+                >
+                  {renderHighlightOrbit(group.items, group.key, isCentered)}
+                </motion.div>
+              );
+            })}
           </div>
-        </motion.article>
+        </article>
 
         {groups.length > 1 && (
           <div className="mt-3 flex justify-center gap-1.5">
