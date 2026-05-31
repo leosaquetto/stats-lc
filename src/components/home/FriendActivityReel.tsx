@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { clsx } from 'clsx';
@@ -85,6 +85,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         layout
         className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]"
       >
+          <AnimatePresence mode="popLayout" initial={false}>
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
@@ -204,6 +205,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
               </motion.div>
             );
           })}
+          </AnimatePresence>
         {/* View All Card */}
         <motion.div
           className="flex-shrink-0 w-[70px] h-full flex flex-col items-center justify-center gap-2.5 cursor-pointer group pr-4"

@@ -10,6 +10,8 @@ interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
 }
 
+let cachedInsightIndex = 0;
+
 const useInsightsVisibility = () => {
   const ref = React.useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = React.useState(true);
@@ -194,7 +196,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const [insightsRef, isInsightsVisible] = useInsightsVisibility();
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
-  const [activeInsightIndex, setActiveInsightIndex] = React.useState(0);
+  const [activeInsightIndex, setActiveInsightIndex] = React.useState(cachedInsightIndex);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const activeMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
@@ -331,7 +333,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   const goToInsight = React.useCallback((index: number) => {
     if (insights.length === 0) return;
-    setActiveInsightIndex((index + insights.length) % insights.length);
+    const nextIndex = (index + insights.length) % insights.length;
+    cachedInsightIndex = nextIndex;
+    setActiveInsightIndex(nextIndex);
   }, [insights.length]);
 
   const handlePrev = React.useCallback(() => {
@@ -344,6 +348,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   React.useEffect(() => {
     if (activeInsightIndex >= insights.length) {
+      cachedInsightIndex = 0;
       setActiveInsightIndex(0);
     }
   }, [activeInsightIndex, insights.length]);

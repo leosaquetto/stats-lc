@@ -11,7 +11,6 @@ import { getVisibleMembers } from '../../lib/memberSelectors';
 import { statsService } from '../../services/statsService';
 import { UserStats } from '../../types/stats';
 import {
-  AnimatedNumber,
   SmartImage,
   SectionHeader,
   ShimmerOverlay,
@@ -55,8 +54,44 @@ const getArenaSeed = (users: UserStats[]) => {
   }, 17);
 };
 
+const getOrbitAvatarRadius = (size: 'large' | 'normal' | 'small') => {
+  if (size === 'large') return 11;
+  if (size === 'normal') return 8;
+  return 6.5;
+};
+
+const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
+  const [displayValue, setDisplayValue] = React.useState(0);
+  const previousValueRef = React.useRef(0);
+
+  React.useEffect(() => {
+    const startValue = previousValueRef.current;
+    const startedAt = performance.now();
+    let frame = 0;
+
+    const renderFrame = (now: number) => {
+      const progress = Math.min((now - startedAt) / 700, 1);
+      const eased = 1 - Math.pow(1 - progress, 4);
+      setDisplayValue(Math.round(startValue + (value - startValue) * eased));
+
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(renderFrame);
+      } else {
+        previousValueRef.current = value;
+      }
+    };
+
+    frame = window.requestAnimationFrame(renderFrame);
+    return () => window.cancelAnimationFrame(frame);
+  }, [value]);
+
+  return <>{coreUtils.formatNumber(displayValue)}</>;
+});
+
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const shouldReduceMotion = useReducedMotion();
+  const stageRef = React.useRef<HTMLDivElement | null>(null);
+  const [arenaSeed] = React.useState(() => getArenaSeed(users) ^ Date.now());
 
   const totalStreams = React.useMemo(() =>
     users.reduce((sum, u) => sum + (u.streamsToday || 0), 0),
@@ -69,12 +104,40 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
   );
 
   const displayParticipants = React.useMemo(() =>
-    sortedParticipants.slice(0, 8),
+    sortedParticipants.slice(0, 10),
     [sortedParticipants]
   );
 
-  const hasExtraParticipants = sortedParticipants.length > 8;
-  const extraCount = sortedParticipants.length - 8;
+  const hasExtraParticipants = sortedParticipants.length > 10;
+  const extraCount = sortedParticipants.length - 10;
+
+  const orbitalPositions = React.useMemo(() => {
+    const placed: Array<{ left: number; top: number; size: 'large' | 'normal' | 'small' }> = [];
+
+    displayParticipants.forEach((_, index) => {
+      const size = index === 0 ? 'large' : index < 4 ? 'normal' : 'small';
+      let candidate: { left: number; top: number; size: 'large' | 'normal' | 'small' } = { left: 50, top: 50, size };
+
+      for (let attempt = 0; attempt < 28; attempt += 1) {
+        const angle = seededOrbitUnit(arenaSeed + index * 13, attempt) * Math.PI * 2;
+        const radius = index === 0 ? 19 : 29 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 22;
+        const left = Math.max(12, Math.min(88, 50 + Math.cos(angle) * radius));
+        const top = Math.max(12, Math.min(88, 50 + Math.sin(angle) * radius * 0.76));
+        const overlaps = placed.some((position) => {
+          const dx = position.left - left;
+          const dy = position.top - top;
+          const spacing = getOrbitAvatarRadius(position.size) + getOrbitAvatarRadius(size) + 3;
+          return Math.sqrt(dx * dx + dy * dy) < spacing;
+        });
+        candidate = { left, top, size };
+        if (!overlaps) break;
+      }
+
+      placed.push(candidate);
+    });
+
+    return placed;
+  }, [arenaSeed, displayParticipants]);
 
   // Empty state
   if (users.length === 0) {
@@ -96,35 +159,6 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       </motion.div>
     );
   }
-
-  const orbitalPositions = React.useMemo(() => {
-    const seed = getArenaSeed(displayParticipants);
-    const placed: Array<{ left: number; top: number; size: 'large' | 'normal' | 'small' }> = [];
-    const minDistance = 18;
-
-    displayParticipants.forEach((_, index) => {
-      const size = index === 0 ? 'large' : index < 4 ? 'normal' : 'small';
-      let candidate: { left: number; top: number; size: 'large' | 'normal' | 'small' } = { left: 50, top: 50, size };
-
-      for (let attempt = 0; attempt < 16; attempt += 1) {
-        const angle = seededOrbitUnit(seed + index * 13, attempt) * Math.PI * 2;
-        const radius = index === 0 ? 15 : 26 + seededOrbitUnit(seed + index * 29, attempt + 9) * 24;
-        const left = Math.max(13, Math.min(87, 50 + Math.cos(angle) * radius));
-        const top = Math.max(13, Math.min(87, 50 + Math.sin(angle) * radius * 0.82));
-        const overlaps = placed.some((position) => {
-          const dx = position.left - left;
-          const dy = position.top - top;
-          return Math.sqrt(dx * dx + dy * dy) < minDistance;
-        });
-        candidate = { left, top, size };
-        if (!overlaps) break;
-      }
-
-      placed.push(candidate);
-    });
-
-    return placed;
-  }, [displayParticipants]);
 
   return (
     <motion.div
@@ -158,7 +192,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           </div>
 
           {/* Orbital Stage */}
-            <motion.div className="relative flex min-h-[330px] flex-1 items-center justify-center" layout>
+            <motion.div ref={stageRef} className="relative flex min-h-[330px] flex-1 items-center justify-center" layout>
             {/* Orbital Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Inner ring */}
@@ -193,6 +227,14 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
               >
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-green-500/50 blur-[1px]" />
               </motion.div>
+              <motion.div
+                animate={shouldReduceMotion ? {} : { rotate: 360 }}
+                transition={{ duration: 34, repeat: shouldReduceMotion ? 0 : Infinity, ease: "linear" }}
+                className="absolute h-[304px] w-[304px]"
+              >
+                <div className="absolute left-[14%] top-[12%] h-2 w-2 rounded-full border border-white/16 bg-white/[0.08] shadow-[0_0_14px_rgba(255,255,255,0.2)]" />
+                <div className="absolute bottom-[7%] right-[24%] h-1.5 w-1.5 rounded-full bg-orange-400/55 shadow-[0_0_18px_rgba(249,115,22,0.6)]" />
+              </motion.div>
             </div>
 
             {/* Center Stats */}
@@ -202,9 +244,9 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="font-display text-6xl font-black leading-none tracking-tighter text-white sm:text-7xl"
+                className="font-display text-6xl font-black leading-none tracking-normal tabular-nums text-white sm:text-7xl"
               >
-                <AnimatedNumber value={totalStreams} />
+                <ArenaAnimatedNumber value={totalStreams} />
               </motion.span>
               <span className="text-[11px] font-black uppercase leading-none tracking-[0.18em] text-white/50">Streams</span>
               <span className="text-[11px] font-black uppercase leading-none tracking-[0.08em] text-orange-500">Total</span>
@@ -223,6 +265,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     key={user.id}
                     layout
                     drag
+                    dragConstraints={stageRef}
                     dragMomentum={false}
                     dragElastic={0.18}
                     initial={{ opacity: 0, scale: 0.5 }}
@@ -277,7 +320,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                         )}
                       >
                         <span className="text-[9px] font-black tabular-nums leading-none text-white">
-                          {coreUtils.formatNumber(streamsToday)}
+                          <ArenaAnimatedNumber value={streamsToday} />
                         </span>
                       </div>
                     </div>

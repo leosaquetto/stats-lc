@@ -51,6 +51,14 @@ interface AlikeConnection {
   isEmpty?: boolean;
 }
 
+let cachedAlikeIndex = 0;
+let cachedHydratedTopsByUser: Record<string, {
+  tracks: any[];
+  artists: any[];
+  albums: any[];
+  fetchedAt: number;
+}> = {};
+
 export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -59,16 +67,11 @@ export const StatsAlike = React.memo(() => {
   const topItemsCache = useStatsStore(state => state.topItemsCache);
   const shouldReduceMotion = useReducedMotion();
   const [orbitRef, isOrbitVisible] = useOrbitVisibility();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(cachedAlikeIndex);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 
   // Local hydrated topItems cache
-  const [hydratedTopsByUser, setHydratedTopsByUser] = useState<Record<string, {
-    tracks: any[];
-    artists: any[];
-    albums: any[];
-    fetchedAt: number;
-  }>>({});
+  const [hydratedTopsByUser, setHydratedTopsByUser] = useState(cachedHydratedTopsByUser);
 
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const featuredUser = useMemo(
@@ -151,10 +154,14 @@ export const StatsAlike = React.memo(() => {
           try {
             const result = await prefetchUserTops(member.id);
             if (result && result.fetchedAt && !cancelled) {
-              setHydratedTopsByUser(prev => ({
-                ...prev,
-                [member.id]: result
-              }));
+              setHydratedTopsByUser(prev => {
+                const next = {
+                  ...prev,
+                  [member.id]: result
+                };
+                cachedHydratedTopsByUser = next;
+                return next;
+              });
 
             }
           } catch (err) {
@@ -338,6 +345,7 @@ export const StatsAlike = React.memo(() => {
   // Protect activeIndex if alikeConnections length changes
   useEffect(() => {
     if (alikeConnections.length > 0 && activeIndex >= alikeConnections.length) {
+      cachedAlikeIndex = 0;
       setActiveIndex(0);
     }
   }, [alikeConnections.length, activeIndex]);
@@ -373,11 +381,19 @@ export const StatsAlike = React.memo(() => {
   if (alikeConnections.length === 0) return null;
 
   const handleNext = () => {
-    setActiveIndex(prev => (prev + 1) % alikeConnections.length);
+    setActiveIndex(prev => {
+      const next = (prev + 1) % alikeConnections.length;
+      cachedAlikeIndex = next;
+      return next;
+    });
   };
 
   const handlePrev = () => {
-    setActiveIndex(prev => (prev - 1 + alikeConnections.length) % alikeConnections.length);
+    setActiveIndex(prev => {
+      const next = (prev - 1 + alikeConnections.length) % alikeConnections.length;
+      cachedAlikeIndex = next;
+      return next;
+    });
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {

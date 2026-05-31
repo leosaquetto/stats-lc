@@ -7,7 +7,7 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import HomeScreen from './screens/HomeScreen';
+import HomeScreen, { preloadHomeDetailModals } from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
 
@@ -22,6 +22,7 @@ const preloadSecondaryRoutes = () => Promise.allSettled([
   loadStatsScreen(),
   loadCircleScreen(),
   loadSettingsScreen(),
+  preloadHomeDetailModals(),
 ]);
 
 const CHUNK_RELOAD_KEY = 'stats-lc-chunk-reload-attempted';

@@ -25,10 +25,22 @@ import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 import { VinylRecord } from '../components/home/VinylRecord';
 
-const UserHistoryModal = React.lazy(() => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal })));
-const TrackLeaderboardModal = React.lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
-const AlbumDetailModal = React.lazy(() => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal })));
-const UserAlbumHistoryModal = React.lazy(() => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal })));
+const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
+const loadTrackLeaderboardModal = () => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal }));
+const loadAlbumDetailModal = () => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal }));
+const loadUserAlbumHistoryModal = () => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal }));
+
+export const preloadHomeDetailModals = () => Promise.allSettled([
+  loadUserHistoryModal(),
+  loadTrackLeaderboardModal(),
+  loadAlbumDetailModal(),
+  loadUserAlbumHistoryModal(),
+]);
+
+const UserHistoryModal = React.lazy(loadUserHistoryModal);
+const TrackLeaderboardModal = React.lazy(loadTrackLeaderboardModal);
+const AlbumDetailModal = React.lazy(loadAlbumDetailModal);
+const UserAlbumHistoryModal = React.lazy(loadUserAlbumHistoryModal);
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -1029,6 +1041,7 @@ export default function HomeScreen() {
   });
   const toastIdRef = useRef(0);
   const hasReleasedHomeRef = useRef(hasBootReadySession());
+  const shouldSkipHomeEntryMotion = hasReleasedHomeRef.current || hasBootReadySession();
 
   useEffect(() => {
     if (!hasReleasedHomeRef.current) return;
@@ -2023,7 +2036,7 @@ export default function HomeScreen() {
 
       {isAppReady && primaryUser && (
         <motion.div
-          initial={{ opacity: 0, y: 18 }}
+          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
@@ -2069,7 +2082,7 @@ export default function HomeScreen() {
 
       {isAppReady && (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -2086,7 +2099,7 @@ export default function HomeScreen() {
 
       {isAppReady && (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -2098,7 +2111,7 @@ export default function HomeScreen() {
 
       {isAppReady && (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -2110,7 +2123,7 @@ export default function HomeScreen() {
 
       {isAppReady && primaryUser && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}

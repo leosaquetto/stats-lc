@@ -859,7 +859,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               className={clsx(
                 "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
                 shouldShowExpanded
-                  ? "bg-transparent border-none shadow-none h-10 gap-2 max-w-[95vw]"
+                  ? "bg-transparent border-none shadow-none min-h-10 gap-2 w-[min(95vw,456px)]"
                   : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg h-7 pl-2.5 pr-2 gap-1.5"
               )}
               title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
@@ -874,7 +874,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   className={clsx(
                     "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300",
                     shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar w-[min(95vw,456px)] py-1.5 px-0.5 gap-2" 
+                      ? "overflow-x-auto no-scrollbar w-full py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
                       : "-space-x-1.5"
                   )}
                   onPointerDown={(event) => {
@@ -920,7 +920,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         transition={{ duration: 2, ease: "easeInOut" }}
                         className={clsx(
                           "flex items-center gap-2 shrink-0 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
-                          shouldShowExpanded && "bg-white/[0.07] hover:bg-white/[0.12] pr-3.5 pl-1.5 py-1.5 rounded-full border border-white/10 backdrop-blur-xl shadow-xl hover:scale-[1.02] active:scale-[0.98]",
+                          shouldShowExpanded && "w-[clamp(104px,25vw,142px)] snap-start bg-white/[0.07] hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full border border-white/10 backdrop-blur-xl shadow-xl hover:scale-[1.02] active:scale-[0.98]",
                           isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
                         )}
                       >
@@ -961,7 +961,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: -5 }}
                               transition={{ duration: 0.25 }}
-                              className="flex w-[140px] flex-col overflow-hidden text-left"
+                              className="flex min-w-0 flex-1 flex-col overflow-hidden text-left"
                             >
                               <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
                                 {uSongName}
