@@ -596,7 +596,8 @@ LiveTrackProgress.displayName = 'LiveTrackProgress';
 const ARENA_BADGE_SLOT_SIZE = 30;
 const ARENA_BADGE_VISIBLE_SLOTS = 4;
 const ARENA_BADGE_MORE_SLOT = ARENA_BADGE_VISIBLE_SLOTS;
-const ARENA_BADGE_LEFT_PAD = 20;
+const ARENA_BADGE_LEFT_PAD = 0;
+const ARENA_BADGE_MORE_LEFT = ARENA_BADGE_LEFT_PAD + ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE;
 
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 
@@ -704,8 +705,27 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailX = useMotionValue(0);
-  const arenaMoreOpacity = useTransform(arenaTrailX, value => Number(value) <= -ARENA_BADGE_SLOT_SIZE ? 0 : 1);
-  const arenaMoreScale = useTransform(arenaTrailX, [-ARENA_BADGE_SLOT_SIZE, 0], [0, 1]);
+  const arenaMoreOpacity = useTransform(arenaTrailX, value => {
+    const slotProgress = ((Math.abs(Number(value)) % ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
+    return 1 - slotProgress;
+  });
+  const arenaMoreScale = useTransform(arenaTrailX, value => {
+    const slotProgress = ((Math.abs(Number(value)) % ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
+    return 1 - slotProgress;
+  });
+  const arenaLeftMoreOpacity = useTransform(arenaTrailX, value => {
+    const offset = Math.abs(Number(value));
+    if (offset <= 0.5) return 0;
+    const remainder = offset % ARENA_BADGE_SLOT_SIZE;
+    return remainder <= 0.5 ? 1 : remainder / ARENA_BADGE_SLOT_SIZE;
+  });
+  const arenaLeftMoreScale = useTransform(arenaTrailX, value => {
+    const offset = Math.abs(Number(value));
+    const remainder = offset % ARENA_BADGE_SLOT_SIZE;
+    const slotProgress = offset <= 0.5 ? 0 : remainder <= 0.5 ? 1 : remainder / ARENA_BADGE_SLOT_SIZE;
+    return 0.72 + slotProgress * 0.28;
+  });
+  const [arenaShiftedSlots, setArenaShiftedSlots] = useState(0);
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -900,9 +920,27 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const trailingArenaUsers = trackArenaUsers.slice(arenaPageSize);
   const hiddenArenaCount = trailingArenaUsers.length;
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
-  const selectedHiddenInArena = selectedArenaIndex >= arenaPageSize;
   const arenaDragDistance = Math.max(0, hiddenArenaCount * ARENA_BADGE_SLOT_SIZE);
   const arenaRenderableUsers = trackArenaUsers.slice(0, arenaPageSize + hiddenArenaCount);
+  const leftHiddenArenaCount = Math.min(arenaShiftedSlots, Math.max(0, trackArenaUsers.length - arenaPageSize));
+  const rightHiddenArenaCount = Math.max(0, hiddenArenaCount - arenaShiftedSlots);
+  const selectedHiddenOnLeft = selectedArenaIndex >= 0 && selectedArenaIndex < arenaShiftedSlots;
+  const selectedHiddenOnRight = selectedArenaIndex >= arenaPageSize + arenaShiftedSlots;
+
+  useEffect(() => {
+    arenaTrailX.set(0);
+    setArenaShiftedSlots(0);
+  }, [arenaTrailX, hiddenArenaCount, track?.id]);
+
+  useEffect(() => {
+    const updateShiftedSlots = (value: number) => {
+      const shiftedSlots = Math.min(hiddenArenaCount, Math.floor((Math.abs(value) + 0.5) / ARENA_BADGE_SLOT_SIZE));
+      setArenaShiftedSlots(shiftedSlots);
+    };
+
+    updateShiftedSlots(arenaTrailX.get());
+    return arenaTrailX.on("change", updateShiftedSlots);
+  }, [arenaTrailX, hiddenArenaCount]);
 
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
@@ -1535,7 +1573,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="relative h-[58px] w-[184px] overflow-hidden py-2 pr-0 sm:w-[200px]"
+	                                className="relative h-[58px] w-[184px] overflow-visible py-2 pr-0 sm:w-[200px]"
 	                              >
 	                                <motion.div
 	                                  className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
@@ -1548,6 +1586,30 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                >
 	                                  <div className="h-full w-[240px]" />
 	                                </motion.div>
+	                                {leftHiddenArenaCount > 0 && (
+	                                  <motion.div
+	                                    key={`arena-more-left-${leftHiddenArenaCount}`}
+	                                    initial={{ opacity: 0, scale: 0.72, y: 10 }}
+	                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                      opacity: 1,
+	                                      scale: 1,
+	                                      y: 0,
+	                                    }}
+	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+	                                    className={cn(
+	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      selectedHiddenOnLeft
+	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
+	                                        : "border-white/10 bg-black/50"
+	                                    )}
+	                                    style={{
+	                                      opacity: shouldReduceMotion ? undefined : arenaLeftMoreOpacity,
+	                                      scale: shouldReduceMotion ? undefined : arenaLeftMoreScale,
+	                                    }}
+	                                  >
+	                                    +{leftHiddenArenaCount}
+	                                  </motion.div>
+	                                )}
 	                                {arenaRenderableUsers.map((u, i) => (
 	                                  <ArenaRankingBubble
 	                                    key={`${u.id}-arena-${i}`}
@@ -1560,9 +1622,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    isHiddenInitial={i >= arenaPageSize}
 	                                  />
 	                                ))}
-	                                {hiddenArenaCount > 0 && (
+                                {rightHiddenArenaCount > 0 && (
 	                                  <motion.div
-	                                    key={`arena-more-${hiddenArenaCount}`}
+	                                    key={`arena-more-${rightHiddenArenaCount}`}
 	                                    initial={{ opacity: 0, scale: 0.2, y: 10 }}
 	                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
 	                                      opacity: 1,
@@ -1571,17 +1633,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    }}
 	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute left-[140px] top-1/2 z-[8] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
-	                                      selectedHiddenInArena
+	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      selectedHiddenOnRight
 	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
 	                                        : "border-white/10 bg-black/50"
 	                                    )}
 	                                    style={{
+	                                      left: ARENA_BADGE_MORE_LEFT,
 	                                      opacity: shouldReduceMotion ? undefined : arenaMoreOpacity,
 	                                      scale: shouldReduceMotion ? undefined : arenaMoreScale,
 	                                    }}
 	                                  >
-	                                    +{hiddenArenaCount}
+	                                    +{rightHiddenArenaCount}
 	                                  </motion.div>
 	                                )}
 	                              </div>
