@@ -611,12 +611,12 @@ const ArenaRankingBubble = ({
   role: 'first' | 'visible' | 'trailing';
 }) => {
   const isSelected = user.id === selectedUserId;
-  const firstScale = useTransform(dragX, [-42, -12, 0], [0.22, 0.72, isSelected ? 1.05 : 1]);
-  const firstOpacity = useTransform(dragX, [-42, -16, 0], [0, 0.45, 1]);
-  const trailingStart = -24 - index * 28;
-  const trailingEnd = trailingStart - 42;
-  const trailingScale = useTransform(dragX, [trailingStart, trailingEnd], [0.24, isSelected ? 1.05 : 1]);
-  const trailingOpacity = useTransform(dragX, [trailingStart, trailingEnd], [0, 1]);
+  const firstScale = useTransform(dragX, [-36, -12, 0], [0.08, 0.66, isSelected ? 1.05 : 1]);
+  const firstOpacity = useTransform(dragX, [-36, -14, 0], [0, 0.5, 1]);
+  const trailingStart = -8 - index * 30;
+  const trailingEnd = -34 - index * 30;
+  const trailingScale = useTransform(dragX, [trailingEnd, trailingStart, 0], [isSelected ? 1.05 : 1, 0.28, 0.08]);
+  const trailingOpacity = useTransform(dragX, [trailingEnd, trailingStart, 0], [1, 0.35, 0]);
 
   return (
     <motion.div
@@ -640,7 +640,7 @@ const ArenaRankingBubble = ({
         isSelected ? "z-20" : ""
       )}
       style={{
-        zIndex: role === 'trailing' ? total - index : total + 2 - index,
+        zIndex: role === 'trailing' ? total + 14 - index : total + 2 - index,
         scale: shouldReduceMotion ? undefined : role === 'first' ? firstScale : role === 'trailing' ? trailingScale : isSelected ? 1.05 : 1,
         opacity: shouldReduceMotion ? undefined : role === 'first' ? firstOpacity : role === 'trailing' ? trailingOpacity : 1,
       }}
@@ -680,6 +680,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailX = useMotionValue(0);
+  const arenaMoreOpacity = useTransform(arenaTrailX, [-38, -12, 0], [0, 0.45, 1]);
+  const arenaMoreScale = useTransform(arenaTrailX, [-38, -12, 0], [0.76, 0.94, 1]);
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -823,7 +825,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   useEffect(() => {
     setListenStatsOpen(false);
     setListenStatsActiveIndex(0);
-  }, [track?.id]);
+    arenaTrailX.set(0);
+  }, [track?.id, arenaTrailX]);
 
   useEffect(() => {
     const title = track?.name?.trim();
@@ -874,7 +877,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const hiddenArenaCount = trailingArenaUsers.length;
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
   const selectedHiddenInArena = selectedArenaIndex >= arenaPageSize;
-  const arenaDragDistance = Math.max(0, hiddenArenaCount * 30 + (hiddenArenaCount > 0 ? 48 : 0));
+  const arenaDragDistance = Math.max(0, hiddenArenaCount * 30);
 
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
@@ -1507,7 +1510,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="flex w-[178px] items-center overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
+	                                className="relative flex w-[178px] items-center overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
 	                              >
 	                                <motion.div
 	                                  className="flex min-w-0 items-center gap-0 overflow-visible cursor-grab active:cursor-grabbing"
@@ -1530,27 +1533,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                        role={i === 0 ? 'first' : 'visible'}
 	                                      />
 	                                    ))}
-	                                  {hiddenArenaCount > 0 && (
-	                                    <motion.div
-	                                      key={`arena-more-${hiddenArenaCount}`}
-	                                      layout
-	                                      initial={{ opacity: 0, scale: 0.2, y: 10 }}
-	                                      animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
-	                                        opacity: 1,
-	                                        scale: 1,
-	                                        y: 0,
-	                                      }}
-	                                      transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-	                                      className={cn(
-	                                        "relative mr-2 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
-	                                        selectedHiddenInArena
-	                                          ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-	                                          : "border-white/10 bg-black/50"
-	                                      )}
-	                                    >
-	                                      +{hiddenArenaCount}
-	                                    </motion.div>
-	                                  )}
 	                                  {trailingArenaUsers.map((u, i) => (
 	                                    <ArenaRankingBubble
 	                                      key={`${u.id}-trailing-${i}`}
@@ -1564,6 +1546,30 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    />
 	                                  ))}
 	                                </motion.div>
+	                                {hiddenArenaCount > 0 && (
+	                                  <motion.div
+	                                    key={`arena-more-${hiddenArenaCount}`}
+	                                    initial={{ opacity: 0, scale: 0.2, y: 10 }}
+	                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                      opacity: 1,
+	                                      scale: 1,
+	                                      y: 0,
+	                                    }}
+	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+	                                    className={cn(
+	                                      "pointer-events-none absolute left-[122px] top-1/2 z-[8] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      selectedHiddenInArena
+	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
+	                                        : "border-white/10 bg-black/50"
+	                                    )}
+	                                    style={{
+	                                      opacity: shouldReduceMotion ? undefined : arenaMoreOpacity,
+	                                      scale: shouldReduceMotion ? undefined : arenaMoreScale,
+	                                    }}
+	                                  >
+	                                    +{hiddenArenaCount}
+	                                  </motion.div>
+	                                )}
 	                              </div>
 	                            </motion.div>
                           ) : (
