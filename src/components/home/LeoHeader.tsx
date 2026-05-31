@@ -644,23 +644,20 @@ const ArenaRankingBubble = ({
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.18, y: 12, rotate: isHiddenInitial ? 9 : -10 }}
+      initial={{ opacity: 0, y: 8, rotate: isHiddenInitial ? 5 : -6 }}
       animate={shouldReduceMotion ? { opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 } : {
         opacity: 1,
-        scale: isSelected ? 1.05 : 1,
         y: 0,
         rotate: 0,
       }}
       transition={shouldReduceMotion ? { delay: index * 0.03 } : {
-        opacity: { delay: index * 0.025, duration: 0.14 },
-        scale: { type: 'spring', stiffness: 520, damping: 20, delay: index * 0.025 },
-        y: { type: 'spring', stiffness: 520, damping: 20, delay: index * 0.025 },
+        opacity: { delay: index * 0.025, duration: 0.18 },
+        y: { type: 'spring', stiffness: 520, damping: 26, delay: index * 0.025 },
         rotate: { type: 'spring', stiffness: 520, damping: 22, delay: index * 0.025 },
       }}
-      exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
+      exit={{ opacity: 0, y: -8, rotate: 8, transition: { duration: 0.16 } }}
       className={cn(
-        "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 shrink-0 group/avatar",
+        "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 shrink-0 transform-gpu group/avatar",
         isSelected ? "z-20" : ""
       )}
       style={{
@@ -671,7 +668,7 @@ const ArenaRankingBubble = ({
       }}
     >
       <div className={cn(
-        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 drop-shadow-[0_14px_20px_rgba(0,0,0,0.42)]",
         isSelected ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
       )}>
         <div className="relative h-full w-full rounded-full overflow-hidden">
@@ -691,8 +688,8 @@ const ArenaRankingBubble = ({
           ease: 'easeInOut',
         }}
         className={cn(
-          "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
-          isSelected ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
+          "absolute -bottom-1 -right-1 z-30 flex h-4 min-w-[16px] items-center justify-center rounded-full border border-white/10 px-1 text-[7px] font-black text-white drop-shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-4 sm:min-w-[16px] sm:text-[8px]",
+          isSelected ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-950/90"
         )}
       >
         {coreUtils.formatNumber(user.plays)}
@@ -1589,18 +1586,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                {leftHiddenArenaCount > 0 && (
 	                                  <motion.div
 	                                    key={`arena-more-left-${leftHiddenArenaCount}`}
-	                                    initial={{ opacity: 0, scale: 0.72, y: 10 }}
-	                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                    initial={{ opacity: 0, y: 4 }}
+	                                    animate={shouldReduceMotion ? { opacity: 1, y: 0 } : {
 	                                      opacity: 1,
-	                                      scale: 1,
 	                                      y: 0,
 	                                    }}
-	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-11 sm:min-w-11",
 	                                      selectedHiddenOnLeft
 	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-	                                        : "border-white/10 bg-black/50"
+	                                        : "border-white/10 bg-black/70"
 	                                    )}
 	                                    style={{
 	                                      opacity: shouldReduceMotion ? undefined : arenaLeftMoreOpacity,
@@ -1625,18 +1621,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 {rightHiddenArenaCount > 0 && (
 	                                  <motion.div
 	                                    key={`arena-more-${rightHiddenArenaCount}`}
-	                                    initial={{ opacity: 0, scale: 0.2, y: 10 }}
-	                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+	                                    initial={{ opacity: 0, y: 4 }}
+	                                    animate={shouldReduceMotion ? { opacity: 1, y: 0 } : {
 	                                      opacity: 1,
-	                                      scale: 1,
 	                                      y: 0,
 	                                    }}
-	                                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-11 sm:min-w-11",
 	                                      selectedHiddenOnRight
 	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-	                                        : "border-white/10 bg-black/50"
+	                                        : "border-white/10 bg-black/70"
 	                                    )}
 	                                    style={{
 	                                      left: ARENA_BADGE_MORE_LEFT,

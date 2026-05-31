@@ -134,6 +134,27 @@ const getTrackArtistName = (track: any) => {
   return track?.artist?.name || track?.artistName || 'Artista';
 };
 
+const getTrackArtists = (track: any) => {
+  const rawArtists = Array.isArray(track?.artists) ? track.artists : [];
+  const normalized = rawArtists
+    .map((artist: any, index: number) => {
+      if (typeof artist === 'string') {
+        return { id: '', name: artist, image: '', key: `${artist}-${index}` };
+      }
+      const id = String(artist?.id || artist?.statsfmId || artist?.spotifyId || artist?.appleMusicId || '');
+      const name = artist?.name || artist?.artistName || artist?.displayName || '';
+      const image = artist?.image || artist?.avatar || artist?.artistImage || artist?.picture || '';
+      return { id, name, image, key: id || `${name}-${index}` };
+    })
+    .filter((artist) => artist.name);
+
+  if (normalized.length > 0) return normalized;
+
+  const fallbackName = getTrackArtistName(track);
+  const fallbackId = getMainArtistId(track);
+  return fallbackName ? [{ id: fallbackId, name: fallbackName, image: getTrackArtistImage(track), key: fallbackId || fallbackName }] : [];
+};
+
 const getTrackArtistImage = (track: any) => {
   const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
   return [
@@ -174,7 +195,7 @@ const formatShortDate = (value: any) => {
   if (!value) return 'sem registro';
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'sem registro';
-  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 };
 
 const getStreamTime = (item: any) => {
@@ -204,6 +225,42 @@ const summarizeTrackHistory = (items: any[], currentTimestamp?: string) => {
     lastPlayedAt: history[history.length - 1] ? getStreamTime(history[history.length - 1]) : 0,
     bestYear: bestYear ? bestYear[0] : '',
     bestYearCount: bestYear ? bestYear[1] : 0,
+  };
+};
+
+const getEarliestStream = (items: any[]) => {
+  return items
+    .map((item) => getStreamTime(item))
+    .filter((time) => time > 0)
+    .sort((a, b) => a - b)[0] || 0;
+};
+
+const getRecentPlaybackTrack = (user: any) => {
+  const recent = Array.isArray(user?.recent)
+    ? user.recent
+    : Array.isArray(user?.history)
+      ? user.history
+      : [];
+  const latest = recent[0];
+  const track = latest?.track || latest;
+  if (!track?.name) return null;
+  return {
+    track,
+    isNow: false,
+    timestamp: latest?.playedAt || latest?.timestamp || latest?.endTime || latest?.date || user?.nowPlaying?.timestamp,
+    platform: latest?.platform || latest?.source || user?.nowPlaying?.platform,
+    durationMs: latest?.durationMs || track?.durationMs,
+  };
+};
+
+const getUserTrackStatsSource = (user: any) => {
+  if (!user) return null;
+  if (user.nowPlaying?.track?.name) return user;
+  const recentPlayback = getRecentPlaybackTrack(user);
+  if (!recentPlayback) return user;
+  return {
+    ...user,
+    nowPlaying: recentPlayback,
   };
 };
 
@@ -259,6 +316,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [lyricsLoading, setLyricsLoading] = React.useState(false);
   const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
   const [entityStats, setEntityStats] = React.useState({ artist: 0, track: 0, album: 0 });
+  const [artistStats, setArtistStats] = React.useState<Array<{ id: string; name: string; image: string; key: string; count: number }>>([]);
+  const [circleFirstListen, setCircleFirstListen] = React.useState<{ userName: string; playedAt: number } | null>(null);
+  const [hasFriendHistory, setHasFriendHistory] = React.useState(false);
   const [trackHistory, setTrackHistory] = React.useState<{ firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number }>({
     firstPlayedAt: 0,
     lastPlayedAt: 0,
@@ -272,8 +332,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const albumId = getAlbumId(track);
   const trackTitle = track?.name || 'Música';
   const artistName = getTrackArtistName(track);
+  const trackArtists = React.useMemo(() => getTrackArtists(track), [track]);
   const artwork = getTrackArtwork(track);
-  const artistImage = getTrackArtistImage(track) || artwork;
+  const artistImage = trackArtists[0]?.image || getTrackArtistImage(track) || artwork;
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
   const trackLinks = React.useMemo(() => getTrackLinks(track), [track]);
   const members = React.useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
@@ -304,26 +365,49 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   React.useEffect(() => {
     if (!user?.id || !trackId) {
       setEntityStats({ artist: 0, track: 0, album: 0 });
+      setArtistStats([]);
       setTrackHistory({ firstPlayedAt: 0, lastPlayedAt: 0, bestYear: '', bestYearCount: 0 });
+      setCircleFirstListen(null);
+      setHasFriendHistory(false);
       return;
     }
 
     let cancelled = false;
+    const artistsToFetch = trackArtists.filter((artist) => artist.id);
     Promise.all([
-      artistId ? statsService.fetchEntityStats(user.id, 'artist', artistId).catch(() => 0) : Promise.resolve(0),
+      Promise.all(artistsToFetch.map((artist) => statsService.fetchEntityStats(user.id, 'artist', artist.id).catch(() => 0))),
       statsService.fetchEntityStats(user.id, 'track', trackId).catch(() => 0),
       albumId ? statsService.fetchEntityStats(user.id, 'album', albumId).catch(() => 0) : Promise.resolve(0),
       statsService.fetchEntityStreams(user.id, 'track', trackId, 240).catch(() => []),
-    ]).then(([artist, trackCount, album, history]) => {
+      Promise.all(members.map((member) =>
+        statsService.fetchEntityStreams(member.id, 'track', trackId, 80)
+          .then((items) => ({ member, items }))
+          .catch(() => ({ member, items: [] }))
+      )),
+    ]).then(([artistCounts, trackCount, album, history, memberHistories]) => {
       if (cancelled) return;
-      setEntityStats({ artist, track: trackCount, album });
+      const nextArtistStats = artistsToFetch.map((artist, index) => ({
+        ...artist,
+        count: artistCounts[index] || 0,
+      }));
+      const primaryArtistCount = nextArtistStats[0]?.count || 0;
+      const friendEntries = memberHistories
+        .map(({ member, items }) => ({ member, playedAt: getEarliestStream(items), hasItems: items.length > 0 }))
+        .filter((entry) => entry.playedAt > 0)
+        .sort((a, b) => a.playedAt - b.playedAt);
+      const friendsWithHistory = friendEntries.filter((entry) => entry.member.id !== user.id);
+
+      setArtistStats(nextArtistStats);
+      setEntityStats({ artist: primaryArtistCount, track: trackCount, album });
       setTrackHistory(summarizeTrackHistory(history, user?.nowPlaying?.timestamp));
+      setCircleFirstListen(friendsWithHistory[0] ? { userName: getTrackArtistName({ artist: { name: friendsWithHistory[0].member.name } }), playedAt: friendsWithHistory[0].playedAt } : null);
+      setHasFriendHistory(friendsWithHistory.length > 0);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [albumId, artistId, trackId, user?.id, user?.nowPlaying?.timestamp]);
+  }, [albumId, members, trackArtists, trackId, user?.id, user?.nowPlaying?.timestamp]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -332,22 +416,31 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         user: member,
         count: userTrackStats[`${member.id}:${trackId}`] || 0,
       }))
+      .filter(item => item.count > 0)
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
   }, [members, trackId, userTrackStats]);
+  const hasPreviousTrackHistory = !!trackHistory.firstPlayedAt;
+  const circleFirstName = circleFirstListen?.userName.split(/\s+/)[0] || '';
+  const circleFirstInsight = circleFirstListen
+    ? `${circleFirstName} foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
+    : '';
+  const circleFallbackInsight = hasFriendHistory
+    ? 'O círculo tem histórico nessa faixa, mas sem primeira reprodução confiável.'
+    : `Por enquanto, essa faixa é praticamente sua no círculo. ${albumName !== 'Álbum' ? `Ela está ligada ao álbum ${albumName}.` : 'Sem reproduções de amigos registradas.'}`;
 
   const handleLyrics = async () => {
-    if (!track?.name || !lyricsMatch?.hasLyrics) return;
+    if (!track?.name) return;
     setLyricsLoading(true);
     const response = await statsService.fetchLyricsFull(track.name, artistName);
     setLyricsLoading(false);
+    setLyricsMatch(response);
     if (response.lyrics) {
       setLyricsText(response.lyrics);
       setPanel('lyrics');
       return;
     }
-    const url = response.match?.url || lyricsMatch.match?.url;
-    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    setPanel('lyrics');
   };
 
   if (!track && !user) return null;
@@ -386,7 +479,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.18}
               onDragEnd={(_, info) => {
-                if (info.offset.x < -58 && lyricsMatch?.hasLyrics) {
+                if (info.offset.x < -58) {
                   if (!lyricsText) handleLyrics();
                   else setPanel('lyrics');
                 } else if (info.offset.x > 58) {
@@ -450,21 +543,51 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-[20px] bg-black/18 p-3">
-                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">1ª vez</span>
-                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.firstPlayedAt)}</span>
+              {artistStats.length > 1 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true">
+                  {artistStats.map((artist) => (
+                    <div key={artist.key} className="flex min-w-[118px] shrink-0 items-center gap-2 rounded-full bg-black/18 px-2.5 py-2">
+                      <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.05]">
+                        <SmartImage src={artist.image || artistImage} className="h-full w-full object-cover" rounded="full" fallback={artist.name} />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="block truncate text-[9px] font-black text-white/78">{artist.name}</span>
+                        <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-orange-300"><AnimatedNumber value={artist.count} /></span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="rounded-[20px] bg-black/18 p-3">
-                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">última</span>
-                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.lastPlayedAt)}</span>
+              )}
+
+              {hasPreviousTrackHistory ? (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-[20px] bg-black/18 p-3">
+                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">1ª vez</span>
+                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.firstPlayedAt)}</span>
+                    </div>
+                    <div className="rounded-[20px] bg-black/18 p-3">
+                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">última</span>
+                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.lastPlayedAt)}</span>
+                    </div>
+                  </div>
+                  {trackHistory.bestYear && (
+                    <div className="rounded-[20px] bg-black/18 p-3">
+                      <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">ano pico</span>
+                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">
+                        {trackHistory.bestYear} · {trackHistory.bestYearCount}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-[20px] bg-black/18 p-3">
-                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">ano pico</span>
-                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">
-                    {trackHistory.bestYear ? `${trackHistory.bestYear} · ${trackHistory.bestYearCount}` : 'sem registro'}
-                  </span>
+              ) : (
+                <div className="mt-3 rounded-[22px] bg-orange-500/[0.09] px-4 py-3 text-[11px] font-black leading-snug text-orange-100/86">
+                  Essa é sua primeira reprodução dessa faixa!
                 </div>
+              )}
+
+              <div className="mt-3 rounded-[22px] bg-white/[0.04] px-4 py-3 text-[11px] font-bold leading-snug text-white/55">
+                {circleFirstListen ? circleFirstInsight : circleFallbackInsight}
               </div>
 
               {trackLinks.length > 0 && (
@@ -488,14 +611,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              {lyricsMatch?.hasLyrics && (
+              {track?.name && (
                 <button
                   type="button"
                   onClick={handleLyrics}
                   className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/72 transition-colors hover:bg-white/[0.1] hover:text-white"
                 >
                   {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : lyricsText ? <FileText className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
-                  Letra
+                  {lyricsMatch?.hasLyrics === false ? 'Buscar letra' : 'Letra'}
                 </button>
               )}
 
@@ -525,6 +648,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 ) : lyricsText ? (
                   <div className="max-h-[42vh] overflow-y-auto rounded-[24px] bg-black/22 p-4 text-sm font-medium leading-relaxed text-white/72 whitespace-pre-line">
                   {lyricsText}
+                  </div>
+                ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
+                  <div className="flex h-[34vh] flex-col items-center justify-center gap-4 rounded-[24px] bg-black/22 px-5 text-center">
+                    <FileText className="h-8 w-8 text-orange-300" />
+                    <div>
+                      <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
+                      <p className="mt-2 text-[11px] font-bold leading-snug text-white/45">
+                        O Genius bloqueou a extração completa agora, mas o link oficial está pronto.
+                      </p>
+                    </div>
+                    <a
+                      href={lyricsMatch.match.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full bg-white/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/72"
+                    >
+                      abrir no Genius
+                    </a>
                   </div>
                 ) : (
                   <button
@@ -574,9 +715,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     });
   }, [allUsers, featuredUserId]);
 
+  const selectedStatsUser = React.useMemo(() => {
+    return groupStats?.users?.[featuredUserId] || allUsers.find((user) => user.id === featuredUserId) || allUsers[0];
+  }, [allUsers, groupStats?.users, featuredUserId]);
+
   const playingUser = React.useMemo(() => {
-    return activeMembersSorted[0] || groupStats?.users[featuredUserId] || allUsers[0];
-  }, [activeMembersSorted, groupStats?.users, featuredUserId, allUsers]);
+    return getUserTrackStatsSource(selectedStatsUser);
+  }, [selectedStatsUser]);
 
   const track = playingUser?.nowPlaying?.track;
   const songName = track?.name || "Nenhuma música";
