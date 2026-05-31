@@ -47,6 +47,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const [orbitRef, isOrbitVisible] = useOrbitVisibility();
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isMemberMenuOpen, setIsMemberMenuOpen] = useState(false);
 
   const validMembers = useMemo(() => {
     return members.filter(m => {
@@ -68,6 +69,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const goToIndex = React.useCallback((index: number) => {
     if (validMembers.length === 0) return;
     setActiveIndex((index + validMembers.length) % validMembers.length);
+    setIsMemberMenuOpen(false);
   }, [validMembers.length]);
 
   const handlePrev = React.useCallback(() => {
@@ -136,6 +138,55 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
           <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl">
             {periodLabel}
           </span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsMemberMenuOpen(open => !open)}
+              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.04] shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl active:scale-95"
+              aria-label="Trocar membro no Top 1 do Círculo"
+            >
+              <SmartImage
+                src={coreUtils.getUserAvatar(activeUser.id, activeUser.avatar)}
+                rounded="full"
+                className="h-full w-full object-cover"
+                fallback=""
+              />
+            </button>
+            <AnimatePresence>
+              {isMemberMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: -4 }}
+                  transition={{ duration: 0.18 }}
+                  className="absolute right-0 top-10 z-50 grid max-h-[184px] w-[104px] grid-cols-2 gap-2 overflow-y-auto rounded-3xl border border-white/10 bg-black/72 p-2 shadow-2xl backdrop-blur-2xl"
+                >
+                  {validMembers.map((member, index) => {
+                    const isActive = index === activeIndex;
+                    return (
+                      <button
+                        key={`top-orbit-picker-${member.id}`}
+                        type="button"
+                        onClick={() => goToIndex(index)}
+                        className={cn(
+                          "relative h-10 w-10 overflow-hidden rounded-full border transition-all active:scale-90",
+                          isActive ? "border-orange-500 ring-2 ring-orange-500/30" : "border-white/10 opacity-65 hover:opacity-100"
+                        )}
+                        aria-label={`Abrir Top 1 de ${member.name}`}
+                      >
+                        <SmartImage
+                          src={coreUtils.getUserAvatar(member.id, member.avatar)}
+                          rounded="full"
+                          className="h-full w-full object-cover"
+                          fallback=""
+                        />
+                      </button>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           <div className="hidden items-center gap-1 sm:flex">
             <button type="button" onClick={handlePrev} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
               <ChevronLeft className="h-3.5 w-3.5 text-white/35" />

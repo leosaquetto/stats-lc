@@ -250,7 +250,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     if (candidates.length === 0) return null;
 
     candidates.sort((a, b) => b.score - a.score);
-    return candidates[daySeed % Math.min(candidates.length, 4)];
+    return candidates[daySeed % candidates.length];
   }, [activeMembers]);
 
   const insights = React.useMemo(() => {

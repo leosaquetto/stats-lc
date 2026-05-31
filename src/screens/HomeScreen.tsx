@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
@@ -33,6 +33,40 @@ const UserAlbumHistoryModal = React.lazy(() => import('../components/modals/User
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const normalizeProfileSlug = (value: unknown) => {
+  if (typeof value !== 'string') return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+};
+
+const PROFILE_HASH_ALIASES: Record<string, string[]> = {
+  leo: ['leo_saquetto', 'leosaquetto'],
+  gab: ['gabriel'],
+  savio: ['savio_lombardi', 'savio'],
+  benny: ['marcelo_benante', 'marcelo', 'benny'],
+  peter: ['peter_castro', 'peter'],
+  fabiomian: ['fabio_rafael_mian', 'fabio_mian', 'fabio', 'fabiomian'],
+  guilhermou: ['guilherme_lima', 'guilherme', 'guilhermou'],
+};
+
+const getProfileSlugCandidates = (user: any) => {
+  const userKey = normalizeProfileSlug(user?.key);
+  return new Set([
+    normalizeProfileSlug(user?.name),
+    normalizeProfileSlug(user?.displayName),
+    normalizeProfileSlug(user?.profile?.displayName),
+    userKey,
+    normalizeProfileSlug(user?.customId),
+    normalizeProfileSlug(user?.profile?.customId),
+    normalizeProfileSlug(user?.id),
+    ...(PROFILE_HASH_ALIASES[userKey] || []),
+  ].filter(Boolean));
+};
 
 const FloatingMiniHeader = React.memo(({
   visible,
@@ -751,6 +785,7 @@ export default function HomeScreen() {
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
@@ -800,6 +835,20 @@ export default function HomeScreen() {
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
+
+  useEffect(() => {
+    if (!allMembers.length) return;
+    const requestedSlug = normalizeProfileSlug(location.pathname.replace(/^\/+/, ''));
+    if (!requestedSlug) return;
+
+    const requestedMember = allMembers.find((member: any) => getProfileSlugCandidates(member).has(requestedSlug));
+    if (!requestedMember?.id || requestedMember.id === featuredUserId) return;
+
+    setFeaturedUserId(requestedMember.id);
+    localStorage.setItem('stats-lc-has-selected-user', '1');
+    setShowInitialModal(false);
+  }, [allMembers, featuredUserId, location.pathname, setFeaturedUserId]);
+
   const primaryUser = useMemo(() => {
     if (!groupStats) return null;
     // Prioriza allMembers para permitir usuário oculto como featuredUserId

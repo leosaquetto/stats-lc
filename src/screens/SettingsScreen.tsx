@@ -173,6 +173,31 @@ export default function SettingsScreen() {
     showToast('Nome da Arena', 'Nome salvo para os próximos relatórios e compartilhamentos.', 'success');
   };
 
+  const handleFeaturedUserChange = (user: any) => {
+    if (!user?.id) return;
+    if (user.id === featuredUserId) {
+      showToast(
+        'Usuário em Destaque',
+        `${user.name} já está carregado como referência principal.`,
+        'info'
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Trocar usuário em destaque para ${user.name}?\n\nO app será reiniciado automaticamente na Home para carregar todos os dados desse perfil sem tela preta.`
+    );
+    if (!confirmed) return;
+
+    setFeaturedUserId(user.id);
+    localStorage.setItem('stats-lc-has-selected-user', '1');
+    sessionStorage.removeItem('stats-lc-home-boot-ready');
+    window.__STATS_LC_HOME_READY__ = false;
+
+    window.location.hash = '#/';
+    window.location.reload();
+  };
+
   const handleResetApp = async () => {
     const confirmed = window.confirm(
       'Reiniciar app?\n\nIsso limpa o cache local deste dispositivo e recarrega o app. Seus dados do stats.fm não serão apagados.'
@@ -293,43 +318,32 @@ export default function SettingsScreen() {
              {members.map((user: any) => (
                <button
                  key={user.id}
-                 onClick={() => {
-                   setFeaturedUserId(user.id);
-                    showToast(
-                      'Usuário em Destaque', 
-                      `O membro ${user.name} foi definido como a referência principal do seu painel.`, 
-                      'success'
-                    );
-                 }}
+                 onClick={() => handleFeaturedUserChange(user)}
                  className={clsx(
-                   "glass flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-3xl p-2 text-center transition-all active:scale-[0.98]",
+                   "glass group relative flex min-h-[154px] flex-col justify-end overflow-hidden rounded-3xl p-2 text-center transition-all active:scale-[0.98]",
                    featuredUserId === user.id 
-                    ? "ring-1 ring-orange-500/60 shadow-[0_10px_30px_rgba(255,159,10,0.1)]" 
+                    ? "ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.1)]" 
                     : "hover:bg-white/[0.04]"
                  )}
                  style={{ border: 0 }}
                >
-                 <div className="relative">
-                   <div className={clsx(
-                     "h-12 w-12 rounded-full p-1 transition-colors",
-                     featuredUserId === user.id ? "bg-orange-500" : "bg-white/10"
-                   )}>
-                      <SmartImage 
-                        src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                        className="h-full w-full rounded-full" 
-                        fallback=""
-                        rounded="full"
-                      />
+                 <SmartImage
+                   src={coreUtils.getUserAvatar(user.id, user.avatar)}
+                   className="absolute inset-0 h-full w-full scale-105 object-cover opacity-78 transition-transform duration-500 group-hover:scale-110"
+                   fallback=""
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/28 to-transparent" />
+                 <div className="absolute inset-0 bg-black/10" />
+                 {featuredUserId === user.id && (
+                   <div className="absolute right-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 shadow-lg">
+                      <div className="h-2 w-2 rounded-full bg-white" />
                    </div>
-                   {featuredUserId === user.id && (
-                     <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 shadow-lg">
-                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
-                     </div>
-                   )}
+                 )}
+                 <div className="relative z-10 flex min-h-[42px] w-full items-end justify-center px-1 pb-2">
+                   <span className={clsx("w-full whitespace-normal break-words text-[10px] font-black leading-[1.12]", featuredUserId === user.id ? "text-orange-400" : "text-white/88")}>
+                     {user.name}
+                   </span>
                  </div>
-                 <span className={clsx("w-full truncate text-[10px] font-black leading-none", featuredUserId === user.id ? "text-orange-400" : "text-white/70")}>
-                   {user.name}
-                 </span>
                </button>
              ))}
            </div>
@@ -338,47 +352,16 @@ export default function SettingsScreen() {
         {/* Visibility */}
         <div className="flex flex-col gap-4">
            <SectionHeader title="Visibilidade" action={<EyeOff className="h-4 w-4 text-white/20" />} />
-           <div className="glass-card p-6 flex flex-col gap-6">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                   <span className="text-[13px] font-bold text-white/90">Distintivo de Ranking</span>
-                   <span className="text-[10px] text-white/30">Ocultar a medalha de 1º, 2º e 3º na Arena.</span>
-                </div>
-                <button 
-                  onClick={() => {
-                    const nextValue = !hideRankingBadge;
-                    setHideRankingBadge(nextValue);
-                    showToast(
-                      'Visibilidade de Ranking',
-                      nextValue 
-                        ? 'As medalhas de posição (1º, 2º, 3º) foram ocultadas do layout global.' 
-                        : 'As medalhas de ranking voltaram a ser exibidas para todos os membros.',
-                      'info'
-                    );
-                  }}
-                  className={clsx(
-                    "w-12 h-6 rounded-full relative transition-all duration-300",
-                    hideRankingBadge ? "bg-orange-500" : "bg-white/10"
-                  )}
-                >
-                  <motion.div 
-                    animate={{ x: hideRankingBadge ? 24 : 4 }}
-                    className="absolute top-1 h-4 w-4 rounded-full bg-white shadow-xl"
-                  />
-                </button>
-              </div>
-
-              <div className="h-px w-full bg-white/5" />
-
+           <div className="glass-card p-6 flex flex-col gap-4">
               <div className="flex flex-col gap-4">
                  <span className="text-[11px] font-black uppercase tracking-widest text-white/20">Ocultar Membros</span>
-                 <div className="flex flex-wrap gap-2">
+                 <div className="grid grid-cols-2 gap-2">
                     {members.map((user: any) => (
                       <button
                         key={user.id}
                         onClick={() => toggleHideUser(user.id, user.name)}
                         className={clsx(
-                          "flex items-center gap-2 px-3 py-2 rounded-xl border transition-all text-[11px] font-bold",
+                          "flex min-h-[46px] w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-bold transition-all",
                           hiddenUsers.includes(user.id)
                             ? "bg-red-500/10 border-red-500/20 text-red-400"
                             : "bg-white/5 border-white/5 text-white/40"
@@ -389,12 +372,41 @@ export default function SettingsScreen() {
                            className="h-4 w-4 rounded-full opacity-60" 
                            fallback="" 
                          />
-                         {user.name}
+                         <span className="min-w-0 flex-1 break-words leading-tight">{user.name}</span>
                          {hiddenUsers.includes(user.id) && <MinusCircle className="h-3 w-3" />}
                       </button>
                     ))}
                  </div>
               </div>
+           </div>
+
+           <div className="glass-card p-6 flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-1">
+                 <span className="text-[13px] font-bold text-white/90">Distintivo de Ranking</span>
+                 <span className="text-[10px] text-white/30">Ocultar a medalha de 1º, 2º e 3º na Arena.</span>
+              </div>
+              <button 
+                onClick={() => {
+                  const nextValue = !hideRankingBadge;
+                  setHideRankingBadge(nextValue);
+                  showToast(
+                    'Visibilidade de Ranking',
+                    nextValue 
+                      ? 'As medalhas de posição (1º, 2º, 3º) foram ocultadas do layout global.' 
+                      : 'As medalhas de ranking voltaram a ser exibidas para todos os membros.',
+                    'info'
+                  );
+                }}
+                className={clsx(
+                  "relative h-6 w-12 shrink-0 rounded-full transition-all duration-300",
+                  hideRankingBadge ? "bg-orange-500" : "bg-white/10"
+                )}
+              >
+                <motion.div 
+                  animate={{ x: hideRankingBadge ? 24 : 4 }}
+                  className="absolute top-1 h-4 w-4 rounded-full bg-white shadow-xl"
+                />
+              </button>
            </div>
         </div>
 

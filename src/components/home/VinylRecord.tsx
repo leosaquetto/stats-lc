@@ -129,31 +129,31 @@ export const VinylRecord = ({
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 42 }, (_, i) => {
+    return Array.from({ length: 75 }, (_, i) => {
       const angle = seededValue(textureSeed, i) * 360;
-      const inner = 24 + seededValue(textureSeed, i + 41) * 9;
-      const outer = Math.min(48.5, inner + 8 + seededValue(textureSeed, i + 73) * 18);
-      const width = 0.35 + seededValue(textureSeed, i + 101) * 1.65;
-      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 4.6;
-      const taper = 0.18 + seededValue(textureSeed, i + 127) * 0.34;
-      return { angle, inner, outer, width, bend, taper, opacity: 0.48 + seededValue(textureSeed, i + 137) * 0.34 };
+      const inner = 20 + seededValue(textureSeed, i + 41) * 8;
+      const outer = Math.min(49.2, inner + 15 + seededValue(textureSeed, i + 73) * 25);
+      const width = 0.6 + seededValue(textureSeed, i + 101) * 2.8;
+      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 2.0;
+      const taper = 0.2 + seededValue(textureSeed, i + 127) * 0.32;
+      return { angle, inner, outer, width, bend, taper, opacity: 0.68 + seededValue(textureSeed, i + 137) * 0.26 };
     });
   }, [textureSeed, textureVariant]);
   const splatterDrops = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 30 }, (_, i) => ({
+    return Array.from({ length: 40 }, (_, i) => ({
       angle: seededValue(textureSeed, i + 411) * 360,
-      radius: 24 + seededValue(textureSeed, i + 439) * 24,
-      size: 0.35 + seededValue(textureSeed, i + 467) * 1.35,
-      opacity: 0.42 + seededValue(textureSeed, i + 491) * 0.28,
+      radius: 22 + seededValue(textureSeed, i + 439) * 26,
+      size: 0.5 + seededValue(textureSeed, i + 467) * 2.0,
+      opacity: 0.64 + seededValue(textureSeed, i + 491) * 0.24,
     }));
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
 
-  const tonearmNeedleX = 76 - currentRatio * 6.5;
-  const tonearmNeedleY = 34 + currentRatio * 5;
-  const tonearmPivotX = 91;
-  const tonearmPivotY = 21;
+  const tonearmNeedleX = 78 - currentRatio * 7;
+  const tonearmNeedleY = 31 + currentRatio * 6;
+  const tonearmPivotX = 93;
+  const tonearmPivotY = 17;
 
   return (
     <div
@@ -182,9 +182,9 @@ export const VinylRecord = ({
         className={`absolute inset-0 overflow-hidden rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10 ${isPlaying && canAnimate ? "vinyl-record-spin" : canAnimate ? "vinyl-record-idle" : ""}`}
         style={{
           background: `
-            radial-gradient(circle at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.28) 18%, transparent 19%),
-            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.36 : 0.26)} 0%, transparent 46%),
-            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.12 : 0.06)} 0%, transparent 50%),
+            radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
+            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.55 : 0.26)} 0%, transparent 46%),
+            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.22 : 0.06)} 0%, transparent 50%),
             radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
             conic-gradient(
               from ${textureVariant * 34}deg,
@@ -263,8 +263,8 @@ export const VinylRecord = ({
                 r={Math.min(r, 47.8)}
                 fill="none"
                 stroke={i % 4 === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.22)'}
-                strokeWidth={i % 5 === 0 ? 0.22 : 0.12}
-                opacity={i % 2 === 0 ? 0.65 : 0.35}
+                strokeWidth={textureVariant === 1 ? 0.28 : 0.22}
+                opacity={textureVariant === 0 ? 0.13 : textureVariant === 1 ? 0.18 : 0.06}
               />
             ))}
             <circle cx="50" cy="50" r="48.35" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.45" opacity="0.55" />
@@ -280,7 +280,7 @@ export const VinylRecord = ({
                       Q ${50 + s.bend + s.width * 0.55} ${50 - (s.inner + s.outer) / 2}, ${50 + s.width * s.taper} ${50 - s.inner}
                       Z
                     `}
-                    fill="rgba(255,255,255,0.88)"
+                    fill="rgba(255,255,255,0.82)"
                     opacity={s.opacity}
                     transform={`rotate(${s.angle} 50 50)`}
                   />
@@ -290,8 +290,8 @@ export const VinylRecord = ({
                     key={`${uniqueId}-drop-${i}`}
                     cx="50"
                     cy={50 - drop.radius}
-                    r={drop.size}
-                    fill="rgba(255,255,255,0.82)"
+                    r={drop.size * 1.6}
+                    fill="rgba(255,255,255,0.78)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
                   />
@@ -395,14 +395,14 @@ export const VinylRecord = ({
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             style={{ zIndex: 80, overflow: 'visible', filter: 'drop-shadow(0 9px 18px rgba(0,0,0,0.78))' }}
-            initial={{ opacity: 0, x: 13, y: -12, rotate: -8 }}
+            initial={{ opacity: 0, x: 16, y: -14, rotate: -10 }}
             animate={{
               opacity: 1,
               x: [0, -0.75, 0.45, 0],
               y: [0, 0.5, -0.2, 0],
               rotate: [0, -0.35, 0.25, 0],
             }}
-            exit={{ opacity: 0, x: 14, y: -12, rotate: -7 }}
+            exit={{ opacity: 0, x: 16, y: -14, rotate: -9 }}
             transition={{
               opacity: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
               x: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
@@ -426,7 +426,7 @@ export const VinylRecord = ({
             <circle
               cx={tonearmPivotX}
               cy={tonearmPivotY}
-              r="9.5"
+              r="7.5"
               fill="rgba(0,0,0,0.16)"
               stroke="rgba(255,255,255,0.12)"
               strokeWidth="0.5"
@@ -437,7 +437,7 @@ export const VinylRecord = ({
               x2={tonearmNeedleX}
               y2={tonearmNeedleY}
               stroke="rgba(0,0,0,0.72)"
-              strokeWidth="4.2"
+              strokeWidth="3"
               strokeLinecap="round"
             />
             <line
@@ -445,26 +445,26 @@ export const VinylRecord = ({
               y1={tonearmPivotY + 0.6}
               x2={tonearmNeedleX + 0.8}
               y2={tonearmNeedleY - 0.6}
-              stroke={`url(#${uniqueId}-tonearm-metal)`}
-              strokeWidth="2.15"
+              stroke="#b0b8c1"
+              strokeWidth="1.8"
               strokeLinecap="round"
             />
             <circle
               cx={tonearmPivotX}
               cy={tonearmPivotY}
-              r="5.2"
+              r="4.6"
               fill={`url(#${uniqueId}-tonearm-head)`}
               stroke="rgba(255,255,255,0.14)"
               strokeWidth="0.5"
             />
             <circle cx={tonearmPivotX - 1.2} cy={tonearmPivotY - 1.1} r="1.15" fill="rgba(255,255,255,0.22)" />
-            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-34)`}>
+            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-38)`}>
               <rect
-                x="-4.8"
-                y="-4.7"
-                width="10.4"
-                height="8.2"
-                rx="2.2"
+                x="-4.2"
+                y="-4.0"
+                width="9.2"
+                height="7.4"
+                rx="2.0"
                 fill={`url(#${uniqueId}-tonearm-head)`}
                 stroke="rgba(255,255,255,0.12)"
                 strokeWidth="0.45"
@@ -473,13 +473,13 @@ export const VinylRecord = ({
               <line
                 x1="0"
                 y1="3"
-                x2="4.8"
-                y2="8.2"
+                x2="4.2"
+                y2="7.8"
                 stroke="rgba(251,146,60,0.78)"
                 strokeWidth="0.9"
                 strokeLinecap="round"
               />
-              <circle cx="4.8" cy="8.2" r="0.55" fill="rgba(254,215,170,0.82)" />
+              <circle cx="4.2" cy="7.8" r="0.55" fill="rgba(254,215,170,0.82)" />
             </g>
           </motion.svg>
         )}

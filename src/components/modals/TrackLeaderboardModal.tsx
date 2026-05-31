@@ -13,6 +13,7 @@ import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage, MusicPlatformBadge, Skeleton } from '../shared/CommonUI';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -33,6 +34,10 @@ export const TrackLeaderboardModal = ({
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'track' | 'album' | 'artist'>('track');
   const [selectedArtist, setSelectedArtist] = useState<any>(null);
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const members = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
 
   useEffect(() => {
     async function loadStats() {
@@ -60,7 +65,7 @@ export const TrackLeaderboardModal = ({
       
       if ((import.meta as any).env?.DEV) console.log("[TrackLeaderboardModal] IDs identificados:", { trackId, artistId, albumId });
 
-      const users = Object.values(useStatsStore.getState().groupStats?.users || {});
+      const users = members;
       const results: Record<string, { track: number, album: number, artist: number }> = {};
       
       // Processa chamadas usando endpoint agregado. Fallback individual em caso de erro por tipo.
@@ -102,13 +107,9 @@ export const TrackLeaderboardModal = ({
       setLoading(false);
     }
     loadStats();
-  }, [track?.id, track?.albumId, track?.artistId, selectedArtist?.id, selectedArtist?.name]);
+  }, [track?.id, track?.albumId, track?.artistId, selectedArtist?.id, selectedArtist?.name, members]);
 
-  const groupStats = useStatsStore(state => state.groupStats);
-  const featuredUserId = useStatsStore(state => state.featuredUserId);
-  const membersData = groupStats?.users || {};
-
-  const sortedUsers = Object.values(membersData)
+  const sortedUsers = members
     .map(u => {
       return { 
         ...u, 

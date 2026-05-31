@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Repeat, ChevronLeft, Music2, TrendingUp, Star } from 'lucide-react';
+import { Repeat, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
@@ -685,7 +685,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     return user.platform || coreUtils.getUserPlaybackPlatform(user.id);
   }, [user.id, user.platform, track]);
 
-  const [arenaExpanded, setArenaExpanded] = useState(false);
   const providedDominantColor = normalizePlaybackAccent(typeof nowPlaying?.dominantColor === 'string' ? nowPlaying.dominantColor : null);
   const [dominantColor, setDominantColor] = useState<string | null>(providedDominantColor);
   const [listenStatsOpen, setListenStatsOpen] = useState(false);
@@ -745,22 +744,34 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
-    return getVisibleMembers(groupStats, hiddenUsers)
+    const users = getVisibleMembers(groupStats, hiddenUsers)
       .map(u => ({
         id: u.id,
         name: u.name,
         plays: userTrackStats[`${u.id}:${track?.id}`] || 0,
         avatar: coreUtils.getUserAvatar(u.id, u.avatar)
       }))
-      .filter(u => u.plays > 0)
       .sort((a, b) => b.plays - a.plays);
-  }, [groupStats, userTrackStats, track?.id, hiddenUsers]);
+    const selected = users.find(u => u.id === user.id);
+    const played = users.filter(u => u.plays > 0 || u.id === user.id);
+    if (selected && !played.some(u => u.id === selected.id)) {
+      played.push(selected);
+    }
+    return played.sort((a, b) => {
+      if (a.id === user.id) return -1;
+      if (b.id === user.id) return 1;
+      return b.plays - a.plays;
+    });
+  }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id]);
 
-  const trackArenaUsers = useMemo(() =>
-    arenaExpanded ? allTrackArenaUsers : allTrackArenaUsers.slice(0, 5)
-  , [arenaExpanded, allTrackArenaUsers]);
+  const trackArenaUsers = useMemo(() => {
+    if (allTrackArenaUsers.length <= 4) return allTrackArenaUsers;
+    const selected = allTrackArenaUsers.find(u => u.id === user.id);
+    const others = allTrackArenaUsers.filter(u => u.id !== user.id);
+    return selected ? [selected, ...others] : allTrackArenaUsers;
+  }, [allTrackArenaUsers, user.id]);
 
-  const hasMoreArena = allTrackArenaUsers.length > 5;
+  const hiddenArenaCount = Math.max(0, allTrackArenaUsers.length - 4);
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
   const isYesterday = nowPlaying?.timestamp ? isYesterdaySP(new Date(nowPlaying.timestamp)) : false;
@@ -1386,16 +1397,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                             <motion.div
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
-                              className={cn(
-                                "flex items-center gap-0 cursor-pointer group/arena max-w-full",
-                                arenaExpanded ? "max-w-full flex-wrap justify-center gap-1 py-1" : "shrink-0"
-                              )}
+                              className="max-w-[calc(100vw-112px)] shrink cursor-pointer overflow-hidden group/arena"
                             >
-                              <div className="flex -space-x-2.5 shrink-0 overflow-visible py-2 pr-1">
+                              <div data-home-horizontal-scroll="true" className="flex max-w-full snap-x gap-0 overflow-x-auto overflow-y-visible no-scrollbar py-2 pr-2 pl-0.5 [mask-image:linear-gradient(90deg,black_0%,black_82%,transparent_100%)]">
                                 {trackArenaUsers.map((u, i) => (
                                   <motion.div
                                     key={`${u.id}-${i}`}
-                                    initial={{ opacity: 0, scale: 0.8, y: 4 }}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.62, y: 8 }}
                                     animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
                                       opacity: 1,
                                       scale: u.id === user.id ? 1.05 : 1,
@@ -1410,8 +1419,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                       y: { delay: i * 0.26, duration: 9.6 + i * 0.38, repeat: Infinity, ease: 'easeInOut' },
                                       rotate: { delay: i * 0.2, duration: 10.4 + i * 0.34, repeat: Infinity, ease: 'easeInOut' },
                                     }}
+                                    exit={{ opacity: 0, scale: 0.55, y: 8 }}
                                     className={cn(
-                                      "relative group/avatar shrink-0",
+                                      "relative -mr-2.5 shrink-0 snap-start group/avatar",
                                       u.id === user.id ? "z-20" : ""
                                     )}
                                     style={{ zIndex: trackArenaUsers.length - i }}
@@ -1445,16 +1455,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     </motion.div>
                                   </motion.div>
                                 ))}
+                                {hiddenArenaCount > 0 && (
+                                  <motion.div
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.72 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="relative -mr-1 flex h-10 min-w-10 shrink-0 snap-start items-center justify-center rounded-full border border-white/10 bg-black/50 px-2 text-[9px] font-black text-white/80 shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11"
+                                  >
+                                    +{hiddenArenaCount}
+                                  </motion.div>
+                                )}
                               </div>
-
-                              {hasMoreArena && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setArenaExpanded(!arenaExpanded); }}
-                                  className="ml-1 flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/35 text-[8px] sm:text-[9px] font-bold text-white/80 shadow-[0_12px_28px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-all hover:bg-white/10"
-                                >
-                                  {arenaExpanded ? <ChevronLeft className="h-3 w-3" /> : `+${allTrackArenaUsers.length - trackArenaUsers.length}`}
-                                </button>
-                              )}
                             </motion.div>
                           ) : (
                             <motion.div

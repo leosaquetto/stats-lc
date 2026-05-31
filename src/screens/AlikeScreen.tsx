@@ -245,7 +245,7 @@ export default function AlikeScreen() {
       <div className="flex flex-col gap-4">
         <SectionHeader title="Ranking de Afinidade" icon={<Users className="h-4 w-4 text-orange-500" />} />
         <div className="grid grid-cols-2 gap-3">
-          {friendAffinities.slice(0, 4).map((aff, index) => (
+          {friendAffinities.map((aff, index) => (
             <motion.button
               key={aff.friend.id}
               onClick={() => setSelectedFriendId(aff.friend.id)}
