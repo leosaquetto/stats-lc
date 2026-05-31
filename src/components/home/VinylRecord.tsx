@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
+import { useStatsStore } from '../../store/useStatsStore';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -31,8 +32,6 @@ const seededValue = (seed: number, index: number) => {
   const x = Math.sin(seed + index * 97.13) * 10000;
   return x - Math.floor(x);
 };
-
-const fallbackVinylColors = ['#7fa8c7', '#c9d783', '#d8614f', '#f0a22a', '#2aa8a3'];
 
 const VINYL_TEXTURE_COUNT = 3;
 
@@ -110,47 +109,51 @@ export const VinylRecord = ({
   }, [progressMs, durationMs]);
 
   const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
+  const vinylTextureMode = useStatsStore(state => state.vinylTextureMode);
   const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
   const textureSeed       = textureProfile.seed;
-  const textureVariant    = textureProfile.variant;
+  const textureVariant    = vinylTextureMode === 'shuffle' ? textureProfile.variant : Math.max(0, Math.min(2, Number(vinylTextureMode) - 1));
   const textureName       = textureVariant === 0 ? 'classic' : textureVariant === 1 ? 'marble' : 'splatter';
   const safeDominantColor = useMemo(() => {
     const saturation = getSaturation(baseDominantColor);
     const brightness = getPerceivedBrightness(baseDominantColor);
-    if (saturation < 0.24 || brightness < 48) {
-      return fallbackVinylColors[textureSeed % fallbackVinylColors.length];
+    if (saturation < 0.16) {
+      if (brightness > 168) return '#f2eee6';
+      if (brightness < 58) return '#2f2f2f';
+      return baseDominantColor;
     }
     if (brightness < 82) return adjustBrightness(baseDominantColor, 0.32);
     return baseDominantColor;
-  }, [baseDominantColor, textureSeed]);
+  }, [baseDominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 75 }, (_, i) => {
+    return Array.from({ length: 42 }, (_, i) => {
       const angle = seededValue(textureSeed, i) * 360;
-      const inner = 20 + seededValue(textureSeed, i + 41) * 8;
-      const outer = Math.min(49.5, inner + 15 + seededValue(textureSeed, i + 73) * 25);
-      const width = 0.6 + seededValue(textureSeed, i + 101) * 3.4;
-      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 2.0;
-      return { angle, inner, outer, width, bend, opacity: 0.85 + seededValue(textureSeed, i + 137) * 0.15 };
+      const inner = 24 + seededValue(textureSeed, i + 41) * 9;
+      const outer = Math.min(48.5, inner + 8 + seededValue(textureSeed, i + 73) * 18);
+      const width = 0.35 + seededValue(textureSeed, i + 101) * 1.65;
+      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 4.6;
+      const taper = 0.18 + seededValue(textureSeed, i + 127) * 0.34;
+      return { angle, inner, outer, width, bend, taper, opacity: 0.48 + seededValue(textureSeed, i + 137) * 0.34 };
     });
   }, [textureSeed, textureVariant]);
   const splatterDrops = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 40 }, (_, i) => ({
+    return Array.from({ length: 30 }, (_, i) => ({
       angle: seededValue(textureSeed, i + 411) * 360,
-      radius: 22 + seededValue(textureSeed, i + 439) * 26,
-      size: 0.5 + seededValue(textureSeed, i + 467) * 2.0,
-      opacity: 0.7 + seededValue(textureSeed, i + 491) * 0.3,
+      radius: 24 + seededValue(textureSeed, i + 439) * 24,
+      size: 0.35 + seededValue(textureSeed, i + 467) * 1.35,
+      opacity: 0.42 + seededValue(textureSeed, i + 491) * 0.28,
     }));
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
 
-  const tonearmNeedleX = 66 - currentRatio * 6;
-  const tonearmNeedleY = 66 - currentRatio * 12;
-  const tonearmPivotX = 77;
-  const tonearmPivotY = 15;
+  const tonearmNeedleX = 76 - currentRatio * 6.5;
+  const tonearmNeedleY = 34 + currentRatio * 5;
+  const tonearmPivotX = 91;
+  const tonearmPivotY = 21;
 
   return (
     <div
@@ -176,22 +179,22 @@ export const VinylRecord = ({
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <motion.div
-        className={`absolute inset-0 rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10 ${isPlaying && canAnimate ? "vinyl-record-spin" : canAnimate ? "vinyl-record-idle" : ""}`}
+        className={`absolute inset-0 overflow-hidden rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10 ${isPlaying && canAnimate ? "vinyl-record-spin" : canAnimate ? "vinyl-record-idle" : ""}`}
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.28) 18%, transparent 19%),
-            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.5 : 0.34)} 0%, transparent 44%),
-            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.14 : 0.08)} 0%, transparent 48%),
-            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.1) 0%, transparent 32%),
+            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.36 : 0.26)} 0%, transparent 46%),
+            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.12 : 0.06)} 0%, transparent 50%),
+            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
             conic-gradient(
               from ${textureVariant * 34}deg,
-              ${withAlpha(safeDominantColor, 0.62)} 0deg,
-              ${withAlpha(lightColor, 0.38)} 46deg,
-              ${withAlpha(safeDominantColor, 0.46)} 118deg,
-              ${withAlpha(darkColor, 0.12)} 174deg,
-              ${withAlpha(lightColor, 0.4)} 232deg,
-              ${withAlpha(safeDominantColor, 0.46)} 304deg,
-              ${withAlpha(safeDominantColor, 0.62)} 360deg
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.48 : 0.52)} 0deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.24 : 0.3)} 46deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.38 : 0.42)} 118deg,
+              ${withAlpha(darkColor, 0.10)} 174deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.26 : 0.34)} 232deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.38 : 0.42)} 304deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.48 : 0.52)} 360deg
             )
           `,
           isolation: 'isolate',
@@ -216,20 +219,20 @@ export const VinylRecord = ({
             background:
               textureVariant === 1
                 ? `
-                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.2) 12%, transparent 25%, rgba(0,0,0,0.24) 45%, transparent 60%, rgba(0,0,0,0.18) 80%, transparent),
-                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.1) 20%, transparent 40%, rgba(0,0,0,0.18) 75%, transparent),
-                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.14) 0%, transparent 50%)
+                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.14) 12%, transparent 25%, rgba(0,0,0,0.16) 45%, transparent 60%, rgba(0,0,0,0.12) 80%, transparent),
+                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.08) 20%, transparent 40%, rgba(0,0,0,0.12) 75%, transparent),
+                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.10) 0%, transparent 54%)
                 `
                 : textureVariant === 2
                   ? `
-                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.08) 25%, transparent 29%)
+                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.045) 25%, transparent 30%)
                   `
                   : `
-                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.12) 25%, transparent 29%),
-                    conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.05) 15deg, transparent 30deg, transparent 180deg, rgba(255,255,255,0.05) 195deg, transparent 210deg)
+                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.08) 25%, transparent 30%),
+                    conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.035) 15deg, transparent 30deg, transparent 180deg, rgba(255,255,255,0.035) 195deg, transparent 210deg)
                   `,
             mixBlendMode: textureVariant === 1 ? 'soft-light' : 'screen',
-            opacity: isPlaying ? 0.72 : 0.58,
+            opacity: isPlaying ? 0.62 : 0.5,
           }}
         />
 
@@ -241,11 +244,11 @@ export const VinylRecord = ({
         >
           <defs>
             <clipPath id={`${uniqueId}-vinyl-disc-clip`}>
-              <circle cx="50" cy="50" r="49.2" />
+              <circle cx="50" cy="50" r="48.25" />
               <circle cx="50" cy="50" r="5.2" />
             </clipPath>
             <filter id={`${uniqueId}-splatter-soften`}>
-              <feGaussianBlur in="SourceGraphic" stdDeviation="0.08" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="0.12" />
             </filter>
           </defs>
           <g clipPath={`url(#${uniqueId}-vinyl-disc-clip)`}>
@@ -257,24 +260,27 @@ export const VinylRecord = ({
                 key={`${uniqueId}-groove-${i}`}
                 cx="50"
                 cy="50"
-                r={r}
+                r={Math.min(r, 47.8)}
                 fill="none"
                 stroke={i % 4 === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.22)'}
                 strokeWidth={i % 5 === 0 ? 0.22 : 0.12}
                 opacity={i % 2 === 0 ? 0.65 : 0.35}
               />
             ))}
+            <circle cx="50" cy="50" r="48.35" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.45" opacity="0.55" />
 
             {textureVariant === 2 && (
-              <g filter={`url(#${uniqueId}-splatter-soften)`} style={{ mixBlendMode: 'normal' }}>
+              <g filter={`url(#${uniqueId}-splatter-soften)`} style={{ mixBlendMode: 'screen' }}>
                 {splatterStreaks.map((s, i) => (
                   <path
                     key={`${uniqueId}-streak-${i}`}
-                    d={`M 50 ${50 - s.inner} Q ${50 + s.bend} ${50 - (s.inner + s.outer) / 2}, 50 ${50 - s.outer}`}
-                    fill="none"
-                    stroke="rgba(255,255,255,0.98)"
-                    strokeWidth={s.width}
-                    strokeLinecap="round"
+                    d={`
+                      M ${50 - s.width * s.taper} ${50 - s.inner}
+                      Q ${50 + s.bend - s.width * 0.55} ${50 - (s.inner + s.outer) / 2}, ${50 - s.width * 0.18} ${50 - s.outer}
+                      Q ${50 + s.bend + s.width * 0.55} ${50 - (s.inner + s.outer) / 2}, ${50 + s.width * s.taper} ${50 - s.inner}
+                      Z
+                    `}
+                    fill="rgba(255,255,255,0.88)"
                     opacity={s.opacity}
                     transform={`rotate(${s.angle} 50 50)`}
                   />
@@ -285,7 +291,7 @@ export const VinylRecord = ({
                     cx="50"
                     cy={50 - drop.radius}
                     r={drop.size}
-                    fill="rgba(255,255,255,0.98)"
+                    fill="rgba(255,255,255,0.82)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
                   />
@@ -389,10 +395,20 @@ export const VinylRecord = ({
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
             style={{ zIndex: 80, overflow: 'visible', filter: 'drop-shadow(0 9px 18px rgba(0,0,0,0.78))' }}
-            initial={{ opacity: 0, x: 10, y: -8, rotate: -4 }}
-            animate={{ opacity: 1, x: 0, y: 0, rotate: 0 }}
-            exit={{ opacity: 0, x: 14, y: -8 }}
-            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, x: 13, y: -12, rotate: -8 }}
+            animate={{
+              opacity: 1,
+              x: [0, -0.75, 0.45, 0],
+              y: [0, 0.5, -0.2, 0],
+              rotate: [0, -0.35, 0.25, 0],
+            }}
+            exit={{ opacity: 0, x: 14, y: -12, rotate: -7 }}
+            transition={{
+              opacity: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
+              x: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
+              y: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
+              rotate: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
+            }}
           >
             <defs>
               <linearGradient id={`${uniqueId}-tonearm-metal`} x1="0" x2="1" y1="0" y2="1">
@@ -442,7 +458,7 @@ export const VinylRecord = ({
               strokeWidth="0.5"
             />
             <circle cx={tonearmPivotX - 1.2} cy={tonearmPivotY - 1.1} r="1.15" fill="rgba(255,255,255,0.22)" />
-            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-48)`}>
+            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-34)`}>
               <rect
                 x="-4.8"
                 y="-4.7"

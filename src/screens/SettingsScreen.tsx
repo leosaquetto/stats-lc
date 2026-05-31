@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Users, EyeOff, MinusCircle, Bell, BellRing, Sparkles, Activity, Check, Info, AlertTriangle, X, Clock, Image as ImageIcon, ChevronRight, Swords, Loader2, Database } from 'lucide-react';
+import { Settings, Users, EyeOff, MinusCircle, Bell, BellRing, Sparkles, Activity, Check, Info, AlertTriangle, X, Clock, Image as ImageIcon, ChevronRight, Swords, Loader2, Database, Disc } from 'lucide-react';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
 import { notificationService } from '../services/notificationService';
@@ -43,6 +43,8 @@ export default function SettingsScreen() {
   const setAnimationDelay = useStatsStore(state => state.setAnimationDelay);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration);
   const setShimmerDuration = useStatsStore(state => state.setShimmerDuration);
+  const vinylTextureMode = useStatsStore(state => state.vinylTextureMode);
+  const setVinylTextureMode = useStatsStore(state => state.setVinylTextureMode);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
   const isRefreshing = useStatsStore(state => state.isRefreshing);
   const lastFetchTime = useStatsStore(state => state.lastFetchTime);
@@ -287,7 +289,7 @@ export default function SettingsScreen() {
            <SectionHeader title="Usuário em Destaque" action={<Users className="h-4 w-4 text-white/20" />} />
            <p className="text-[11px] text-white/40 font-medium px-1">Selecione quem aparecerá no topo da sua Arena pessoal.</p>
            
-           <div className="grid grid-cols-1 gap-2">
+           <div className="grid grid-cols-4 gap-2">
              {members.map((user: any) => (
                <button
                  key={user.id}
@@ -300,15 +302,16 @@ export default function SettingsScreen() {
                     );
                  }}
                  className={clsx(
-                   "flex items-center justify-between p-4 rounded-3xl border transition-all active:scale-[0.98]",
+                   "glass flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-3xl p-2 text-center transition-all active:scale-[0.98]",
                    featuredUserId === user.id 
-                    ? "bg-orange-500/10 border-orange-500/40 shadow-[0_10px_30px_rgba(255,159,10,0.1)]" 
-                    : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                    ? "ring-1 ring-orange-500/60 shadow-[0_10px_30px_rgba(255,159,10,0.1)]" 
+                    : "hover:bg-white/[0.04]"
                  )}
+                 style={{ border: 0 }}
                >
-                 <div className="flex items-center gap-4">
+                 <div className="relative">
                    <div className={clsx(
-                     "h-12 w-12 rounded-full p-1",
+                     "h-12 w-12 rounded-full p-1 transition-colors",
                      featuredUserId === user.id ? "bg-orange-500" : "bg-white/10"
                    )}>
                       <SmartImage 
@@ -318,18 +321,15 @@ export default function SettingsScreen() {
                         rounded="full"
                       />
                    </div>
-                   <div className="flex flex-col items-start">
-                      <span className={clsx("text-sm font-bold", featuredUserId === user.id ? "text-orange-400" : "text-white/80")}>
-                        {user.name}
-                      </span>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/20">Membro da Arena</span>
-                   </div>
+                   {featuredUserId === user.id && (
+                     <div className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 shadow-lg">
+                        <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                     </div>
+                   )}
                  </div>
-                 {featuredUserId === user.id && (
-                   <div className="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
-                      <div className="h-2 w-2 rounded-full bg-white" />
-                   </div>
-                 )}
+                 <span className={clsx("w-full truncate text-[10px] font-black leading-none", featuredUserId === user.id ? "text-orange-400" : "text-white/70")}>
+                   {user.name}
+                 </span>
                </button>
              ))}
            </div>
@@ -848,6 +848,51 @@ export default function SettingsScreen() {
            </p>
            
            <div className="glass-card p-6 flex flex-col gap-6">
+              <div className="flex flex-col gap-4">
+                 <div className="flex items-center justify-between gap-4">
+                    <div className="flex flex-col gap-1">
+                       <span className="text-[13px] font-bold text-white/90">Modelo padrão do vinil</span>
+                       <span className="text-[10px] text-white/30">Fixe uma textura para testar ou deixe alternar automaticamente.</span>
+                    </div>
+                    <Disc className="h-4 w-4 shrink-0 text-white/25" />
+                 </div>
+
+                 <div className="grid grid-cols-4 gap-2">
+                   {[
+                     { value: 'shuffle', label: 'Shuffle' },
+                     { value: '1', label: '1' },
+                     { value: '2', label: '2' },
+                     { value: '3', label: '3' },
+                   ].map((option) => {
+                     const active = vinylTextureMode === option.value;
+                     return (
+                       <button
+                         key={option.value}
+                         onClick={() => {
+                           setVinylTextureMode(option.value as 'shuffle' | '1' | '2' | '3');
+                           showToast(
+                             'Vinil',
+                             option.value === 'shuffle'
+                               ? 'Os vinis voltaram a alternar entre os 3 modelos.'
+                               : `Modelo ${option.value} fixado para teste.`,
+                             'info'
+                           );
+                         }}
+                         className={clsx(
+                           "glass h-10 rounded-2xl text-[10px] font-black uppercase tracking-[0.14em] transition-all active:scale-[0.97]",
+                           active ? "text-orange-400 ring-1 ring-orange-500/50" : "text-white/45 hover:text-white/75"
+                         )}
+                         style={{ border: 0 }}
+                       >
+                         {option.label}
+                       </button>
+                     );
+                   })}
+                 </div>
+              </div>
+
+              <div className="h-px w-full bg-white/5" />
+
               
               {/* Animation Duration (Fade In) */}
               <div className="flex flex-col gap-4">

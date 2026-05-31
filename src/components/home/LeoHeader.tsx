@@ -18,7 +18,7 @@ import { VinylRecord } from './VinylRecord';
 import { statsService } from '../../services/statsService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getDominantColor, withAlpha, ensureVisibility } from '../../lib/colorUtils';
+import { getDominantColor, withAlpha, ensureVisibility, getSaturation, getPerceivedBrightness, normalizeColor } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 import { getCanonicalMembers, getVisibleMembers } from '../../lib/memberSelectors';
 
@@ -138,6 +138,18 @@ const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
 const COMPLETION_RECHECK_INTERVAL_MS = 5000;
 const MAX_COMPLETION_RECHECKS = 6;
+
+function normalizePlaybackAccent(color: string | null) {
+  if (!color) return null;
+  const normalized = normalizeColor(color, '#ff5f00');
+  const saturation = getSaturation(normalized);
+  const brightness = getPerceivedBrightness(normalized);
+  if (saturation < 0.16) {
+    if (brightness > 168) return '#f2eee6';
+    if (brightness < 58) return '#ff5f00';
+  }
+  return normalized;
+}
 
 type PlaybackSnapshot = {
   playbackKey: string;
@@ -674,7 +686,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [user.id, user.platform, track]);
 
   const [arenaExpanded, setArenaExpanded] = useState(false);
-  const providedDominantColor = typeof nowPlaying?.dominantColor === 'string' ? nowPlaying.dominantColor : null;
+  const providedDominantColor = normalizePlaybackAccent(typeof nowPlaying?.dominantColor === 'string' ? nowPlaying.dominantColor : null);
   const [dominantColor, setDominantColor] = useState<string | null>(providedDominantColor);
   const [listenStatsOpen, setListenStatsOpen] = useState(false);
   const [listenStatsActiveIndex, setListenStatsActiveIndex] = useState(0);
@@ -699,7 +711,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
     let isMounted = true;
     getDominantColor(albumImage).then(color => {
-      if (isMounted) setDominantColor(color);
+      if (isMounted) setDominantColor(normalizePlaybackAccent(color));
     }).catch(() => {
       if (isMounted) setDominantColor(null);
     });
