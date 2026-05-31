@@ -40,6 +40,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isOffline = useStatsStore(state => state.isOffline);
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const [homeReady, setHomeReady] = React.useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.__STATS_LC_HOME_READY__ === true || sessionStorage.getItem('stats-lc-home-boot-ready') === '1';
+  });
   
   const allUsers = React.useMemo(() => {
     return getCanonicalMembers(groupStats);
@@ -124,6 +128,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
 
+  React.useEffect(() => {
+    const handleHomeReady = (event: Event) => {
+      const ready = (event as CustomEvent<{ ready?: boolean }>).detail?.ready;
+      if (ready === true) {
+        sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+      }
+      setHomeReady(ready === true);
+    };
+    window.addEventListener('stats-lc-home-ready', handleHomeReady);
+    return () => window.removeEventListener('stats-lc-home-ready', handleHomeReady);
+  }, []);
+
   const toggleSyncInfo = () => {
     setIsSyncInfoExpanded(prev => {
       const next = !prev;
@@ -144,6 +160,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const lastUpdate = groupStats?.lastUpdated;
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
+  const isHomeRoute = location.pathname === '/';
+  const shouldGateHome = isHomeRoute && !homeReady;
 
   return (
     <div
@@ -168,7 +186,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </AnimatePresence>
 
       {/* Scrollable Content */}
-      <main className="flex-1 w-full pt-[max(env(safe-area-inset-top),40px)] pb-[calc(env(safe-area-inset-bottom)+100px)]">
+      <main className={clsx(
+        "flex-1 w-full pt-[max(env(safe-area-inset-top),40px)] pb-[calc(env(safe-area-inset-bottom)+100px)]",
+        shouldGateHome && "pointer-events-none opacity-0"
+      )}>
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -187,7 +208,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </main>
 
       {/* Tab Bar (Floating Bottom Nav) */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2">
+      <div className={clsx(
+        "fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2",
+        shouldGateHome && "hidden"
+      )}>
         {/* Sync Info Footer - aparece apenas quando scrollar */}
         <AnimatePresence>
           {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (

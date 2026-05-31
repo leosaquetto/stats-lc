@@ -157,7 +157,7 @@ export const StatsAlike = React.memo(() => {
           !!tops?.artists?.length ||
           !!tops?.albums?.length;
 
-        if (!hasAnyTopItems || shouldRefetch) {
+        if (!hasAnyTopItems && shouldRefetch) {
           try {
             const result = await prefetchUserTops(member.id);
             if (result && result.fetchedAt && !cancelled) {

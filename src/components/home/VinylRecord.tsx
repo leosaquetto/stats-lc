@@ -34,17 +34,17 @@ const seededValue = (seed: number, index: number) => {
 
 const fallbackVinylColors = ['#7fa8c7', '#c9d783', '#d8614f', '#f0a22a', '#2aa8a3'];
 
+const VINYL_TEXTURE_COUNT = 3;
+
 const vinylTextureCache = new Map<string, { seed: number; variant: number }>();
 
 const getTextureProfile = (albumImage: string, dominantColor: string) => {
-  const key = `${albumImage || 'no-cover'}|${dominantColor}`;
+  const key = albumImage || dominantColor || 'no-cover';
   const cached = vinylTextureCache.get(key);
   if (cached) return cached;
 
-  const imageHash = hashString(albumImage || 'no-cover');
-  const colorHash = hashString(dominantColor);
-  const seed = Math.abs(Math.imul(imageHash || 17, 101) ^ Math.imul(colorHash || 29, 53) ^ key.length);
-  const variant = (seed + Math.floor(seededValue(seed, 4) * 1000)) % 3;
+  const seed = hashString(key);
+  const variant = seed % VINYL_TEXTURE_COUNT;
   const profile = { seed, variant };
 
   if (vinylTextureCache.size > 120) {
@@ -104,7 +104,7 @@ export const VinylRecord = ({
   const canAnimate = isVisible && !prefersReducedMotion;
 
   const currentRatio = useMemo(() => {
-    if (!durationMs || !progressMs) return 0.5;
+    if (!durationMs || progressMs == null) return 0.5;
     return Math.min(1, Math.max(0, progressMs / durationMs));
   }, [progressMs, durationMs]);
 
@@ -112,6 +112,7 @@ export const VinylRecord = ({
   const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
   const textureSeed       = textureProfile.seed;
   const textureVariant    = textureProfile.variant;
+  const textureName       = textureVariant === 0 ? 'classic' : textureVariant === 1 ? 'marble' : 'splatter';
   const safeDominantColor = useMemo(() => {
     const saturation = getSaturation(baseDominantColor);
     const brightness = getPerceivedBrightness(baseDominantColor);
@@ -125,23 +126,23 @@ export const VinylRecord = ({
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 65 }, (_, i) => {
+    return Array.from({ length: 34 }, (_, i) => {
       const angle = seededValue(textureSeed, i) * 360;
       const inner = 20 + seededValue(textureSeed, i + 12) * 9;
-      const length = 12 + seededValue(textureSeed, i + 45) * 22;
+      const length = 9 + seededValue(textureSeed, i + 45) * 17;
       const outer = Math.min(48.8, inner + length);
-      const width = 0.4 + seededValue(textureSeed, i + 88) * 1.4;
+      const width = 0.32 + seededValue(textureSeed, i + 88) * 0.9;
       const bend = (seededValue(textureSeed, i + 119) - 0.5) * 1.8;
-      return { angle, inner, outer, width, bend, opacity: 0.85 + seededValue(textureSeed, i + 137) * 0.15 };
+      return { angle, inner, outer, width, bend, opacity: 0.38 + seededValue(textureSeed, i + 137) * 0.28 };
     });
   }, [textureSeed, textureVariant]);
   const splatterDrops = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 45 }, (_, i) => ({
+    return Array.from({ length: 22 }, (_, i) => ({
       angle: seededValue(textureSeed, i + 313) * 360,
       radius: 21 + seededValue(textureSeed, i + 154) * 27,
-      size: 0.4 + seededValue(textureSeed, i + 99) * 1.3,
-      opacity: 0.75 + seededValue(textureSeed, i + 242) * 0.25,
+      size: 0.35 + seededValue(textureSeed, i + 99) * 0.95,
+      opacity: 0.38 + seededValue(textureSeed, i + 242) * 0.3,
     }));
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
@@ -156,6 +157,7 @@ export const VinylRecord = ({
       ref={containerRef}
       className="relative w-full aspect-square flex items-center justify-center cursor-pointer"
       onClick={onClick}
+      data-vinyl-variant={textureName}
     >
       <>
 
@@ -178,18 +180,18 @@ export const VinylRecord = ({
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.28) 18%, transparent 19%),
-            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.68 : 0.44)} 0%, transparent 44%),
-            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.18 : 0.10)} 0%, transparent 48%),
-            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.16) 0%, transparent 32%),
+            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.5 : 0.34)} 0%, transparent 44%),
+            radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.14 : 0.08)} 0%, transparent 48%),
+            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.1) 0%, transparent 32%),
             conic-gradient(
               from ${textureVariant * 34}deg,
-              ${withAlpha(safeDominantColor, 0.68)} 0deg,
-              ${withAlpha(lightColor, 0.5)} 46deg,
-              ${withAlpha(safeDominantColor, 0.5)} 118deg,
-              ${withAlpha(darkColor, 0.16)} 174deg,
-              ${withAlpha(lightColor, 0.54)} 232deg,
-              ${withAlpha(safeDominantColor, 0.52)} 304deg,
-              ${withAlpha(safeDominantColor, 0.68)} 360deg
+              ${withAlpha(safeDominantColor, 0.62)} 0deg,
+              ${withAlpha(lightColor, 0.38)} 46deg,
+              ${withAlpha(safeDominantColor, 0.46)} 118deg,
+              ${withAlpha(darkColor, 0.12)} 174deg,
+              ${withAlpha(lightColor, 0.4)} 232deg,
+              ${withAlpha(safeDominantColor, 0.46)} 304deg,
+              ${withAlpha(safeDominantColor, 0.62)} 360deg
             )
           `,
           isolation: 'isolate',
@@ -201,9 +203,9 @@ export const VinylRecord = ({
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
           willChange: isPlaying ? 'transform' : 'auto',
-          filter: isPlaying ? 'brightness(1.18) saturate(1.16)' : 'none',
+          filter: isPlaying ? 'brightness(1.08) saturate(1.08)' : 'none',
           boxShadow: isPlaying
-            ? `0 0 30px ${withAlpha(safeDominantColor, 0.5)}, 0 0 60px ${withAlpha(safeDominantColor, 0.3)}`
+            ? `0 0 24px ${withAlpha(safeDominantColor, 0.32)}, 0 0 48px ${withAlpha(safeDominantColor, 0.18)}`
             : 'none'
         }}
       >
@@ -214,9 +216,9 @@ export const VinylRecord = ({
             background:
               textureVariant === 1
                 ? `
-                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.35) 12%, transparent 25%, rgba(0,0,0,0.4) 45%, transparent 60%, rgba(0,0,0,0.3) 80%, transparent),
-                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(0,0,0,0.25) 20%, transparent 40%, rgba(0,0,0,0.35) 75%, transparent),
-                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.25) 0%, transparent 50%)
+                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.2) 12%, transparent 25%, rgba(0,0,0,0.24) 45%, transparent 60%, rgba(0,0,0,0.18) 80%, transparent),
+                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.1) 20%, transparent 40%, rgba(0,0,0,0.18) 75%, transparent),
+                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.14) 0%, transparent 50%)
                 `
                 : textureVariant === 2
                   ? `
@@ -226,8 +228,8 @@ export const VinylRecord = ({
                     radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.12) 25%, transparent 29%),
                     conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.05) 15deg, transparent 30deg, transparent 180deg, rgba(255,255,255,0.05) 195deg, transparent 210deg)
                   `,
-            mixBlendMode: textureVariant === 1 ? 'multiply' : 'screen',
-            opacity: isPlaying ? 0.95 : 0.8,
+            mixBlendMode: textureVariant === 1 ? 'soft-light' : 'screen',
+            opacity: isPlaying ? 0.72 : 0.58,
           }}
         />
 
@@ -270,7 +272,7 @@ export const VinylRecord = ({
                     key={`${uniqueId}-streak-${i}`}
                     d={`M 50 ${50 - s.inner} Q ${50 + s.bend} ${50 - (s.inner + s.outer) / 2}, 50 ${50 - s.outer}`}
                     fill="none"
-                    stroke="rgba(255,255,255,0.98)"
+                    stroke="rgba(255,255,255,0.76)"
                     strokeWidth={s.width}
                     strokeLinecap="round"
                     opacity={s.opacity}
@@ -283,7 +285,7 @@ export const VinylRecord = ({
                     cx="50"
                     cy={50 - drop.radius}
                     r={drop.size}
-                    fill="rgba(255,255,255,0.98)"
+                    fill="rgba(255,255,255,0.72)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
                   />

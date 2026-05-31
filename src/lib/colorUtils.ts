@@ -3,15 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as ColorThiefModule from 'colorthief';
-
-type ColorThiefApi = {
-  getColor?: (image: HTMLImageElement) => Promise<any>;
-  getColorSync?: (image: HTMLImageElement) => any;
-};
-
-const colorThiefApi = ColorThiefModule as unknown as ColorThiefApi;
-
 // Cache para cores dominantes extraídas
 const colorCache = new Map<string, string>();
 const MAX_CACHE_SIZE = 100;
@@ -191,7 +182,7 @@ function getSmartCanvasColor(img: HTMLImageElement): string | null {
 }
 
 /**
- * Get dominant color from image using ColorThief with canvas fallback
+ * Get a stable accent color from the artwork using local canvas sampling.
  * Includes caching to avoid reprocessing the same images
  * @returns Promise<string> - Hex color (#rrggbb)
  */
@@ -216,36 +207,7 @@ export function getDominantColor(imageSrc: string): Promise<string> {
         }
       } catch (e) {
         if ((import.meta as any).env?.DEV) {
-          console.warn('[colorUtils] Smart canvas color failed, trying ColorThief:', e);
-        }
-      }
-
-      try {
-        // Try ColorThief first
-        const color = typeof colorThiefApi.getColorSync === 'function'
-          ? colorThiefApi.getColorSync(img)
-          : await colorThiefApi.getColor?.(img);
-
-        if (color) {
-          // New versions return an object with .hex() and .array()
-          if (typeof color.hex === 'function') {
-            const hexColor = color.hex();
-            cacheColor(imageSrc, hexColor);
-            resolve(hexColor);
-            return;
-          }
-          // Fallback for older versions that might return [r, g, b]
-          if (Array.isArray(color) && color.length >= 3) {
-            const hexColor = normalizeColor(color);
-            cacheColor(imageSrc, hexColor);
-            resolve(hexColor);
-            return;
-          }
-        }
-      } catch (e) {
-        // ColorThief failed, fall through to canvas sampling
-        if ((import.meta as any).env?.DEV) {
-          console.warn('[colorUtils] ColorThief failed, using canvas fallback:', e);
+          console.warn('[colorUtils] Smart canvas color failed, using average fallback:', e);
         }
       }
 

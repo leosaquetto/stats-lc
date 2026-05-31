@@ -51,12 +51,12 @@ const firstName = (name?: string): string => {
 };
 
 const buildMatchReason = (match: any): string => {
-  if (!match) return 'sem match claro ainda — comparação em aberto';
+  if (!match) return '';
 
   const u1 = match.u1;
   const u2 = match.u2;
 
-  if (!u1 || !u2) return 'sem match claro ainda — comparação em aberto';
+  if (!u1 || !u2) return '';
 
   const u1Artists = new Set((u1.topItems?.artists || []).map((a: any) => normalizeName(getItemName(a))));
   const u2Artists = (u2.topItems?.artists || []).map((a: any) => normalizeName(getItemName(a)));
@@ -102,7 +102,7 @@ const buildMatchReason = (match: any): string => {
     return `${totalCommon} pontos em comum entre artistas e faixas`;
   }
 
-  return 'sem match claro ainda — comparação em aberto';
+  return '';
 };
 
 const getDominantAlbumInsight = (member: any): string => {
@@ -247,13 +247,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       }
     }
 
-    if (candidates.length === 0) {
-      return {
-        u1: activeMembers[daySeed % activeMembers.length],
-        u2: activeMembers[(daySeed + 1) % activeMembers.length] || activeMembers[0],
-        score: 0
-      };
-    }
+    if (candidates.length === 0) return null;
 
     candidates.sort((a, b) => b.score - a.score);
     return candidates[daySeed % Math.min(candidates.length, 4)];
@@ -279,7 +273,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         onClick: () => onFriendClick(mostActive),
         type: 'active'
       },
-      match && {
+      match && buildMatchReason(match) && {
         key: 'match',
         tone: 'red',
         icon: <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />,

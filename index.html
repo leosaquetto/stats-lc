@@ -93,14 +93,6 @@
           if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
         }, 350);
       };
-
-      window.addEventListener('load', function () {
-        setTimeout(function () {
-          if (window.__SPLASH_READY__ === false) {
-            window.__STATS_LC_DISMISS_SPLASH__();
-          }
-        }, 12000);
-      });
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

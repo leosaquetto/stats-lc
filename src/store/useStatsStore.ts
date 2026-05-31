@@ -10,6 +10,7 @@ import { statsService } from '../services/statsService';
 import { notificationService } from '../services/notificationService';
 import { coreUtils } from '../services/statsCore';
 import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
+import { getDominantColor } from '../lib/colorUtils';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -243,6 +244,133 @@ const shouldUseIncomingDisplayName = (existingUser: any, incomingUser: any) => {
   if (existingHasDisplayCasing && incomingLooksLowerAlias) return false;
 
   return true;
+};
+
+const getLiveRenderSignature = (user: any) => {
+  const nowPlaying = user?.nowPlaying || {};
+  const track = nowPlaying?.track || {};
+  const playbackKey =
+    nowPlaying?.playbackKey ||
+    nowPlaying?.streamId ||
+    nowPlaying?.stream?.id ||
+    nowPlaying?.playedAt ||
+    nowPlaying?.endTime ||
+    nowPlaying?.timestamp ||
+    '';
+  return [
+    user?.id || '',
+    user?.name || '',
+    user?.avatar || '',
+    user?.platform?.primary || '',
+    nowPlaying?.isNow === true ? 'live' : 'idle',
+    track?.id || track?.name || '',
+    playbackKey,
+  ].join('|');
+};
+
+const didLivePlaybackChange = (previous: any, next: any) => {
+  const previousNowPlaying = previous?.nowPlaying || {};
+  const nextNowPlaying = next?.nowPlaying || {};
+  return (
+    previousNowPlaying?.isNow !== nextNowPlaying?.isNow ||
+    String(previousNowPlaying?.track?.id || previousNowPlaying?.track?.name || '') !==
+      String(nextNowPlaying?.track?.id || nextNowPlaying?.track?.name || '') ||
+    String(previousNowPlaying?.playbackKey || previousNowPlaying?.streamId || previousNowPlaying?.stream?.id || previousNowPlaying?.playedAt || previousNowPlaying?.endTime || previousNowPlaying?.timestamp || '') !==
+      String(nextNowPlaying?.playbackKey || nextNowPlaying?.streamId || nextNowPlaying?.stream?.id || nextNowPlaying?.playedAt || nextNowPlaying?.endTime || nextNowPlaying?.timestamp || '')
+  );
+};
+
+const getLiveAssetUrls = (users: any[]) => {
+  const urls = new Set<string>();
+  users.forEach((user) => {
+    const avatar = user?.avatar || user?.profile?.image;
+    const track = user?.nowPlaying?.track || {};
+    [
+      avatar,
+      track?.albumImage,
+      track?.album?.image,
+      track?.album?.images?.[0]?.url,
+      track?.album?.images?.[0],
+      track?.image,
+      track?.images?.[0]?.url,
+      track?.images?.[0],
+      track?.albumArt,
+      track?.coverArt,
+      track?.cover_art,
+      track?.album_image,
+      track?.cover,
+    ].forEach((url) => {
+      if (typeof url === 'string' && url.trim().length > 5) urls.add(url);
+    });
+  });
+  return [...urls];
+};
+
+const getLiveArtworkUrl = (user: any) => {
+  const track = user?.nowPlaying?.track || {};
+  return [
+    track?.albumImage,
+    track?.album?.image,
+    track?.album?.images?.[0]?.url,
+    track?.album?.images?.[0],
+    track?.image,
+    track?.images?.[0]?.url,
+    track?.images?.[0],
+    track?.albumArt,
+    track?.coverArt,
+    track?.cover_art,
+    track?.album_image,
+    track?.cover,
+  ].find((url) => typeof url === 'string' && url.trim().length > 5) || '';
+};
+
+const preloadLiveAssets = async (users: any[]) => {
+  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
+  const urls = getLiveAssetUrls(users).slice(0, 12);
+  if (urls.length === 0) return;
+
+  await Promise.race([
+    Promise.allSettled(urls.map((url) => new Promise<void>((resolve) => {
+      const image = new Image();
+      const done = () => resolve();
+      const timer = window.setTimeout(done, 1200);
+      image.onload = () => {
+        window.clearTimeout(timer);
+        if (image.decode) image.decode().then(done).catch(done);
+        else done();
+      };
+      image.onerror = done;
+      image.decoding = 'async';
+      image.src = url;
+    }))).then(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+  ]);
+};
+
+const prepareLiveVisuals = async (users: any[]) => {
+  await preloadLiveAssets(users);
+  if (typeof window === 'undefined') return;
+
+  await Promise.race([
+    Promise.allSettled(users.slice(0, 8).map(async (user) => {
+      if (user?.nowPlaying?.dominantColor) return;
+      const artworkUrl = getLiveArtworkUrl(user);
+      if (!artworkUrl) return;
+
+      const color = await Promise.race([
+        getDominantColor(artworkUrl),
+        new Promise<string>((resolve) => window.setTimeout(() => resolve(''), 1200)),
+      ]);
+
+      if (color && user?.nowPlaying) {
+        user.nowPlaying = {
+          ...user.nowPlaying,
+          dominantColor: color,
+        };
+      }
+    })).then(() => undefined),
+    new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
+  ]);
 };
 
 const canonicalizeGroupStats = (groupStats: GroupStats | null) => {
@@ -1031,14 +1159,14 @@ export const useStatsStore = create<StatsState>()(
             const newGroupStats = { ...currentGroupStats };
             const newUsers = { ...newGroupStats.users };
             const newMembers = [...newGroupStats.members];
+            let hasLiveRenderChanges = false;
+            const changedLiveUsers: any[] = [];
 
             liveData.members?.forEach((liveUser) => {
               const existingUser = newUsers[liveUser.id];
 
               if (existingUser) {
                 // Merge live data while preserving rich data from /api/group
-                const prevTrackId = existingUser.nowPlaying?.track?.id;
-                const newTrackId = liveUser.nowPlaying?.track?.id;
                 const incomingNowPlaying = shouldUseIncomingLivePayload(existingUser.nowPlaying, liveUser.nowPlaying)
                   ? liveUser.nowPlaying
                   : existingUser.nowPlaying;
@@ -1054,6 +1182,13 @@ export const useStatsStore = create<StatsState>()(
                   // Preserve: topItems, recent, catalogSummary, errors, stats
                 };
 
+                const changedForRender =
+                  getLiveRenderSignature(existingUser) !== getLiveRenderSignature(mergedUser);
+
+                if (!changedForRender) return;
+
+                hasLiveRenderChanges = true;
+                changedLiveUsers.push(mergedUser);
                 newUsers[liveUser.id] = mergedUser;
 
                 const memberIndex = newMembers.findIndex(m => m.id === liveUser.id);
@@ -1061,7 +1196,7 @@ export const useStatsStore = create<StatsState>()(
                   newMembers[memberIndex] = mergedUser;
                 }
 
-                if (incomingNowPlaying === liveUser.nowPlaying && newTrackId && prevTrackId && prevTrackId !== newTrackId) {
+                if (didLivePlaybackChange(existingUser, mergedUser)) {
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('nowPlayingChanged', { detail: { userId: liveUser.id } }));
                   }
@@ -1070,11 +1205,19 @@ export const useStatsStore = create<StatsState>()(
                 // New member from live endpoint - add to both structures
                 const normalizedLive = statsService.normalizeMember?.(liveUser);
                 if (normalizedLive) {
+                  hasLiveRenderChanges = true;
+                  changedLiveUsers.push(normalizedLive);
                   newUsers[normalizedLive.id] = normalizedLive;
                   newMembers.push(normalizedLive);
                 }
               }
             });
+
+            if (!hasLiveRenderChanges) {
+              return;
+            }
+
+            await prepareLiveVisuals(changedLiveUsers);
 
             newGroupStats.users = newUsers;
             newGroupStats.members = newMembers;

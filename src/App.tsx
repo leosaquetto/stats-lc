@@ -11,9 +11,18 @@ import HomeScreen from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
 
-const StatsScreen = lazy(() => import('./screens/StatsScreen'));
-const SettingsScreen = lazy(() => import('./screens/SettingsScreen'));
-const CircleScreen = lazy(() => import('./screens/CircleScreen'));
+const loadStatsScreen = () => import('./screens/StatsScreen');
+const loadSettingsScreen = () => import('./screens/SettingsScreen');
+const loadCircleScreen = () => import('./screens/CircleScreen');
+
+const StatsScreen = lazy(loadStatsScreen);
+const SettingsScreen = lazy(loadSettingsScreen);
+const CircleScreen = lazy(loadCircleScreen);
+const preloadSecondaryRoutes = () => Promise.allSettled([
+  loadStatsScreen(),
+  loadCircleScreen(),
+  loadSettingsScreen(),
+]);
 
 const CHUNK_RELOAD_KEY = 'stats-lc-chunk-reload-attempted';
 
@@ -210,7 +219,7 @@ export default function App() {
       window.setTimeout(() => setInitialBootSettled(true), delay);
     };
 
-    fetchStats().then(settleSplash).catch(settleSplash);
+    Promise.allSettled([fetchStats(), preloadSecondaryRoutes()]).then(settleSplash).catch(settleSplash);
 
     return () => {
       window.removeEventListener('online', handleOnline);

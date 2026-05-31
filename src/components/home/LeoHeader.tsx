@@ -68,6 +68,7 @@ interface LiveTrackProgressProps {
   progressMs?: number;
   progressPercent?: number;
   progressAnimationMs?: number;
+  progressAnimationKey?: string;
   durationMs?: number;
   timestamp: string | number;
   isNowPlaying: boolean;
@@ -101,6 +102,25 @@ function readTimeMs(value: unknown) {
 function readProgressMs(nowPlaying: any) {
   const value = nowPlaying?.progressMs ?? nowPlaying?.playedMs;
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function inferProgressMsFromTimestamp(nowPlaying: any, durationMs: number | null, now = Date.now()) {
+  if (!durationMs) return null;
+  const explicitProgressMs = readProgressMs(nowPlaying);
+  if (explicitProgressMs != null) return explicitProgressMs;
+
+  const endedAt = readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp);
+  if (endedAt) {
+    const inferredStart = endedAt - durationMs;
+    return Math.max(0, Math.min(durationMs, now - inferredStart));
+  }
+
+  const startedAt = readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.startedAt ?? nowPlaying?.startTime);
+  if (startedAt) {
+    return Math.max(0, Math.min(durationMs, now - startedAt));
+  }
+
+  return null;
 }
 
 function getPlaybackKey(userId: string, nowPlaying: any, previousSnapshot: PlaybackSnapshot | null) {
@@ -171,9 +191,13 @@ function useLivePlaybackProgress({
     if (!playbackKey) return;
 
     const now = Date.now();
-    const startedAt = readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.endTime ?? nowPlaying?.timestamp);
-    const explicitProgressMs = readProgressMs(nowPlaying);
-    const fallbackProgressMs = explicitProgressMs ?? (startedAt ? Math.max(0, now - startedAt) : 0);
+    const inferredProgressMs = inferProgressMsFromTimestamp(nowPlaying, normalizedDurationMs, now);
+    const startedAt =
+      readTimeMs(nowPlaying?.playedAt ?? nowPlaying?.startedAt ?? nowPlaying?.startTime) ??
+      (normalizedDurationMs && readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp)
+        ? readTimeMs(nowPlaying?.endTime ?? nowPlaying?.timestamp)! - normalizedDurationMs
+        : null);
+    const fallbackProgressMs = inferredProgressMs ?? (startedAt ? Math.max(0, now - startedAt) : 0);
     const previous = snapshotRef.current;
 
     if (!previous || previous.playbackKey !== playbackKey || previous.trackId !== trackId) {
@@ -199,12 +223,12 @@ function useLivePlaybackProgress({
       startedAt: previous.startedAt ?? startedAt,
     };
 
-    if (explicitProgressMs != null && completedPlaybackKeyRef.current !== playbackKey) {
+    if (inferredProgressMs != null && completedPlaybackKeyRef.current !== playbackKey) {
       const projectedProgressMs = calculateSnapshotProgress(snapshotRef.current, now);
-      if (Math.abs(projectedProgressMs - explicitProgressMs) >= DRIFT_REANCHOR_MS) {
+      if (Math.abs(projectedProgressMs - inferredProgressMs) >= DRIFT_REANCHOR_MS) {
         snapshotRef.current = {
           ...snapshotRef.current,
-          baseProgressMs: explicitProgressMs,
+          baseProgressMs: inferredProgressMs,
           receivedAt: now,
         };
         setSnapshotVersion(version => version + 1);
@@ -265,10 +289,13 @@ function useLivePlaybackProgress({
 
   useEffect(() => {
     if (!isNow || !snapshotRef.current) return;
-    const timer = window.setInterval(() => {
-      setSnapshotVersion(version => version + 1);
-    }, 1000);
-    return () => window.clearInterval(timer);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setSnapshotVersion(version => version + 1);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isNow, trackId]);
 
   const progressAnimationMs = normalizedDurationMs
@@ -279,6 +306,7 @@ function useLivePlaybackProgress({
     progressMs: cappedProgressMs,
     progressPercent,
     progressAnimationMs,
+    progressAnimationKey: `${snapshotRef.current?.playbackKey || 'idle'}:${snapshotVersion}`,
     isFinished,
     isCheckingNext,
     shouldSpinVinyl: isNow && !isFinished,
@@ -289,6 +317,7 @@ export const LiveTrackProgress = memo(({
   progressMs,
   progressPercent,
   progressAnimationMs,
+  progressAnimationKey,
   durationMs,
   timestamp,
   isNowPlaying,
@@ -430,14 +459,19 @@ export const LiveTrackProgress = memo(({
             </span>
           </div>
           <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
-            <div
+            <motion.div
+              key={progressAnimationKey}
               className="h-full w-full rounded-full relative"
+              initial={{ scaleX: progressScale }}
+              animate={{ scaleX: isNowPlaying ? 1 : progressScale }}
+              transition={{
+                duration: isNowPlaying && progressAnimationMs && progressAnimationMs > 0
+                  ? Math.max(0.2, progressAnimationMs / 1000)
+                  : 0,
+                ease: 'linear'
+              }}
               style={{
-                transform: `scaleX(${progressScale})`,
                 transformOrigin: 'left center',
-                transition: isNowPlaying && progressAnimationMs && progressAnimationMs > 0
-                  ? 'transform 1s linear'
-                  : undefined,
                 background: dominantColor
                   ? (() => {
                       const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
@@ -466,7 +500,7 @@ export const LiveTrackProgress = memo(({
                   filter: 'brightness(1.2)'
                 }}
               />
-            </div>
+            </motion.div>
           </div>
         </motion.div>
       )}
@@ -569,7 +603,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [user.id, user.platform, track]);
 
   const [arenaExpanded, setArenaExpanded] = useState(false);
-  const [dominantColor, setDominantColor] = useState<string | null>(null);
+  const providedDominantColor = typeof nowPlaying?.dominantColor === 'string' ? nowPlaying.dominantColor : null;
+  const [dominantColor, setDominantColor] = useState<string | null>(providedDominantColor);
   const [listenStatsOpen, setListenStatsOpen] = useState(false);
   const [listenStatsActiveIndex, setListenStatsActiveIndex] = useState(0);
   const [listenStatsLoading, setListenStatsLoading] = useState(false);
@@ -581,6 +616,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const listenDeckTouchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
+    if (providedDominantColor) {
+      setDominantColor(providedDominantColor);
+      return;
+    }
+
     if (!albumImage) {
        setDominantColor(null);
        return;
@@ -596,7 +636,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     return () => {
        isMounted = false;
     };
-  }, [albumImage]);
+  }, [albumImage, providedDominantColor]);
 
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
@@ -1239,6 +1279,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                             progressMs={livePlayback.progressMs}
                             progressPercent={livePlayback.progressPercent}
                             progressAnimationMs={livePlayback.progressAnimationMs}
+                            progressAnimationKey={livePlayback.progressAnimationKey}
                             durationMs={durationMs || undefined}
                             timestamp={nowPlaying.timestamp}
                             isNowPlaying={isActuallyLive}

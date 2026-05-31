@@ -1486,7 +1486,19 @@ export default function StatsScreen() {
     let cancelled = false;
     async function loadAllPeriodData() {
       if (viewMode === 'friends' || !CURRENT_USER_ID) return;
-      setIsTopItemsLoading(true);
+      const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
+      const hasFallbackTops =
+        !!fallbackTops.artists?.length ||
+        !!fallbackTops.tracks?.length ||
+        !!fallbackTops.albums?.length;
+
+      if (hasFallbackTops) {
+        setActivePeriodArtists(prev => prev.length > 0 ? prev : (fallbackTops.artists || []));
+        setActivePeriodTracks(prev => prev.length > 0 ? prev : (fallbackTops.tracks || []));
+        setActivePeriodAlbums(prev => prev.length > 0 ? prev : (fallbackTops.albums || []));
+      }
+
+      setIsTopItemsLoading(!hasFallbackTops);
       setTopItemsError(null);
       try {
         const period = periodMap[activeFilter];
@@ -1496,7 +1508,6 @@ export default function StatsScreen() {
           statsService.getTopItems(CURRENT_USER_ID, 'albums', period)
         ]);
         if (cancelled) return;
-        const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
         setActivePeriodArtists((artists && artists.length > 0) ? artists : (fallbackTops.artists || []));
         setActivePeriodTracks((tracks && tracks.length > 0) ? tracks : (fallbackTops.tracks || []));
         setActivePeriodAlbums((albums && albums.length > 0) ? albums : (fallbackTops.albums || []));

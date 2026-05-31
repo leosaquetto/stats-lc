@@ -16,11 +16,13 @@ import { CircleTopOrbit } from './CircleTopOrbit';
 export const FriendsMonthlyHighlights = React.memo(({
   periodQuery,
   activeTab = 'month',
-  selectedSubValues = {}
+  selectedSubValues = {},
+  preparedPeriodTops
 }: {
   periodQuery?: ReplayPeriodQuery;
   activeTab?: ReplayFilterPeriod;
   selectedSubValues?: ReplaySelectedSubValues;
+  preparedPeriodTops?: Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>;
 }) => {
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
@@ -39,6 +41,10 @@ export const FriendsMonthlyHighlights = React.memo(({
   ]);
 
   useEffect(() => {
+    if (preparedPeriodTops) {
+      setPeriodTops(preparedPeriodTops);
+      return;
+    }
     if (!stablePeriodQuery || visibleMembers.length === 0) return;
     let cancelled = false;
     Promise.allSettled(visibleMembers.map(async (member) => {
@@ -59,7 +65,7 @@ export const FriendsMonthlyHighlights = React.memo(({
     return () => {
       cancelled = true;
     };
-  }, [stablePeriodQuery, visibleMembers]);
+  }, [stablePeriodQuery, visibleMembers, preparedPeriodTops]);
 
   const sortedFriends = React.useMemo(() => [...visibleMembers].sort((a, b) => {
     const aTops = periodTops[a.id] || a.topItems;

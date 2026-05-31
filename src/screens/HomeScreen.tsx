@@ -733,6 +733,13 @@ const getReplayTrackUrl = (track: any) => {
 };
 
 export default function HomeScreen() {
+  const hasBootReadySession = () => {
+    try {
+      return window.__STATS_LC_HOME_READY__ === true || sessionStorage.getItem('stats-lc-home-boot-ready') === '1';
+    } catch {
+      return window.__STATS_LC_HOME_READY__ === true;
+    }
+  };
   const groupStats = useStatsStore(state => state.groupStats);
   const isLoading = useStatsStore(state => state.isLoading);
   const isRefreshing = useStatsStore(state => state.isRefreshing);
@@ -740,7 +747,6 @@ export default function HomeScreen() {
   const error = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
-  const prefetchNextFriend = useStatsStore(state => state.prefetchNextFriend);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
@@ -759,7 +765,7 @@ export default function HomeScreen() {
   const [refreshProgress, setRefreshProgress] = useState(100);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
-  const [isAppReady, setIsAppReady] = useState(false);
+  const [isAppReady, setIsAppReady] = useState(() => hasBootReadySession());
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
@@ -770,6 +776,9 @@ export default function HomeScreen() {
     tracks: [],
     albums: []
   });
+  const [circleTopState, setCircleTopState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [circleTopPeriodTops, setCircleTopPeriodTops] = useState<Record<string, { artists: any[]; tracks: any[]; albums: any[] }>>({});
+  const [alikePrepState, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
   const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
@@ -779,7 +788,15 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
-  const hasReleasedHomeRef = useRef(false);
+  const hasReleasedHomeRef = useRef(hasBootReadySession());
+
+  useEffect(() => {
+    if (!hasReleasedHomeRef.current) return;
+    window.__STATS_LC_HOME_READY__ = true;
+    window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
+    setIsAppReady(true);
+    window.__STATS_LC_DISMISS_SPLASH__?.();
+  }, []);
 
   const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
@@ -822,6 +839,27 @@ export default function HomeScreen() {
     () => getReplayQuery(replayActiveTab, replaySelectedSubValues),
     [replayActiveTab, replaySelectedSubValues]
   );
+  const replayPeriodKey = useMemo(
+    () => JSON.stringify({
+      period: replayPeriodQuery.period,
+      after: replayPeriodQuery.after,
+      before: replayPeriodQuery.before,
+      limit: replayPeriodQuery.limit,
+      force: replayPeriodQuery.force
+    }),
+    [replayPeriodQuery]
+  );
+  const membersSignature = useMemo(
+    () => members.map((member) => member.id).filter(Boolean).join('|'),
+    [members]
+  );
+  const homePreparationSettled =
+    !primaryUser ||
+    (
+      (replayState === 'ready' || replayState === 'error') &&
+      (circleTopState === 'ready' || circleTopState === 'error') &&
+      (alikePrepState === 'ready' || alikePrepState === 'error')
+    );
 
   const pipelineStreamLinesMemo = useMemo(() => [
     { left: '16.6%', duration: 2.2, delay: 0 },
@@ -835,6 +873,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!primaryUser) {
       setIsVisualWarmupReady(false);
+      setMiniHeaderResolvedColor('');
       return;
     }
 
@@ -866,18 +905,31 @@ export default function HomeScreen() {
       image.src = url;
     });
 
+    const resolveArtworkColor = () => {
+      if (!hasMiniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
+        return Promise.resolve('');
+      }
+      return getDominantColor(miniHeaderAlbumImage).catch(() => '');
+    };
+
+    const visualPreparation = Promise.all([
+      Promise.all(urls.map(warmImage)).then(() => undefined),
+      resolveArtworkColor(),
+    ]).then(([, color]) => color);
     const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
     Promise.race([
-      Promise.all(urls.map(warmImage)).then(() => undefined),
-      timeout,
-    ]).finally(() => {
-      if (!cancelled) setIsVisualWarmupReady(true);
+      visualPreparation,
+      timeout.then(() => ''),
+    ]).then((color) => {
+      if (cancelled) return;
+      setMiniHeaderResolvedColor(color || '');
+      setIsVisualWarmupReady(true);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
+  }, [hasMiniHeaderAlbumImage, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, primaryUser?.nowPlaying?.dominantColor]);
 
   useEffect(() => {
     let frame = 0;
@@ -937,27 +989,6 @@ export default function HomeScreen() {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 4500);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!hasMiniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
-      setMiniHeaderResolvedColor('');
-      return;
-    }
-
-    getDominantColor(miniHeaderAlbumImage)
-      .then((color) => {
-        if (!cancelled) setMiniHeaderResolvedColor(color || '');
-      })
-      .catch(() => {
-        if (!cancelled) setMiniHeaderResolvedColor('');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasMiniHeaderAlbumImage, miniHeaderAlbumImage, primaryUser?.nowPlaying?.dominantColor]);
 
   useEffect(() => {
     if (!isRefreshing) {
@@ -1029,27 +1060,34 @@ export default function HomeScreen() {
 
     if (primaryUser?.id) {
       setShowInitialModal(false);
-      prefetchUserTops(primaryUser.id);
-      prefetchNextFriend(primaryUser.id);
     } else if (allMembers.length > 0) {
       setFeaturedUserId(allMembers[0].id);
       setShowInitialModal(false);
     }
-  }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, prefetchUserTops, prefetchNextFriend, setFeaturedUserId]);
+  }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, setFeaturedUserId]);
 
-  // Mark Home as ready after the primary hero/vinyl assets are stable.
-  // Replay/"Seus Destaques" keeps loading below and never blocks the first usable frame.
+  // Mark Home as ready after the primary hero and cold Home sections are prepared.
+  // After the first release, period changes can update below without returning to splash.
   useEffect(() => {
     const hasCoreData = !isLoading && !!groupStats && !!primaryUser;
 
     if (hasReleasedHomeRef.current && hasCoreData) {
+      if (window.__STATS_LC_HOME_READY__ !== true) {
+        window.__STATS_LC_HOME_READY__ = true;
+        window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
+      }
       setIsAppReady(true);
+      window.__STATS_LC_DISMISS_SPLASH__?.();
       return;
     }
 
-    const ready = hasCoreData && isVisualWarmupReady;
+    const ready = hasCoreData && isVisualWarmupReady && homePreparationSettled;
 
     if (!ready) {
+      if (!hasReleasedHomeRef.current) {
+        window.__STATS_LC_HOME_READY__ = false;
+        window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: false } }));
+      }
       setIsAppReady(false);
       return;
     }
@@ -1060,6 +1098,11 @@ export default function HomeScreen() {
         window.requestAnimationFrame(() => {
           if (cancelled) return;
           hasReleasedHomeRef.current = true;
+          window.__STATS_LC_HOME_READY__ = true;
+          try {
+            sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+          } catch {}
+          window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
           setIsAppReady(true);
           window.__STATS_LC_DISMISS_SPLASH__?.();
         });
@@ -1070,7 +1113,7 @@ export default function HomeScreen() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [isLoading, groupStats, isVisualWarmupReady, primaryUser]);
+  }, [isLoading, groupStats, isVisualWarmupReady, primaryUser, homePreparationSettled]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -1211,7 +1254,65 @@ export default function HomeScreen() {
       cancelled = true;
       controller.abort();
     };
-  }, [primaryUser?.id, replayPeriodQuery, replayActiveTab]);
+  }, [primaryUser?.id, replayPeriodKey]);
+
+  useEffect(() => {
+    if (!groupStats || members.length === 0) {
+      setCircleTopPeriodTops({});
+      setCircleTopState(groupStats ? 'ready' : 'idle');
+      return;
+    }
+
+    let cancelled = false;
+    const bootMembers = members;
+    setCircleTopState('loading');
+
+    Promise.allSettled(bootMembers.map(async (member) => {
+      const [artists, tracks, albums] = await Promise.all([
+        statsService.getTopItems(member.id, 'artists', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.artists?.slice(0, 1) || []),
+        statsService.getTopItems(member.id, 'tracks', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.tracks?.slice(0, 1) || []),
+        statsService.getTopItems(member.id, 'albums', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.albums?.slice(0, 1) || [])
+      ]);
+      return { id: member.id, tops: { artists, tracks, albums } };
+    })).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, { artists: any[]; tracks: any[]; albums: any[] }> = {};
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') next[result.value.id] = result.value.tops;
+      });
+      setCircleTopPeriodTops(next);
+      setCircleTopState('ready');
+    }).catch(() => {
+      if (!cancelled) setCircleTopState('error');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groupStats, membersSignature, replayPeriodKey]);
+
+  useEffect(() => {
+    if (!groupStats || members.length === 0) {
+      setAlikePrepState(groupStats ? 'ready' : 'idle');
+      return;
+    }
+
+    let cancelled = false;
+    const bootMembers = members;
+    setAlikePrepState('loading');
+
+    Promise.allSettled(bootMembers.map((member) => prefetchUserTops(member.id)))
+      .then(() => {
+        if (!cancelled) setAlikePrepState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setAlikePrepState('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [groupStats, membersSignature, prefetchUserTops]);
 
   const replayArtists = replayTopItems.artists || [];
   const replayTracks = replayTopItems.tracks || [];
@@ -1651,6 +1752,7 @@ export default function HomeScreen() {
           periodQuery={replayPeriodQuery}
           activeTab={replayActiveTab}
           selectedSubValues={replaySelectedSubValues}
+          preparedPeriodTops={circleTopPeriodTops}
         />
       </motion.div>
       )}

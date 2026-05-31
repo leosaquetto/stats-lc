@@ -98,7 +98,7 @@ Nao resolver sintomas visuais antes de checar console, network e curls.
 - `src/components/modals/TrackLeaderboardModal.tsx`: ranking de faixa/artista/album e selecao de artistas secundarios.
 - `src/services/statsService.ts`: normalizacao da API, cache de requests, shape de `nowPlaying`.
 - `src/store/useStatsStore.ts`: store Zustand, `fetchGroup`, `fetchGroupLive`, throttling/cache local.
-- `src/lib/colorUtils.ts`: cor dominante/fallback. Cuidado com `colorthief`: neste repo ele deve ser tratado como API de funcoes, nao como classe com `new`.
+- `src/lib/colorUtils.ts`: cor dominante/fallback via canvas local cacheado; nao reintroduza `colorthief` para a Home/vinis.
 - `src/lib/artistUtils.ts`: prioridade de artista principal. Regra importante: quando existir `albumArtist`, ele deve vencer a ordem instavel de artistas da faixa.
 
 ## Decisoes Recentes Importantes
