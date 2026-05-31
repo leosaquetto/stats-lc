@@ -195,7 +195,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const [activeInsightIndex, setActiveInsightIndex] = React.useState(0);
-  const [isAutoPaused, setIsAutoPaused] = React.useState(false);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const activeMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
@@ -336,12 +335,10 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   }, [insights.length]);
 
   const handlePrev = React.useCallback(() => {
-    setIsAutoPaused(true);
     goToInsight(activeInsightIndex - 1);
   }, [activeInsightIndex, goToInsight]);
 
   const handleNext = React.useCallback(() => {
-    setIsAutoPaused(true);
     goToInsight(activeInsightIndex + 1);
   }, [activeInsightIndex, goToInsight]);
 
@@ -351,18 +348,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     }
   }, [activeInsightIndex, insights.length]);
 
-  React.useEffect(() => {
-    if (!isInsightsVisible || insights.length <= 1 || isAutoPaused) return;
-    const timer = window.setInterval(() => {
-      setActiveInsightIndex((current) => (current + 1) % insights.length);
-    }, 14000);
-    return () => window.clearInterval(timer);
-  }, [isInsightsVisible, insights.length, isAutoPaused]);
-
   const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
     if (!touch) return;
-    setIsAutoPaused(true);
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, []);
 
@@ -463,7 +451,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         ref={insightsRef}
         data-home-horizontal-scroll="true"
         className="relative h-[232px] select-none overflow-visible px-1 py-2"
-        onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
@@ -492,7 +479,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                 type="button"
                 key={`${insight.key}-${index}`}
                 onClick={() => {
-                  setIsAutoPaused(true);
                   insight.onClick?.();
                 }}
                 initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}

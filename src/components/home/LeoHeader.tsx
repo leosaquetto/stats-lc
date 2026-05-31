@@ -4,12 +4,12 @@
  */
 
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { Repeat, Music2, TrendingUp, Star } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { BookOpenText, Repeat, Music2, TrendingUp, Star } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
-import { UserStats } from '../../types/stats';
+import { LyricsMatch, UserStats } from '../../types/stats';
 import {
   SmartImage,
   AnimatedNumber
@@ -560,14 +560,14 @@ export const LiveTrackProgress = memo(({
                       const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
                       return `linear-gradient(90deg, ${visibleColor}, ${withAlpha(visibleColor, 0.85)})`;
                     })()
-                  : 'linear-gradient(90deg, #f97316, #fb923c)',
+                  : 'linear-gradient(90deg, #647062, #8b947e)',
                 filter: 'brightness(1.3) saturate(1.2)',
                 boxShadow: dominantColor
                   ? (() => {
                       const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
                       return `0 0 12px ${withAlpha(visibleColor, 0.6)}`;
                     })()
-                  : '0 0 12px rgba(249,115,22,0.6)'
+                  : '0 0 12px rgba(100,112,98,0.45)'
               }}
             >
               {/* Thumb */}
@@ -579,7 +579,7 @@ export const LiveTrackProgress = memo(({
                         const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
                         return `0 0 10px ${withAlpha(visibleColor, 1)}, 0 0 20px ${withAlpha(visibleColor, 0.5)}`;
                       })()
-                    : '0 0 10px rgba(249,115,22,1), 0 0 20px rgba(249,115,22,0.5)',
+                    : '0 0 10px rgba(100,112,98,0.9), 0 0 20px rgba(100,112,98,0.35)',
                   filter: 'brightness(1.2)'
                 }}
               />
@@ -593,9 +593,93 @@ export const LiveTrackProgress = memo(({
 
 LiveTrackProgress.displayName = 'LiveTrackProgress';
 
+const ArenaRankingBubble = ({
+  user,
+  index,
+  total,
+  selectedUserId,
+  shouldReduceMotion,
+  dragX,
+  role,
+}: {
+  user: { id: string; name: string; plays: number; avatar: string };
+  index: number;
+  total: number;
+  selectedUserId: string;
+  shouldReduceMotion: boolean | null;
+  dragX: any;
+  role: 'first' | 'visible' | 'trailing';
+}) => {
+  const isSelected = user.id === selectedUserId;
+  const firstScale = useTransform(dragX, [-42, -12, 0], [0.22, 0.72, isSelected ? 1.05 : 1]);
+  const firstOpacity = useTransform(dragX, [-42, -16, 0], [0, 0.45, 1]);
+  const trailingStart = -24 - index * 28;
+  const trailingEnd = trailingStart - 42;
+  const trailingScale = useTransform(dragX, [trailingStart, trailingEnd], [0.24, isSelected ? 1.05 : 1]);
+  const trailingOpacity = useTransform(dragX, [trailingStart, trailingEnd], [0, 1]);
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.18, y: 12, rotate: role === 'trailing' ? 9 : -10 }}
+      animate={shouldReduceMotion ? { opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 } : {
+        opacity: 1,
+        scale: isSelected ? 1.05 : 1,
+        y: 0,
+        rotate: 0,
+      }}
+      transition={shouldReduceMotion ? { delay: index * 0.03 } : {
+        opacity: { delay: index * 0.025, duration: 0.14 },
+        scale: { type: 'spring', stiffness: 520, damping: 20, delay: index * 0.025 },
+        y: { type: 'spring', stiffness: 520, damping: 20, delay: index * 0.025 },
+        rotate: { type: 'spring', stiffness: 520, damping: 22, delay: index * 0.025 },
+      }}
+      exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
+      className={cn(
+        "relative -mr-2.5 shrink-0 group/avatar",
+        isSelected ? "z-20" : ""
+      )}
+      style={{
+        zIndex: role === 'trailing' ? total - index : total + 2 - index,
+        scale: shouldReduceMotion ? undefined : role === 'first' ? firstScale : role === 'trailing' ? trailingScale : isSelected ? 1.05 : 1,
+        opacity: shouldReduceMotion ? undefined : role === 'first' ? firstOpacity : role === 'trailing' ? trailingOpacity : 1,
+      }}
+    >
+      <div className={cn(
+        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+        isSelected ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
+      )}>
+        <div className="relative h-full w-full rounded-full overflow-hidden">
+          <SmartImage src={user.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
+        </div>
+      </div>
+
+      <motion.div
+        animate={shouldReduceMotion ? {} : {
+          y: [0, index % 2 === 0 ? 2 : -2, 0],
+          scale: [1, 1.08, 1],
+        }}
+        transition={shouldReduceMotion ? {} : {
+          delay: 0.12 + index * 0.17,
+          duration: 4.4 + index * 0.24,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+        className={cn(
+          "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
+          isSelected ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
+        )}
+      >
+        {coreUtils.formatNumber(user.plays)}
+      </motion.div>
+    </motion.div>
+  );
+};
+
 export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
+  const arenaTrailX = useMotionValue(0);
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -694,6 +778,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const [listenAlbumLoading, setListenAlbumLoading] = useState(false);
   const [listenStats, setListenStats] = useState({ artist: 0, track: 0, album: 0 });
   const [listenArtistStats, setListenArtistStats] = useState<Record<string, number>>({});
+  const [lyricsMatch, setLyricsMatch] = useState<LyricsMatch | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
   const listenStatsRef = React.useRef<HTMLDivElement>(null);
   const listenDeckTouchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
@@ -703,17 +789,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       return;
     }
 
-    if (!albumImage) {
-       setDominantColor(null);
-       return;
-    }
+	    if (!albumImage) return;
 
     let isMounted = true;
-    getDominantColor(albumImage).then(color => {
-      if (isMounted) setDominantColor(normalizePlaybackAccent(color));
-    }).catch(() => {
-      if (isMounted) setDominantColor(null);
-    });
+	    getDominantColor(albumImage).then(color => {
+	      if (isMounted) setDominantColor(normalizePlaybackAccent(color));
+	    }).catch(() => {
+	      // Keep the previous resolved color instead of flashing the generic fallback.
+	    });
 
     return () => {
        isMounted = false;
@@ -741,6 +824,30 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     setListenStatsOpen(false);
     setListenStatsActiveIndex(0);
   }, [track?.id]);
+
+  useEffect(() => {
+    const title = track?.name?.trim();
+    if (!title) {
+      setLyricsMatch(null);
+      setLyricsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLyricsMatch(null);
+    setLyricsLoading(true);
+    statsService.fetchLyricsMatch(title, mainArtistName)
+      .then((match) => {
+        if (!cancelled) setLyricsMatch(match);
+      })
+      .finally(() => {
+        if (!cancelled) setLyricsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [track?.id, track?.name, mainArtistName]);
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
@@ -837,6 +944,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     !listenAlbumId ||
     (!listenAlbumLoading && (listenAlbumCount || 0) > 0)
   );
+  const lyricsUrl = lyricsMatch?.hasLyrics ? lyricsMatch.match?.url : null;
   const liveRingDuration = useMemo(() => 2.7 + (user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 7) * 0.18, [user.id]);
 
   useEffect(() => {
@@ -1396,71 +1504,31 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              whileTap={{ scale: 0.98 }}
 	                              className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
 	                            >
-	                              <motion.div
+	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                drag={hiddenArenaCount > 0 && !shouldReduceMotion ? "x" : false}
-	                                dragConstraints={{ left: -arenaDragDistance, right: 0 }}
-	                                dragElastic={0.12}
-	                                dragMomentum={false}
-	                                className="flex w-[176px] items-center overflow-visible py-2 pl-0.5 pr-0 cursor-grab active:cursor-grabbing sm:w-[192px]"
+	                                className="flex w-[178px] items-center overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
 	                              >
 	                                <motion.div
-	                                  className="flex min-w-0 items-center gap-0 overflow-visible"
+	                                  className="flex min-w-0 items-center gap-0 overflow-visible cursor-grab active:cursor-grabbing"
+	                                  drag={hiddenArenaCount > 0 && !shouldReduceMotion ? "x" : false}
+	                                  dragConstraints={{ left: -arenaDragDistance, right: 0 }}
+	                                  dragElastic={0.12}
+	                                  dragMomentum={false}
 	                                  initial={shouldReduceMotion ? false : { x: 0 }}
+	                                  style={{ x: arenaTrailX }}
 	                                >
 	                                  {visibleArenaUsers.map((u, i) => (
-	                                      <motion.div
+	                                      <ArenaRankingBubble
 	                                        key={`${u.id}-primary-${i}`}
-	                                        layout
-	                                        initial={{ opacity: 0, scale: 0.18, y: 12, rotate: -10 }}
-	                                        animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
-	                                          opacity: 1,
-                                          scale: u.id === user.id ? 1.05 : 1,
-                                          y: 0,
-                                          rotate: 0,
-                                        }}
-                                        transition={shouldReduceMotion ? { delay: i * 0.03 } : {
-                                          opacity: { delay: i * 0.025, duration: 0.14 },
-                                          scale: { type: 'spring', stiffness: 520, damping: 20, delay: i * 0.025 },
-                                          y: { type: 'spring', stiffness: 520, damping: 20, delay: i * 0.025 },
-                                          rotate: { type: 'spring', stiffness: 520, damping: 22, delay: i * 0.025 },
-                                        }}
-                                        exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
-	                                        className={cn(
-	                                          "relative -mr-2.5 shrink-0 group/avatar",
-	                                          u.id === user.id ? "z-20" : ""
-	                                        )}
-	                                        style={{ zIndex: trackArenaUsers.length + 2 - i }}
-	                                      >
-	                                        <div className={cn(
-	                                          "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
-                                          u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
-                                        )}>
-                                          <div className="relative h-full w-full rounded-full overflow-hidden">
-                                            <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
-                                          </div>
-                                        </div>
-
-                                        <motion.div
-                                          animate={shouldReduceMotion ? {} : {
-                                            y: [0, i % 2 === 0 ? 2 : -2, 0],
-                                            scale: [1, 1.08, 1],
-                                          }}
-                                          transition={shouldReduceMotion ? {} : {
-                                            delay: 0.12 + i * 0.17,
-                                            duration: 4.4 + i * 0.24,
-                                            repeat: Infinity,
-                                            ease: 'easeInOut',
-                                          }}
-                                          className={cn(
-                                            "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
-                                            u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
-                                          )}
-                                        >
-	                                          {coreUtils.formatNumber(u.plays)}
-	                                        </motion.div>
-	                                      </motion.div>
+	                                        user={u}
+	                                        index={i}
+	                                        total={trackArenaUsers.length}
+	                                        selectedUserId={user.id}
+	                                        shouldReduceMotion={shouldReduceMotion}
+	                                        dragX={arenaTrailX}
+	                                        role={i === 0 ? 'first' : 'visible'}
+	                                      />
 	                                    ))}
 	                                  {hiddenArenaCount > 0 && (
 	                                    <motion.div
@@ -1474,7 +1542,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                      }}
 	                                      transition={{ type: 'spring', stiffness: 500, damping: 22 }}
 	                                      className={cn(
-	                                        "relative -mr-2.5 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
+	                                        "relative mr-2 flex h-10 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[10px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11",
 	                                        selectedHiddenInArena
 	                                          ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
 	                                          : "border-white/10 bg-black/50"
@@ -1484,59 +1552,19 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    </motion.div>
 	                                  )}
 	                                  {trailingArenaUsers.map((u, i) => (
-	                                    <motion.div
+	                                    <ArenaRankingBubble
 	                                      key={`${u.id}-trailing-${i}`}
-	                                      layout
-	                                      initial={{ opacity: 0, scale: 0.16, y: 10, rotate: 9 }}
-	                                      animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
-	                                        opacity: 1,
-	                                        scale: u.id === user.id ? 1.05 : 1,
-	                                        y: 0,
-	                                        rotate: 0,
-	                                      }}
-	                                      transition={shouldReduceMotion ? { delay: i * 0.03 } : {
-	                                        opacity: { delay: 0.04 + i * 0.025, duration: 0.14 },
-	                                        scale: { type: 'spring', stiffness: 520, damping: 20, delay: 0.04 + i * 0.025 },
-	                                        y: { type: 'spring', stiffness: 520, damping: 20, delay: 0.04 + i * 0.025 },
-	                                        rotate: { type: 'spring', stiffness: 520, damping: 22, delay: 0.04 + i * 0.025 },
-	                                      }}
-	                                      className={cn(
-	                                        "relative -mr-2.5 shrink-0 group/avatar",
-	                                        u.id === user.id ? "z-20" : ""
-	                                      )}
-	                                      style={{ zIndex: trailingArenaUsers.length - i }}
-	                                    >
-	                                      <div className={cn(
-	                                        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
-	                                        u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
-	                                      )}>
-	                                        <div className="relative h-full w-full rounded-full overflow-hidden">
-	                                          <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
-	                                        </div>
-	                                      </div>
-
-	                                      <motion.div
-	                                        animate={shouldReduceMotion ? {} : {
-	                                          y: [0, i % 2 === 0 ? 2 : -2, 0],
-	                                          scale: [1, 1.08, 1],
-	                                        }}
-	                                        transition={shouldReduceMotion ? {} : {
-	                                          delay: 0.22 + i * 0.17,
-	                                          duration: 4.4 + i * 0.24,
-	                                          repeat: Infinity,
-	                                          ease: 'easeInOut',
-	                                        }}
-	                                        className={cn(
-	                                          "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
-	                                          u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
-	                                        )}
-	                                      >
-	                                        {coreUtils.formatNumber(u.plays)}
-	                                      </motion.div>
-	                                    </motion.div>
+	                                      user={u}
+	                                      index={i}
+	                                      total={trailingArenaUsers.length}
+	                                      selectedUserId={user.id}
+	                                      shouldReduceMotion={shouldReduceMotion}
+	                                      dragX={arenaTrailX}
+	                                      role="trailing"
+	                                    />
 	                                  ))}
 	                                </motion.div>
-	                              </motion.div>
+	                              </div>
 	                            </motion.div>
                           ) : (
                             <motion.div
@@ -1570,6 +1598,29 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 </div>
                               )}
                             </motion.div>
+                          )}
+                          {lyricsUrl && !lyricsLoading && (
+                            <motion.a
+                              href={lyricsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(event) => event.stopPropagation()}
+                              whileTap={{ scale: 0.96 }}
+                              aria-label="Ver letra"
+                              className="glass flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-white transition-colors hover:text-orange-200"
+                              style={{ border: 0 }}
+                            >
+                              <BookOpenText className={cn(
+                                "h-2.5 w-2.5 transition-colors duration-500",
+                                isActuallyLive ? "text-orange-400" : "text-white/45"
+                              )} />
+                              <span className={cn(
+                                "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                isActuallyLive ? "text-white/70" : "text-white/45"
+                              )}>
+                                LETRA
+                              </span>
+                            </motion.a>
                           )}
                         </div>
 

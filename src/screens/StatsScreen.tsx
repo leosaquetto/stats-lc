@@ -331,6 +331,22 @@ type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
 type ViewMode = 'user' | 'friends';
 
+const filterToReplayTab = (filter: Filter): ReplayFilterPeriod => {
+  if (filter === 'Hoje') return 'today';
+  if (filter === 'Semana') return 'week';
+  if (filter === 'Mês') return 'month';
+  if (filter === 'Ano') return 'year';
+  return 'all';
+};
+
+const replayTabToFilter = (tab: ReplayFilterPeriod): Filter => {
+  if (tab === 'today') return 'Hoje';
+  if (tab === 'week') return 'Semana';
+  if (tab === 'month') return 'Mês';
+  if (tab === 'year') return 'Ano';
+  return 'Total';
+};
+
 const getStatsCountValue = (source: any) => Number(source?.count ?? source?.streams ?? source?.c ?? source?.totalStreams ?? 0) || 0;
 const getStatsDurationMsValue = (source: any) => {
   const durationMs = source?.durationMs ?? source?.playedMs ?? source?.totalDurationMs;
@@ -343,7 +359,7 @@ const getStatsDurationMsValue = (source: any) => {
 };
 
 export default function StatsScreen() {
-  const [activeFilter, setActiveFilter] = useState<Filter>('Hoje');
+  const [activeFilter, setActiveFilter] = useState<Filter>('Mês');
   const [activeType, setActiveType] = useState<ItemType>('artists');
   const [viewMode, setViewMode] = useState<ViewMode>('user');
   
@@ -375,6 +391,13 @@ export default function StatsScreen() {
     month: String(new Date().getMonth()).padStart(2, '0'),
     year: String(new Date().getFullYear())
   });
+  const [replayOwnerId, setReplayOwnerId] = useState('');
+  const [friendReplayItems, setFriendReplayItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
+    artists: [],
+    tracks: [],
+    albums: []
+  });
+  const [isFriendReplayLoading, setIsFriendReplayLoading] = useState(false);
   const showScrollTopRef = useRef(false);
 
   useEffect(() => {
@@ -428,6 +451,28 @@ export default function StatsScreen() {
     'Ano': 'years',
     'Total': 'lifetime'
   };
+
+  const setStatsPeriod = (filter: Filter) => {
+    setActiveFilter(filter);
+    setStatsReplayTab(filterToReplayTab(filter));
+    trackEvent('stats_period_changed', { period: filter });
+  };
+
+  const handleReplayTabChange = (tab: ReplayFilterPeriod) => {
+    setStatsReplayTab(tab);
+    setActiveFilter(replayTabToFilter(tab));
+  };
+
+  useEffect(() => {
+    if (!replayOwnerId && CURRENT_USER_ID) {
+      setReplayOwnerId(CURRENT_USER_ID);
+    }
+  }, [CURRENT_USER_ID, replayOwnerId]);
+
+  useEffect(() => {
+    if (replayOwnerId && members.some(member => member.id === replayOwnerId)) return;
+    if (CURRENT_USER_ID) setReplayOwnerId(CURRENT_USER_ID);
+  }, [CURRENT_USER_ID, members, replayOwnerId]);
 
   // Reset search query and visible items limit when active category/filter changes
   useEffect(() => {
@@ -589,10 +634,18 @@ export default function StatsScreen() {
           }
         }
         
-        // Fallback: ONLY if activeFilter is Total and we have nothing else
-        if (rawItems.length === 0 && activeFilter === 'Total' && fullUserData?.history) {
-          rawItems = Array.isArray(fullUserData.history) ? fullUserData.history : [];
-        }
+	        // Fallback: ONLY if activeFilter is Total and we have nothing else
+	        if (rawItems.length === 0 && activeFilter === 'Total' && fullUserData?.history) {
+	          rawItems = Array.isArray(fullUserData.history) ? fullUserData.history : [];
+	        }
+
+	        if (rawItems.length === 0) {
+	          try {
+	            rawItems = await statsService.fetchRecent(CURRENT_USER_ID, activeFilter === 'Total' ? 1000 : 1500, 0);
+	          } catch {
+	            rawItems = [];
+	          }
+	        }
 
         // DEV LOG - Mapear rawItems antes de formatar
         if ((import.meta as any).env?.DEV) {
@@ -650,7 +703,12 @@ export default function StatsScreen() {
           } catch (err) {
             return null;
           }
-        }).filter((item: any) => item !== null && (item.streams > 0 || item.duration > 0 || rawItems.length < 50));
+	        }).filter((item: any) => {
+	          if (!item || !(item.streams > 0 || item.duration > 0 || rawItems.length < 50)) return false;
+	          const itemTs = new Date(item.date).getTime();
+	          if (!Number.isFinite(itemTs)) return true;
+	          return itemTs >= after && itemTs <= Date.now();
+	        });
 
         // DEV LOG - Resultado do formatting
         if ((import.meta as any).env?.DEV) {
@@ -771,7 +829,8 @@ export default function StatsScreen() {
 
     if (activeFilter === 'Hoje') {
       const hourlyMap: Record<number, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
-      for (let h = 0; h < 24; h++) {
+      const currentHour = getHourSP(today);
+      for (let h = 0; h <= currentHour; h++) {
         const hourStr = `${h.toString().padStart(2, '0')}:00`;
         hourlyMap[h] = { date: hourStr, displayLabel: hourStr, timestamp: h, streams: 0, duration: 0, hours: 0 };
       }
@@ -781,7 +840,7 @@ export default function StatsScreen() {
       if (hourlyDataPoints && Object.keys(hourlyDataPoints).length > 0) {
         Object.entries(hourlyDataPoints).forEach(([hStr, v]: [string, any]) => {
           const h = Number(hStr);
-          if (h >= 0 && h < 24 && hourlyMap[h]) {
+          if (h >= 0 && h <= currentHour && hourlyMap[h]) {
             hourlyMap[h].streams = v.count ?? v.streams ?? v.c ?? 0;
             const durationMs = getStatsDurationMsValue(v);
             hourlyMap[h].duration = durationMs;
@@ -1120,49 +1179,41 @@ export default function StatsScreen() {
       }
     }
 
-    // Default / Total - use fullUserData.history or historyData
-    const sourceHistory = fullUserData?.history && Array.isArray(fullUserData.history) && fullUserData.history.length > 0
-      ? fullUserData.history
-      : historyData;
-
-    if (sourceHistory && sourceHistory.length > 0) {
-      const totalMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
-      sourceHistory.forEach((item: any) => {
-        const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
-        let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
-        if (ts < 2147483647) ts *= 1000;
-
-        const d = new Date(ts);
-        let dayKey = "";
-        let dateLabel = "";
-
-        if (!isNaN(d.getTime())) {
-          dayKey = getDayKey(d);
-          dateLabel = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-        } else {
-          dayKey = String(dateVal).substring(0, 10);
-          dateLabel = dayKey;
-        }
-
-        if (!totalMap[dayKey]) {
-          totalMap[dayKey] = {
-            date: dayKey,
-            displayLabel: dateLabel,
-            timestamp: ts || Date.parse(dayKey) || 0,
-            streams: 0,
-            duration: 0,
-            hours: 0
+	    // Default / Total - group by year, never cumulative.
+	    const sourceHistory = fullUserData?.history && Array.isArray(fullUserData.history) && fullUserData.history.length > 0
+	      ? fullUserData.history
+	      : historyData;
+	
+	    if (sourceHistory && sourceHistory.length > 0) {
+	      const totalMap: Record<string, { date: string; displayLabel: string; timestamp: number; streams: number; duration: number; hours: number }> = {};
+	      sourceHistory.forEach((item: any) => {
+	        const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
+	        let ts = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+	        if (ts < 2147483647) ts *= 1000;
+	
+	        const d = new Date(ts);
+	        if (isNaN(d.getTime())) return;
+	        const year = String(d.getFullYear());
+	
+	        if (!totalMap[year]) {
+	          totalMap[year] = {
+	            date: year,
+	            displayLabel: year,
+	            timestamp: new Date(d.getFullYear(), 0, 1).getTime(),
+	            streams: 0,
+	            duration: 0,
+	            hours: 0
           };
         }
 
         // Check if this is raw history (each item = 1 stream) or aggregated
         const isRawHistory = !('streams' in item) && !('count' in item);
-        totalMap[dayKey].streams += isRawHistory ? 1 : (item.streams || item.count || 0);
-
-        const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
-        totalMap[dayKey].duration += dur;
-        totalMap[dayKey].hours = Number((totalMap[dayKey].duration / 3600000).toFixed(2));
-      });
+	        totalMap[year].streams += isRawHistory ? 1 : (item.streams || item.count || 0);
+	
+	        const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
+	        totalMap[year].duration += dur;
+	        totalMap[year].hours = Number((totalMap[year].duration / 3600000).toFixed(2));
+	      });
       return Object.values(totalMap).sort((a, b) => a.timestamp - b.timestamp);
     }
 
@@ -1299,24 +1350,8 @@ export default function StatsScreen() {
   }, [activeRangeStats, currentStats, historyData]);
 
   const chartDisplayData = useMemo(() => {
-    const hasRealData = dailyEvolutionData.length > 0 && dailyEvolutionData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
-    if (hasRealData || periodSummaryStats.count <= 0) return dailyEvolutionData;
-
-    const label = activeFilter === 'Hoje'
-      ? 'agora'
-      : activeFilter === 'Semana'
-        ? 'semana'
-        : activeFilter === 'Mês'
-          ? 'mês'
-          : activeFilter === 'Ano'
-            ? 'ano'
-            : 'total';
-    const hours = Number(((periodSummaryStats.durationMs || 0) / 3600000).toFixed(2));
-    return [
-      { date: 'start', displayLabel: 'início', timestamp: 0, streams: 0, duration: 0, hours: 0 },
-      { date: 'current', displayLabel: label, timestamp: 1, streams: periodSummaryStats.count, duration: periodSummaryStats.durationMs, hours }
-    ];
-  }, [activeFilter, dailyEvolutionData, periodSummaryStats]);
+    return dailyEvolutionData;
+  }, [dailyEvolutionData]);
 
   const { uniqueArtists, uniqueTracks, uniqueAlbums } = useMemo(() => {
     const cardContainer = cardinalityData?.stats || cardinalityData;
@@ -1537,6 +1572,55 @@ export default function StatsScreen() {
     };
   }, [CURRENT_USER_ID, activeFilter, viewMode, topItemsRetryNonce, user?.topItems]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFriendReplayData() {
+      if (!replayOwnerId || replayOwnerId === CURRENT_USER_ID) {
+        setIsFriendReplayLoading(false);
+        setFriendReplayItems({ artists: [], tracks: [], albums: [] });
+        return;
+      }
+
+      const friend = members.find(member => member.id === replayOwnerId);
+      const fallbackTops = (friend?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
+      setFriendReplayItems({
+        artists: fallbackTops.artists || [],
+        tracks: fallbackTops.tracks || [],
+        albums: fallbackTops.albums || []
+      });
+      setIsFriendReplayLoading(true);
+
+      try {
+        const period = periodMap[activeFilter];
+        const [artists, tracks, albums] = await Promise.all([
+          statsService.getTopItems(replayOwnerId, 'artists', period),
+          statsService.getTopItems(replayOwnerId, 'tracks', period),
+          statsService.getTopItems(replayOwnerId, 'albums', period)
+        ]);
+        if (cancelled) return;
+        setFriendReplayItems({
+          artists: (artists && artists.length > 0) ? artists : (fallbackTops.artists || []),
+          tracks: (tracks && tracks.length > 0) ? tracks : (fallbackTops.tracks || []),
+          albums: (albums && albums.length > 0) ? albums : (fallbackTops.albums || [])
+        });
+      } catch (error) {
+        if (!cancelled) {
+          setFriendReplayItems({
+            artists: fallbackTops.artists || [],
+            tracks: fallbackTops.tracks || [],
+            albums: fallbackTops.albums || []
+          });
+        }
+      } finally {
+        if (!cancelled) setIsFriendReplayLoading(false);
+      }
+    }
+    loadFriendReplayData();
+    return () => {
+      cancelled = true;
+    };
+  }, [CURRENT_USER_ID, activeFilter, members, replayOwnerId]);
+
   const topItems = useMemo(() => {
     if (activeType === 'artists') return activePeriodArtists;
     if (activeType === 'tracks') return activePeriodTracks;
@@ -1561,6 +1645,22 @@ export default function StatsScreen() {
     onTrackClick: setSelectedTrackHistory
   }), [filteredTopItems, activeType, members, CURRENT_USER_ID]);
 
+  const replayOwner = members.find(member => member.id === replayOwnerId) || user;
+  const replayOwnerFirstName = replayOwnerId === CURRENT_USER_ID
+    ? 'Você'
+    : (replayOwner?.name || 'Amigo').trim().split(/\s+/)[0] || 'Amigo';
+  const replaySourceItems = replayOwnerId === CURRENT_USER_ID
+    ? { artists: activePeriodArtists, tracks: activePeriodTracks, albums: activePeriodAlbums }
+    : friendReplayItems;
+  const replayDurationMs = replayOwnerId === CURRENT_USER_ID
+    ? periodSummaryStats.durationMs
+    : (replaySourceItems.tracks || []).reduce((sum, item: any) => {
+        const count = item.playcount || item.streams || item.count || 0;
+        const durationMs = item.durationMs || item.track?.durationMs || item.playedMs || 0;
+        return sum + (Number(durationMs) || 0) * (Number(count) || 0);
+      }, 0);
+  const isReplayLoading = replayOwnerId === CURRENT_USER_ID ? isTopItemsLoading : isFriendReplayLoading;
+
   if (!user) {
     return (
       <div className="flex flex-col gap-6 px-4 py-12">
@@ -1578,23 +1678,22 @@ export default function StatsScreen() {
     <div className="flex flex-col gap-3 pb-32 px-4">
       {/* Universal Period Filter */}
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+12px)] z-50 w-full py-3">
-        <div className="glass-aura relative w-full z-10 flex gap-1.5 p-1.5 rounded-[32px] overflow-x-auto no-scrollbar">
+        <div className="glass-aura relative z-10 flex w-full gap-1.5 overflow-x-auto rounded-[9999px] p-1.5 no-scrollbar">
           {/* Glossy shine reflection top half */}
-          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none rounded-t-[32px]" />
+          <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
 
           {filters.map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => {
-                setActiveFilter(f);
-                trackEvent('stats_period_changed', { period: f });
+                setStatsPeriod(f);
               }}
               className={clsx(
-                "filter-pill flex-1 px-1.5 py-3 rounded-[24px] text-[10.5px] font-black uppercase tracking-[0.14em] transition-all shrink-0 cursor-pointer text-center relative z-10 select-none",
+                "filter-pill relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-2 py-3 text-center text-[10.5px] font-black uppercase tracking-[0.14em] transition-all",
                 activeFilter === f
-                  ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_20px_rgba(249,115,22,0.4),0_4px_12px_rgba(249,115,22,0.2),inset_0_1px_0_rgba(255,255,255,0.25)]"
-                  : "text-white/45 hover:text-white/75 hover:bg-white/[0.05]"
+                  ? "bg-white/[0.055] text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.25)]"
+                  : "text-white/45 hover:bg-white/[0.035] hover:text-white/75"
               )}
             >
               {f}
@@ -1725,39 +1824,64 @@ export default function StatsScreen() {
             </div>
           )}
 
-          {(activePeriodArtists.length > 0 || activePeriodTracks.length > 0 || activePeriodAlbums.length > 0) && (
+          {(activePeriodArtists.length > 0 || activePeriodTracks.length > 0 || activePeriodAlbums.length > 0 || replaySourceItems.artists.length > 0 || replaySourceItems.tracks.length > 0 || replaySourceItems.albums.length > 0) && (
             <Suspense fallback={<div className="glass-aura h-48 rounded-[32px] animate-pulse" />}>
+              <div className="mb-2 flex items-center gap-2 overflow-x-auto px-4 no-scrollbar" data-home-horizontal-scroll="true">
+                {members.map((member) => {
+                  const isSelected = member.id === replayOwnerId;
+                  return (
+                    <button
+                      key={`stats-replay-owner-${member.id}`}
+                      type="button"
+                      onClick={() => setReplayOwnerId(member.id)}
+                      className={clsx(
+                        "glass-aura flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-all active:scale-95",
+                        isSelected ? "text-orange-300 ring-1 ring-orange-500/25" : "text-white/42 opacity-72"
+                      )}
+                      title={`Ver Replay de ${member.name}`}
+                    >
+                      <div className={clsx("h-7 w-7 overflow-hidden rounded-full border", isSelected ? "border-orange-500" : "border-white/10")}>
+                        <SmartImage src={coreUtils.getUserAvatar(member.id, member.avatar)} className="h-full w-full object-cover" fallback="" rounded="full" />
+                      </div>
+                      <span className="text-[9px] font-black uppercase tracking-[0.12em]">
+                        {member.id === CURRENT_USER_ID ? 'Você' : (member.name || '').split(/\s+/)[0]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <ReplaySection
-                topArtists={activePeriodArtists.slice(0, 20).map((a: any) => ({
+                topArtists={replaySourceItems.artists.slice(0, 20).map((a: any) => ({
                   id: a.id || a.name,
                   name: a.name,
                   image: a.image || a.artist?.image,
                   streams: a.playcount || a.streams || a.count || 0
                 }))}
-                topTracks={activePeriodTracks.slice(0, 30).map((t: any) => ({
+                topTracks={replaySourceItems.tracks.slice(0, 30).map((t: any) => ({
                   id: t.id || t.name,
                   name: t.name || t.track?.name,
                   artist: t.artist?.name || t.artistName || t.track?.artist?.name || '',
                   image: t.image || t.album?.image || t.albumImage,
                   streams: t.playcount || t.streams || t.count || 0
                 }))}
-                topAlbums={activePeriodAlbums.slice(0, 15).map((a: any) => ({
+                topAlbums={replaySourceItems.albums.slice(0, 15).map((a: any) => ({
                   id: a.id || a.name,
                   name: a.name,
                   artist: a.artist?.name || a.artistName || '',
                   image: a.image || a.album?.image,
                   streams: a.playcount || a.streams || a.count || 0
                 }))}
-                totalMinutesCount={Math.max(0, Math.round((periodSummaryStats.durationMs || 0) / 60000))}
+                totalMinutesCount={Math.max(0, Math.round((replayDurationMs || 0) / 60000))}
                 activeTab={statsReplayTab}
                 selectedSubValues={statsReplaySubValues}
-                onActiveTabChange={setStatsReplayTab}
+                onActiveTabChange={handleReplayTabChange}
                 onSelectedSubValuesChange={setStatsReplaySubValues}
                 onOpenArtistsModal={() => { setActiveType('artists'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
                 onOpenSongsModal={() => { setActiveType('tracks'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
                 onOpenAlbumsModal={() => { setActiveType('albums'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
                 onOpenTrack={(track) => setSelectedTrack({ ...track, type: 'track' })}
-                isLoading={isTopItemsLoading}
+                isLoading={isReplayLoading}
+                ownerFirstName={replayOwnerFirstName}
               />
             </Suspense>
           )}
@@ -1882,16 +2006,11 @@ export default function StatsScreen() {
                     </div>
                   </div>
                 </div>
-              ) : (() => {
-                // Check if hourly data has real values
-                const hasRealHourlyData = hourlyDistributionData && hourlyDistributionData.length > 0 && hourlyDistributionData.some(d => d.streams > 0);
-
-                if (!hasRealHourlyData) {
-                  // Don't render anything - empty state already shown in Evolução de Atividade
-                  return null;
-                }
-
-                return (
+	              ) : (() => {
+	                const hasHourlyShape = hourlyDistributionData && hourlyDistributionData.length > 0;
+	                if (!hasHourlyShape) return null;
+	
+	                return (
                   <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
                     <Suspense fallback={<div className="glass-card p-6 border-white/5 h-36 animate-pulse" />}>
                       <DailyActivityHeatmap

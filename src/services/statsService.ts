@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import { UserStats, GroupStats } from '../types/stats';
+import { UserStats, GroupStats, LyricsMatch } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
@@ -745,6 +745,24 @@ export const statsService = {
     } catch (e) {
       console.error(`Failed to fetch global history for track ${trackId}`, e);
       return [];
+    }
+  },
+
+  async fetchLyricsMatch(title: string, artist?: string): Promise<LyricsMatch> {
+    if (!title?.trim()) {
+      return { ok: true, hasLyrics: false, reason: 'missing_title' };
+    }
+
+    try {
+      return await fetchFromApi<LyricsMatch>('/api/lyrics', {
+        title: title.trim(),
+        ...(artist?.trim() ? { artist: artist.trim() } : {}),
+      }, false, 0, true);
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn('[statsService] Lyrics match unavailable:', e);
+      }
+      return { ok: true, hasLyrics: false, reason: 'request_failed' };
     }
   },
 

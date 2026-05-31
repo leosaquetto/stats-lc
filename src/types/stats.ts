@@ -39,6 +39,23 @@ export interface Track {
   };
 }
 
+export interface LyricsMatch {
+  ok: boolean;
+  hasLyrics: boolean;
+  source?: 'genius';
+  reason?: string;
+  match?: {
+    id?: string | number | null;
+    title?: string | null;
+    artist?: string | null;
+    url?: string | null;
+    path?: string | null;
+    thumbnail?: string | null;
+    confidence?: 'high' | 'medium';
+    score?: number;
+  } | null;
+}
+
 export interface NowPlaying {
   track: Track;
   isNow: boolean;

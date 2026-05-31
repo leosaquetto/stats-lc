@@ -5,12 +5,13 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, Share2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Share2 } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
+  getReplayFilterLabel,
   getReplayFilterSentence,
   MONTHS_SHORT,
   type ReplayFilterPeriod,
@@ -74,6 +75,7 @@ interface ReplaySectionProps {
   onShareReplay?: () => void;
   onOpenTrack?: (track: Track) => void;
   isLoading?: boolean;
+  ownerFirstName?: string;
 }
 
 const YEARS = [2024, 2025, 2026];
@@ -114,9 +116,12 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   onOpenAlbumsModal,
   onShareReplay,
   onOpenTrack,
-  isLoading = false
+  isLoading = false,
+  ownerFirstName = 'Você'
 }) => {
   const filterText = useMemo(() => getReplayFilterSentence(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
+  const filterLabel = useMemo(() => getReplayFilterLabel(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [renderFullTrackList, setRenderFullTrackList] = useState(false);
 
   const limitedArtists = useMemo(() => topArtists.slice(0, 10), [topArtists]);
@@ -180,7 +185,18 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       <div className="relative z-10 space-y-5">
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-4 pl-4">
-          <h2 className="text-[34px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(open => !open)}
+            className="group flex min-w-0 items-center gap-2 text-left active:scale-[0.98]"
+            aria-expanded={filtersOpen}
+          >
+            <h2 className="text-[34px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
+            <span className="glass-aura inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/62">
+              {filterLabel}
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", filtersOpen && "rotate-180")} />
+            </span>
+          </button>
           <button
             type="button"
             onClick={onShareReplay}
@@ -192,25 +208,33 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           </button>
         </div>
 
-        <div data-home-horizontal-scroll="true" className="flex w-full items-center gap-2 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
-          {periodTabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => selectTab(tab.key)}
-              className={cn(
-                "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-black transition-colors",
-                activeTab === tab.key
-                  ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]"
-                  : "text-white/38"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {filtersOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            data-home-horizontal-scroll="true"
+            className="glass-aura ml-4 flex w-[calc(100%-1rem)] items-center gap-2 overflow-x-auto rounded-[28px] p-1.5 hide-scrollbar scroll-pl-4"
+          >
+            {periodTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => selectTab(tab.key)}
+                className={cn(
+                  "shrink-0 rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition-colors",
+                  activeTab === tab.key
+                    ? "bg-white/[0.06] text-orange-400 shadow-[0_10px_26px_rgba(0,0,0,0.28)]"
+                    : "text-white/38"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
       </div>
 
-      {activeTab === 'week' && (
+      {filtersOpen && activeTab === 'week' && (
         <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-2 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
           {[
             { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
@@ -235,7 +259,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {activeTab === 'month' && (
+      {filtersOpen && activeTab === 'month' && (
         <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-5 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
           {availableMonths.map((month, index) => {
             const isSelected = selectedSubValues.month === String(index).padStart(2, '0');
@@ -255,7 +279,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {activeTab === 'year' && (
+      {filtersOpen && activeTab === 'year' && (
         <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-3 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
           {YEARS.map((year) => {
             const isSelected = selectedSubValues.year === String(year);
@@ -289,7 +313,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       {hasData && <div className={cn("ml-4 max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
         <p className="text-[24px] font-black leading-[1.08] tracking-[-0.035em] text-white/46">
-          <span>Você ouviu </span>
+          <span>{ownerFirstName === 'Você' ? 'Você ouviu ' : `${ownerFirstName} ouviu `}</span>
           <motion.span
             key={totalMinutesCount}
             className="text-white inline-block relative"
@@ -319,9 +343,9 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               delay: 0.3,
               ease: [0.16, 1, 0.3, 1]
             }}
-            className="text-white inline-block"
+            className="ml-1 inline-block text-white"
             style={{ transformOrigin: "center bottom" }}
-          > minutos</motion.span>
+          >minutos</motion.span>
           <span> de música {filterText}.</span>
         </p>
       </div>}

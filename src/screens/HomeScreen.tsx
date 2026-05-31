@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -284,6 +284,7 @@ const HomeOrbitalHighlights = ({
   tracks: any[];
   albums: any[];
 }) => {
+  const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const groups: Array<{ key: HomeHighlightKind; title: string; icon: any; items: any[] }> = [
@@ -394,22 +395,35 @@ const HomeOrbitalHighlights = ({
               transition={{ type: 'spring', stiffness: 165, damping: 24, delay: 0.06 + index * 0.04 }}
               style={{ width: position.width, height: position.height }}
             >
-              <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/10 to-black/78" />
-              <span className="absolute left-2 top-1.5 text-[22px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.65)]">{index + 2}</span>
-              <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
-                {detailLabel(item, kind) && (
-                  <span className="mb-0.5 block truncate text-[7px] font-black uppercase tracking-[0.08em] text-white/62">
-                    {detailLabel(item, kind)}
+              <motion.div
+                className="relative h-full w-full"
+                animate={isCentered && !shouldReduceMotion ? {
+                  y: [0, index % 2 === 0 ? -3 : 3, 0],
+                  rotate: [0, index % 2 === 0 ? 0.45 : -0.45, 0],
+                } : {}}
+                transition={isCentered && !shouldReduceMotion ? {
+                  duration: 6.8 + index * 0.55,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                } : {}}
+              >
+                <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/10 to-black/78" />
+                <span className="absolute left-2 top-1.5 text-[22px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.65)]">{index + 2}</span>
+                <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
+                  {detailLabel(item, kind) && (
+                    <span className="mb-0.5 block truncate text-[7px] font-black uppercase tracking-[0.08em] text-white/62">
+                      {detailLabel(item, kind)}
+                    </span>
+                  )}
+                  <span className="block truncate text-[9.5px] font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]">
+                    {getReplayItemTitle(item)}
                   </span>
-                )}
-                <span className="block truncate text-[9.5px] font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]">
-                  {getReplayItemTitle(item)}
-                </span>
-                <span className="mt-0.5 block truncate text-[7.5px] font-black uppercase tracking-[0.08em] text-orange-200/85">
-                  {metricLabel(item, kind)}
-                </span>
-              </div>
+                  <span className="mt-0.5 block truncate text-[7.5px] font-black uppercase tracking-[0.08em] text-orange-200/85">
+                    {metricLabel(item, kind)}
+                  </span>
+                </div>
+              </motion.div>
             </motion.div>
           );
         })}
@@ -421,24 +435,29 @@ const HomeOrbitalHighlights = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 180, damping: 22 }}
         >
-          <div className={cn("relative overflow-hidden bg-black shadow-[0_24px_62px_rgba(0,0,0,0.58)]", primaryImageSize, primaryRadius)}>
-            <SmartImage src={getReplayItemImage(primary)} className="absolute inset-0 h-full w-full object-cover" fallback={getReplayItemTitle(primary)} rounded="none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-black/8 to-black/82" />
-            <span className="absolute left-3 top-2 z-20 text-[52px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.55)]">1</span>
-            <div className="absolute bottom-3 left-3 right-3 z-20 min-w-0">
-              {detailLabel(primary, kind) && (
-                <span className="mb-0.5 block truncate text-[8px] font-black uppercase tracking-[0.1em] text-white/64">
-                  {detailLabel(primary, kind)}
+          <motion.div
+            animate={isCentered && !shouldReduceMotion ? { y: [0, -5, 3, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+            transition={isCentered && !shouldReduceMotion ? { duration: 10.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+          >
+            <div className={cn("relative overflow-hidden bg-black shadow-[0_24px_62px_rgba(0,0,0,0.58)]", primaryImageSize, primaryRadius)}>
+              <SmartImage src={getReplayItemImage(primary)} className="absolute inset-0 h-full w-full object-cover" fallback={getReplayItemTitle(primary)} rounded="none" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-black/8 to-black/82" />
+              <span className="absolute left-3 top-2 z-20 text-[52px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.55)]">1</span>
+              <div className="absolute bottom-3 left-3 right-3 z-20 min-w-0">
+                {detailLabel(primary, kind) && (
+                  <span className="mb-0.5 block truncate text-[8px] font-black uppercase tracking-[0.1em] text-white/64">
+                    {detailLabel(primary, kind)}
+                  </span>
+                )}
+                <span className="block truncate text-[15px] font-black leading-tight text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.72)]">
+                  {getReplayItemTitle(primary)}
                 </span>
-              )}
-              <span className="block truncate text-[15px] font-black leading-tight text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.72)]">
-                {getReplayItemTitle(primary)}
-              </span>
-              <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-[0.08em] text-orange-200/90">
-                {metricLabel(primary, kind)}
-              </span>
+                <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-[0.08em] text-orange-200/90">
+                  {metricLabel(primary, kind)}
+                </span>
+              </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -545,6 +564,7 @@ const HomeOrbitalHighlights = ({
 };
 
 const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
+  const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
@@ -647,8 +667,21 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
               transition={{ type: 'spring', stiffness: 160, damping: 24, delay: 0.04 * relative }}
               style={{ width: position.size, height: position.size }}
             >
-              {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
-              <div className="absolute inset-0 bg-black/20" />
+              <motion.div
+                className="relative h-full w-full"
+                animate={!shouldReduceMotion ? {
+                  y: [0, relative % 2 === 0 ? 2 : -2, 0],
+                  rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
+                } : {}}
+                transition={!shouldReduceMotion ? {
+                  duration: 6.2 + relative * 0.45,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                } : {}}
+              >
+                {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
+                <div className="absolute inset-0 bg-black/20" />
+              </motion.div>
             </motion.div>
           );
         })}
@@ -660,13 +693,17 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 170, damping: 23 }}
         >
-          <div className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]">
+          <motion.div
+            animate={!shouldReduceMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+            transition={!shouldReduceMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
+          >
             {activePerception.image ? <img src={activePerception.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
             <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
               <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
             </div>
-          </div>
+          </motion.div>
           <div className="min-w-0 self-center">
             <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{activePerception.title}</span>
             <p className="mt-1.5 line-clamp-4 text-[12px] font-black leading-snug text-white/92">{activePerception.text}</p>
@@ -899,7 +936,11 @@ const getReplayTrackUrl = (track: any) => {
 
 export default function HomeScreen() {
   const hasBootReadySession = () => {
-    return window.__STATS_LC_HOME_READY__ === true;
+    try {
+      return window.__STATS_LC_HOME_READY__ === true || sessionStorage.getItem('stats-lc-home-boot-ready') === '1';
+    } catch {
+      return window.__STATS_LC_HOME_READY__ === true;
+    }
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const isLoading = useStatsStore(state => state.isLoading);

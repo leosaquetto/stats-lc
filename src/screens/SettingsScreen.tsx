@@ -54,6 +54,10 @@ export default function SettingsScreen() {
   const setHistoryCustomOrder = useStatsStore(state => state.setHistoryCustomOrder);
   
   const members = getCanonicalMembers(groupStats);
+  const getFirstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || name || '';
+  const alphabeticalMembers = [...members].sort((a: any, b: any) => {
+    return getFirstName(a.name).localeCompare(getFirstName(b.name), 'pt-BR', { sensitivity: 'base' });
+  });
 
   const customSortedMembers = [...members].sort((a: any, b: any) => {
     const arr = historyCustomOrder || [];
@@ -315,7 +319,7 @@ export default function SettingsScreen() {
            <p className="text-[11px] text-white/40 font-medium px-1">Selecione quem aparecerá no topo da sua Arena pessoal.</p>
            
            <div className="grid grid-cols-4 gap-2">
-             {members.map((user: any) => (
+	             {alphabeticalMembers.map((user: any) => (
                <button
                  key={user.id}
                  onClick={() => handleFeaturedUserChange(user)}
@@ -341,7 +345,7 @@ export default function SettingsScreen() {
                  )}
                  <div className="relative z-10 flex min-h-[42px] w-full items-end justify-center px-1 pb-2">
                    <span className={clsx("w-full whitespace-normal break-words text-[10px] font-black leading-[1.12]", featuredUserId === user.id ? "text-orange-400" : "text-white/88")}>
-                     {user.name}
+	                     {getFirstName(user.name)}
                    </span>
                  </div>
                </button>
@@ -356,12 +360,12 @@ export default function SettingsScreen() {
               <div className="flex flex-col gap-4">
                  <span className="text-[11px] font-black uppercase tracking-widest text-white/20">Ocultar Membros</span>
                  <div className="grid grid-cols-2 gap-2">
-                    {members.map((user: any) => (
+	                    {alphabeticalMembers.map((user: any) => (
                       <button
                         key={user.id}
                         onClick={() => toggleHideUser(user.id, user.name)}
                         className={clsx(
-                          "flex min-h-[46px] w-full items-center gap-2 rounded-2xl border px-3 py-2 text-left text-[11px] font-bold transition-all",
+	                          "flex min-h-[52px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2 text-left text-[11px] font-bold transition-all",
                           hiddenUsers.includes(user.id)
                             ? "bg-red-500/10 border-red-500/20 text-red-400"
                             : "bg-white/5 border-white/5 text-white/40"
@@ -369,10 +373,10 @@ export default function SettingsScreen() {
                       >
                          <SmartImage 
                            src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                           className="h-4 w-4 rounded-full opacity-60" 
+	                           className="h-7 w-7 rounded-full opacity-80" 
                            fallback="" 
                          />
-                         <span className="min-w-0 flex-1 break-words leading-tight">{user.name}</span>
+	                         <span className="min-w-0 flex-1 truncate leading-tight">{getFirstName(user.name)}</span>
                          {hiddenUsers.includes(user.id) && <MinusCircle className="h-3 w-3" />}
                       </button>
                     ))}

@@ -104,7 +104,7 @@ export const VinylRecord = ({
     return Math.min(1, Math.max(0, progressMs / durationMs));
   }, [progressMs, durationMs]);
 
-  const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#ea580c'), [dominantColor]);
+  const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#647062'), [dominantColor]);
   const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
   const textureSeed       = textureProfile.seed;
   const textureVariant: number = 0;
