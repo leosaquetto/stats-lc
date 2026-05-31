@@ -56,6 +56,10 @@ export interface LyricsMatch {
   } | null;
 }
 
+export interface LyricsFullResponse extends LyricsMatch {
+  lyrics?: string | null;
+}
+
 export interface NowPlaying {
   track: Track;
   isNow: boolean;

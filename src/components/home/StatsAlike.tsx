@@ -12,7 +12,7 @@ import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/C
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getCanonicalMembers } from '../../lib/memberSelectors';
+import { getVisibleMembers } from '../../lib/memberSelectors';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -54,12 +54,12 @@ interface AlikeConnection {
 export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const topItemsCache = useStatsStore(state => state.topItemsCache);
   const shouldReduceMotion = useReducedMotion();
   const [orbitRef, isOrbitVisible] = useOrbitVisibility();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isAutoRotating, setIsAutoRotating] = useState(true);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 
   // Local hydrated topItems cache
@@ -70,7 +70,7 @@ export const StatsAlike = React.memo(() => {
     fetchedAt: number;
   }>>({});
 
-  const members = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const featuredUser = useMemo(
     () => members.find(m => m.id === featuredUserId) || members[0],
     [members, featuredUserId]
@@ -90,12 +90,13 @@ export const StatsAlike = React.memo(() => {
     }
 
     // 3. Try topItemsCache from store
-    const cacheKey = `${member.id}:tracks:month`;
+    const memberCacheKey = coreUtils.getUserCacheKey(member.id);
+    const cacheKey = `${memberCacheKey}:tracks:month`;
     if (topItemsCache?.[cacheKey]) {
       return {
         tracks: topItemsCache[cacheKey] || [],
-        artists: topItemsCache[`${member.id}:artists:month`] || [],
-        albums: topItemsCache[`${member.id}:albums:month`] || [],
+        artists: topItemsCache[`${memberCacheKey}:artists:month`] || [],
+        albums: topItemsCache[`${memberCacheKey}:albums:month`] || [],
       };
     }
 
@@ -115,11 +116,9 @@ export const StatsAlike = React.memo(() => {
     }).join('|');
   }, [members, getMemberTopItems]);
 
-  // Stable signature for prefetch needs
+  // Stable signature for prefetch needs. It must not include Date.now(), otherwise
+  // every small render can turn into another prefetch pass.
   const prefetchSignature = useMemo(() => {
-    const now = Date.now();
-    const REFETCH_INTERVAL = 15 * 60 * 1000;
-
     return members.map((member) => {
       const hydrated = hydratedTopsByUser[member.id];
       const fetchedAt = hydrated?.fetchedAt || 0;
@@ -127,8 +126,7 @@ export const StatsAlike = React.memo(() => {
       const tracksLen = tops?.tracks?.length ?? -1;
       const artistsLen = tops?.artists?.length ?? -1;
       const albumsLen = tops?.albums?.length ?? -1;
-      const needsFetch = fetchedAt === 0 || (now - fetchedAt) > REFETCH_INTERVAL;
-      return `${member.id}:${fetchedAt}:${tracksLen}:${artistsLen}:${albumsLen}:${needsFetch}`;
+      return `${member.id}:${fetchedAt}:${tracksLen}:${artistsLen}:${albumsLen}`;
     }).join('|');
   }, [members, hydratedTopsByUser, getMemberTopItems]);
 
@@ -139,25 +137,17 @@ export const StatsAlike = React.memo(() => {
     let cancelled = false;
 
     const loadTopItemsForMembers = async () => {
-      const REFETCH_INTERVAL = 15 * 60 * 1000; // 15 min - match topItemsCache TTL
-      const now = Date.now();
-
       for (const member of members) {
         if (cancelled) return;
 
         const hydrated = hydratedTopsByUser[member.id];
-        const lastFetched = hydrated?.fetchedAt || 0;
-        const shouldRefetch = (now - lastFetched) > REFETCH_INTERVAL;
-
-        if (!shouldRefetch) continue;
-
         const tops = getMemberTopItems(member);
         const hasAnyTopItems =
           !!tops?.tracks?.length ||
           !!tops?.artists?.length ||
           !!tops?.albums?.length;
 
-        if (!hasAnyTopItems && shouldRefetch) {
+        if (!hasAnyTopItems && !hydrated?.fetchedAt) {
           try {
             const result = await prefetchUserTops(member.id);
             if (result && result.fetchedAt && !cancelled) {
@@ -166,16 +156,11 @@ export const StatsAlike = React.memo(() => {
                 [member.id]: result
               }));
 
-              if ((import.meta as any).env?.DEV) {
-                console.log(`[StatsAlike] Hydrated tops from prefetch for ${member.id}:`, {
-                  tracks: result.tracks?.length || 0,
-                  artists: result.artists?.length || 0,
-                  albums: result.albums?.length || 0
-                });
-              }
             }
           } catch (err) {
-            console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
+            if ((import.meta as any).env?.DEV) {
+              console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
+            }
           }
         }
       }
@@ -194,28 +179,6 @@ export const StatsAlike = React.memo(() => {
     const friends = members.filter(m => m.id !== effectiveFeaturedUserId);
 
     const featuredUserTops = getMemberTopItems(featuredUser);
-
-    // Debug: Log topItems availability
-    if ((import.meta as any).env?.DEV) {
-      console.log('[StatsAlike] Featured user topItems:', {
-        userId: featuredUser.id,
-        hasTopItems: !!featuredUserTops,
-        artists: featuredUserTops?.artists?.length || 0,
-        tracks: featuredUserTops?.tracks?.length || 0,
-        albums: featuredUserTops?.albums?.length || 0
-      });
-      friends.forEach(friend => {
-        const friendTops = getMemberTopItems(friend);
-        console.log('[StatsAlike] Friend topItems:', {
-          userId: friend.id,
-          name: friend.name,
-          hasTopItems: !!friendTops,
-          artists: friendTops?.artists?.length || 0,
-          tracks: friendTops?.tracks?.length || 0,
-          albums: friendTops?.albums?.length || 0
-        });
-      });
-    }
 
     // Helper to find match for a specific type
     const findMatches = (type: 'artist' | 'track' | 'album', limit: number = 3) => {
@@ -379,17 +342,6 @@ export const StatsAlike = React.memo(() => {
     }
   }, [alikeConnections.length, activeIndex]);
 
-  useEffect(() => {
-    if (!isOrbitVisible || !isAutoRotating || alikeConnections.length < 2) return;
-    const timer = setInterval(() => {
-      setActiveIndex(prev => {
-        const next = (prev + 1) % alikeConnections.length;
-        return alikeConnections.length > 0 ? next : 0;
-      });
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [isOrbitVisible, isAutoRotating, alikeConnections.length]);
-
   if (!groupStats || !featuredUser) {
     return (
       <div className="flex flex-col gap-3 mb-4 mt-1">
@@ -421,19 +373,16 @@ export const StatsAlike = React.memo(() => {
   if (alikeConnections.length === 0) return null;
 
   const handleNext = () => {
-    setIsAutoRotating(false);
     setActiveIndex(prev => (prev + 1) % alikeConnections.length);
   };
 
   const handlePrev = () => {
-    setIsAutoRotating(false);
     setActiveIndex(prev => (prev - 1 + alikeConnections.length) % alikeConnections.length);
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, intent: 'pending' };
-    setIsAutoRotating(false);
   };
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -457,13 +406,11 @@ export const StatsAlike = React.memo(() => {
     const diffX = touch.clientX - start.x;
     const diffY = touch.clientY - start.y;
     if (start.intent === 'vertical' || Math.abs(diffX) < 42 || Math.abs(diffX) < Math.abs(diffY) * 1.25) {
-      setIsAutoRotating(true);
       return;
     }
 
     if (diffX < 0) handleNext();
     else handlePrev();
-    window.setTimeout(() => setIsAutoRotating(true), 2200);
   };
 
   return (
@@ -493,14 +440,11 @@ export const StatsAlike = React.memo(() => {
         ref={orbitRef}
         data-home-horizontal-scroll="true"
         className="relative h-[326px] w-full select-none flex items-center justify-center overflow-visible [perspective:1200px]"
-        onMouseEnter={() => setIsAutoRotating(false)}
-        onMouseLeave={() => setIsAutoRotating(true)}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => {
           touchStartRef.current = null;
-          setIsAutoRotating(true);
         }}
       >
         {/* Orbital Background - Glass Stage */}

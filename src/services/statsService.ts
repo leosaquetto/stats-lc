@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import { UserStats, GroupStats, LyricsMatch } from '../types/stats';
+import { UserStats, GroupStats, LyricsMatch, LyricsFullResponse } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
@@ -401,6 +401,26 @@ export const statsService = {
     return this.fetchEntityStats(userId, type, id);
   },
 
+  async fetchEntityStreams(userId: string, type: 'track' | 'artist' | 'album', id: string, limit = 200): Promise<any[]> {
+    if (!id) return [];
+    try {
+      const userParam = coreUtils.getUserApiParam(userId);
+      const res = await fetchFromApi<any>('/api/entity-streams', {
+        user: userParam,
+        type,
+        id,
+        limit,
+        resolveAlbums: 1,
+      });
+      return res?.items || [];
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn(`[statsService] Entity streams unavailable for ${type}:${id}`, e);
+      }
+      return [];
+    }
+  },
+
   /**
    * Busca dados live do grupo (apenas nowPlaying, etc)
    */
@@ -763,6 +783,25 @@ export const statsService = {
         console.warn('[statsService] Lyrics match unavailable:', e);
       }
       return { ok: true, hasLyrics: false, reason: 'request_failed' };
+    }
+  },
+
+  async fetchLyricsFull(title: string, artist?: string): Promise<LyricsFullResponse> {
+    if (!title?.trim()) {
+      return { ok: true, hasLyrics: false, lyrics: null, reason: 'missing_title' };
+    }
+
+    try {
+      return await fetchFromApi<LyricsFullResponse>('/api/lyrics', {
+        title: title.trim(),
+        ...(artist?.trim() ? { artist: artist.trim() } : {}),
+        includeLyrics: '1',
+      }, false, 0, true);
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn('[statsService] Full lyrics unavailable:', e);
+      }
+      return { ok: true, hasLyrics: false, lyrics: null, reason: 'request_failed' };
     }
   },
 

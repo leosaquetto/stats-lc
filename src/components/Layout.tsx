@@ -5,13 +5,15 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, X, FileText, ExternalLink, Loader2, Copy, Disc3, UserCircle, ListMusic } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
-import { SmartImage } from './shared/CommonUI';
+import { statsService } from '../services/statsService';
+import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { getCanonicalMembers } from '../lib/memberSelectors';
+import type { LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -107,6 +109,445 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
 
 BottomNavigation.displayName = 'BottomNavigation';
 
+const getTrackArtwork = (track: any) => {
+  return [
+    track?.albumImage,
+    track?.album?.image,
+    track?.album?.images?.[0]?.url,
+    track?.album?.images?.[0],
+    track?.image,
+    track?.images?.[0]?.url,
+    track?.images?.[0],
+    track?.albumArt,
+    track?.coverArt,
+    track?.cover_art,
+    track?.album_image,
+    track?.cover,
+  ].find((url) => typeof url === 'string' && url.trim().length > 5) || '';
+};
+
+const getTrackArtistName = (track: any) => {
+  const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
+  if (typeof firstArtist === 'string') return firstArtist;
+  if (firstArtist?.name) return firstArtist.name;
+  if (typeof track?.artist === 'string') return track.artist;
+  return track?.artist?.name || track?.artistName || 'Artista';
+};
+
+const getTrackArtistImage = (track: any) => {
+  const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
+  return [
+    firstArtist?.image,
+    firstArtist?.avatar,
+    firstArtist?.artistImage,
+    track?.artist?.image,
+    track?.artist?.avatar,
+    track?.artistImage,
+    track?.primaryArtistImage,
+  ].find((url) => typeof url === 'string' && url.trim().length > 5) || '';
+};
+
+const getMainArtistId = (track: any) => {
+  const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
+  return String(firstArtist?.id || firstArtist?.statsfmId || firstArtist?.spotifyId || firstArtist?.appleMusicId || track?.artist?.id || track?.artistId || '');
+};
+
+const getAlbumId = (track: any) => String(track?.albumId || track?.album?.id || '');
+
+const firstExternalId = (value: any) => {
+  if (Array.isArray(value)) return value.find((item) => typeof item === 'string' && item.trim()) || '';
+  return typeof value === 'string' ? value : '';
+};
+
+const getTrackLinks = (track: any) => {
+  const spotifyId = track?.spotifyId || firstExternalId(track?.externalIds?.spotify);
+  const appleMusicId = track?.appleMusicId || firstExternalId(track?.externalIds?.appleMusic);
+  const statsId = track?.id || track?.statsfmId;
+  return [
+    statsId && { label: 'stats.fm', url: `https://stats.fm/track/${statsId}` },
+    spotifyId && { label: 'Spotify', url: `https://open.spotify.com/track/${spotifyId}` },
+    appleMusicId && { label: 'Apple Music', url: `https://music.apple.com/song/${appleMusicId}` },
+  ].filter(Boolean) as Array<{ label: string; url: string }>;
+};
+
+const formatShortDate = (value: any) => {
+  if (!value) return 'sem registro';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'sem registro';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const getStreamTime = (item: any) => {
+  const value = item?.playedAt || item?.timestamp || item?.endTime || item?.date || item?.createdAt;
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const summarizeTrackHistory = (items: any[], currentTimestamp?: string) => {
+  const currentTime = currentTimestamp ? new Date(currentTimestamp).getTime() : 0;
+  const history = items
+    .filter((item) => {
+      const time = getStreamTime(item);
+      if (!time) return false;
+      if (!currentTime) return true;
+      return Math.abs(time - currentTime) > 90_000;
+    })
+    .sort((a, b) => getStreamTime(a) - getStreamTime(b));
+  const years = history.reduce<Record<string, number>>((acc, item) => {
+    const year = new Date(getStreamTime(item)).getFullYear();
+    if (Number.isFinite(year)) acc[String(year)] = (acc[String(year)] || 0) + 1;
+    return acc;
+  }, {});
+  const bestYear = Object.entries(years).sort((a, b) => b[1] - a[1])[0];
+  return {
+    firstPlayedAt: history[0] ? getStreamTime(history[0]) : 0,
+    lastPlayedAt: history[history.length - 1] ? getStreamTime(history[history.length - 1]) : 0,
+    bestYear: bestYear ? bestYear[0] : '',
+    bestYearCount: bestYear ? bestYear[1] : 0,
+  };
+};
+
+const CopyableLinkButton = ({ label, url }: { label: string; url: string }) => {
+  const copyTimerRef = React.useRef<number | null>(null);
+  const [copied, setCopied] = React.useState(false);
+
+  const clearCopyTimer = () => {
+    if (copyTimerRef.current) {
+      window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = null;
+    }
+  };
+
+  const copyUrl = async () => {
+    try {
+      await navigator.clipboard?.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 900);
+    } catch {}
+  };
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onPointerDown={() => {
+        clearCopyTimer();
+        copyTimerRef.current = window.setTimeout(copyUrl, 520);
+      }}
+      onPointerUp={clearCopyTimer}
+      onPointerLeave={clearCopyTimer}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        copyUrl();
+      }}
+      className="flex items-center gap-1.5 rounded-full bg-white/[0.055] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/58 transition-colors hover:bg-white/[0.1] hover:text-white"
+    >
+      {copied ? <Copy className="h-3 w-3 text-orange-300" /> : <ExternalLink className="h-3 w-3" />}
+      {copied ? 'copiado' : label}
+    </a>
+  );
+};
+
+const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
+  const groupStats = useStatsStore(state => state.groupStats);
+  const userTrackStats = useStatsStore(state => state.userTrackStats);
+  const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [lyricsMatch, setLyricsMatch] = React.useState<LyricsMatch | null>(null);
+  const [lyricsText, setLyricsText] = React.useState<string | null>(null);
+  const [lyricsLoading, setLyricsLoading] = React.useState(false);
+  const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
+  const [entityStats, setEntityStats] = React.useState({ artist: 0, track: 0, album: 0 });
+  const [trackHistory, setTrackHistory] = React.useState<{ firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number }>({
+    firstPlayedAt: 0,
+    lastPlayedAt: 0,
+    bestYear: '',
+    bestYearCount: 0,
+  });
+
+  const track = user?.nowPlaying?.track;
+  const trackId = String(track?.id || track?.track?.id || '');
+  const artistId = getMainArtistId(track);
+  const albumId = getAlbumId(track);
+  const trackTitle = track?.name || 'Música';
+  const artistName = getTrackArtistName(track);
+  const artwork = getTrackArtwork(track);
+  const artistImage = getTrackArtistImage(track) || artwork;
+  const albumName = track?.albumName || track?.album?.name || 'Álbum';
+  const trackLinks = React.useMemo(() => getTrackLinks(track), [track]);
+  const members = React.useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+
+  React.useEffect(() => {
+    if (!track?.name) {
+      setLyricsMatch(null);
+      setLyricsText(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLyricsText(null);
+    statsService.fetchLyricsMatch(track.name, artistName)
+      .then((match) => {
+        if (!cancelled) setLyricsMatch(match);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [track?.name, artistName]);
+
+  React.useEffect(() => {
+    if (!trackId || !members.length) return;
+    fetchTrackStatsForAll(trackId).catch(() => undefined);
+  }, [trackId, members.length, fetchTrackStatsForAll]);
+
+  React.useEffect(() => {
+    if (!user?.id || !trackId) {
+      setEntityStats({ artist: 0, track: 0, album: 0 });
+      setTrackHistory({ firstPlayedAt: 0, lastPlayedAt: 0, bestYear: '', bestYearCount: 0 });
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all([
+      artistId ? statsService.fetchEntityStats(user.id, 'artist', artistId).catch(() => 0) : Promise.resolve(0),
+      statsService.fetchEntityStats(user.id, 'track', trackId).catch(() => 0),
+      albumId ? statsService.fetchEntityStats(user.id, 'album', albumId).catch(() => 0) : Promise.resolve(0),
+      statsService.fetchEntityStreams(user.id, 'track', trackId, 240).catch(() => []),
+    ]).then(([artist, trackCount, album, history]) => {
+      if (cancelled) return;
+      setEntityStats({ artist, track: trackCount, album });
+      setTrackHistory(summarizeTrackHistory(history, user?.nowPlaying?.timestamp));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [albumId, artistId, trackId, user?.id, user?.nowPlaying?.timestamp]);
+
+  const ranking = React.useMemo(() => {
+    if (!trackId) return [];
+    return members
+      .map(member => ({
+        user: member,
+        count: userTrackStats[`${member.id}:${trackId}`] || 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [members, trackId, userTrackStats]);
+
+  const handleLyrics = async () => {
+    if (!track?.name || !lyricsMatch?.hasLyrics) return;
+    setLyricsLoading(true);
+    const response = await statsService.fetchLyricsFull(track.name, artistName);
+    setLyricsLoading(false);
+    if (response.lyrics) {
+      setLyricsText(response.lyrics);
+      setPanel('lyrics');
+      return;
+    }
+    const url = response.match?.url || lyricsMatch.match?.url;
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  if (!track && !user) return null;
+
+  return (
+    <>
+      <motion.button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="pointer-events-auto relative mb-6 mb-[calc(env(safe-area-inset-bottom)+12px)] mr-4 flex h-[74px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.22] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
+        whileTap={{ scale: 0.94 }}
+        aria-label="Abrir stats da música"
+      >
+        <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        {artistImage ? (
+          <SmartImage src={artistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+        ) : (
+          <Music2 className="h-8 w-8 text-white/72" />
+        )}
+      </motion.button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className="fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-40 flex pointer-events-none items-end justify-center px-4 pb-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.section
+              initial={{ y: 42, scale: 0.96, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 28, scale: 0.98, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 240, damping: 28 }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.18}
+              onDragEnd={(_, info) => {
+                if (info.offset.x < -58 && lyricsMatch?.hasLyrics) {
+                  if (!lyricsText) handleLyrics();
+                  else setPanel('lyrics');
+                } else if (info.offset.x > 58) {
+                  setPanel('stats');
+                }
+              }}
+              onClick={(event) => event.stopPropagation()}
+              className="glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-hidden rounded-[34px] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
+            >
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsOpen(false);
+                  setPanel('stats');
+                }}
+                className="absolute right-4 top-4 z-20 rounded-full bg-white/[0.055] p-2 text-white/45 transition-colors hover:text-white"
+                aria-label="Fechar stats"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <motion.div
+                animate={{ x: panel === 'stats' ? '0%' : '-108%' }}
+                transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+                className="flex w-full"
+              >
+              <div className="w-full shrink-0">
+              <div className="flex items-start gap-4 pr-10">
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/[0.04]">
+                  {artwork ? (
+                    <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Music2 className="h-9 w-9 text-white/36" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 pt-1">
+                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">Stats da música</span>
+                  <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{trackTitle}</h3>
+                  <p className="mt-1 truncate text-sm font-semibold text-white/48">{artistName}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                <div className="rounded-[22px] bg-white/[0.045] p-3">
+                  <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Artista</span>
+                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.artist} /></strong>
+                </div>
+                <div className="rounded-[22px] bg-white/[0.045] p-3">
+                  <ListMusic className="mb-2 h-4 w-4 text-orange-300" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Faixa</span>
+                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.track || userTrackStats[`${user?.id}:${trackId}`] || 0} /></strong>
+                </div>
+                <div className="rounded-[22px] bg-white/[0.045] p-3">
+                  <Disc3 className="mb-2 h-4 w-4 text-orange-300" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Álbum</span>
+                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.album} /></strong>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-[20px] bg-black/18 p-3">
+                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">1ª vez</span>
+                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.firstPlayedAt)}</span>
+                </div>
+                <div className="rounded-[20px] bg-black/18 p-3">
+                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">última</span>
+                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.lastPlayedAt)}</span>
+                </div>
+                <div className="rounded-[20px] bg-black/18 p-3">
+                  <span className="text-[7px] font-black uppercase tracking-[0.16em] text-white/30">ano pico</span>
+                  <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">
+                    {trackHistory.bestYear ? `${trackHistory.bestYear} · ${trackHistory.bestYearCount}` : 'sem registro'}
+                  </span>
+                </div>
+              </div>
+
+              {trackLinks.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {trackLinks.map((link) => <CopyableLinkButton key={link.label} label={link.label} url={link.url} />)}
+                </div>
+              )}
+
+              {ranking.length > 0 && (
+                <div className="mt-4 flex items-end gap-2 overflow-x-auto no-scrollbar pb-1 opacity-55" data-home-horizontal-scroll="true">
+                  {ranking.map((item, index) => (
+                    <div key={item.user.id} className="flex shrink-0 flex-col items-center gap-1">
+                      <div className="relative h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-black">
+                        <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
+                      </div>
+                      <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", index === 0 ? "bg-orange-500 text-white" : "bg-white/[0.08] text-white/72")}>
+                        {item.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {lyricsMatch?.hasLyrics && (
+                <button
+                  type="button"
+                  onClick={handleLyrics}
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/72 transition-colors hover:bg-white/[0.1] hover:text-white"
+                >
+                  {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : lyricsText ? <FileText className="h-4 w-4" /> : <ExternalLink className="h-4 w-4" />}
+                  Letra
+                </button>
+              )}
+
+              <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
+                arraste para a esquerda para ver a letra
+              </p>
+              </div>
+
+              <div className="w-full shrink-0 pl-6">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">Letra</span>
+                    <h3 className="mt-1 line-clamp-1 text-xl font-black text-white">{trackTitle}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPanel('stats')}
+                    className="rounded-full bg-white/[0.055] px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/52"
+                  >
+                    stats
+                  </button>
+                </div>
+                {lyricsLoading ? (
+                  <div className="flex h-[34vh] items-center justify-center rounded-[24px] bg-black/22">
+                    <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
+                  </div>
+                ) : lyricsText ? (
+                  <div className="max-h-[42vh] overflow-y-auto rounded-[24px] bg-black/22 p-4 text-sm font-medium leading-relaxed text-white/72 whitespace-pre-line">
+                  {lyricsText}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleLyrics}
+                    className="flex h-[34vh] w-full flex-col items-center justify-center gap-3 rounded-[24px] bg-black/22 text-white/52"
+                  >
+                    <FileText className="h-7 w-7 text-orange-300" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
+                  </button>
+                )}
+              </div>
+              </motion.div>
+            </motion.section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+});
+
+BottomTrackStatsBubble.displayName = 'BottomTrackStatsBubble';
+
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isOffline = useStatsStore(state => state.isOffline);
@@ -148,32 +589,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     return saved !== null ? saved === 'true' : false;
   });
 
-  const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
-  const showSyncFooterRef = React.useRef(false);
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
-
-  React.useEffect(() => {
-    let frame = 0;
-    const handleScroll = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        const nextShowSyncFooter = window.scrollY > 400;
-        if (nextShowSyncFooter !== showSyncFooterRef.current) {
-          showSyncFooterRef.current = nextShowSyncFooter;
-          setShowSyncFooter(nextShowSyncFooter);
-        }
-        frame = 0;
-      });
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
 
   React.useEffect(() => {
     const handleNowPlaying = (event: any) => {
@@ -254,21 +672,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         "flex-1 w-full pt-[max(env(safe-area-inset-top),40px)] pb-[calc(env(safe-area-inset-bottom)+100px)]",
         shouldGateHome && "pointer-events-none opacity-0"
       )}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{
-              duration: 0.2,
-              ease: [0.16, 1, 0.3, 1]
-            }}
-            className="w-full h-full"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          key={location.pathname}
+          initial={false}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.16,
+            ease: [0.16, 1, 0.3, 1]
+          }}
+          className="w-full h-full"
+        >
+          {children}
+        </motion.div>
       </main>
 
       {/* Tab Bar (Floating Bottom Nav) */}
@@ -278,7 +693,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       )}>
         {/* Sync Info Footer - aparece apenas quando scrollar */}
         <AnimatePresence>
-          {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
+          {lastUpdate && activeMembersSorted.length > 0 && (
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -428,8 +843,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           )}
         </AnimatePresence>
 
-        {/* Navigation - Liquid Glass Capsule */}
-        <BottomNavigation pathname={location.pathname} />
+        <div className="flex w-full max-w-[460px] items-end justify-center gap-2 px-2">
+          {/* Navigation - Liquid Glass Capsule */}
+          <div className="min-w-0 flex-1">
+            <BottomNavigation pathname={location.pathname} />
+          </div>
+          <BottomTrackStatsBubble user={playingUser} />
+        </div>
       </div>
 
       {/* Background Atmosphere */}

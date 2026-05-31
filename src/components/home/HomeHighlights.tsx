@@ -17,7 +17,7 @@ import {
   ShimmerOverlay,
   Skeleton
 } from '../shared/CommonUI';
-import { Headphones, Flame, ArrowRight, BarChart3 } from 'lucide-react';
+import { Headphones, Flame, ArrowRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +38,21 @@ const topItemKey = (type: string, item: any, index: number) => {
     item?.album?.name ||
     'unknown';
   return `${type}-${stableId}-${index}`;
+};
+
+const seededOrbitUnit = (seed: number, index: number) => {
+  const value = Math.sin(seed * 12.9898 + index * 78.233) * 43758.5453;
+  return value - Math.floor(value);
+};
+
+const getArenaSeed = (users: UserStats[]) => {
+  return users.reduce((seed, user, index) => {
+    const id = user.id || user.name || String(index);
+    for (let i = 0; i < id.length; i += 1) {
+      seed = (Math.imul(seed, 31) + id.charCodeAt(i)) | 0;
+    }
+    return seed;
+  }, 17);
 };
 
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
@@ -82,17 +97,34 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
     );
   }
 
-  // Orbital positions for up to 8 participants inside the mobile window.
-  const orbitalPositions = [
-    { left: '17%', bottom: '31%', size: 'large' },
-    { left: '36%', top: '8%', size: 'normal' },
-    { right: '18%', top: '17%', size: 'normal' },
-    { right: '18%', bottom: '25%', size: 'normal' },
-    { left: '49%', bottom: '7%', size: 'small' },
-    { left: '16%', top: '26%', size: 'small' },
-    { right: '36%', top: '6%', size: 'small' },
-    { right: '38%', bottom: '7%', size: 'small' },
-  ];
+  const orbitalPositions = React.useMemo(() => {
+    const seed = getArenaSeed(displayParticipants);
+    const placed: Array<{ left: number; top: number; size: 'large' | 'normal' | 'small' }> = [];
+    const minDistance = 18;
+
+    displayParticipants.forEach((_, index) => {
+      const size = index === 0 ? 'large' : index < 4 ? 'normal' : 'small';
+      let candidate: { left: number; top: number; size: 'large' | 'normal' | 'small' } = { left: 50, top: 50, size };
+
+      for (let attempt = 0; attempt < 16; attempt += 1) {
+        const angle = seededOrbitUnit(seed + index * 13, attempt) * Math.PI * 2;
+        const radius = index === 0 ? 15 : 26 + seededOrbitUnit(seed + index * 29, attempt + 9) * 24;
+        const left = Math.max(13, Math.min(87, 50 + Math.cos(angle) * radius));
+        const top = Math.max(13, Math.min(87, 50 + Math.sin(angle) * radius * 0.82));
+        const overlaps = placed.some((position) => {
+          const dx = position.left - left;
+          const dy = position.top - top;
+          return Math.sqrt(dx * dx + dy * dy) < minDistance;
+        });
+        candidate = { left, top, size };
+        if (!overlaps) break;
+      }
+
+      placed.push(candidate);
+    });
+
+    return placed;
+  }, [displayParticipants]);
 
   return (
     <motion.div
@@ -126,7 +158,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           </div>
 
           {/* Orbital Stage */}
-          <div className="relative flex min-h-[330px] flex-1 items-center justify-center">
+            <motion.div className="relative flex min-h-[330px] flex-1 items-center justify-center" layout>
             {/* Orbital Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Inner ring */}
@@ -188,7 +220,11 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
 
                 return (
                   <motion.div
-                    key={`${user.id}-${i}`}
+                    key={user.id}
+                    layout
+                    drag
+                    dragMomentum={false}
+                    dragElastic={0.18}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
                       opacity: hasZeroStreams ? 0.5 : 1,
@@ -209,17 +245,16 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     }}
                     className="absolute"
                     style={{
-                      left: position.left,
-                      right: position.right,
-                      top: position.top,
-                      bottom: position.bottom,
-                      transform: 'translate(-50%, -50%)'
+                      left: `${position.left}%`,
+                      top: `${position.top}%`,
+                      transform: 'translate(-50%, -50%)',
+                      touchAction: 'none',
                     }}
                   >
                     <div className="relative">
                       <div
                         className={cn(
-                          "rounded-full overflow-hidden border-2 shadow-2xl transition-all",
+                          "rounded-full overflow-hidden border-2 shadow-2xl transition-all cursor-grab active:cursor-grabbing",
                           isLeader
                             ? "h-[76px] w-[76px] border-orange-500/70 ring-4 ring-orange-500/20 shadow-orange-500/30"
                             : position.size === 'small'
@@ -241,7 +276,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                           isLeader ? "bg-orange-500" : "bg-orange-600"
                         )}
                       >
-                        <span className="text-[9px] font-black leading-none text-white">
+                        <span className="text-[9px] font-black tabular-nums leading-none text-white">
                           {coreUtils.formatNumber(streamsToday)}
                         </span>
                       </div>
@@ -262,10 +297,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 <span className="text-[8px] font-black text-white/40">+{extraCount}</span>
               </motion.div>
             )}
-            <div className="absolute bottom-3 right-3 flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-white/[0.055] shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-              <BarChart3 className="h-7 w-7 text-orange-400" strokeWidth={2.4} />
-            </div>
-          </div>
+          </motion.div>
         </div>
       </div>
     </motion.div>

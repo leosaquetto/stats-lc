@@ -80,7 +80,11 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div data-home-horizontal-scroll="true" className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]">
+      <motion.div
+        data-home-horizontal-scroll="true"
+        layout
+        className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]"
+      >
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
@@ -92,7 +96,12 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
             return (
               <motion.div
-                key={`${friend.id}-${idx}`}
+                key={friend.id}
+                layout
+                initial={{ opacity: 0, scale: 0.92, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.92, y: 8 }}
+                transition={{ type: 'spring', stiffness: 210, damping: 26 }}
                 className="flex-shrink-0 w-[144px] group cursor-pointer transform-gpu"
                 style={{ contentVisibility: idx > 2 ? 'auto' : 'visible', containIntrinsicSize: '144px 180px' }}
                 onClick={() => onFriendClick(friend)}
@@ -212,7 +221,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           </div>
           <span className="text-[7.5px] font-black text-white/30 uppercase tracking-[0.2em] text-center leading-tight"> Ver<br/>Todos</span>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 };

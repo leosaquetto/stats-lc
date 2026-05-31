@@ -34,6 +34,28 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const HOME_CACHE_TTL = 15 * 60 * 1000;
+
+const readHomeSessionCache = <T,>(key: string): T | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.savedAt || Date.now() - parsed.savedAt > HOME_CACHE_TTL) return null;
+    return parsed.value as T;
+  } catch {
+    return null;
+  }
+};
+
+const writeHomeSessionCache = (key: string, value: any) => {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), value }));
+  } catch {}
+};
+
 const normalizeProfileSlug = (value: unknown) => {
   if (typeof value !== 'string') return '';
   return value
@@ -731,13 +753,24 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
   );
 };
 
-const HomeRecentPlays = ({ recent }: { recent: any[] }) => {
+const HomeRecentPlays = ({ recent, onViewMore }: { recent: any[]; onViewMore?: () => void }) => {
   const list = recent.slice(0, 10);
   return (
     <section className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-3 flex items-center gap-3">
-        <Clock3 className="h-5 w-5 text-orange-500" />
-        <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Últimas Reproduções</h2>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Clock3 className="h-5 w-5 text-orange-500" />
+          <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Últimas Reproduções</h2>
+        </div>
+        {list.length > 0 && (
+          <button
+            type="button"
+            onClick={onViewMore}
+            className="shrink-0 rounded-full bg-white/[0.045] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition-colors hover:bg-white/[0.08] hover:text-white/80"
+          >
+            ver mais
+          </button>
+        )}
       </div>
       <div className="glass-aura flex flex-col gap-2 rounded-[32px] p-3">
         {list.length === 0 && (
@@ -1432,7 +1465,26 @@ export default function HomeScreen() {
       return;
     }
 
-    setReplayState('loading');
+    const cacheKey = `stats-lc-home-replay:${primaryUser.id}:${replayPeriodKey}`;
+    const cachedReplay = readHomeSessionCache<{
+      artists: any[];
+      tracks: any[];
+      albums: any[];
+      totalMinutes: number;
+    }>(cacheKey);
+
+    if (cachedReplay) {
+      setReplayTopItems({
+        artists: cachedReplay.artists || [],
+        tracks: cachedReplay.tracks || [],
+        albums: cachedReplay.albums || [],
+      });
+      setReplayTotalMinutesCount(cachedReplay.totalMinutes || 0);
+      setReplayState('ready');
+    } else {
+      setReplayState('loading');
+    }
+
     statsService.getReplayData(primaryUser.id, { ...replayPeriodQuery, signal: controller.signal })
       .then((replay) => ({
         artists: replay.topArtists,
@@ -1460,12 +1512,13 @@ export default function HomeScreen() {
       if (!cancelled) {
         setReplayTopItems({ artists, tracks, albums });
         const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
-        setReplayTotalMinutesCount(
+        const totalMinutes =
           Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
             ? Math.max(1, Math.round(totalDurationMs / 60000))
-            : fallbackTotal
-        );
+            : fallbackTotal;
+        setReplayTotalMinutesCount(totalMinutes);
         setReplayState('ready');
+        writeHomeSessionCache(cacheKey, { artists, tracks, albums, totalMinutes });
       }
     });
 
@@ -1546,6 +1599,7 @@ export default function HomeScreen() {
     if (directRecent.length > 0) {
       setResolvedRecentPlays(directRecent);
       setHistoryCache(primaryUser.id, directRecent);
+      writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, directRecent);
       setRecentPrepState('ready');
       return;
     }
@@ -1553,6 +1607,13 @@ export default function HomeScreen() {
     const cachedRecent = getHistoryCache(primaryUser.id);
     if (cachedRecent?.length) {
       setResolvedRecentPlays(cachedRecent.slice(0, 10));
+      setRecentPrepState('ready');
+      return;
+    }
+
+    const sessionRecent = readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`);
+    if (sessionRecent?.length) {
+      setResolvedRecentPlays(sessionRecent.slice(0, 10));
       setRecentPrepState('ready');
       return;
     }
@@ -1565,6 +1626,7 @@ export default function HomeScreen() {
         setResolvedRecentPlays(nextRecent);
         if (nextRecent.length > 0) {
           setHistoryCache(primaryUser.id, nextRecent);
+          writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, nextRecent);
         }
         setRecentPrepState('ready');
       })
@@ -2053,7 +2115,7 @@ export default function HomeScreen() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <HomeRecentPlays recent={resolvedRecentPlays} />
+          <HomeRecentPlays recent={resolvedRecentPlays} onViewMore={() => setViewingFullHistoryUser(primaryUser)} />
         </motion.div>
       )}
 

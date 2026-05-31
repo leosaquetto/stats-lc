@@ -686,13 +686,42 @@ export const useStatsStore = create<StatsState>()(
 
       prefetchUserTops: async (userId: string, period: string = 'month') => {
         const cacheKey = `${userId}:${period}`;
+        const userCacheKey = coreUtils.getUserCacheKey(userId);
+        const cacheAgeLimit = 15 * 60 * 1000;
+        const existingTracksKey = `${userCacheKey}:tracks:${period}`;
+        const existingArtistsKey = `${userCacheKey}:artists:${period}`;
+        const existingAlbumsKey = `${userCacheKey}:albums:${period}`;
+        const existingTracks = get().getTopItemsFromCache(existingTracksKey);
+        const existingArtists = get().getTopItemsFromCache(existingArtistsKey);
+        const existingAlbums = get().getTopItemsFromCache(existingAlbumsKey);
+
+        if (existingTracks && existingArtists && existingAlbums) {
+          const fetchedAt = Math.min(
+            get().topItemsCacheMeta[existingTracksKey] || Date.now(),
+            get().topItemsCacheMeta[existingArtistsKey] || Date.now(),
+            get().topItemsCacheMeta[existingAlbumsKey] || Date.now()
+          );
+          if (Date.now() - fetchedAt < cacheAgeLimit || get().isOffline) {
+            return {
+              tracks: existingTracks,
+              artists: existingArtists,
+              albums: existingAlbums,
+              fetchedAt
+            };
+          }
+        }
 
         // In-flight guard: prevent duplicate simultaneous calls
         if (prefetchUserTopsInFlight.has(cacheKey)) {
           if ((import.meta as any).env?.DEV) {
             console.log(`[prefetchUserTops] Already in-flight for ${cacheKey}, skipping`);
           }
-          return { tracks: [], artists: [], albums: [], fetchedAt: 0 };
+          return {
+            tracks: existingTracks || [],
+            artists: existingArtists || [],
+            albums: existingAlbums || [],
+            fetchedAt: 0
+          };
         }
 
         prefetchUserTopsInFlight.add(cacheKey);
