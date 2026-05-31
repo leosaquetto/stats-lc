@@ -600,7 +600,7 @@ const ArenaRankingBubble = ({
   selectedUserId,
   shouldReduceMotion,
   dragX,
-  role,
+  isHiddenInitial,
 }: {
   user: { id: string; name: string; plays: number; avatar: string };
   index: number;
@@ -608,20 +608,40 @@ const ArenaRankingBubble = ({
   selectedUserId: string;
   shouldReduceMotion: boolean | null;
   dragX: any;
-  role: 'first' | 'visible' | 'trailing';
+  isHiddenInitial: boolean;
 }) => {
   const isSelected = user.id === selectedUserId;
-  const firstScale = useTransform(dragX, [-36, -12, 0], [0.08, 0.66, isSelected ? 1.05 : 1]);
-  const firstOpacity = useTransform(dragX, [-36, -14, 0], [0, 0.5, 1]);
-  const trailingStart = -8 - index * 30;
-  const trailingEnd = -34 - index * 30;
-  const trailingScale = useTransform(dragX, [trailingEnd, trailingStart, 0], [isSelected ? 1.05 : 1, 0.28, 0.08]);
-  const trailingOpacity = useTransform(dragX, [trailingEnd, trailingStart, 0], [1, 0.35, 0]);
+  const x = useTransform(dragX, value => index * 30 + Number(value));
+  const scale = useTransform(dragX, value => {
+    const position = index * 30 + Number(value);
+    const baseScale = isSelected ? 1.05 : 1;
+
+    if (position < -16) return 0.08;
+    if (position < 0) return Math.max(0.08, baseScale * ((position + 16) / 16));
+
+    if (isHiddenInitial) {
+      if (position >= 120) return 0.08;
+      const progress = Math.max(0, Math.min(1, (120 - position) / 30));
+      return 0.08 + (baseScale - 0.08) * progress;
+    }
+
+    return baseScale;
+  });
+  const opacity = useTransform(dragX, value => {
+    const position = index * 30 + Number(value);
+
+    if (position < -16) return 0;
+    if (position < 0) return Math.max(0, (position + 16) / 16);
+
+    if (isHiddenInitial) return position >= 120 ? 0 : Math.max(0, Math.min(1, (120 - position) / 24));
+
+    return 1;
+  });
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.18, y: 12, rotate: role === 'trailing' ? 9 : -10 }}
+      initial={{ opacity: 0, scale: 0.18, y: 12, rotate: isHiddenInitial ? 9 : -10 }}
       animate={shouldReduceMotion ? { opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 } : {
         opacity: 1,
         scale: isSelected ? 1.05 : 1,
@@ -636,13 +656,14 @@ const ArenaRankingBubble = ({
       }}
       exit={{ opacity: 0, scale: 0.12, y: -10, rotate: 12, transition: { duration: 0.16 } }}
       className={cn(
-        "relative -mr-2.5 shrink-0 group/avatar",
+        "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 shrink-0 group/avatar",
         isSelected ? "z-20" : ""
       )}
       style={{
-        zIndex: role === 'trailing' ? total + 14 - index : total + 2 - index,
-        scale: shouldReduceMotion ? undefined : role === 'first' ? firstScale : role === 'trailing' ? trailingScale : isSelected ? 1.05 : 1,
-        opacity: shouldReduceMotion ? undefined : role === 'first' ? firstOpacity : role === 'trailing' ? trailingOpacity : 1,
+        zIndex: total + 2 - index,
+        x: shouldReduceMotion ? index * 30 : x,
+        scale: shouldReduceMotion ? (isHiddenInitial ? 0 : isSelected ? 1.05 : 1) : scale,
+        opacity: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : opacity,
       }}
     >
       <div className={cn(
@@ -878,6 +899,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
   const selectedHiddenInArena = selectedArenaIndex >= arenaPageSize;
   const arenaDragDistance = Math.max(0, hiddenArenaCount * 30);
+  const arenaRenderableUsers = trackArenaUsers.slice(0, arenaPageSize + hiddenArenaCount);
 
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
@@ -1510,42 +1532,31 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="relative flex w-[178px] items-center overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
+	                                className="relative h-[58px] w-[178px] overflow-hidden py-2 pl-0.5 pr-0 sm:w-[194px]"
 	                              >
 	                                <motion.div
-	                                  className="flex min-w-0 items-center gap-0 overflow-visible cursor-grab active:cursor-grabbing"
+	                                  className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
 	                                  drag={hiddenArenaCount > 0 && !shouldReduceMotion ? "x" : false}
 	                                  dragConstraints={{ left: -arenaDragDistance, right: 0 }}
 	                                  dragElastic={0.12}
 	                                  dragMomentum={false}
 	                                  initial={shouldReduceMotion ? false : { x: 0 }}
-	                                  style={{ x: arenaTrailX }}
+	                                  style={{ x: arenaTrailX, opacity: 0 }}
 	                                >
-	                                  {visibleArenaUsers.map((u, i) => (
-	                                      <ArenaRankingBubble
-	                                        key={`${u.id}-primary-${i}`}
-	                                        user={u}
-	                                        index={i}
-	                                        total={trackArenaUsers.length}
-	                                        selectedUserId={user.id}
-	                                        shouldReduceMotion={shouldReduceMotion}
-	                                        dragX={arenaTrailX}
-	                                        role={i === 0 ? 'first' : 'visible'}
-	                                      />
-	                                    ))}
-	                                  {trailingArenaUsers.map((u, i) => (
-	                                    <ArenaRankingBubble
-	                                      key={`${u.id}-trailing-${i}`}
-	                                      user={u}
-	                                      index={i}
-	                                      total={trailingArenaUsers.length}
-	                                      selectedUserId={user.id}
-	                                      shouldReduceMotion={shouldReduceMotion}
-	                                      dragX={arenaTrailX}
-	                                      role="trailing"
-	                                    />
-	                                  ))}
+	                                  <div className="h-full w-[240px]" />
 	                                </motion.div>
+	                                {arenaRenderableUsers.map((u, i) => (
+	                                  <ArenaRankingBubble
+	                                    key={`${u.id}-arena-${i}`}
+	                                    user={u}
+	                                    index={i}
+	                                    total={trackArenaUsers.length}
+	                                    selectedUserId={user.id}
+	                                    shouldReduceMotion={shouldReduceMotion}
+	                                    dragX={arenaTrailX}
+	                                    isHiddenInitial={i >= arenaPageSize}
+	                                  />
+	                                ))}
 	                                {hiddenArenaCount > 0 && (
 	                                  <motion.div
 	                                    key={`arena-more-${hiddenArenaCount}`}
