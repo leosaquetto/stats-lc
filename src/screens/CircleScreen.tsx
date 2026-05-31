@@ -13,7 +13,7 @@ import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
-import { getVisibleMembers } from '../lib/memberSelectors';
+import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
 
 const RankingScreen = lazy(() => import('./RankingScreen'));
 const AlikeScreen = lazy(() => import('./AlikeScreen'));
@@ -199,6 +199,7 @@ function OrbitOverviewSection() {
   const historyOrder = useStatsStore(state => state.historyOrder);
   const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const arenaMembers = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
   const [visibleHistory, setVisibleHistory] = useState(5);
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
@@ -258,9 +259,9 @@ function OrbitOverviewSection() {
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="px-4 sm:px-6 lg:px-8"
         >
-          <div className="custom-scrollbar scroll-fade-v">
+          <div className="custom-scrollbar">
             <LiveGroupOverview
-              users={members}
+              users={arenaMembers}
               lastUpdate={groupStats.lastUpdated}
             />
           </div>

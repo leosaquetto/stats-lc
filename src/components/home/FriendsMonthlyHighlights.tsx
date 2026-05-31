@@ -26,6 +26,7 @@ export const FriendsMonthlyHighlights = React.memo(({
 }) => {
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
 
   const isWaitingForGroup = !groupStats;
@@ -68,15 +69,15 @@ export const FriendsMonthlyHighlights = React.memo(({
   }, [stablePeriodQuery, visibleMembers, preparedPeriodTops]);
 
   const sortedFriends = React.useMemo(() => [...visibleMembers].sort((a, b) => {
+    if (a.id === featuredUserId) return -1;
+    if (b.id === featuredUserId) return 1;
     const aTops = periodTops[a.id] || a.topItems;
     const bTops = periodTops[b.id] || b.topItems;
     const hasA = aTops?.tracks?.[0] || aTops?.artists?.[0] || aTops?.albums?.[0] ? 1 : 0;
     const hasB = bTops?.tracks?.[0] || bTops?.artists?.[0] || bTops?.albums?.[0] ? 1 : 0;
-    return hasB - hasA;
-  }).filter(f => {
-    const tops = periodTops[f.id] || f.topItems;
-    return tops?.tracks?.[0] || tops?.artists?.[0] || tops?.albums?.[0];
-  }), [visibleMembers, periodTops]);
+    if (hasB !== hasA) return hasB - hasA;
+    return (a.name || '').localeCompare(b.name || '');
+  }), [featuredUserId, visibleMembers, periodTops]);
 
   const periodLabel = React.useMemo(() => {
     if (activeTab !== 'month') return getReplayFilterLabel(activeTab, selectedSubValues);
@@ -122,7 +123,7 @@ export const FriendsMonthlyHighlights = React.memo(({
     );
   }
 
-  if (sortedFriends.length === 0) return null;
+  if (visibleMembers.length === 0) return null;
 
   return (
     <div className="mb-3 mt-1">

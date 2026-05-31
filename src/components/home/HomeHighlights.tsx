@@ -54,12 +54,12 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
   );
 
   const displayParticipants = React.useMemo(() =>
-    sortedParticipants.slice(0, 5),
+    sortedParticipants.slice(0, 8),
     [sortedParticipants]
   );
 
-  const hasExtraParticipants = sortedParticipants.length > 5;
-  const extraCount = sortedParticipants.length - 5;
+  const hasExtraParticipants = sortedParticipants.length > 8;
+  const extraCount = sortedParticipants.length - 8;
 
   // Empty state
   if (users.length === 0) {
@@ -82,13 +82,16 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
     );
   }
 
-  // Orbital positions for up to 5 participants - more spread out
+  // Orbital positions for up to 8 participants inside the mobile window.
   const orbitalPositions = [
-    { left: '16%', bottom: '31%', size: 'large' }, // Leader - larger, left-bottom
-    { left: '38%', top: '7%', size: 'normal' }, // Top left
-    { right: '18%', top: '18%', size: 'normal' }, // Top right
-    { right: '22%', bottom: '24%', size: 'normal' }, // Bottom right
-    { left: '48%', bottom: '7%', size: 'normal' }, // Bottom center
+    { left: '17%', bottom: '31%', size: 'large' },
+    { left: '36%', top: '8%', size: 'normal' },
+    { right: '18%', top: '17%', size: 'normal' },
+    { right: '18%', bottom: '25%', size: 'normal' },
+    { left: '49%', bottom: '7%', size: 'small' },
+    { left: '16%', top: '26%', size: 'small' },
+    { right: '36%', top: '6%', size: 'small' },
+    { right: '38%', bottom: '7%', size: 'small' },
   ];
 
   return (
@@ -98,15 +101,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="relative mb-6 overflow-hidden rounded-[40px]"
     >
-      {/* Background gradient glow */}
-      <div className="pointer-events-none absolute -right-20 -top-16 h-72 w-72 rounded-full bg-orange-500/12 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-16 -left-16 h-72 w-72 rounded-full bg-green-500/9 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_44%_46%,rgba(249,115,22,0.08),transparent_36%)]" />
-
       <div className="relative z-10 min-h-[390px] rounded-[40px] border border-white/10 bg-white/[0.018] p-6 backdrop-blur-xl sm:p-7">
-        {/* Glossy Reflection Overlay */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 rounded-t-[40px] bg-gradient-to-b from-white/[0.03] to-transparent" />
-
         <div className="relative z-10 flex flex-col h-full">
           {/* Header */}
           <div className="mb-4 flex items-center justify-between">
@@ -227,7 +222,9 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                           "rounded-full overflow-hidden border-2 shadow-2xl transition-all",
                           isLeader
                             ? "h-[76px] w-[76px] border-orange-500/70 ring-4 ring-orange-500/20 shadow-orange-500/30"
-                            : "h-14 w-14 border-white/12"
+                            : position.size === 'small'
+                              ? "h-11 w-11 border-white/12"
+                              : "h-14 w-14 border-white/12"
                         )}
                       >
                         <SmartImage

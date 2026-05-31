@@ -243,7 +243,11 @@ const fetchFromApi = async <T>(
       const isNetworkError = !error.response && error.request;
 
       const isOptionalDatesEndpoint = endpoint === '/api/stats-dates';
-      if ((import.meta as any).env?.DEV && !isOptionalDatesEndpoint) {
+      const isExpectedEmptyTopRange =
+        endpoint === '/api/top' &&
+        status === 400 &&
+        error.response?.data?.error === 'upstream_error';
+      if ((import.meta as any).env?.DEV && !isOptionalDatesEndpoint && !isExpectedEmptyTopRange) {
         console.error(`Vercel API Fetch Error [${endpoint}]:`, {
           message: error.message,
           code: error.code,
@@ -686,7 +690,10 @@ export const statsService = {
 
       if ((import.meta as any).env?.DEV) console.log(`[statsService] getTopItems for ${userId} (${type}, ${params.period || params.after}):`, res);
       return items;
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.response?.status === 400 && e?.response?.data?.error === 'upstream_error') {
+        return [];
+      }
       if ((import.meta as any).env?.DEV) {
         console.warn(`[statsService] API target failed for top items (${cacheKey}). Reverting to cache.`, e);
       }

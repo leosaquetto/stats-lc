@@ -129,24 +129,49 @@ export const VinylRecord = ({
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 75 }, (_, i) => {
+    return Array.from({ length: 48 }, (_, i) => {
       const angle = seededValue(textureSeed, i) * 360;
-      const inner = 20 + seededValue(textureSeed, i + 41) * 8;
-      const outer = Math.min(49.2, inner + 15 + seededValue(textureSeed, i + 73) * 25);
-      const width = 0.6 + seededValue(textureSeed, i + 101) * 2.8;
-      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 2.0;
-      const taper = 0.2 + seededValue(textureSeed, i + 127) * 0.32;
-      return { angle, inner, outer, width, bend, taper, opacity: 0.68 + seededValue(textureSeed, i + 137) * 0.26 };
+      const inner = 18 + seededValue(textureSeed, i + 12) * 12;
+      const length = 12 + Math.pow(seededValue(textureSeed, i + 45), 2) * 26;
+      const outer = Math.min(49.2, inner + length);
+      const width = 0.8 + Math.pow(seededValue(textureSeed, i + 88), 2) * 3.8;
+      const bend = (seededValue(textureSeed, i + 119) - 0.5) * 2.5;
+      return {
+        angle,
+        inner,
+        outer,
+        width,
+        bend,
+        opacity: 0.85 + seededValue(textureSeed, i + 137) * 0.15
+      };
     });
   }, [textureSeed, textureVariant]);
   const splatterDrops = useMemo(() => {
     if (textureVariant !== 2) return [];
-    return Array.from({ length: 40 }, (_, i) => ({
-      angle: seededValue(textureSeed, i + 411) * 360,
-      radius: 22 + seededValue(textureSeed, i + 439) * 26,
-      size: 0.5 + seededValue(textureSeed, i + 467) * 2.0,
-      opacity: 0.64 + seededValue(textureSeed, i + 491) * 0.24,
+    return Array.from({ length: 35 }, (_, i) => ({
+      angle: seededValue(textureSeed, i + 313) * 360,
+      radius: 20 + seededValue(textureSeed, i + 154) * 28,
+      size: 0.5 + seededValue(textureSeed, i + 99) * 1.5,
+      opacity: 0.8 + seededValue(textureSeed, i + 242) * 0.2,
     }));
+  }, [textureSeed, textureVariant]);
+  const marbleWisps = useMemo(() => {
+    if (textureVariant !== 1) return [];
+    return Array.from({ length: 14 }, (_, i) => {
+      const angle = seededValue(textureSeed, i + 151) * 360;
+      const radius = 12 + seededValue(textureSeed, i + 181) * 35;
+      const sweep = 15 + seededValue(textureSeed, i + 211) * 40;
+      const bend = (seededValue(textureSeed, i + 241) - 0.5) * 25;
+      const width = 5 + seededValue(textureSeed, i + 271) * 15;
+      return {
+        angle,
+        radius,
+        sweep,
+        bend,
+        width,
+        opacity: 0.15 + seededValue(textureSeed, i + 281) * 0.25
+      };
+    });
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
 
@@ -212,31 +237,28 @@ export const VinylRecord = ({
             : 'none'
         }}
       >
-        {/* Camada de textura: variantes isoladas (solido, smoke/marble, splatter). */}
+        {/* Camada base translúcida do vinil. */}
         <div
           className="absolute inset-0 rounded-full pointer-events-none z-[11]"
           style={{
-            background:
-              textureVariant === 1
-                ? `
-                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.24) 12%, transparent 25%, rgba(0,0,0,0.28) 45%, transparent 60%, rgba(0,0,0,0.22) 80%, transparent),
-                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.08) 20%, transparent 40%, rgba(0,0,0,0.22) 75%, transparent),
-                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.18) 0%, transparent 54%)
-                `
-                : textureVariant === 2
-                  ? `
-                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.045) 25%, transparent 30%)
-                  `
-                  : `
-                    radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.08) 25%, transparent 30%),
-                    conic-gradient(from 45deg, transparent 0deg, rgba(255,255,255,0.035) 15deg, transparent 30deg, transparent 180deg, rgba(255,255,255,0.035) 195deg, transparent 210deg)
-                  `,
-            mixBlendMode: textureVariant === 1 ? 'soft-light' : 'screen',
-            opacity: isPlaying ? 0.62 : 0.5,
+            background: textureVariant === 1
+              ? 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.1) 0%, transparent 50%)'
+              : 'radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.06) 25%, transparent 29%)',
           }}
         />
 
-        {/* Sulcos e splatter vetorial. */}
+        {/* Reflexo plástico principal. */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none z-[14]"
+          style={{
+            background: 'conic-gradient(from 35deg, transparent 0deg, rgba(255,255,255,0.12) 12deg, transparent 28deg, transparent 180deg, rgba(255,255,255,0.12) 192deg, transparent 208deg)',
+            mixBlendMode: 'screen',
+            opacity: isPlaying ? 0.95 : 0.7,
+            transition: 'opacity 0.5s ease',
+          }}
+        />
+
+        {/* Sulcos e texturas específicas. */}
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 h-full w-full pointer-events-none"
@@ -244,43 +266,59 @@ export const VinylRecord = ({
         >
           <defs>
             <clipPath id={`${uniqueId}-vinyl-disc-clip`}>
-              <circle cx="50" cy="50" r="48.25" />
+              <circle cx="50" cy="50" r="49.2" />
               <circle cx="50" cy="50" r="5.2" />
             </clipPath>
             <filter id={`${uniqueId}-splatter-soften`}>
-              <feGaussianBlur in="SourceGraphic" stdDeviation="0.12" />
+              <feGaussianBlur in="SourceGraphic" stdDeviation="0.06" />
+            </filter>
+            <filter id={`${uniqueId}-marble-blur`}>
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" />
             </filter>
           </defs>
           <g clipPath={`url(#${uniqueId}-vinyl-disc-clip)`}>
-            <circle cx="50" cy="50" r="32" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="3" opacity="0.4" />
-            <circle cx="50" cy="50" r="41.5" fill="none" stroke="rgba(0,0,0,0.15)" strokeWidth="0.8" opacity="0.5" />
-            <circle cx="50" cy="50" r="24.5" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" opacity="0.4" />
+            <circle cx="50" cy="50" r="32.0" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1.5" opacity="0.4" />
+            <circle cx="50" cy="50" r="41.5" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" opacity="0.5" />
             {grooveRings.map((r, i) => (
               <circle
                 key={`${uniqueId}-groove-${i}`}
                 cx="50"
                 cy="50"
-                r={Math.min(r, 47.8)}
+                r={Math.min(r, 48.8)}
                 fill="none"
-                stroke={i % 4 === 0 ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.22)'}
+                stroke={i % 3 === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.15)'}
                 strokeWidth={textureVariant === 1 ? 0.28 : 0.22}
                 opacity={textureVariant === 0 ? 0.13 : textureVariant === 1 ? 0.18 : 0.06}
               />
             ))}
-            <circle cx="50" cy="50" r="48.35" fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="0.45" opacity="0.55" />
+
+            {textureVariant === 1 && (
+              <g filter={`url(#${uniqueId}-marble-blur)`} style={{ mixBlendMode: 'multiply' }}>
+                {marbleWisps.map((w, i) => (
+                  <path
+                    key={`${uniqueId}-wisp-${i}`}
+                    d={`M 50 ${50 - w.radius} Q ${50 + w.bend} ${50 - w.radius + w.sweep / 2}, ${50 + w.sweep * 0.3} ${50 - w.radius + w.sweep}`}
+                    fill="none"
+                    stroke="rgba(0,0,0,0.95)"
+                    strokeWidth={w.width}
+                    strokeLinecap="round"
+                    opacity={w.opacity}
+                    transform={`rotate(${w.angle} 50 50)`}
+                  />
+                ))}
+              </g>
+            )}
 
             {textureVariant === 2 && (
-              <g filter={`url(#${uniqueId}-splatter-soften)`} style={{ mixBlendMode: 'screen' }}>
+              <g filter={`url(#${uniqueId}-splatter-soften)`} style={{ mixBlendMode: 'normal' }}>
                 {splatterStreaks.map((s, i) => (
                   <path
                     key={`${uniqueId}-streak-${i}`}
-                    d={`
-                      M ${50 - s.width * s.taper} ${50 - s.inner}
-                      Q ${50 + s.bend - s.width * 0.55} ${50 - (s.inner + s.outer) / 2}, ${50 - s.width * 0.18} ${50 - s.outer}
-                      Q ${50 + s.bend + s.width * 0.55} ${50 - (s.inner + s.outer) / 2}, ${50 + s.width * s.taper} ${50 - s.inner}
-                      Z
-                    `}
-                    fill="rgba(255,255,255,0.82)"
+                    d={`M 50 ${50 - s.inner} Q ${50 + s.bend} ${50 - (s.inner + s.outer) / 2}, 50 ${50 - s.outer}`}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.95)"
+                    strokeWidth={s.width}
+                    strokeLinecap="round"
                     opacity={s.opacity}
                     transform={`rotate(${s.angle} 50 50)`}
                   />
@@ -291,7 +329,7 @@ export const VinylRecord = ({
                     cx="50"
                     cy={50 - drop.radius}
                     r={drop.size}
-                    fill="rgba(255,255,255,0.78)"
+                    fill="rgba(255,255,255,0.95)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
                   />
@@ -300,15 +338,6 @@ export const VinylRecord = ({
             )}
           </g>
         </svg>
-
-        {/* Reflexo especular rotativo */}
-        <div
-          className={`absolute inset-0 rounded-full pointer-events-none ${isPlaying && canAnimate ? "vinyl-reflection-spin" : ""}`}
-          style={{
-            background: 'conic-gradient(from 0deg, transparent 0%, rgba(255,255,255,0.13) 7%, transparent 14%, transparent 50%, rgba(255,255,255,0.06) 57%, transparent 64%)',
-            mixBlendMode: 'overlay',
-          }}
-        />
 
         {/* Furo central com sombra — profundidade no miolo */}
         <div

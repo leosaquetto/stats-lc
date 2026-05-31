@@ -752,26 +752,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         avatar: coreUtils.getUserAvatar(u.id, u.avatar)
       }))
       .sort((a, b) => b.plays - a.plays);
-    const selected = users.find(u => u.id === user.id);
-    const played = users.filter(u => u.plays > 0 || u.id === user.id);
-    if (selected && !played.some(u => u.id === selected.id)) {
-      played.push(selected);
-    }
-    return played.sort((a, b) => {
-      if (a.id === user.id) return -1;
-      if (b.id === user.id) return 1;
-      return b.plays - a.plays;
+    return users.filter(u => u.plays > 0 || u.id === user.id).sort((a, b) => {
+      if (b.plays !== a.plays) return b.plays - a.plays;
+      if (a.id === user.id) return 1;
+      if (b.id === user.id) return -1;
+      return a.name.localeCompare(b.name);
     });
   }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id]);
 
-  const trackArenaUsers = useMemo(() => {
-    if (allTrackArenaUsers.length <= 4) return allTrackArenaUsers;
-    const selected = allTrackArenaUsers.find(u => u.id === user.id);
-    const others = allTrackArenaUsers.filter(u => u.id !== user.id);
-    return selected ? [selected, ...others] : allTrackArenaUsers;
-  }, [allTrackArenaUsers, user.id]);
-
+  const trackArenaUsers = allTrackArenaUsers;
   const hiddenArenaCount = Math.max(0, allTrackArenaUsers.length - 4);
+  const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
+  const selectedHiddenInArena = selectedArenaIndex >= 4;
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
   const isYesterday = nowPlaying?.timestamp ? isYesterdaySP(new Date(nowPlaying.timestamp)) : false;
@@ -1397,75 +1389,84 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                             <motion.div
                               onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                               whileTap={{ scale: 0.98 }}
-                              className="max-w-[calc(100vw-112px)] shrink cursor-pointer overflow-hidden group/arena"
+                              className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
                             >
-                              <div data-home-horizontal-scroll="true" className="flex max-w-full snap-x gap-0 overflow-x-auto overflow-y-visible no-scrollbar py-2 pr-2 pl-0.5 [mask-image:linear-gradient(90deg,black_0%,black_82%,transparent_100%)]">
-                                {trackArenaUsers.map((u, i) => (
-                                  <motion.div
-                                    key={`${u.id}-${i}`}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.62, y: 8 }}
-                                    animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
-                                      opacity: 1,
-                                      scale: u.id === user.id ? 1.05 : 1,
-                                      x: [0, i % 2 === 0 ? -2 : 2, 0],
-                                      y: [0, i % 2 === 0 ? -4 : 3, 0],
-                                      rotate: [0, i % 2 === 0 ? -2 : 2, 0],
-                                    }}
-                                    transition={shouldReduceMotion ? { delay: i * 0.04 } : {
-                                      opacity: { delay: i * 0.04, duration: 0.18 },
-                                      scale: { delay: i * 0.04, duration: 0.22 },
-                                      x: { delay: i * 0.22, duration: 8.8 + i * 0.42, repeat: Infinity, ease: 'easeInOut' },
-                                      y: { delay: i * 0.26, duration: 9.6 + i * 0.38, repeat: Infinity, ease: 'easeInOut' },
-                                      rotate: { delay: i * 0.2, duration: 10.4 + i * 0.34, repeat: Infinity, ease: 'easeInOut' },
-                                    }}
-                                    exit={{ opacity: 0, scale: 0.55, y: 8 }}
-                                    className={cn(
-                                      "relative -mr-2.5 shrink-0 snap-start group/avatar",
-                                      u.id === user.id ? "z-20" : ""
-                                    )}
-                                    style={{ zIndex: trackArenaUsers.length - i }}
-                                  >
-                                    <div className={cn(
-                                      "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
-                                      u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
-                                    )}>
-                                      <div className="relative h-full w-full rounded-full overflow-hidden">
-                                        <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
-                                      </div>
-                                    </div>
+                              <div data-home-horizontal-scroll="true" className="w-[136px] overflow-x-auto overflow-y-visible no-scrollbar py-2 pl-0.5 pr-2 [mask-image:linear-gradient(90deg,transparent_0%,black_9%,black_88%,transparent_100%)] cursor-grab active:cursor-grabbing sm:w-[148px]">
+                                <div className="flex min-w-max snap-x gap-0">
+                                  <AnimatePresence initial={false}>
+                                    {trackArenaUsers.map((u, i) => (
+                                      <motion.div
+                                        key={`${u.id}-${i}`}
+                                        layout
+                                        initial={{ opacity: 0, scale: 0.32, y: 10 }}
+                                        animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
+                                          opacity: 1,
+                                          scale: u.id === user.id ? 1.05 : 1,
+                                          x: [0, i % 2 === 0 ? -1.8 : 1.8, 0],
+                                          y: [0, i % 2 === 0 ? -3.5 : 2.5, 0],
+                                          rotate: [0, i % 2 === 0 ? -1.5 : 1.5, 0],
+                                        }}
+                                        transition={shouldReduceMotion ? { delay: i * 0.03 } : {
+                                          opacity: { delay: i * 0.025, duration: 0.14 },
+                                          scale: { type: 'spring', stiffness: 420, damping: 22, delay: i * 0.025 },
+                                          x: { delay: i * 0.18, duration: 8.2 + i * 0.36, repeat: Infinity, ease: 'easeInOut' },
+                                          y: { delay: i * 0.22, duration: 9 + i * 0.32, repeat: Infinity, ease: 'easeInOut' },
+                                          rotate: { delay: i * 0.2, duration: 10 + i * 0.28, repeat: Infinity, ease: 'easeInOut' },
+                                        }}
+                                        exit={{ opacity: 0, scale: 0.26, y: 10 }}
+                                        className={cn(
+                                          "relative -mr-2.5 shrink-0 snap-start group/avatar",
+                                          u.id === user.id ? "z-20" : ""
+                                        )}
+                                        style={{ zIndex: trackArenaUsers.length - i }}
+                                      >
+                                        <div className={cn(
+                                          "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 shadow-[0_16px_34px_rgba(0,0,0,0.42)]",
+                                          u.id === user.id ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
+                                        )}>
+                                          <div className="relative h-full w-full rounded-full overflow-hidden">
+                                            <SmartImage src={u.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
+                                          </div>
+                                        </div>
 
-                                    <motion.div
-                                      animate={shouldReduceMotion ? {} : {
-                                        y: [0, i % 2 === 0 ? 2 : -2, 0],
-                                        scale: [1, 1.08, 1],
-                                      }}
-                                      transition={shouldReduceMotion ? {} : {
-                                        delay: 0.12 + i * 0.17,
-                                        duration: 4.4 + i * 0.24,
-                                        repeat: Infinity,
-                                        ease: 'easeInOut',
-                                      }}
-                                      className={cn(
-                                      "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
-                                      u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
-                                    )}
-                                    >
-                                      {coreUtils.formatNumber(u.plays)}
-                                    </motion.div>
-                                  </motion.div>
-                                ))}
-                                {hiddenArenaCount > 0 && (
-                                  <motion.div
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.72 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="relative -mr-1 flex h-10 min-w-10 shrink-0 snap-start items-center justify-center rounded-full border border-white/10 bg-black/50 px-2 text-[9px] font-black text-white/80 shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-11 sm:min-w-11"
-                                  >
-                                    +{hiddenArenaCount}
-                                  </motion.div>
-                                )}
+                                        <motion.div
+                                          animate={shouldReduceMotion ? {} : {
+                                            y: [0, i % 2 === 0 ? 2 : -2, 0],
+                                            scale: [1, 1.08, 1],
+                                          }}
+                                          transition={shouldReduceMotion ? {} : {
+                                            delay: 0.12 + i * 0.17,
+                                            duration: 4.4 + i * 0.24,
+                                            repeat: Infinity,
+                                            ease: 'easeInOut',
+                                          }}
+                                          className={cn(
+                                            "absolute -bottom-1 -right-1 h-4 min-w-[16px] px-1 sm:h-4 sm:min-w-[16px] rounded-full border border-white/10 flex items-center justify-center text-[7px] sm:text-[8px] font-black text-white z-30 shadow-xl",
+                                            u.id === user.id ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-900/90 backdrop-blur-md"
+                                          )}
+                                        >
+                                          {coreUtils.formatNumber(u.plays)}
+                                        </motion.div>
+                                      </motion.div>
+                                    ))}
+                                  </AnimatePresence>
+                                </div>
                               </div>
+                              {hiddenArenaCount > 0 && (
+                                <motion.div
+                                  layout
+                                  initial={{ opacity: 0, scale: 0.72 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  className={cn(
+                                    "ml-1 flex h-9 min-w-9 shrink-0 items-center justify-center rounded-full border px-2 text-[9px] font-black text-white shadow-[0_16px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl sm:h-10 sm:min-w-10",
+                                    selectedHiddenInArena
+                                      ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
+                                      : "border-white/10 bg-black/50"
+                                  )}
+                                >
+                                  +{hiddenArenaCount}
+                                </motion.div>
+                              )}
                             </motion.div>
                           ) : (
                             <motion.div

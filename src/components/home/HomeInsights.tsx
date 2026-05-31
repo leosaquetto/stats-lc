@@ -387,10 +387,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     const isLive = insight.type === 'live';
 
     return (
-      <div className="relative flex h-full min-h-[150px] flex-col overflow-visible px-2 py-2 text-left">
-        <div className="pointer-events-none absolute inset-[-10px] rounded-[30px] bg-black/18 blur-2xl" />
+      <div className="relative flex h-full min-h-[138px] flex-col overflow-visible px-0 py-0 text-left">
         {isAlbum && insight.albumArt ? (
-          <SmartImage src={insight.albumArt} rounded="3xl" className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.08]" fallback="" />
+          <SmartImage src={insight.albumArt} rounded="3xl" className="pointer-events-none absolute -inset-3 h-[calc(100%+24px)] w-[calc(100%+24px)] object-cover opacity-[0.06] blur-[1px]" fallback="" />
         ) : null}
 
         <div className="relative z-10 mb-3 flex items-start justify-between gap-2">
@@ -419,7 +418,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             ) : null}
           </div>
 
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)]">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-black/35 text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             {insight.icon}
           </div>
         </div>
@@ -448,28 +447,30 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             Insights do Dia
           </h2>
         </div>
-        <div className="flex items-center gap-1">
-          <button type="button" onClick={handlePrev} className="rounded-full p-1.5 transition-colors hover:bg-white/10">
-            <ChevronLeft className="h-4 w-4 text-white/35" />
-          </button>
-          <button type="button" onClick={handleNext} className="rounded-full p-1.5 transition-colors hover:bg-white/10">
-            <ChevronRight className="h-4 w-4 text-white/35" />
-          </button>
-        </div>
+        {insights.length > 1 && (
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={handlePrev} className="rounded-full p-1.5 transition-colors hover:bg-white/10">
+              <ChevronLeft className="h-4 w-4 text-white/35" />
+            </button>
+            <button type="button" onClick={handleNext} className="rounded-full p-1.5 transition-colors hover:bg-white/10">
+              <ChevronRight className="h-4 w-4 text-white/35" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[268px] select-none overflow-hidden rounded-[34px] border border-white/[0.04] bg-white/[0.012] px-3 py-4 shadow-[0_22px_58px_rgba(0,0,0,0.32)]"
+        className="relative h-[232px] select-none overflow-visible px-1 py-2"
         onMouseEnter={() => setIsAutoPaused(true)}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[286px] w-[286px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[224px] w-[224px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/[0.18]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[118px] w-[118px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.2] bg-black/12 shadow-[0_0_38px_rgba(249,115,22,0.08)]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[252px] w-[252px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[196px] w-[196px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/[0.16]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.16] bg-black/10 shadow-[0_0_32px_rgba(249,115,22,0.06)]" />
         <motion.div
           aria-hidden="true"
           className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/25 bg-black/40"
@@ -481,7 +482,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         </motion.div>
 
         <div className="relative z-10 h-full">
-          {[0, 1].map((offset) => {
+          {Array.from({ length: Math.min(2, insights.length) }, (_, offset) => {
             const index = (activeInsightIndex + offset) % insights.length;
             const insight = insights[index];
             if (!insight) return null;
@@ -495,14 +496,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   insight.onClick?.();
                 }}
                 initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={{
+                animate={shouldReduceMotion ? { opacity: 1, y: 0, x: 0, rotate: 0 } : {
                   opacity: 1,
-                  y: isPrimary ? [0, -8, 0] : [0, 7, 0],
+                  y: isPrimary ? [0, -7, 0] : [0, 6, 0],
                   x: isPrimary ? [0, 5, 0] : [0, -5, 0],
-                  rotate: isPrimary ? [0, -1.5, 0] : [0, 1.5, 0],
+                  rotate: isPrimary ? [0, -1.3, 0] : [0, 1.3, 0],
                 }}
-                transition={{ duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                className={`absolute w-[160px] text-left ${isPrimary ? "left-1 top-6" : "right-1 bottom-4"}`}
+                transition={shouldReduceMotion ? { duration: 0.2 } : { duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                className={`absolute w-[164px] text-left ${isPrimary ? "left-0 top-5" : "right-0 bottom-2"}`}
               >
                 {renderInsightCard(insight)}
               </motion.button>

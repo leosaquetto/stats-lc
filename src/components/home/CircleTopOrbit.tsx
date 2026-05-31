@@ -8,6 +8,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { UserStats, TopItem } from '../../types/stats';
 import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
+import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ChevronLeft, ChevronRight, Crown, Disc, Mic2, Music } from 'lucide-react';
@@ -48,19 +49,32 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMemberMenuOpen, setIsMemberMenuOpen] = useState(false);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
 
   const validMembers = useMemo(() => {
-    return members.filter(m => {
-      const tops = periodTops[m.id] || m.topItems;
-      return tops?.tracks?.[0] || tops?.artists?.[0] || tops?.albums?.[0];
-    });
-  }, [members, periodTops]);
+    return [...members]
+      .filter(m => m?.id)
+      .sort((a, b) => {
+        if (a.id === featuredUserId) return -1;
+        if (b.id === featuredUserId) return 1;
+        const aTops = periodTops[a.id] || a.topItems;
+        const bTops = periodTops[b.id] || b.topItems;
+        const aHasData = !!(aTops?.tracks?.[0] || aTops?.artists?.[0] || aTops?.albums?.[0]);
+        const bHasData = !!(bTops?.tracks?.[0] || bTops?.artists?.[0] || bTops?.albums?.[0]);
+        if (aHasData !== bHasData) return aHasData ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  }, [featuredUserId, members, periodTops]);
 
   useEffect(() => {
     if (activeIndex >= validMembers.length) {
       setActiveIndex(0);
     }
   }, [activeIndex, validMembers.length]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [featuredUserId, validMembers.length]);
 
   const activeUser = useMemo(() => {
     return validMembers[activeIndex] || validMembers[0] || null;
@@ -118,7 +132,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/5 blur-[100px] -z-10 rounded-full" />
         <div className="flex items-center justify-center py-12 text-center">
           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
-            Nenhum membro com dados
+            Nenhum membro disponível
           </span>
         </div>
       </div>
