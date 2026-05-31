@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
@@ -270,10 +270,9 @@ const HomeOrbitalHighlights = ({
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const highlightsContentHeight = "h-[560px]";
   const groups = [
-    { key: 'artists', title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 8) },
-    { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 14) },
+    { key: 'artists', title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 3) },
+    { key: 'tracks', title: 'Top músicas', icon: Music2, items: tracks.slice(0, 8) },
     { key: 'albums', title: 'Top álbuns', icon: Disc3, items: albums.slice(0, 6) }
   ].filter((group) => group.items.length > 0);
 
@@ -281,8 +280,9 @@ const HomeOrbitalHighlights = ({
     if (activeIndex >= groups.length) setActiveIndex(0);
   }, [activeIndex, groups.length]);
 
-  const rankNumberClass = "absolute left-3 top-2 z-20 text-[50px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]";
-  const countBadgeClass = "absolute right-2 top-2 z-20 flex h-8 min-w-8 items-center justify-center rounded-full bg-orange-600 px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl";
+  const stageHeight = "h-[430px] sm:h-[452px]";
+  const rankNumberClass = "absolute left-3 top-2 z-20 text-[48px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.48)]";
+  const countPillClass = "shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[9px] font-black tabular-nums text-white/72 backdrop-blur-xl";
 
   const goTo = useCallback((index: number) => {
     if (groups.length === 0) return;
@@ -293,6 +293,17 @@ const HomeOrbitalHighlights = ({
     const touch = event.touches[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    const start = touchStartRef.current;
+    const touch = event.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+      event.stopPropagation();
+    }
   }, []);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
@@ -307,97 +318,141 @@ const HomeOrbitalHighlights = ({
   }, [activeIndex, goTo]);
 
   const renderArtists = (items: any[]) => {
-    const featured = items.slice(0, 6);
+    const featured = items.slice(0, 3);
+    const positions = [
+      { x: -92, y: -16, rotate: -3, scale: 0.94, z: 10 },
+      { x: 0, y: 26, rotate: 2.5, scale: 1.02, z: 30 },
+      { x: 92, y: -8, rotate: 3.5, scale: 0.94, z: 20 },
+    ];
     return (
-      <div className={cn("relative overflow-visible", highlightsContentHeight)}>
-        <div className="grid h-full grid-cols-3 grid-rows-2 gap-x-4 gap-y-4">
-          {featured.map((item, index) => {
-            return (
-              <motion.div
-                key={`${item.id || item.name}-${index}`}
-                className="relative overflow-visible rounded-[24px] bg-black/20 shadow-[0_18px_42px_rgba(0,0,0,0.42)]"
-                animate={{ y: [0, index % 2 ? 2 : -2, 0] }}
-                transition={{ duration: 11 + index * 0.7, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <div className="absolute inset-0 overflow-hidden rounded-[24px]">
-                  <SmartImage
-                    src={getReplayItemImage(item)}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    fallback={item.name}
-                    rounded="none"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-transparent to-black/78" />
-                </div>
-                <span className={rankNumberClass}>
-                  {index + 1}
+      <div className={cn("relative mx-auto w-full max-w-[386px] overflow-visible", stageHeight)}>
+        <div className="pointer-events-none absolute left-1/2 top-[47%] h-[318px] w-[318px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
+        <div className="pointer-events-none absolute left-1/2 top-[47%] h-[238px] w-[238px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/12" />
+        {featured.map((item, index) => {
+          const position = positions[index] || positions[0];
+          return (
+            <motion.div
+              key={`${item.id || item.name}-${index}`}
+              className="absolute left-1/2 top-[46%] w-[152px] overflow-hidden rounded-[22px] bg-black shadow-[0_24px_58px_rgba(0,0,0,0.54)] sm:w-[168px]"
+              initial={{ opacity: 0, scale: 0.86, x: `calc(-50% + ${position.x}px)`, y: `calc(-50% + ${position.y + 18}px)` }}
+              animate={{
+                opacity: 1,
+                scale: position.scale,
+                x: `calc(-50% + ${position.x}px)`,
+                y: `calc(-50% + ${position.y}px)`,
+                rotate: position.rotate,
+                zIndex: position.z,
+              }}
+              transition={{ type: 'spring', stiffness: 170, damping: 23, delay: index * 0.04 }}
+              style={{ aspectRatio: '0.72' }}
+            >
+              <SmartImage
+                src={getReplayItemImage(item)}
+                className="absolute inset-0 h-full w-full object-cover"
+                fallback={item.name}
+                rounded="none"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/8 to-black/80" />
+              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/68 to-transparent" />
+              <span className={rankNumberClass}>{index + 1}</span>
+              <div className="absolute inset-x-3 bottom-4 z-20 text-center">
+                <span className="block truncate text-[13px] font-black leading-tight text-white sm:text-[14px]">
+                  {item.name || 'sem nome'}
                 </span>
-                <span className={countBadgeClass}>
-                  {coreUtils.formatNumber(getReplayItemCount(item))}
+                <span className="mt-1 block text-[10px] font-black text-white/74">
+                  {coreUtils.formatNumber(getReplayMinutes(item))} minutos
                 </span>
-                <div className="absolute inset-x-3 bottom-3 z-10">
-                  <span className="block truncate text-[14px] font-black leading-tight text-white">
-                    {item.name || 'sem nome'}
-                  </span>
-                  <span className="mt-0.5 block text-[10px] font-black text-white/72">
-                    {coreUtils.formatNumber(getReplayMinutes(item))} min
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     );
   };
 
   const renderTracks = (items: any[]) => (
-    <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+    <div className={cn("relative mx-auto grid w-full max-w-[408px] grid-cols-2 gap-x-5 gap-y-3 overflow-hidden rounded-[30px] bg-white/[0.018] p-3 backdrop-blur-xl", stageHeight)}>
       {items.map((item, index) => (
         <motion.div
           key={`${item.id || item.name}-${index}`}
-          className="min-w-0"
-          animate={{ y: [0, index % 2 ? -3 : 3, 0] }}
-          transition={{ duration: 9 + index * 0.18, repeat: Infinity, ease: 'easeInOut' }}
+          className="grid min-w-0 grid-cols-[54px_24px_minmax(0,1fr)] items-center gap-2 border-b border-white/[0.075] pb-2 last:border-b-0"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 190, damping: 24, delay: Math.min(index * 0.035, 0.22) }}
         >
-          <div className="relative aspect-square overflow-hidden rounded-[24px] bg-black/18 shadow-[0_18px_42px_rgba(0,0,0,0.42)]">
+          <div className="relative h-[54px] w-[54px] overflow-hidden rounded-[12px] bg-black shadow-[0_10px_24px_rgba(0,0,0,0.34)]">
             <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="none" />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-transparent to-black/62" />
-            <span className={countBadgeClass}>{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/18" />
           </div>
-          <div className="mt-2 flex items-start gap-2">
-            <span className="shrink-0 text-[24px] font-black leading-none text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.48)]">{index + 1}</span>
-            <div className="min-w-0">
-              <span className="line-clamp-2 text-[12px] font-black leading-[1.05] text-white">{item.name || item.track?.name || 'sem nome'}</span>
-              <span className="mt-1 block truncate text-[10px] font-semibold text-white/48">{getReplayItemArtist(item)}</span>
-            </div>
+          <span className="text-center text-[26px] font-black leading-none text-white drop-shadow-[0_8px_18px_rgba(0,0,0,0.52)]">{index + 1}</span>
+          <div className="min-w-0">
+            <span className="block truncate text-[15px] font-black leading-tight text-white">{item.name || item.track?.name || 'sem nome'}</span>
+            <span className="mt-0.5 block truncate text-[11px] font-semibold leading-tight text-white/46">
+              {getReplayItemArtist(item)} · {coreUtils.formatNumber(getReplayItemCount(item))} reproduções
+            </span>
           </div>
         </motion.div>
       ))}
     </div>
   );
 
-  const renderAlbums = (items: any[]) => (
-    <div className={cn("grid grid-cols-2 gap-3 overflow-visible", highlightsContentHeight)}>
-      {items.map((item, index) => (
-        <div key={`${item.id || item.name}-${index}`} className="min-w-0">
-          <div className="relative aspect-square overflow-visible rounded-[20px]">
-            <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="2xl" />
-            <span className="absolute left-3 top-2 z-20 text-[42px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.42)]">{index + 1}</span>
-            <span className={countBadgeClass}>{coreUtils.formatNumber(getReplayItemCount(item))}</span>
+  const renderAlbums = (items: any[]) => {
+    const hero = items[0];
+    const rest = items.slice(1, 6);
+    if (!hero) return null;
+
+    return (
+      <div className={cn("relative mx-auto w-full max-w-[408px] overflow-hidden rounded-[30px] bg-white/[0.018] p-3 backdrop-blur-xl", stageHeight)}>
+        <motion.div
+          key={`${hero.id || hero.name}-hero`}
+          className="relative h-[178px] overflow-hidden rounded-[26px] bg-black shadow-[0_22px_50px_rgba(0,0,0,0.46)] sm:h-[190px]"
+          initial={{ opacity: 0, y: 14, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 180, damping: 24 }}
+        >
+          <SmartImage src={getReplayItemImage(hero)} className="absolute inset-0 h-full w-full object-cover" fallback={hero.name} rounded="none" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/74 via-black/22 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-transparent to-black/16" />
+          <span className="absolute left-4 top-3 z-20 text-[54px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.55)]">1</span>
+          <div className="absolute bottom-4 left-4 right-4 z-20 min-w-0">
+            <span className="block truncate text-[18px] font-black leading-tight text-white">{hero.name || 'sem nome'}</span>
+            <span className="mt-1 block truncate text-[11px] font-semibold text-white/55">{getReplayItemArtist(hero)}</span>
+            <div className="mt-2 flex">
+              <span className={countPillClass}>{coreUtils.formatNumber(getReplayMinutes(hero))} min</span>
+            </div>
           </div>
-          <span className="mt-2 line-clamp-2 text-left text-[12px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
-          <span className="mt-0.5 block truncate text-left text-[10px] font-semibold text-white/45">{getReplayItemArtist(item)} - {coreUtils.formatNumber(getReplayMinutes(item))} min</span>
+        </motion.div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {rest.map((item, index) => (
+            <motion.div
+              key={`${item.id || item.name}-${index + 1}`}
+              className="grid min-w-0 grid-cols-[42px_minmax(0,1fr)] items-center gap-2 rounded-[18px] bg-white/[0.035] p-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 185, damping: 24, delay: 0.05 + index * 0.04 }}
+            >
+              <div className="relative h-[42px] w-[42px] overflow-hidden rounded-[12px] bg-black">
+                <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={item.name} rounded="none" />
+                <span className="absolute left-1.5 top-0.5 text-[18px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.55)]">{index + 2}</span>
+              </div>
+              <div className="min-w-0">
+                <span className="block truncate text-[11px] font-black leading-tight text-white">{item.name || 'sem nome'}</span>
+                <span className="mt-0.5 block truncate text-[9px] font-semibold text-white/42">{coreUtils.formatNumber(getReplayMinutes(item))} min</span>
+              </div>
+            </motion.div>
+          ))}
         </div>
-      ))}
-    </div>
-  );
+      </div>
+    );
+  };
 
   if (groups.length === 0) return null;
   const activeGroup = groups[activeIndex] || groups[0];
   const ActiveIcon = activeGroup.icon;
 
   return (
-    <section className="relative overflow-visible px-4 sm:px-6 lg:px-8">
+    <section className="relative mb-16 overflow-visible px-4 pb-2 sm:px-6 lg:px-8">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Sparkles className="h-5 w-5 text-orange-500" />
@@ -414,37 +469,49 @@ const HomeOrbitalHighlights = ({
         data-home-horizontal-scroll="true"
         className="relative select-none overflow-visible"
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
         <motion.article
           key={activeGroup.key}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-          className="relative mx-auto w-full max-w-[398px] overflow-hidden rounded-[34px] bg-white/[0.026] px-5 py-5 shadow-[0_24px_70px_rgba(0,0,0,0.38)] backdrop-blur-[34px]"
+          initial={{ opacity: 0, x: 18, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 170, damping: 24 }}
+          className="relative mx-auto w-full max-w-[430px] overflow-visible"
         >
           <motion.div
-            className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]"
+            className="pointer-events-none absolute left-1/2 top-[52%] h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.04]"
             animate={{ rotate: 360 }}
             transition={{ duration: 42, repeat: Infinity, ease: 'linear' }}
           />
           <motion.div
-            className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.045]"
+            className="pointer-events-none absolute left-1/2 top-[52%] h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-white/[0.035]"
             animate={{ rotate: -360 }}
             transition={{ duration: 58, repeat: Infinity, ease: 'linear' }}
           />
-          <div className="relative z-10 mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="relative z-10 mb-4 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
                 <ActiveIcon className="h-4 w-4 text-orange-300" />
               </div>
-              <div>
-                <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-orange-300">{activeGroup.title}</span>
-                <span className="text-[9px] font-bold text-white/38">arraste para ver o próximo</span>
+              <div className="min-w-0">
+                <span className="block truncate text-[11px] font-black uppercase tracking-[0.18em] text-orange-300 sm:tracking-[0.24em]">{activeGroup.title}</span>
               </div>
             </div>
-            <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {groups.length > 1 && (
+                <div className="hidden items-center gap-1 sm:flex">
+                  <button type="button" onClick={() => goTo(activeIndex - 1)} className="rounded-full p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80" aria-label="Destaque anterior">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button type="button" onClick={() => goTo(activeIndex + 1)} className="rounded-full p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80" aria-label="Próximo destaque">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[9px] font-black text-white/45">{activeIndex + 1}/{groups.length}</span>
+            </div>
           </div>
 
           <div className="relative z-10">

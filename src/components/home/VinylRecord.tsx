@@ -188,13 +188,13 @@ export const VinylRecord = ({
             radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
             conic-gradient(
               from ${textureVariant * 34}deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.48 : 0.52)} 0deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.24 : 0.3)} 46deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.38 : 0.42)} 118deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.3 : 0.52)} 0deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.18 : 0.3)} 46deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : 0.42)} 118deg,
               ${withAlpha(darkColor, 0.10)} 174deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.26 : 0.34)} 232deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.38 : 0.42)} 304deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.48 : 0.52)} 360deg
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.2 : 0.34)} 232deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : 0.42)} 304deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.3 : 0.52)} 360deg
             )
           `,
           isolation: 'isolate',
@@ -219,9 +219,9 @@ export const VinylRecord = ({
             background:
               textureVariant === 1
                 ? `
-                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.14) 12%, transparent 25%, rgba(0,0,0,0.16) 45%, transparent 60%, rgba(0,0,0,0.12) 80%, transparent),
-                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.08) 20%, transparent 40%, rgba(0,0,0,0.12) 75%, transparent),
-                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.10) 0%, transparent 54%)
+                  conic-gradient(from ${textureSeed % 360}deg, transparent, rgba(0,0,0,0.24) 12%, transparent 25%, rgba(0,0,0,0.28) 45%, transparent 60%, rgba(0,0,0,0.22) 80%, transparent),
+                  conic-gradient(from ${(textureSeed + 120) % 360}deg, transparent, rgba(255,255,255,0.08) 20%, transparent 40%, rgba(0,0,0,0.22) 75%, transparent),
+                  radial-gradient(circle at 35% 40%, rgba(0,0,0,0.18) 0%, transparent 54%)
                 `
                 : textureVariant === 2
                   ? `
@@ -290,7 +290,7 @@ export const VinylRecord = ({
                     key={`${uniqueId}-drop-${i}`}
                     cx="50"
                     cy={50 - drop.radius}
-                    r={drop.size * 1.6}
+                    r={drop.size}
                     fill="rgba(255,255,255,0.78)"
                     opacity={drop.opacity}
                     transform={`rotate(${drop.angle} 50 50)`}
@@ -426,7 +426,7 @@ export const VinylRecord = ({
             <circle
               cx={tonearmPivotX}
               cy={tonearmPivotY}
-              r="7.5"
+              r="5.5"
               fill="rgba(0,0,0,0.16)"
               stroke="rgba(255,255,255,0.12)"
               strokeWidth="0.5"
@@ -437,7 +437,7 @@ export const VinylRecord = ({
               x2={tonearmNeedleX}
               y2={tonearmNeedleY}
               stroke="rgba(0,0,0,0.72)"
-              strokeWidth="3"
+              strokeWidth="1.2"
               strokeLinecap="round"
             />
             <line
@@ -446,7 +446,7 @@ export const VinylRecord = ({
               x2={tonearmNeedleX + 0.8}
               y2={tonearmNeedleY - 0.6}
               stroke="#b0b8c1"
-              strokeWidth="1.8"
+              strokeWidth="0.9"
               strokeLinecap="round"
             />
             <circle
