@@ -84,6 +84,15 @@ const usePrefersReducedMotion = () => {
   return prefersReducedMotion;
 };
 
+const getRotationFromTransform = (transform: string) => {
+  if (!transform || transform === 'none') return null;
+  const matrix = transform.match(/^matrix\(([^)]+)\)$/);
+  if (!matrix) return null;
+  const [a, b] = matrix[1].split(',').map((value) => Number.parseFloat(value.trim()));
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+};
+
 export const VinylRecord = ({
   albumImage,
   dominantColor,
@@ -94,8 +103,8 @@ export const VinylRecord = ({
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
   const discRef = useRef<HTMLDivElement | null>(null);
+  const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
-  const lastFrameRef = useRef(0);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
 
@@ -127,28 +136,33 @@ export const VinylRecord = ({
 
   useEffect(() => {
     const node = discRef.current;
+    const stopSpin = () => {
+      const animation = spinAnimationRef.current;
+      if (!node || !animation) return;
+      const currentRotation = getRotationFromTransform(window.getComputedStyle(node).transform);
+      if (currentRotation != null) rotationRef.current = currentRotation;
+      animation.cancel();
+      spinAnimationRef.current = null;
+      node.style.transform = `rotate(${rotationRef.current}deg)`;
+    };
+
     if (!node || !canAnimate || !isPlaying) {
-      lastFrameRef.current = 0;
+      stopSpin();
       return;
     }
 
-    let frameId = 0;
-    const tick = (now: number) => {
-      if (!lastFrameRef.current) lastFrameRef.current = now;
-      const delta = now - lastFrameRef.current;
-      lastFrameRef.current = now;
-      rotationRef.current = (rotationRef.current + delta * 0.12) % 360;
-      node.style.transform = `rotate(${rotationRef.current}deg)`;
-      frameId = window.requestAnimationFrame(tick);
-    };
+    stopSpin();
+    const startRotation = rotationRef.current;
+    node.style.transform = `rotate(${startRotation}deg)`;
+    spinAnimationRef.current = node.animate(
+      [
+        { transform: `rotate(${startRotation}deg)` },
+        { transform: `rotate(${startRotation + 360}deg)` },
+      ],
+      { duration: 3000, iterations: Infinity, easing: 'linear' }
+    );
 
-    frameId = window.requestAnimationFrame(tick);
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      lastFrameRef.current = 0;
-      const currentNode = discRef.current;
-      if (currentNode) currentNode.style.transform = `rotate(${rotationRef.current}deg)`;
-    };
+    return stopSpin;
   }, [canAnimate, isPlaying, albumImage]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];

@@ -12,6 +12,7 @@ const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
   const [level, setLevel] = useState(0.5);
+  const levelRef = useRef(0.5);
   const isDraggingRef = useRef(false);
 
   const pivotX = 62;
@@ -61,7 +62,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
 
   useEffect(() => {
     if (isDraggingRef.current) return;
-    setLevel(isPlaying ? 1 : 0);
+    const nextLevel = isPlaying ? 1 : 0;
+    levelRef.current = nextLevel;
+    setLevel(nextLevel);
   }, [isPlaying]);
 
   useEffect(() => {
@@ -72,6 +75,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     const intervalId = window.setInterval(() => {
       if (isDraggingRef.current) return;
       step = (step + 1) % levels.length;
+      levelRef.current = levels[step];
       setLevel(levels[step]);
     }, 1150);
 
@@ -85,16 +89,17 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     const pointerX = ((event.clientX - rect.left) / rect.width) * 100;
     const pointerY = ((event.clientY - rect.top) / rect.height) * 100;
     const pointerAngle = Math.atan2(pointerY - pivotY, pointerX - pivotX) * 180 / Math.PI;
-    setLevel(clamp01((idleAngle - pointerAngle) / (idleAngle - playingAngle)));
+    const nextLevel = clamp01((idleAngle - pointerAngle) / (idleAngle - playingAngle));
+    levelRef.current = nextLevel;
+    setLevel(nextLevel);
   };
 
   const commitPointerLevel = () => {
-    setLevel((currentLevel) => {
-      const nextIsPlaying = currentLevel >= 0.58;
-      const targetLevel = nextIsPlaying ? 1 : 0;
-      onUserPlaybackChange?.(nextIsPlaying);
-      return targetLevel;
-    });
+    const nextIsPlaying = levelRef.current >= 0.58;
+    const targetLevel = nextIsPlaying ? 1 : 0;
+    levelRef.current = targetLevel;
+    setLevel(targetLevel);
+    onUserPlaybackChange?.(nextIsPlaying);
   };
 
   return (
@@ -143,7 +148,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           }}
           onPointerCancel={() => {
             isDraggingRef.current = false;
-            setLevel(isPlaying ? 1 : 0);
+            const nextLevel = isPlaying ? 1 : 0;
+            levelRef.current = nextLevel;
+            setLevel(nextLevel);
           }}
         >
           <g transform={`translate(${pivotX} ${pivotY}) rotate(34)`}>

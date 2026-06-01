@@ -131,18 +131,24 @@ export const preloadSmartImages = (sources: Array<string | undefined | null>) =>
   })).then(() => undefined);
 };
 
-export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" }: { src?: string, className?: string, fallback?: string, rounded?: string }) => {
+export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, className?: string, fallback?: string, rounded?: string }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showFallback, setShowFallback] = useState(false);
+  const [overrideSrc, setOverrideSrc] = useState('');
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
   const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
   const prefersReducedMotion = usePrefersReducedMotion();
   const lastGoodSrcRef = useRef('');
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const resolvedSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
+  const inputSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
+  const resolvedSrc = overrideSrc || inputSrc;
   const displaySrc = resolvedSrc || lastGoodSrcRef.current;
+
+  useEffect(() => {
+    setOverrideSrc('');
+  }, [inputSrc]);
 
   useEffect(() => {
     setError(false);
@@ -219,6 +225,13 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
             setLoading(false);
           }}
           onError={() => {
+            if (fallbackSrc && displaySrc !== fallbackSrc) {
+              setOverrideSrc(fallbackSrc);
+              setError(false);
+              setLoading(true);
+              setShowFallback(false);
+              return;
+            }
             setError(true);
             setLoading(false);
             setShowFallback(true);

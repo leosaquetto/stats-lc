@@ -137,6 +137,19 @@
   backdrop-filter: blur(18px) saturate(140%);
 }
 
+.leo-glass-badge {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.14), rgba(255,255,255,0.028)),
+    rgba(8, 8, 10, 0.42);
+  -webkit-backdrop-filter: blur(34px) saturate(190%);
+  backdrop-filter: blur(34px) saturate(190%);
+  border: 1px solid rgba(255,255,255,0.14);
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.38),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(255,255,255,0.055);
+}
+
 /* Fallback for browsers without backdrop-filter support */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .liquid-glass,
@@ -146,6 +159,9 @@
   }
   .liquid-glass-overlay {
     background: rgba(0,0,0,0.82);
+  }
+  .leo-glass-badge {
+    background: rgba(16,16,18,0.86);
   }
 }
 

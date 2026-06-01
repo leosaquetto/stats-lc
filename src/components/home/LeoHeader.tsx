@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
-import { motion, AnimatePresence, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Repeat, TrendingUp, Star, BookOpen } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
@@ -108,14 +108,13 @@ const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
         <span
           key={badge}
           className={cn(
-            "max-w-full truncate rounded-full border-0 text-center font-black uppercase leading-none text-white/68",
-            "shadow-lg backdrop-blur-md",
+            "leo-glass-badge max-w-full truncate rounded-full text-center font-black uppercase leading-none text-white/70",
             hasMultipleBadges
               ? "px-2 py-[2px] text-[5.9px] tracking-[0.1em] sm:px-2.5 sm:text-[6.4px]"
               : "px-2.5 py-[3px] text-[7px] tracking-[0.11em] sm:px-3 sm:text-[7.6px]",
             index === 0
-              ? "bg-white/[0.07] backdrop-blur-xl shadow-xl"
-              : "bg-white/[0.035] text-white/52"
+              ? "text-white/74"
+              : "text-white/56"
           )}
         >
           {badge}
@@ -654,13 +653,12 @@ export const LiveTrackProgress = memo(({
 
 LiveTrackProgress.displayName = 'LiveTrackProgress';
 
-const ARENA_BADGE_SLOT_SIZE = 34;
-const ARENA_BADGE_VISIBLE_SLOTS = 4;
-const ARENA_BADGE_MORE_SLOT = ARENA_BADGE_VISIBLE_SLOTS;
-const ARENA_BADGE_LEFT_PAD = 0;
-const ARENA_BADGE_MORE_LEFT = ARENA_BADGE_LEFT_PAD + ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE;
+const stableHeaderAvatarByUserId = new Map<string, string>();
 
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+const getStaticAvatarCandidate = (avatarUrl: string) => {
+  if (!/\.gif(?:[?#]|$)/i.test(avatarUrl)) return avatarUrl;
+  return avatarUrl.replace(/\.gif(?=([?#]|$))/i, '.webp');
+};
 
 const ArenaRankingBubble = ({
   user,
@@ -668,41 +666,15 @@ const ArenaRankingBubble = ({
   total,
   selectedUserId,
   shouldReduceMotion,
-  dragX,
-  isHiddenInitial,
 }: {
   user: { id: string; name: string; plays: number; avatar: string };
   index: number;
   total: number;
   selectedUserId: string;
   shouldReduceMotion: boolean | null;
-  dragX: any;
-  isHiddenInitial: boolean;
 }) => {
   const isSelected = user.id === selectedUserId;
   const showFirstListenStar = isSelected && user.plays === 1;
-  const x = useTransform(dragX, value => {
-    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
-    const visiblePosition = Math.max(0, Math.min(ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE, position));
-    return ARENA_BADGE_LEFT_PAD + visiblePosition;
-  });
-  const scale = useTransform(dragX, value => {
-    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
-    const baseScale = 1;
-
-    if (position < 0) return baseScale * clamp01((position + ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
-    if (isHiddenInitial) return baseScale * clamp01((ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE - position) / ARENA_BADGE_SLOT_SIZE);
-
-    return baseScale;
-  });
-  const opacity = useTransform(dragX, value => {
-    const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
-
-    if (position <= -ARENA_BADGE_SLOT_SIZE) return 0;
-    if (isHiddenInitial && position >= ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE) return 0;
-
-    return 1;
-  });
 
   return (
     <motion.div
@@ -717,14 +689,11 @@ const ArenaRankingBubble = ({
       }}
       exit={{ opacity: 0, y: -6, transition: { duration: 0.16 } }}
       className={cn(
-        "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 shrink-0 transform-gpu group/avatar",
+        "pointer-events-none relative shrink-0 transform-gpu snap-start group/avatar",
         isSelected ? "z-20" : ""
       )}
       style={{
         zIndex: total + 2 - index,
-        x: shouldReduceMotion ? ARENA_BADGE_LEFT_PAD + index * ARENA_BADGE_SLOT_SIZE : x,
-        scale: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : scale,
-        opacity: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : opacity,
         willChange: shouldReduceMotion ? undefined : 'transform, opacity',
       }}
     >
@@ -739,10 +708,10 @@ const ArenaRankingBubble = ({
 
       <div
         className={cn(
-          "absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full border px-1.5 text-[8px] font-black leading-none text-white backdrop-blur-md shadow-lg sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
+          "leo-glass-badge absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none text-white sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
           isSelected
-            ? "border-white/10 bg-white/[0.07] text-orange-200 backdrop-blur-xl shadow-xl"
-            : "border-white/5 bg-white/5"
+            ? "text-orange-200"
+            : "text-white/86"
         )}
       >
         {showFirstListenStar ? (
@@ -758,29 +727,19 @@ const ArenaRankingBubble = ({
 export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
-  const arenaTrailX = useMotionValue(0);
-  const arenaMoreOpacity = useTransform(arenaTrailX, value => {
-    const slotProgress = ((Math.abs(Number(value)) % ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
-    return 1 - slotProgress;
-  });
-  const arenaMoreScale = useTransform(arenaTrailX, value => {
-    const slotProgress = ((Math.abs(Number(value)) % ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
-    return 1 - slotProgress;
-  });
-  const arenaLeftMoreOpacity = useTransform(arenaTrailX, value => {
-    const offset = Math.abs(Number(value));
-    if (offset <= 0.5) return 0;
-    return clamp01(offset / (ARENA_BADGE_SLOT_SIZE * 0.82));
-  });
-  const arenaLeftMoreScale = useTransform(arenaTrailX, value => {
-    const offset = Math.abs(Number(value));
-    const slotProgress = offset <= 0.5 ? 0 : clamp01(offset / ARENA_BADGE_SLOT_SIZE);
-    return 0.72 + slotProgress * 0.28;
-  });
-  const [arenaShiftedSlots, setArenaShiftedSlots] = useState(0);
-  const arenaShiftedSlotsRef = useRef(0);
 
-  const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+  const profileAvatarOriginal = useMemo(() => {
+    const nextAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+    const stableAvatar = stableHeaderAvatarByUserId.get(user.id);
+    if (stableAvatar) return stableAvatar;
+    if (nextAvatar) {
+      stableHeaderAvatarByUserId.set(user.id, nextAvatar);
+      return nextAvatar;
+    }
+    return '';
+  }, [user.id, user.avatar]);
+  const profileAvatar = useMemo(() => getStaticAvatarCandidate(profileAvatarOriginal), [profileAvatarOriginal]);
+  const profileAvatarFallback = profileAvatar !== profileAvatarOriginal ? profileAvatarOriginal : undefined;
   const groupStatsForUser = useStatsStore(s => s.groupStats);
   const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
   const storeUser = useMemo(
@@ -939,10 +898,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     }
   }, [track?.id, fetchTrackStatsForAll]);
 
-  useEffect(() => {
-    arenaTrailX.set(0);
-  }, [track?.id, arenaTrailX]);
-
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
     const users = getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId)
@@ -962,40 +917,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id, liveNowPlayingByUserId]);
 
   const trackArenaUsers = allTrackArenaUsers;
-  const arenaPageSize = 4;
-  const visibleArenaUsers = trackArenaUsers.slice(0, arenaPageSize);
-  const trailingArenaUsers = trackArenaUsers.slice(arenaPageSize);
-  const hiddenArenaCount = trailingArenaUsers.length;
-  const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
-  const arenaDragDistance = Math.max(0, hiddenArenaCount * ARENA_BADGE_SLOT_SIZE);
-  const arenaRenderableUsers = trackArenaUsers.slice(0, arenaPageSize + hiddenArenaCount);
-  const leftHiddenArenaCount = Math.min(arenaShiftedSlots, Math.max(0, trackArenaUsers.length - arenaPageSize));
-  const rightHiddenArenaCount = Math.max(0, hiddenArenaCount - arenaShiftedSlots);
-  const selectedHiddenOnLeft = selectedArenaIndex >= 0 && selectedArenaIndex < arenaShiftedSlots;
-  const selectedHiddenOnRight = selectedArenaIndex >= arenaPageSize + arenaShiftedSlots;
-  const arenaVisibleSlots = Math.min(arenaPageSize, trackArenaUsers.length);
-  const arenaSummaryWidth = hiddenArenaCount > 0
-    ? ARENA_BADGE_MORE_LEFT + 42
-    : Math.max(44, (arenaVisibleSlots - 1) * ARENA_BADGE_SLOT_SIZE + 44);
-
-  useEffect(() => {
-    arenaTrailX.set(0);
-    arenaShiftedSlotsRef.current = 0;
-    setArenaShiftedSlots(0);
-  }, [arenaTrailX, hiddenArenaCount, track?.id]);
-
-  useEffect(() => {
-    const updateShiftedSlots = (value: number) => {
-      const shiftedSlots = Math.min(hiddenArenaCount, Math.floor((Math.abs(value) + 0.5) / ARENA_BADGE_SLOT_SIZE));
-      if (arenaShiftedSlotsRef.current !== shiftedSlots) {
-        arenaShiftedSlotsRef.current = shiftedSlots;
-        setArenaShiftedSlots(shiftedSlots);
-      }
-    };
-
-    updateShiftedSlots(arenaTrailX.get());
-    return arenaTrailX.on("change", updateShiftedSlots);
-  }, [arenaTrailX, hiddenArenaCount]);
+  const hiddenArenaCount = Math.max(0, trackArenaUsers.length - 4);
 
 
   const isToday = nowPlaying?.timestamp ? isTodaySP(new Date(nowPlaying.timestamp)) : true;
@@ -1238,6 +1160,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     )}>
                     <SmartImage
                       src={profileAvatar}
+                      fallbackSrc={profileAvatarFallback}
                       className="h-full w-full"
                       fallback=""
                       rounded="full"
@@ -1260,8 +1183,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                   {/* Streams hoje */}
                   <div
-                    className="glass-aura -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full border-0 bg-white/[0.055] px-2 transition-all duration-500"
-                    style={{ border: 0 }}
+                    className="leo-glass-badge -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full px-2 transition-all duration-500"
                   >
                     <TrendingUp className={cn(
                       "h-2.5 w-2.5 shrink-0 transition-colors duration-500",
@@ -1367,7 +1289,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       <div className="relative flex w-[calc(100vw-40px)] max-w-[350px] items-start justify-between gap-2 pr-1">
                         <div className="flex min-w-0 max-w-[calc(100%-48px)] flex-wrap items-center gap-2">
                           {showExclusiveFirstListen ? (
-                            <div className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-white/5 bg-white/5 pl-2.5 pr-2 shadow-lg backdrop-blur-md">
+                            <div className="leo-glass-badge flex h-7 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2">
                               <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
                               <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
                                 <AnimatedNumber value={1} />
@@ -1385,39 +1307,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="relative h-[58px] overflow-visible py-2 pr-0"
-                                  style={{ width: arenaSummaryWidth }}
+	                                className="scrolling-touch flex h-[58px] max-w-[206px] snap-x snap-mandatory items-center -space-x-2 overflow-x-auto overflow-y-visible py-2 pr-2 no-scrollbar [overscroll-behavior-x:contain]"
 	                              >
-	                                <motion.div
-	                                  className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
-	                                  drag={hiddenArenaCount > 0 && !shouldReduceMotion ? "x" : false}
-	                                  dragConstraints={{ left: -arenaDragDistance, right: 0 }}
-	                                  dragElastic={0.12}
-	                                  dragMomentum={false}
-	                                  initial={shouldReduceMotion ? false : { x: 0 }}
-	                                  style={{ x: arenaTrailX, opacity: 0 }}
-	                                >
-	                                  <div className="h-full w-[240px]" />
-	                                </motion.div>
-	                                {hiddenArenaCount > 0 && (
-	                                  <motion.div
-	                                    key="arena-more-left"
-		                                    className={cn(
-		                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2.5 text-[10px] font-black text-white backdrop-blur-md shadow-lg sm:h-12 sm:min-w-12",
-	                                      selectedHiddenOnLeft
-		                                        ? "border-white/10 bg-white/[0.07] text-orange-200 backdrop-blur-xl shadow-xl"
-	                                        : "border-white/5 bg-white/5"
-	                                    )}
-		                                    style={{
-		                                      opacity: shouldReduceMotion ? (leftHiddenArenaCount > 0 ? 1 : 0) : arenaLeftMoreOpacity,
-		                                      scale: shouldReduceMotion ? (leftHiddenArenaCount > 0 ? 1 : 0.72) : arenaLeftMoreScale,
-		                                      willChange: shouldReduceMotion ? undefined : 'transform, opacity',
-		                                    }}
-		                                  >
-		                                    +{Math.max(1, leftHiddenArenaCount)}
-		                                  </motion.div>
-		                                )}
-	                                {arenaRenderableUsers.map((u, i) => (
+	                                {trackArenaUsers.map((u, i) => (
 	                                  <ArenaRankingBubble
 	                                    key={u.id}
 	                                    user={u}
@@ -1425,29 +1317,13 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    total={trackArenaUsers.length}
 	                                    selectedUserId={user.id}
 	                                    shouldReduceMotion={shouldReduceMotion}
-	                                    dragX={arenaTrailX}
-	                                    isHiddenInitial={i >= arenaPageSize}
 	                                  />
 	                                ))}
-	                                {rightHiddenArenaCount > 0 && (
-		                                  <motion.div
-		                                    key="arena-more-right"
-		                                    className={cn(
-		                                      "pointer-events-none absolute top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2.5 text-[10px] font-black text-white backdrop-blur-md shadow-lg sm:h-12 sm:min-w-12",
-	                                      selectedHiddenOnRight
-		                                        ? "border-white/10 bg-white/[0.07] text-orange-200 backdrop-blur-xl shadow-xl"
-	                                        : "border-white/5 bg-white/5"
-	                                    )}
-	                                    style={{
-		                                      left: ARENA_BADGE_MORE_LEFT,
-		                                      opacity: shouldReduceMotion ? undefined : arenaMoreOpacity,
-		                                      scale: shouldReduceMotion ? undefined : arenaMoreScale,
-		                                      willChange: shouldReduceMotion ? undefined : 'transform, opacity',
-		                                    }}
-	                                  >
-	                                    +{rightHiddenArenaCount}
-	                                  </motion.div>
-	                                )}
+                                  {hiddenArenaCount > 0 && (
+                                    <span className="leo-glass-badge sticky right-0 z-30 ml-[-10px] flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-2 text-[9px] font-black leading-none text-white/72">
+                                      +{hiddenArenaCount}
+                                    </span>
+                                  )}
 	                              </div>
 	                            </motion.div>
                           ) : (
@@ -1460,7 +1336,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
                               ) : (
                                 <div
-	                                  className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full border border-white/5 bg-white/5 pl-2.5 pr-2 shadow-lg backdrop-blur-md"
+	                                  className="leo-glass-badge flex h-7 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2"
                                 >
                                   <Repeat className={cn(
                                     "h-2.5 w-2.5 transition-colors duration-500",
@@ -1492,7 +1368,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }));
                               }}
                               whileTap={{ scale: 0.94 }}
-	                              className="relative z-[90] flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-white/5 bg-white/5 pl-2.5 pr-2 shadow-lg backdrop-blur-md transition-colors"
+	                              className="leo-glass-badge relative z-[90] flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2 transition-colors"
                               aria-label="Abrir letra"
                             >
                               <BookOpen

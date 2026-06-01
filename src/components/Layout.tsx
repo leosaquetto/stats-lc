@@ -318,21 +318,26 @@ const formatAlbumReleaseDate = (value: any) => {
 const cleanLyricsForDisplay = (lyrics?: string | null) => {
   if (!lyrics) return '';
 
-  const lines = lyrics.replace(/\r/g, '').split('\n');
+  const lines = lyrics
+    .replace(/\r/g, '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?(?:p|div)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .split('\n');
   const output: string[] = [];
   let hasStarted = false;
   let previousBlank = false;
+  let pendingSectionBreak = false;
 
   for (const rawLine of lines) {
-    const line = rawLine.trim();
-    const isBracketLine = /^\[[^\]]+\]$/.test(line);
+    const line = rawLine
+      .replace(/\u200b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const isBracketLine = /^\[[^\]]+\]$/.test(line) || /^(?:chorus|intro|verse|bridge|outro|pre-chorus|refrain|instrumental)\b/i.test(line);
 
     if (isBracketLine) {
-      if (!hasStarted) continue;
-      if (!previousBlank) {
-        output.push('');
-        previousBlank = true;
-      }
+      if (hasStarted) pendingSectionBreak = true;
       continue;
     }
 
@@ -344,8 +349,13 @@ const cleanLyricsForDisplay = (lyrics?: string | null) => {
       continue;
     }
 
+    if (pendingSectionBreak && hasStarted && !previousBlank) {
+      output.push('');
+      previousBlank = true;
+    }
     hasStarted = true;
     previousBlank = false;
+    pendingSectionBreak = false;
     output.push(line);
   }
 
@@ -422,6 +432,26 @@ const getUserTrackStatsSource = (user: any) => {
     ...user,
     nowPlaying: recentPlayback,
   };
+};
+
+const getPlaybackHistoryEntries = (user: any) => {
+  const source = Array.isArray(user?.recent)
+    ? user.recent
+    : Array.isArray(user?.history)
+      ? user.history
+      : [];
+  return source
+    .map((item: any) => {
+      const track = item?.track || item;
+      if (!track?.name) return null;
+      return {
+        track,
+        timestamp: item?.playedAt || item?.timestamp || item?.endTime || item?.date || item?.createdAt,
+        platform: item?.platform || item?.source || user?.nowPlaying?.platform,
+        durationMs: item?.durationMs || track?.durationMs,
+      };
+    })
+    .filter(Boolean) as Array<{ track: any; timestamp?: any; platform?: any; durationMs?: any }>;
 };
 
 type TrackLink = ReturnType<typeof getTrackLinks>[number];
@@ -526,12 +556,14 @@ const loadBottomTrackStatsPanelData = async ({
   albumId,
   trackArtists,
   members,
+  currentTimestamp,
 }: {
   user: any;
   trackId: string;
   albumId: string;
   trackArtists: Array<{ id: string; name: string; image: string; key: string }>;
   members: any[];
+  currentTimestamp?: any;
 }) => {
   const cacheKey = getBottomTrackStatsLookupKey(user, trackId, albumId, trackArtists, members);
   const cached = readExpiringCache(bottomTrackStatsCache, cacheKey);
@@ -574,7 +606,7 @@ const loadBottomTrackStatsPanelData = async ({
     const data = {
       artistStats: nextArtistStats,
       entityStats: { artist: primaryArtistCount, track: trackCount, album },
-      trackHistory: summarizeTrackHistory(history, user?.nowPlaying?.timestamp),
+      trackHistory: summarizeTrackHistory(history, currentTimestamp || user?.nowPlaying?.timestamp),
       circleFirstListen: friendsWithHistory.length > 0 && firstEntry
         ? { user: firstEntry.member, playedAt: firstEntry.playedAt }
         : null,
@@ -623,7 +655,7 @@ const TrackTitleBadges = ({ badges }: { badges: string[] }) => {
       {badges.map((badge) => (
         <span
           key={badge}
-          className="rounded-full bg-white/[0.075] px-2 py-1 text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/42 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-xl"
+          className="leo-glass-badge rounded-full px-2 py-1 text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/50"
         >
           {badge}
         </span>
@@ -646,7 +678,7 @@ const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (l
       type="button"
       onClick={() => onChoose(link)}
       aria-label={`Opções do ${link.label}`}
-      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.065] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform active:scale-95"
+      className="leo-glass-badge flex h-10 w-10 items-center justify-center rounded-full text-white/72 transition-transform active:scale-95"
     >
       {icon}
     </button>
@@ -667,8 +699,23 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [toastMessage, setToastMessage] = React.useState('');
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
   const [panelDataLoading, setPanelDataLoading] = React.useState(false);
+  const [playbackIndex, setPlaybackIndex] = React.useState(0);
+  const modalPointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
-  const track = user?.nowPlaying?.track;
+  const playbackHistory = React.useMemo(() => getPlaybackHistoryEntries(user), [user]);
+  const liveTrack = user?.nowPlaying?.track;
+  const activePlayback = React.useMemo(() => {
+    if (playbackIndex <= 0 || playbackHistory.length === 0) {
+      return {
+        track: liveTrack,
+        timestamp: user?.nowPlaying?.timestamp,
+        platform: user?.nowPlaying?.platform,
+        durationMs: user?.nowPlaying?.durationMs || liveTrack?.durationMs,
+      };
+    }
+    return playbackHistory[Math.min(playbackIndex - 1, playbackHistory.length - 1)] || null;
+  }, [liveTrack, playbackHistory, playbackIndex, user?.nowPlaying?.durationMs, user?.nowPlaying?.platform, user?.nowPlaying?.timestamp]);
+  const track = activePlayback?.track;
   const trackId = String(track?.id || track?.track?.id || '');
   const artistId = getMainArtistId(track);
   const albumId = getAlbumId(track);
@@ -696,6 +743,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [lyricsMatch?.writers]);
   const cleanedLyricsText = React.useMemo(() => cleanLyricsForDisplay(lyricsText), [lyricsText]);
   const lyricsAvailable = lyricsMatch?.hasLyrics === true;
+
+  React.useEffect(() => {
+    setPlaybackIndex(0);
+  }, [liveTrack?.id, liveTrack?.name, user?.id]);
 
   React.useEffect(() => {
     if (!track?.name || !isOpen) {
@@ -760,6 +811,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         albumId,
         trackArtists,
         members,
+        currentTimestamp: activePlayback?.timestamp,
       }).then((nextPanelData) => {
         if (cancelled) return;
         setPanelData(nextPanelData);
@@ -772,7 +824,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       cancelled = true;
       window.clearTimeout(idleId);
     };
-  }, [albumId, isOpen, membersSignature, trackArtistsSignature, trackId, user?.id]);
+  }, [activePlayback?.timestamp, albumId, isOpen, membersSignature, trackArtistsSignature, trackId, user?.id]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -922,6 +974,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
+            <button
+              type="button"
+              className="absolute inset-0 pointer-events-auto cursor-default"
+              aria-label="Fechar stats da música"
+              onClick={() => {
+                setIsOpen(false);
+                setPanel('stats');
+                setSelectedTrackLink(null);
+              }}
+            />
             <motion.section
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -938,8 +1000,30 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   setPanel('stats');
                 }
               }}
+              onPointerDown={(event) => {
+                modalPointerStartRef.current = { x: event.clientX, y: event.clientY };
+              }}
+              onPointerUp={(event) => {
+                const start = modalPointerStartRef.current;
+                modalPointerStartRef.current = null;
+                if (!start || selectedTrackLink) return;
+                const deltaX = event.clientX - start.x;
+                const deltaY = event.clientY - start.y;
+                if (Math.abs(deltaX) < 72 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+                if (deltaX > 0 && playbackIndex < playbackHistory.length) {
+                  setPlaybackIndex((index) => Math.min(index + 1, playbackHistory.length));
+                  setPanel('stats');
+                } else if (deltaX < 0 && playbackIndex > 0) {
+                  setPlaybackIndex((index) => Math.max(index - 1, 0));
+                  setPanel('stats');
+                }
+              }}
+              onPointerCancel={() => {
+                modalPointerStartRef.current = null;
+              }}
               onClick={(event) => event.stopPropagation()}
-              className="glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-hidden rounded-[34px] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)]"
+              className="glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-hidden rounded-[34px] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y [contain:layout_paint]"
+              style={{ willChange: 'transform, opacity' }}
             >
               <button
                 type="button"
@@ -972,7 +1056,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                 </div>
                 <div className="min-w-0 pt-1">
-                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">{panel === 'lyrics' ? 'Letra' : 'Stats da música'}</span>
+                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
+                    {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? `Histórico - ${playbackIndex}` : 'Stats da música'}
+                  </span>
                   <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{parsedTrackTitle.displayTitle || trackTitle}</h3>
                   <TrackTitleBadges badges={parsedTrackTitle.badges} />
                   <p className="mt-1 text-sm font-semibold leading-tight text-white/48">
@@ -1018,7 +1104,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </div>
 
               {panelDataLoading && (
-                <div className="mt-3 flex items-center justify-center gap-2 rounded-full bg-white/[0.035] px-3 py-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">
+                <div className="leo-glass-badge mt-3 flex items-center justify-center gap-2 rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/38">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-300" />
                   <span>atualizando dados</span>
                 </div>
@@ -1030,7 +1116,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <div
                       key={artist.key}
                       className={clsx(
-                        "flex min-w-0 items-center gap-2 rounded-full bg-black/18 px-2.5 py-2",
+                        "leo-glass-badge flex min-w-0 items-center gap-2 rounded-full px-2.5 py-2",
                         artistStats.length <= 3 ? "flex-1 shrink" : "min-w-[128px] flex-1 shrink-0"
                       )}
                     >
@@ -1049,16 +1135,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               {hasPreviousTrackHistory ? (
                 <div className="mt-2">
                   <div className={clsx("grid gap-1.5", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
-                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                    <div className="leo-glass-badge min-w-0 rounded-full px-3 py-2">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Primeiro stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.firstPlayedAt)}</span>
                     </div>
-                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                    <div className="leo-glass-badge min-w-0 rounded-full px-3 py-2">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Último stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.lastPlayedAt)}</span>
                     </div>
                     {trackHistory.bestYear && (
-                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                    <div className="leo-glass-badge min-w-0 rounded-full px-3 py-2">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Ano recorde</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">
                         {trackHistory.bestYearCount}x em {trackHistory.bestYear}
@@ -1093,8 +1179,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
                         </div>
                         <span className={clsx(
-                          "absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_3px_8px_rgba(0,0,0,0.28)]",
-                          index === 0 ? "bg-orange-500 text-white" : "bg-[#272727] text-white/86"
+                          "leo-glass-badge absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none",
+                          index === 0 ? "text-orange-100" : "text-white/86"
                         )}>
                           {item.count}
                         </span>
@@ -1103,7 +1189,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   </div>
                 )}
                 <div className={clsx(
-                  "relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-full bg-black/18 px-3 py-2 backdrop-blur-xl",
+                  "leo-glass-badge relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-full px-3 py-2",
                   visibleSocialRanking.length === 0 && "w-full"
                 )}
                 >
@@ -1154,7 +1240,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
                         ? "cursor-not-allowed bg-white/[0.035] text-white/28"
-                        : "bg-white/[0.06] text-white/72 hover:bg-white/[0.1] hover:text-white"
+                        : "leo-glass-badge text-white/72 hover:text-white"
                     )}
                   >
                     {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
@@ -1186,52 +1272,68 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <AnimatePresence>
                 {selectedTrackLink && (
                   <motion.div
-                    initial={{ opacity: 0, y: 28, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 18, scale: 0.97 }}
-                    transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-                    className="glass-aura absolute inset-x-9 bottom-4 z-30 overflow-hidden rounded-[28px] px-4 py-3 shadow-[0_24px_70px_rgba(0,0,0,0.56)]"
+                    className="absolute inset-0 z-30 flex items-end px-4 pb-4"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setSelectedTrackLink(null)}
                   >
-                    <div className="divide-y divide-white/[0.08]">
+                    <motion.div
+                      initial={{ y: 28, scale: 0.985 }}
+                      animate={{ y: 0, scale: 1 }}
+                      exit={{ y: 22, scale: 0.985 }}
+                      transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
+                      drag="y"
+                      dragConstraints={{ top: 0, bottom: 0 }}
+                      dragElastic={0.16}
+                      onDragEnd={(_, info) => {
+                        if (info.offset.y > 44 || info.velocity.y > 420) setSelectedTrackLink(null);
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      className="liquid-glass-modal w-full overflow-hidden rounded-[24px] px-2 py-2 shadow-[0_18px_58px_rgba(0,0,0,0.58)]"
+                    >
+                    <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-white/22" />
+                    <div className="divide-y divide-white/[0.075]">
                       <a
                         href={selectedTrackLink.appUrl || selectedTrackLink.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setSelectedTrackLink(null)}
-                        className="flex items-center gap-4 py-3.5 text-white/86 active:bg-white/[0.04]"
+                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-white/86 active:bg-white/[0.055]"
                       >
-                        <ExternalLink className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
-                        <span className="text-[17px] font-medium leading-none">
+                        <ExternalLink className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[15px] font-semibold leading-none">
                           Abrir no {selectedTrackLink.label === 'stats.fm' && isAppleMusicUser ? 'stats.am' : selectedTrackLink.label}
                         </span>
                       </a>
                       <button
                         type="button"
                         onClick={() => copyTrackLink(selectedTrackLink.url)}
-                        className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
+                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
                       >
-                        <Copy className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
-                        <span className="text-[17px] font-medium leading-none">Copiar link</span>
+                        <Copy className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[15px] font-semibold leading-none">Copiar link</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => shareTrackLink(selectedTrackLink)}
-                        className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
+                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
                       >
-                        <Share className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
-                        <span className="text-[17px] font-medium leading-none">Compartilhar</span>
+                        <Share className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[15px] font-semibold leading-none">Compartilhar</span>
                       </button>
                       {selectedTrackLink.kind === 'genius' && (
                         <button
                           type="button"
                           onClick={copyLyrics}
-                          className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
+                          className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
                         >
-                          <FileText className="h-5 w-5 shrink-0 text-white/78" />
-                          <span className="text-[17px] font-medium leading-none">Copiar letra</span>
+                          <FileText className="h-[18px] w-[18px] shrink-0 text-white/74" />
+                          <span className="text-[15px] font-semibold leading-none">Copiar letra</span>
                         </button>
                       )}
                     </div>
+                    </motion.div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1508,7 +1610,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
                 shouldShowExpanded
                   ? "bg-transparent border-none shadow-none min-h-10 gap-2 w-[min(95vw,456px)]"
-                  : "cursor-pointer rounded-full bg-white/5 border border-white/5 backdrop-blur-md shadow-lg h-7 pl-2.5 pr-2 gap-1.5"
+                  : "leo-glass-badge cursor-pointer rounded-full h-7 pl-2.5 pr-2 gap-1.5"
               )}
               title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
             >
