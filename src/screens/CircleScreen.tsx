@@ -13,7 +13,7 @@ import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { useStatsStore } from '../store/useStatsStore';
-import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
+import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 
 const loadRankingScreen = () => import('./RankingScreen');
 const loadAlikeScreen = () => import('./AlikeScreen');
@@ -54,7 +54,8 @@ const CircleTabLoader = ({ label }: { label: string }) => (
 function DuelsSection() {
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
-  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
+  const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
   const [weeklyRankings, setWeeklyRankings] = useState<Record<string, { count: number; durationMs: number }>>({});
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
@@ -205,13 +206,14 @@ function DuelsSection() {
 
 function OrbitOverviewSection() {
   const groupStats = useStatsStore(state => state.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const isLoading = useStatsStore(state => state.isLoading);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const historyOrder = useStatsStore(state => state.historyOrder);
   const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
-  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
-  const arenaMembers = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
+  const arenaMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const [visibleHistory, setVisibleHistory] = useState(5);
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);

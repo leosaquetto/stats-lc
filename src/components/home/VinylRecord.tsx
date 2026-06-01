@@ -207,7 +207,7 @@ export const VinylRecord = ({
             radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.22 : 0.06)} 0%, transparent 50%),
             radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
             conic-gradient(
-              from ${textureVariant * 34}deg,
+              from ${118 + textureVariant * 34}deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.3 : 0.52)} 0deg,
               ${withAlpha(lightColor, textureVariant === 2 ? 0.18 : 0.3)} 46deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : 0.42)} 118deg,

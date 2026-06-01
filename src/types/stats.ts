@@ -125,3 +125,5 @@ export interface GroupStats {
   members?: UserStats[];
   lastUpdated: string;
 }
+
+export type LiveNowPlayingByUserId = Record<string, NowPlaying | undefined>;

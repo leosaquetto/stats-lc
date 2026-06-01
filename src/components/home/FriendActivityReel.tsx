@@ -6,7 +6,7 @@ import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { clsx } from 'clsx';
 import { Music, Clock, Play } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
-import { getVisibleMembers } from '../../lib/memberSelectors';
+import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 
 interface FriendActivityReelProps {
   onTrackClick: (track: any) => void;
@@ -43,12 +43,13 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 }) => {
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   
   const members = useMemo(
-    () => getVisibleMembers(groupStats, hiddenUsers).filter(m =>
+    () => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId).filter(m =>
       String(m.id).trim() !== String(excludeUserId).trim()
     ),
-    [groupStats, hiddenUsers, excludeUserId]
+    [groupStats, hiddenUsers, excludeUserId, liveNowPlayingByUserId]
   );
   
   // Amigos ordenados por atividade recente (isNow primeiro, depois timestamp)

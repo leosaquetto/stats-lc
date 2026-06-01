@@ -1,4 +1,4 @@
-import { GroupStats, UserStats } from '../types/stats';
+import { GroupStats, LiveNowPlayingByUserId, UserStats } from '../types/stats';
 
 const uniqueIds = (ids: string[] = []) => Array.from(new Set(ids.filter(Boolean)));
 
@@ -67,11 +67,39 @@ export const getCanonicalMembers = (groupStats: GroupStats | null | undefined): 
   return Array.from(usersById.values());
 };
 
+export const attachLiveNowPlayingToMember = (
+  member: UserStats,
+  liveNowPlayingByUserId: LiveNowPlayingByUserId = {}
+): UserStats => {
+  const liveNowPlaying = liveNowPlayingByUserId[member.id];
+  if (!liveNowPlaying) return member;
+  if (member.nowPlaying === liveNowPlaying) return member;
+  return { ...member, nowPlaying: liveNowPlaying };
+};
+
+export const getCanonicalMembersWithLive = (
+  groupStats: GroupStats | null | undefined,
+  liveNowPlayingByUserId: LiveNowPlayingByUserId = {}
+): UserStats[] => getCanonicalMembers(groupStats).map((member) =>
+  attachLiveNowPlayingToMember(member, liveNowPlayingByUserId)
+);
+
 export const getVisibleMembers = (
   groupStats: GroupStats | null | undefined,
   hiddenUsers: string[] = []
 ): UserStats[] => {
   const canonicalMembers = getCanonicalMembers(groupStats);
+  const hidden = new Set(uniqueIds(hiddenUsers));
+  const visibleMembers = canonicalMembers.filter((member) => !hidden.has(member.id));
+  return visibleMembers.length > 0 ? visibleMembers : canonicalMembers;
+};
+
+export const getVisibleMembersWithLive = (
+  groupStats: GroupStats | null | undefined,
+  hiddenUsers: string[] = [],
+  liveNowPlayingByUserId: LiveNowPlayingByUserId = {}
+): UserStats[] => {
+  const canonicalMembers = getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId);
   const hidden = new Set(uniqueIds(hiddenUsers));
   const visibleMembers = canonicalMembers.filter((member) => !hidden.has(member.id));
   return visibleMembers.length > 0 ? visibleMembers : canonicalMembers;

@@ -12,7 +12,7 @@ import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { AnimatedNumber, SmartImage } from './shared/CommonUI';
-import { getCanonicalMembers } from '../lib/memberSelectors';
+import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import type { LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
@@ -308,6 +308,7 @@ const CopyableLinkButton = ({ label, url }: { label: string; url: string }) => {
 
 const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const groupStats = useStatsStore(state => state.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const [isOpen, setIsOpen] = React.useState(false);
@@ -337,7 +338,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const artistImage = trackArtists[0]?.image || getTrackArtistImage(track) || artwork;
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
   const trackLinks = React.useMemo(() => getTrackLinks(track), [track]);
-  const members = React.useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
 
   React.useEffect(() => {
     if (!track?.name) {
@@ -419,19 +420,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         count: userTrackStats[`${member.id}:${trackId}`] || 0,
       }))
       .filter(item => item.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .sort((a, b) => b.count - a.count);
   }, [members, trackId, userTrackStats]);
   const hasPreviousTrackHistory = !!trackHistory.firstPlayedAt;
-  const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0] || '';
-  const circleFirstInsight = circleFirstListen
+  const visibleRanking = ranking.slice(0, 4);
+  const hiddenRankingCount = Math.max(0, ranking.length - visibleRanking.length);
+  const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0]?.toLowerCase() || '';
+  const socialInsight = circleFirstListen
     ? circleFirstListen.user.id === user.id
-      ? `Você foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
-      : `${circleFirstName} foi quem primeiro ouviu essa faixa no círculo, em ${formatShortDate(circleFirstListen.playedAt)}.`
-    : '';
-  const circleFallbackInsight = hasFriendHistory
-    ? 'O círculo tem histórico nessa faixa, mas sem primeira reprodução confiável.'
-    : 'Por enquanto só você ouviu essa faixa.';
+      ? `você ouviu primeiro em ${formatShortDate(circleFirstListen.playedAt)}.`
+      : `${circleFirstName} ouviu primeiro em ${formatShortDate(circleFirstListen.playedAt)}.`
+    : hasFriendHistory
+      ? 'o círculo já ouviu, mas sem data confiável.'
+      : 'só você ouviu essa faixa por enquanto.';
 
   const handleLyrics = async () => {
     if (!track?.name) return;
@@ -529,21 +530,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               </div>
 
-              <div className="mt-5 grid grid-cols-3 gap-2">
-                <div className="rounded-[22px] bg-white/[0.045] p-3">
+              <div className="mt-5 grid grid-cols-[1.18fr_0.82fr_1fr] gap-2">
+                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
                   <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Artista</span>
-                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.artist} /></strong>
+                  <span className="block truncate text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Artista</span>
+                  <strong className="mt-1 block whitespace-nowrap text-[20px] font-black tabular-nums leading-none text-white"><AnimatedNumber value={entityStats.artist} /></strong>
                 </div>
-                <div className="rounded-[22px] bg-white/[0.045] p-3">
+                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
                   <ListMusic className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Faixa</span>
-                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.track || userTrackStats[`${user?.id}:${trackId}`] || 0} /></strong>
+                  <span className="block truncate text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Faixa</span>
+                  <strong className="mt-1 block whitespace-nowrap text-[20px] font-black tabular-nums leading-none text-white"><AnimatedNumber value={entityStats.track || userTrackStats[`${user?.id}:${trackId}`] || 0} /></strong>
                 </div>
-                <div className="rounded-[22px] bg-white/[0.045] p-3">
+                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
                   <Disc3 className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/34">Álbum</span>
-                  <strong className="mt-1 block text-2xl font-black tabular-nums text-white"><AnimatedNumber value={entityStats.album} /></strong>
+                  <span className="block truncate text-[8px] font-black uppercase tracking-[0.16em] text-white/34">Álbum</span>
+                  <strong className="mt-1 block whitespace-nowrap text-[20px] font-black tabular-nums leading-none text-white"><AnimatedNumber value={entityStats.album} /></strong>
                 </div>
               </div>
 
@@ -564,20 +565,20 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
 
               {hasPreviousTrackHistory ? (
-                <div className="mt-3">
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
-                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Primeiro stream</span>
-                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.firstPlayedAt)}</span>
+                <div className="mt-2">
+                  <div className={clsx("grid gap-1.5", trackHistory.bestYear ? "grid-cols-[0.86fr_0.86fr_1.28fr]" : "grid-cols-2")}>
+                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                      <span className="block truncate text-[5.5px] font-black uppercase leading-none tracking-[0.13em] text-white/32">Primeiro stream</span>
+                      <span className="mt-1 block truncate text-[11px] font-black leading-none text-white/82">{formatShortDate(trackHistory.firstPlayedAt)}</span>
                     </div>
-                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
-                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Último stream</span>
-                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">{formatShortDate(trackHistory.lastPlayedAt)}</span>
+                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                      <span className="block truncate text-[5.5px] font-black uppercase leading-none tracking-[0.13em] text-white/32">Último stream</span>
+                      <span className="mt-1 block truncate text-[11px] font-black leading-none text-white/82">{formatShortDate(trackHistory.lastPlayedAt)}</span>
                     </div>
                     {trackHistory.bestYear && (
-                    <div className="rounded-[18px] bg-black/18 px-2.5 py-2.5">
-                      <span className="text-[6.5px] font-black uppercase tracking-[0.1em] text-white/30">Mais ouviu em</span>
-                      <span className="mt-1 block text-[11px] font-black leading-tight text-white/76">
+                    <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
+                      <span className="block truncate text-[5.5px] font-black uppercase leading-none tracking-[0.13em] text-white/32">Mais ouviu em</span>
+                      <span className="mt-1 block truncate text-[11px] font-black leading-none text-white/82">
                         {trackHistory.bestYearCount}x em {trackHistory.bestYear}
                       </span>
                     </div>
@@ -590,39 +591,61 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              <div className="mt-3 flex items-center gap-2.5 rounded-[22px] bg-white/[0.04] px-3 py-3 text-[11px] font-bold leading-snug text-white/55">
-                <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/[0.055]">
-                  <SmartImage
-                    src={coreUtils.getUserAvatar(
-                      circleFirstListen?.user?.id || user.id,
-                      circleFirstListen?.user?.avatar || user.avatar
+              <div className="mt-3 flex items-center gap-2">
+                {visibleRanking.length > 0 && (
+                  <div className="relative h-[50px] w-[118px] shrink-0" aria-label="ranking de reproduções no círculo">
+                    {visibleRanking.map((item, index) => (
+                      <div
+                        key={item.user.id}
+                        className="absolute top-1"
+                        style={{ left: index * 21, zIndex: visibleRanking.length - index }}
+                      >
+                        <div className={clsx(
+                          "h-9 w-9 overflow-hidden rounded-full bg-black shadow-[0_8px_18px_rgba(0,0,0,0.35)]",
+                          index === 0 ? "border-2 border-orange-500" : "border-2 border-black/45"
+                        )}>
+                          <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
+                        </div>
+                        <span className={clsx(
+                          "absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full px-2 py-[2px] text-[8px] font-black leading-none shadow-[0_4px_10px_rgba(0,0,0,0.35)]",
+                          index === 0 ? "bg-orange-500 text-white" : "bg-[#272727] text-white/86"
+                        )}>
+                          {item.count}
+                        </span>
+                      </div>
+                    ))}
+                    {hiddenRankingCount > 0 && (
+                      <div
+                        className="absolute top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] bg-black/38 text-[10px] font-black text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+                        style={{ left: visibleRanking.length * 21, zIndex: 0 }}
+                      >
+                        +{hiddenRankingCount}
+                      </div>
                     )}
-                    className="h-full w-full object-cover"
-                    rounded="full"
-                    fallback=""
-                  />
+                  </div>
+                )}
+                <div className="relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-full bg-white/[0.055] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_30px_rgba(0,0,0,0.24)]">
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.035] via-transparent to-white/[0.025]" />
+                  <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.055]">
+                    <SmartImage
+                      src={coreUtils.getUserAvatar(
+                        circleFirstListen?.user?.id || user.id,
+                        circleFirstListen?.user?.avatar || user.avatar
+                      )}
+                      className="h-full w-full object-cover"
+                      rounded="full"
+                      fallback=""
+                    />
+                  </div>
+                  <span className="relative min-w-0 text-[13px] font-black leading-[1.05] text-white/70">
+                    {socialInsight}
+                  </span>
                 </div>
-                <span>{circleFirstListen ? circleFirstInsight : circleFallbackInsight}</span>
               </div>
 
               {trackLinks.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {trackLinks.map((link) => <CopyableLinkButton key={link.label} label={link.label} url={link.url} />)}
-                </div>
-              )}
-
-              {ranking.length > 0 && (
-                <div className="mt-4 flex items-end gap-2 overflow-x-auto no-scrollbar pb-1 opacity-55" data-home-horizontal-scroll="true">
-                  {ranking.map((item, index) => (
-                    <div key={item.user.id} className="flex shrink-0 flex-col items-center gap-1">
-                      <div className="relative h-12 w-12 overflow-hidden rounded-full border border-white/10 bg-black">
-                        <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
-                      </div>
-                      <span className={clsx("rounded-full px-2 py-0.5 text-[10px] font-black", index === 0 ? "bg-orange-500 text-white" : "bg-white/[0.08] text-white/72")}>
-                        {item.count}
-                      </span>
-                    </div>
-                  ))}
                 </div>
               )}
 
@@ -708,6 +731,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isOffline = useStatsStore(state => state.isOffline);
   const groupStats = useStatsStore(state => state.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const [homeReady, setHomeReady] = React.useState(() => {
     if (typeof window === 'undefined') return true;
@@ -715,8 +739,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   });
   
   const allUsers = React.useMemo(() => {
-    return getCanonicalMembers(groupStats);
-  }, [groupStats]);
+    return getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId);
+  }, [groupStats, liveNowPlayingByUserId]);
 
   const activeMembersSorted = React.useMemo(() => {
     const list = allUsers.filter(u => {
@@ -731,8 +755,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   }, [allUsers, featuredUserId]);
 
   const selectedStatsUser = React.useMemo(() => {
-    return groupStats?.users?.[featuredUserId] || allUsers.find((user) => user.id === featuredUserId) || allUsers[0];
-  }, [allUsers, groupStats?.users, featuredUserId]);
+    const coldUser = groupStats?.users?.[featuredUserId] || allUsers.find((user) => user.id === featuredUserId) || allUsers[0];
+    return coldUser ? attachLiveNowPlayingToMember(coldUser, liveNowPlayingByUserId) : coldUser;
+  }, [allUsers, groupStats?.users, featuredUserId, liveNowPlayingByUserId]);
 
   const playingUser = React.useMemo(() => {
     return getUserTrackStatsSource(selectedStatsUser);

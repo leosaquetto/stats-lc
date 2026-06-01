@@ -22,7 +22,7 @@ import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighl
 import { StatsAlike } from '../components/home/StatsAlike';
 import { ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
-import { getCanonicalMembers, getVisibleMembers } from '../lib/memberSelectors';
+import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 import { VinylRecord } from '../components/home/VinylRecord';
 
@@ -985,6 +985,7 @@ export default function HomeScreen() {
     }
   };
   const groupStats = useStatsStore(state => state.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const isLoading = useStatsStore(state => state.isLoading);
   const isRefreshing = useStatsStore(state => state.isRefreshing);
   const isOffline = useStatsStore(state => state.isOffline);
@@ -1048,8 +1049,8 @@ export default function HomeScreen() {
     window.__STATS_LC_DISMISS_SPLASH__?.();
   }, []);
 
-  const allMembers = useMemo(() => getCanonicalMembers(groupStats) || [], [groupStats]);
-  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers) || [], [groupStats, hiddenUsers]);
+  const allMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId) || [], [groupStats, liveNowPlayingByUserId]);
+  const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId) || [], [groupStats, hiddenUsers, liveNowPlayingByUserId]);
 
   useEffect(() => {
     if (!allMembers.length) return;

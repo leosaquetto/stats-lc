@@ -121,28 +121,9 @@ export const StatsAlike = React.memo(() => {
 
   // Stable signature for prefetch needs. It must not include Date.now(), otherwise
   // every small render can turn into another prefetch pass.
-  const prefetchSignature = useMemo(() => {
-    return members.map((member) => {
-      const hydrated = hydratedTopsByUser[member.id];
-      const fetchedAt = hydrated?.fetchedAt || 0;
-      const tops = getMemberTopItems(member);
-      const tracksLen = tops?.tracks?.length ?? -1;
-      const artistsLen = tops?.artists?.length ?? -1;
-      const albumsLen = tops?.albums?.length ?? -1;
-      return `${member.id}:${fetchedAt}:${tracksLen}:${artistsLen}:${albumsLen}`;
-    }).join('|');
-  }, [members, hydratedTopsByUser, getMemberTopItems]);
-
-  // Prefetch topItems for all members to enable Stats Alike matching
-  useEffect(() => {
-    if (!members.length) return;
-
-    let cancelled = false;
-
-    const loadTopItemsForMembers = async () => {
-      for (const member of members) {
-        if (cancelled) return;
-
+  const missingTopMemberIds = useMemo(() => {
+    return members
+      .filter((member) => {
         const hydrated = hydratedTopsByUser[member.id];
         const tops = getMemberTopItems(member);
         const hasAnyTopItems =
@@ -150,27 +131,50 @@ export const StatsAlike = React.memo(() => {
           !!tops?.artists?.length ||
           !!tops?.albums?.length;
 
-        if (!hasAnyTopItems && !hydrated?.fetchedAt) {
-          try {
-            const result = await prefetchUserTops(member.id);
-            if (result && result.fetchedAt && !cancelled) {
-              setHydratedTopsByUser(prev => {
-                const next = {
-                  ...prev,
-                  [member.id]: result
-                };
-                cachedHydratedTopsByUser = next;
-                return next;
-              });
+        return !hasAnyTopItems && !hydrated?.fetchedAt;
+      })
+      .map((member) => member.id);
+  }, [members, hydratedTopsByUser, getMemberTopItems]);
 
-            }
-          } catch (err) {
-            if ((import.meta as any).env?.DEV) {
-              console.warn(`[StatsAlike] Failed to prefetch tops for ${member.id}:`, err);
-            }
-          }
+  const missingTopMemberIdsKey = useMemo(
+    () => missingTopMemberIds.join('|'),
+    [missingTopMemberIds]
+  );
+
+  // Prefetch topItems for all members to enable Stats Alike matching
+  useEffect(() => {
+    if (!missingTopMemberIds.length) return;
+
+    let cancelled = false;
+
+    const loadTopItemsForMembers = async () => {
+      const results = await Promise.allSettled(
+        missingTopMemberIds.map(async (memberId) => ({
+          memberId,
+          result: await prefetchUserTops(memberId),
+        }))
+      );
+      if (cancelled) return;
+
+      const nextEntries = results.reduce<Record<string, any>>((acc, settled) => {
+        if (settled.status === 'fulfilled' && settled.value.result?.fetchedAt) {
+          acc[settled.value.memberId] = settled.value.result;
+        } else if ((import.meta as any).env?.DEV && settled.status === 'rejected') {
+          console.warn('[StatsAlike] Failed to prefetch tops:', settled.reason);
         }
-      }
+        return acc;
+      }, {});
+
+      if (Object.keys(nextEntries).length === 0) return;
+
+      setHydratedTopsByUser(prev => {
+        const next = {
+          ...prev,
+          ...nextEntries
+        };
+        cachedHydratedTopsByUser = next;
+        return next;
+      });
     };
 
     loadTopItemsForMembers();
@@ -178,7 +182,7 @@ export const StatsAlike = React.memo(() => {
     return () => {
       cancelled = true;
     };
-  }, [prefetchSignature, prefetchUserTops, hydratedTopsByUser, getMemberTopItems]);
+  }, [missingTopMemberIdsKey, prefetchUserTops]);
 
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];

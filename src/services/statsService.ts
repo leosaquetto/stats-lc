@@ -133,6 +133,7 @@ const normalizeTrack = (track: any) => {
     image: track.image,
     album: track.album,
     albums: track.albums,
+    dominantColor: track.dominantColor || track.accentColor || track.album?.dominantColor,
     albumId: track.albumId || track.album?.id,
     albumName: track.albumName || track.album?.name,
     albumArtist,
@@ -170,6 +171,7 @@ const normalizeRecentStream = (stream: any) => {
     albumArtist: rawTrack.albumArtist || stream.albumArtist,
     albumArtistId: rawTrack.albumArtistId || stream.albumArtistId,
     albumArtistName: rawTrack.albumArtistName || stream.albumArtistName,
+    dominantColor: rawTrack.dominantColor || stream.dominantColor || stream.trackDominantColor,
   });
 
   return {
@@ -200,6 +202,7 @@ const normalizeNowPlaying = (nowPlaying: any) => {
     progressMs,
     durationMs: nowPlaying.durationMs || track?.durationMs,
     playedMs,
+    dominantColor: nowPlaying.dominantColor || track?.dominantColor,
     platformCandidate: platformCandidate?.primary
       ? platformCandidate
       : platformCandidate?.platform

@@ -20,7 +20,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getDominantColor, withAlpha, ensureVisibility, getSaturation, getPerceivedBrightness, normalizeColor } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
-import { getCanonicalMembers, getVisibleMembers } from '../../lib/memberSelectors';
+import { attachLiveNowPlayingToMember, getCanonicalMembers, getVisibleMembersWithLive } from '../../lib/memberSelectors';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,14 +41,14 @@ const ScrollingTrackTitle = React.memo(({
       type="button"
       onClick={onClick}
       className={cn(
-        "block max-w-[50vw] overflow-hidden text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
+        "block max-w-[50vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_90%,transparent_100%)]"
       )}
       title={title}
     >
       {shouldScroll ? (
         <motion.span
-          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.04] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]"
+          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]"
           animate={{ x: ['0%', '-50%'] }}
           transition={{ duration: Math.min(18, Math.max(8, title.length * 0.34)), repeat: Infinity, ease: 'linear' }}
         >
@@ -56,7 +56,7 @@ const ScrollingTrackTitle = React.memo(({
           <span className="pr-8" aria-hidden="true">{title}</span>
         </motion.span>
       ) : (
-        <span className="block truncate whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.04] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
+        <span className="block truncate whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
           {title}
         </span>
       )}
@@ -737,11 +737,12 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
   const groupStatsForUser = useStatsStore(s => s.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
   const storeUser = useMemo(
     () => getCanonicalMembers(groupStatsForUser).find(u => u.id === user.id),
     [groupStatsForUser, user.id]
   );
-  const activeUser = storeUser || user;
+  const activeUser = attachLiveNowPlayingToMember(storeUser || user, liveNowPlayingByUserId);
   const nowPlaying = activeUser.nowPlaying;
   const track = nowPlaying?.track as any;
   const albumImage = useMemo(() => {
@@ -858,7 +859,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
-    const users = getVisibleMembers(groupStats, hiddenUsers)
+    const users = getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId)
       .map(u => ({
         id: u.id,
         name: u.name,
@@ -872,7 +873,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       if (b.id === user.id) return -1;
       return a.name.localeCompare(b.name);
     });
-  }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id]);
+  }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id, liveNowPlayingByUserId]);
 
   const trackArenaUsers = allTrackArenaUsers;
   const arenaPageSize = 4;
@@ -930,8 +931,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const liveRingDuration = useMemo(() => 2.7 + (user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 7) * 0.18, [user.id]);
 
   const filteredMembers = useMemo(() => {
-    return getVisibleMembers(groupStats, hiddenUsers);
-  }, [groupStats, hiddenUsers]);
+    return getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId);
+  }, [groupStats, hiddenUsers, liveNowPlayingByUserId]);
 
   const containerVariants = {
     initial: { opacity: 0, scale: 1.02, filter: 'blur(4px)' },
@@ -1192,7 +1193,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           title={track.name}
                           onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                         />
-                        <div className="text-[22px] sm:text-[28px] font-medium text-white/80 line-clamp-1 flex items-center flex-wrap gap-x-1 pointer-events-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] w-[62vw] max-w-[300px] leading-[1.04]">
+                        <div className="text-[22px] sm:text-[28px] font-medium text-white/80 line-clamp-1 flex items-center flex-wrap gap-x-1 pb-1 pointer-events-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] w-[62vw] max-w-[300px] leading-[1.16]">
                           <span
                             onClick={(e) => {
                               e.stopPropagation();

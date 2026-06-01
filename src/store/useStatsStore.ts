@@ -5,11 +5,11 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { GroupStats, UserStats } from '../types/stats';
+import { GroupStats, LiveNowPlayingByUserId, UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { notificationService } from '../services/notificationService';
 import { coreUtils } from '../services/statsCore';
-import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
+import { attachLiveNowPlayingToMember, dedupeIds, getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 
 // Mock MMKV for web environment to prevent crashes with native modules
@@ -117,6 +117,32 @@ const stripHeavyGroupStats = (groupStats: GroupStats | null): GroupStats | null 
   }
 };
 
+const extractLiveNowPlayingByUserId = (groupStats: GroupStats | null): LiveNowPlayingByUserId => {
+  const live: LiveNowPlayingByUserId = {};
+  getCanonicalMembers(groupStats).forEach((member) => {
+    if (member?.id && member.nowPlaying) live[member.id] = member.nowPlaying;
+  });
+  return live;
+};
+
+const stripNowPlayingFromGroupStats = (groupStats: GroupStats | null): GroupStats | null => {
+  if (!groupStats) return null;
+  const stripMember = (member: UserStats): UserStats => {
+    const { nowPlaying, ...rest } = member as UserStats;
+    return rest as UserStats;
+  };
+
+  return {
+    ...groupStats,
+    users: Object.fromEntries(
+      Object.entries(groupStats.users || {}).map(([id, user]) => [id, stripMember(user)])
+    ),
+    members: Array.isArray(groupStats.members)
+      ? groupStats.members.map(stripMember)
+      : groupStats.members,
+  };
+};
+
 const saveGroupStatsToMMKV = (groupStats: GroupStats | null) => {
   try {
     const stripped = stripHeavyGroupStats(groupStats);
@@ -193,8 +219,10 @@ const trimCacheByMeta = <T>(
 };
 
 const FRIEND_PREFETCH_DELAY_MS = 1500;
+const LIVE_CACHE_PERSIST_INTERVAL_MS = 30 * 1000;
 let friendPrefetchTimer: ReturnType<typeof setTimeout> | null = null;
 let friendPrefetchController: AbortController | null = null;
+let lastLiveCachePersistAt = 0;
 
 // In-flight guard for prefetchUserTops to prevent duplicate simultaneous calls
 const prefetchUserTopsInFlight = new Set<string>();
@@ -451,6 +479,7 @@ const sanitizePreferences = (
 
 interface StatsState {
   groupStats: GroupStats | null;
+  liveNowPlayingByUserId: LiveNowPlayingByUserId;
   isLoading: boolean;
   isRefreshing: boolean;
   isLiveFetching: boolean;
@@ -500,6 +529,8 @@ interface StatsState {
   fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
   fetchTrackStatsForAll: (trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
+  getLiveUserById: (id: string) => UserStats | undefined;
+  getLiveMembers: () => UserStats[];
   setOffline: (offline: boolean) => void;
   setFeaturedUserId: (userId: string) => void;
   setHiddenUsers: (users: string[]) => void;
@@ -598,8 +629,9 @@ export const useStatsStore = create<StatsState>()(
           clearPersistedGroupCache();
           return null;
         }
-        return canonicalizeGroupStats(cached);
+        return stripNowPlayingFromGroupStats(canonicalizeGroupStats(cached));
       })(),
+      liveNowPlayingByUserId: extractLiveNowPlayingByUserId(loadFromMMKV<GroupStats | null>('groupStats', null)),
       isLoading: false,
       isRefreshing: false,
       isLiveFetching: false,
@@ -1031,7 +1063,11 @@ export const useStatsStore = create<StatsState>()(
             } else {
               const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
               set({
-                groupStats: canonicalCachedGroup,
+                groupStats: stripNowPlayingFromGroupStats(canonicalCachedGroup),
+                liveNowPlayingByUserId: {
+                  ...get().liveNowPlayingByUserId,
+                  ...extractLiveNowPlayingByUserId(canonicalCachedGroup),
+                },
                 userFullStatsCache: cachedUserFullStats,
                 isLoading: false,
                 isRefreshing: false,
@@ -1065,7 +1101,11 @@ export const useStatsStore = create<StatsState>()(
               } else {
                 const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
                 set({
-                  groupStats: canonicalCachedGroup,
+                  groupStats: stripNowPlayingFromGroupStats(canonicalCachedGroup),
+                  liveNowPlayingByUserId: {
+                    ...get().liveNowPlayingByUserId,
+                    ...extractLiveNowPlayingByUserId(canonicalCachedGroup),
+                  },
                   userFullStatsCache: cachedUserFullStats,
                   isLoading: false,
                   isRefreshing: false,
@@ -1081,6 +1121,8 @@ export const useStatsStore = create<StatsState>()(
 
           const rawData = await statsService.getGroupData(force);
           const data = canonicalizeGroupStats(rawData) || rawData;
+          const liveNowPlayingByUserId = extractLiveNowPlayingByUserId(data);
+          const coldData = stripNowPlayingFromGroupStats(data);
 
           // Salva os novos dados obtidos em cache via MMKV (stripped)
           saveGroupStatsToMMKV(data);
@@ -1091,7 +1133,11 @@ export const useStatsStore = create<StatsState>()(
           const migrations = migrateStateToCanonicalIds(currentState, data);
 
           set({
-            groupStats: data,
+            groupStats: coldData,
+            liveNowPlayingByUserId: {
+              ...get().liveNowPlayingByUserId,
+              ...liveNowPlayingByUserId,
+            },
             isLoading: false,
             isRefreshing: false,
             isOffline: false, // Sucesso indica que estamos online
@@ -1138,7 +1184,11 @@ export const useStatsStore = create<StatsState>()(
             } else {
               const canonicalCachedGroup = canonicalizeGroupStats(cachedGroup);
               set({
-                groupStats: canonicalCachedGroup,
+                groupStats: stripNowPlayingFromGroupStats(canonicalCachedGroup),
+                liveNowPlayingByUserId: {
+                  ...get().liveNowPlayingByUserId,
+                  ...extractLiveNowPlayingByUserId(canonicalCachedGroup),
+                },
                 userFullStatsCache: cachedUserFullStats,
                 error: null, // Sem falhar: limpa erro para exibir o cache de forma suave
                 isLoading: false, // Ensure loading is false
@@ -1198,6 +1248,7 @@ export const useStatsStore = create<StatsState>()(
             const newGroupStats = { ...currentGroupStats };
             const newUsers = { ...newGroupStats.users };
             const newMembers = [...newGroupStats.members];
+            const nextLiveNowPlayingByUserId = { ...get().liveNowPlayingByUserId };
             let hasLiveRenderChanges = false;
             const changedLiveUsers: any[] = [];
 
@@ -1205,14 +1256,14 @@ export const useStatsStore = create<StatsState>()(
               const existingUser = newUsers[liveUser.id];
 
               if (existingUser) {
+                const existingUserWithLive = attachLiveNowPlayingToMember(existingUser, nextLiveNowPlayingByUserId);
                 // Merge live data while preserving rich data from /api/group
-                const incomingNowPlaying = shouldUseIncomingLivePayload(existingUser.nowPlaying, liveUser.nowPlaying)
+                const incomingNowPlaying = shouldUseIncomingLivePayload(existingUserWithLive.nowPlaying, liveUser.nowPlaying)
                   ? liveUser.nowPlaying
-                  : existingUser.nowPlaying;
+                  : existingUserWithLive.nowPlaying;
 
                 const mergedUser = {
                   ...existingUser,              // Keep all existing data
-                  nowPlaying: incomingNowPlaying,
                   platform: liveUser.platform || existingUser.platform,
                   avatar: liveUser.avatar || existingUser.avatar,
                   name: shouldUseIncomingDisplayName(existingUser, liveUser)
@@ -1220,14 +1271,20 @@ export const useStatsStore = create<StatsState>()(
                     : existingUser.name,
                   // Preserve: topItems, recent, catalogSummary, errors, stats
                 };
+                const mergedUserWithLive = {
+                  ...mergedUser,
+                  nowPlaying: incomingNowPlaying,
+                };
 
                 const changedForRender =
-                  getLiveRenderSignature(existingUser) !== getLiveRenderSignature(mergedUser);
+                  getLiveRenderSignature(existingUserWithLive) !== getLiveRenderSignature(mergedUserWithLive);
 
                 if (!changedForRender) return;
 
                 hasLiveRenderChanges = true;
-                changedLiveUsers.push(mergedUser);
+                changedLiveUsers.push(mergedUserWithLive);
+                if (incomingNowPlaying) nextLiveNowPlayingByUserId[liveUser.id] = incomingNowPlaying;
+                else delete nextLiveNowPlayingByUserId[liveUser.id];
                 newUsers[liveUser.id] = mergedUser;
 
                 const memberIndex = newMembers.findIndex(m => m.id === liveUser.id);
@@ -1235,7 +1292,7 @@ export const useStatsStore = create<StatsState>()(
                   newMembers[memberIndex] = mergedUser;
                 }
 
-                if (didLivePlaybackChange(existingUser, mergedUser)) {
+                if (didLivePlaybackChange(existingUserWithLive, mergedUserWithLive)) {
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('nowPlayingChanged', { detail: { userId: liveUser.id } }));
                   }
@@ -1246,8 +1303,14 @@ export const useStatsStore = create<StatsState>()(
                 if (normalizedLive) {
                   hasLiveRenderChanges = true;
                   changedLiveUsers.push(normalizedLive);
-                  newUsers[normalizedLive.id] = normalizedLive;
-                  newMembers.push(normalizedLive);
+                  if (normalizedLive.nowPlaying) nextLiveNowPlayingByUserId[normalizedLive.id] = normalizedLive.nowPlaying;
+                  const coldLive = stripNowPlayingFromGroupStats({
+                    users: { [normalizedLive.id]: normalizedLive },
+                    members: [normalizedLive],
+                    lastUpdated: liveData.lastUpdated,
+                  })?.users?.[normalizedLive.id] || normalizedLive;
+                  newUsers[normalizedLive.id] = coldLive;
+                  newMembers.push(coldLive);
                 }
               }
             });
@@ -1260,14 +1323,24 @@ export const useStatsStore = create<StatsState>()(
 
             newGroupStats.users = newUsers;
             newGroupStats.members = newMembers;
-            const canonicalGroupStats = canonicalizeGroupStats(newGroupStats) || newGroupStats;
+            const canonicalGroupStats = stripNowPlayingFromGroupStats(canonicalizeGroupStats(newGroupStats) || newGroupStats) || newGroupStats;
             canonicalGroupStats.lastUpdated = liveData.lastUpdated;
 
-            saveGroupStatsToMMKV(canonicalGroupStats);
-            mmkv.set('groupStats_timestamp', Date.now());
+            const persistNow = Date.now();
+            if (persistNow - lastLiveCachePersistAt >= LIVE_CACHE_PERSIST_INTERVAL_MS) {
+              lastLiveCachePersistAt = persistNow;
+              const liveMembersForCache = getCanonicalMembersWithLive(canonicalGroupStats, nextLiveNowPlayingByUserId);
+              saveGroupStatsToMMKV({
+                ...canonicalGroupStats,
+                users: Object.fromEntries(liveMembersForCache.map((member) => [member.id, member])),
+                members: liveMembersForCache,
+              });
+              mmkv.set('groupStats_timestamp', persistNow);
+            }
             set({
               groupStats: canonicalGroupStats,
-              lastFetchTime: { ...get().lastFetchTime, group: Date.now() }
+              liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
+              lastFetchTime: { ...get().lastFetchTime, group: persistNow }
             });
           }
         } catch (e) {
@@ -1353,7 +1426,11 @@ export const useStatsStore = create<StatsState>()(
                 if (data) {
                   const canonicalData = canonicalizeGroupStats(data) || data;
                   set({
-                    groupStats: canonicalData,
+                    groupStats: stripNowPlayingFromGroupStats(canonicalData),
+                    liveNowPlayingByUserId: {
+                      ...get().liveNowPlayingByUserId,
+                      ...extractLiveNowPlayingByUserId(canonicalData),
+                    },
                     isOffline: false,
                     error: null,
                     lastFetchTime: { ...get().lastFetchTime, group: Date.now() }
@@ -1388,6 +1465,17 @@ export const useStatsStore = create<StatsState>()(
         }
 
         return state.groupStats?.users[id];
+      },
+
+      getLiveUserById: (id: string) => {
+        const state = get();
+        const user = state.groupStats?.users[id];
+        return user ? attachLiveNowPlayingToMember(user, state.liveNowPlayingByUserId) : undefined;
+      },
+
+      getLiveMembers: () => {
+        const state = get();
+        return getCanonicalMembersWithLive(state.groupStats, state.liveNowPlayingByUserId);
       }
     }),
     {
@@ -1403,7 +1491,12 @@ export const useStatsStore = create<StatsState>()(
           nextState.groupStats = null;
           nextState.error = "Cache local inválido. Sincronize novamente.";
         } else if (nextState.groupStats) {
-          nextState.groupStats = canonicalizeGroupStats(nextState.groupStats);
+          const canonicalGroupStats = canonicalizeGroupStats(nextState.groupStats);
+          nextState.liveNowPlayingByUserId = {
+            ...(nextState.liveNowPlayingByUserId || {}),
+            ...extractLiveNowPlayingByUserId(canonicalGroupStats),
+          };
+          nextState.groupStats = stripNowPlayingFromGroupStats(canonicalGroupStats);
         }
         Object.assign(nextState, sanitizePreferences(nextState, nextState.groupStats));
         return nextState;

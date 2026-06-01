@@ -4,7 +4,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, Radio, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
-import { getVisibleMembers } from '../../lib/memberSelectors';
+import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 
 interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
@@ -196,10 +196,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const [insightsRef, isInsightsVisible] = useInsightsVisibility();
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const [activeInsightIndex, setActiveInsightIndex] = React.useState(cachedInsightIndex);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
-  const activeMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const activeMembers = React.useMemo(
+    () => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId),
+    [groupStats, hiddenUsers, liveNowPlayingByUserId]
+  );
 
   const mostActive = React.useMemo(() => {
     if (activeMembers.length === 0) return null;

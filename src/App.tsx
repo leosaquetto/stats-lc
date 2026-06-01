@@ -176,7 +176,7 @@ function AppRoutes() {
   const location = useLocation();
 
   return (
-    <RouteErrorBoundary routeKey={location.pathname} key={location.pathname}>
+    <RouteErrorBoundary routeKey={location.pathname}>
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<HomeScreen />} />

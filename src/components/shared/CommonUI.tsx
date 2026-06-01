@@ -93,16 +93,33 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
   const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
   const prefersReducedMotion = usePrefersReducedMotion();
+  const lastGoodSrcRef = useRef('');
+  const imageRef = useRef<HTMLImageElement>(null);
 
   const resolvedSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
+  const displaySrc = resolvedSrc || lastGoodSrcRef.current;
 
-  // Delay showing fallback to give real images time to load
   useEffect(() => {
-    if (!resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) {
+    setError(false);
+    setShowFallback(false);
+    setLoading(!!displaySrc);
+
+    if (!displaySrc || displaySrc.includes("private.webp")) {
       const timer = setTimeout(() => setShowFallback(true), 400);
       return () => clearTimeout(timer);
     }
-  }, [resolvedSrc]);
+  }, [displaySrc]);
+
+  useEffect(() => {
+    const image = imageRef.current;
+    if (!image || !displaySrc || error) return;
+
+    if (image.complete && image.naturalWidth > 0) {
+      lastGoodSrcRef.current = displaySrc;
+      setLoading(false);
+      setShowFallback(false);
+    }
+  }, [displaySrc, error]);
 
   // Get initials from fallback name (max 2 chars)
   const getInitials = (name: string) => {
@@ -114,7 +131,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
     return name.slice(0, 2).toUpperCase();
   };
 
-  const shouldShowFallback = (error || !resolvedSrc || (typeof resolvedSrc === 'string' && resolvedSrc.includes("private.webp"))) && showFallback;
+  const shouldShowFallback = (error || !displaySrc || displaySrc.includes("private.webp")) && showFallback;
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
@@ -145,14 +162,19 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
         </div>
       ) : (
         <img
-          src={resolvedSrc}
+          src={displaySrc}
           className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
           referrerPolicy="no-referrer"
-          loading="lazy"
-          onLoad={() => setLoading(false)}
+          loading="eager"
+          ref={imageRef}
+          onLoad={() => {
+            lastGoodSrcRef.current = displaySrc;
+            setLoading(false);
+          }}
           onError={() => {
             setError(true);
             setLoading(false);
+            setShowFallback(true);
           }}
           alt=""
         />
