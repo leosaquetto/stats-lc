@@ -76,12 +76,68 @@ const htmlToText = (value: string) => {
     .trim();
 };
 
+const decodeJsStringLiteral = (value: string) => {
+  let output = '';
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char !== '\\') {
+      output += char;
+      continue;
+    }
+
+    const next = value[++index];
+    if (!next) {
+      output += '\\';
+      break;
+    }
+
+    if (next === 'u') {
+      const hex = value.slice(index + 1, index + 5);
+      if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+        output += String.fromCharCode(parseInt(hex, 16));
+        index += 4;
+      } else {
+        output += next;
+      }
+      continue;
+    }
+
+    if (next === 'x') {
+      const hex = value.slice(index + 1, index + 3);
+      if (/^[0-9a-fA-F]{2}$/.test(hex)) {
+        output += String.fromCharCode(parseInt(hex, 16));
+        index += 2;
+      } else {
+        output += next;
+      }
+      continue;
+    }
+
+    const escapes: Record<string, string> = {
+      '\\': '\\',
+      "'": "'",
+      '"': '"',
+      n: '\n',
+      r: '\r',
+      t: '\t',
+      b: '\b',
+      f: '\f',
+      v: '\v',
+      '0': '\0',
+    };
+    output += Object.prototype.hasOwnProperty.call(escapes, next) ? escapes[next] : next;
+  }
+
+  return output;
+};
+
 const extractGeniusEmbedLyrics = (script: string) => {
   const encodedMatch = script.match(/document\.write\(JSON\.parse\('((?:\\.|[^'])*)'\)\)/);
   if (!encodedMatch) return null;
 
   try {
-    const htmlJson = JSON.parse(`"${encodedMatch[1].replace(/\\'/g, "'")}"`);
+    const htmlJson = decodeJsStringLiteral(encodedMatch[1]).replace(/\\([^"\\/bfnrtu])/g, '$1');
     const html = JSON.parse(htmlJson);
     const bodyMatch = html.match(/<div\b[^>]*class=["'][^"']*\brg_embed_body\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     return bodyMatch ? htmlToText(bodyMatch[1]) : null;

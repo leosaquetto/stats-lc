@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
-import { Repeat, Music2, TrendingUp, Star } from 'lucide-react';
+import { Repeat, Music2, TrendingUp, Star, BookOpen } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
@@ -34,32 +34,57 @@ const ScrollingTrackTitle = React.memo(({
   onClick?: () => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const shouldScroll = title.length > 22 && !shouldReduceMotion;
+  const containerRef = useRef<HTMLButtonElement | null>(null);
+  const measureRef = useRef<HTMLSpanElement | null>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const shouldScroll = scrollDistance > 0 && !shouldReduceMotion;
+
+  useEffect(() => {
+    const measure = () => {
+      const container = containerRef.current;
+      const text = measureRef.current;
+      if (!container || !text) return;
+      const overflow = text.scrollWidth - container.clientWidth;
+      setScrollDistance(overflow > 2 ? text.scrollWidth + 32 : 0);
+    };
+
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [title]);
 
   return (
     <button
+      ref={containerRef}
       type="button"
       onClick={onClick}
       className={cn(
-        "block max-w-[50vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
-        shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_90%,transparent_100%)]"
+        "relative block max-w-[50vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
+        shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_86%,transparent_100%)]"
       )}
       title={title}
     >
       {shouldScroll ? (
         <motion.span
-          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]"
-          animate={{ x: ['0%', '-50%'] }}
-          transition={{ duration: Math.min(18, Math.max(8, title.length * 0.34)), repeat: Infinity, ease: 'linear' }}
+          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal"
+          animate={{ x: [0, -scrollDistance] }}
+          transition={{ duration: Math.min(18, Math.max(8, title.length * 0.34)), repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
         >
           <span className="pr-8">{title}</span>
           <span className="pr-8" aria-hidden="true">{title}</span>
         </motion.span>
       ) : (
-        <span className="block truncate whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)]">
+        <span className="block whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal">
           {title}
         </span>
       )}
+      <span
+        ref={measureRef}
+        className="pointer-events-none absolute -z-10 whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold leading-[1.14] tracking-normal opacity-0"
+        aria-hidden="true"
+      >
+        {title}
+      </span>
     </button>
   );
 });
@@ -593,7 +618,7 @@ export const LiveTrackProgress = memo(({
 
 LiveTrackProgress.displayName = 'LiveTrackProgress';
 
-const ARENA_BADGE_SLOT_SIZE = 30;
+const ARENA_BADGE_SLOT_SIZE = 34;
 const ARENA_BADGE_VISIBLE_SLOTS = 4;
 const ARENA_BADGE_MORE_SLOT = ARENA_BADGE_VISIBLE_SLOTS;
 const ARENA_BADGE_LEFT_PAD = 0;
@@ -626,7 +651,7 @@ const ArenaRankingBubble = ({
   });
   const scale = useTransform(dragX, value => {
     const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
-    const baseScale = isSelected ? 1.05 : 1;
+    const baseScale = 1;
 
     if (position < 0) return baseScale * clamp01((position + ARENA_BADGE_SLOT_SIZE) / ARENA_BADGE_SLOT_SIZE);
     if (isHiddenInitial) return baseScale * clamp01((ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE - position) / ARENA_BADGE_SLOT_SIZE);
@@ -644,18 +669,16 @@ const ArenaRankingBubble = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8, rotate: isHiddenInitial ? 5 : -6 }}
-      animate={shouldReduceMotion ? { opacity: 1, scale: isSelected ? 1.05 : 1, y: 0 } : {
+      initial={{ opacity: 0, y: 6 }}
+      animate={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0 } : {
         opacity: 1,
         y: 0,
-        rotate: 0,
       }}
       transition={shouldReduceMotion ? { delay: index * 0.03 } : {
         opacity: { delay: index * 0.025, duration: 0.18 },
-        y: { type: 'spring', stiffness: 520, damping: 26, delay: index * 0.025 },
-        rotate: { type: 'spring', stiffness: 520, damping: 22, delay: index * 0.025 },
+        y: { type: 'spring', stiffness: 420, damping: 30, delay: index * 0.025 },
       }}
-      exit={{ opacity: 0, y: -8, rotate: 8, transition: { duration: 0.16 } }}
+      exit={{ opacity: 0, y: -6, transition: { duration: 0.16 } }}
       className={cn(
         "pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 shrink-0 transform-gpu group/avatar",
         isSelected ? "z-20" : ""
@@ -663,37 +686,27 @@ const ArenaRankingBubble = ({
       style={{
         zIndex: total + 2 - index,
         x: shouldReduceMotion ? ARENA_BADGE_LEFT_PAD + index * ARENA_BADGE_SLOT_SIZE : x,
-        scale: shouldReduceMotion ? (isHiddenInitial ? 0 : isSelected ? 1.05 : 1) : scale,
+        scale: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : scale,
         opacity: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : opacity,
       }}
     >
-      <div className={cn(
-        "relative h-10 w-10 sm:h-11 sm:w-11 rounded-full overflow-hidden transition-all duration-300 ring-2 drop-shadow-[0_14px_20px_rgba(0,0,0,0.42)]",
-        isSelected ? "ring-orange-500/85" : "ring-white/20 group-hover/avatar:ring-white/45"
-      )}>
-        <div className="relative h-full w-full rounded-full overflow-hidden">
+      <div className="relative h-11 w-11 overflow-visible rounded-full drop-shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
+        {isSelected && (
+          <div className="pointer-events-none absolute inset-[-5px] rounded-full bg-orange-500/28 blur-md" />
+        )}
+        <div className="relative h-full w-full overflow-hidden rounded-full">
           <SmartImage src={user.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
         </div>
       </div>
 
-      <motion.div
-        animate={shouldReduceMotion ? {} : {
-          y: [0, index % 2 === 0 ? 2 : -2, 0],
-          scale: [1, 1.08, 1],
-        }}
-        transition={shouldReduceMotion ? {} : {
-          delay: 0.12 + index * 0.17,
-          duration: 4.4 + index * 0.24,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
+      <div
         className={cn(
-          "absolute -bottom-1 -right-1 z-30 flex h-4 min-w-[16px] items-center justify-center rounded-full border border-white/10 px-1 text-[7px] font-black text-white drop-shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-4 sm:min-w-[16px] sm:text-[8px]",
-          isSelected ? "bg-orange-600 ring-1 ring-white/40" : "bg-stone-950/90"
+          "absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none text-white drop-shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
+          isSelected ? "bg-orange-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]" : "glass-aura border-0"
         )}
       >
         {coreUtils.formatNumber(user.plays)}
-      </motion.div>
+      </div>
     </motion.div>
   );
 };
@@ -770,6 +783,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [track]);
   const mainArtist = useMemo(() => track ? getMainArtist(track) : null, [track]);
   const mainArtistName = useMemo(() => track ? getMainArtistName(track) : '', [track]);
+  const [hasLyricsBadge, setHasLyricsBadge] = useState(false);
   const secondaryArtists = useMemo(() => track ? getSecondaryArtists(track) : [], [track]);
   const albumArtistName = useMemo(() => {
     if (!track) return '';
@@ -782,6 +796,26 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       mainArtistName;
     return typeof candidate === 'string' ? candidate : (candidate?.name || candidate?.artistName || '');
   }, [track, mainArtistName]);
+
+  useEffect(() => {
+    if (!track?.name || !mainArtistName) {
+      setHasLyricsBadge(false);
+      return;
+    }
+
+    let cancelled = false;
+    statsService.fetchLyricsMatch(track.name, mainArtistName)
+      .then((match) => {
+        if (!cancelled) setHasLyricsBadge(match.hasLyrics === true);
+      })
+      .catch(() => {
+        if (!cancelled) setHasLyricsBadge(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [track?.name, mainArtistName]);
 
   const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
   const prevNowPlaying = React.useRef(nowPlaying);
@@ -887,6 +921,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const rightHiddenArenaCount = Math.max(0, hiddenArenaCount - arenaShiftedSlots);
   const selectedHiddenOnLeft = selectedArenaIndex >= 0 && selectedArenaIndex < arenaShiftedSlots;
   const selectedHiddenOnRight = selectedArenaIndex >= arenaPageSize + arenaShiftedSlots;
+  const arenaVisibleSlots = Math.min(arenaPageSize, trackArenaUsers.length);
+  const arenaSummaryWidth = rightHiddenArenaCount > 0
+    ? ARENA_BADGE_MORE_LEFT + 42
+    : Math.max(44, (arenaVisibleSlots - 1) * ARENA_BADGE_SLOT_SIZE + 44);
 
   useEffect(() => {
     arenaTrailX.set(0);
@@ -1188,12 +1226,12 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                     {/* Conteúdo Esquerdo: textos e ranking compactos, com o vinil vazando por trás */}
                     <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-40">
-                      <div className="flex flex-col gap-1.5">
+                      <div className="flex flex-col gap-0.5">
                         <ScrollingTrackTitle
                           title={track.name}
                           onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                         />
-                        <div className="text-[22px] sm:text-[28px] font-medium text-white/80 line-clamp-1 flex items-center flex-wrap gap-x-1 pb-1 pointer-events-auto select-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] w-[62vw] max-w-[300px] leading-[1.16]">
+                        <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 flex items-center flex-wrap gap-x-1 pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
                           <span
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1205,7 +1243,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 });
                               }
                             }}
-                            className="hover:underline cursor-pointer text-white/90"
+                            className="hover:underline cursor-pointer text-white/72"
                           >
                             {mainArtistName}
                           </span>
@@ -1224,7 +1262,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                         type: 'artist'
                                       });
                                     }}
-                                    className="hover:underline cursor-pointer text-white/70"
+                                    className="hover:underline cursor-pointer text-white/58"
                                   >
                                     {sec.name}
                                   </span>
@@ -1293,7 +1331,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                              <div
 	                                key={`arena-trail-${track.id || track.name || 'track'}`}
 	                                data-home-horizontal-scroll="true"
-	                                className="relative h-[58px] w-[184px] overflow-visible py-2 pr-0 sm:w-[200px]"
+	                                className="relative h-[58px] overflow-visible py-2 pr-0"
+                                  style={{ width: arenaSummaryWidth }}
 	                              >
 	                                <motion.div
 	                                  className="absolute inset-0 z-[60] cursor-grab active:cursor-grabbing"
@@ -1316,10 +1355,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    }}
 	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-11 sm:min-w-11",
+	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnLeft
-	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-	                                        : "border-white/10 bg-black/70"
+	                                        ? "bg-orange-600/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]"
+	                                        : "glass-aura border-0"
 	                                    )}
 	                                    style={{
 	                                      opacity: shouldReduceMotion ? undefined : arenaLeftMoreOpacity,
@@ -1351,10 +1390,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    }}
 	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
 	                                    className={cn(
-	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-10 min-w-10 -translate-y-1/2 transform-gpu items-center justify-center rounded-full border px-2 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-11 sm:min-w-11",
+	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnRight
-	                                        ? "border-orange-400/35 bg-orange-600/90 ring-1 ring-orange-200/30"
-	                                        : "border-white/10 bg-black/70"
+	                                        ? "bg-orange-600/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]"
+	                                        : "glass-aura border-0"
 	                                    )}
 	                                    style={{
 	                                      left: ARENA_BADGE_MORE_LEFT,
@@ -1399,6 +1438,29 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 </div>
                               )}
                             </motion.div>
+                          )}
+                          {hasLyricsBadge && (
+                            <motion.button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+                                  detail: { panel: 'lyrics' }
+                                }));
+                              }}
+                              whileTap={{ scale: 0.94 }}
+                              className="glass relative z-[90] flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-orange-400 transition-colors hover:text-orange-300"
+                              style={{ border: 0 }}
+                              aria-label="Abrir letra"
+                            >
+                              <BookOpen className="h-2.5 w-2.5 text-current transition-colors duration-500" strokeWidth={2.4} />
+                              <span className={cn(
+                                "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                isActuallyLive ? "text-white/60" : "text-white/40"
+                              )}>
+                                Letra
+                              </span>
+                            </motion.button>
                           )}
                         </div>
                       </div>
