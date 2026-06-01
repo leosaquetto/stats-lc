@@ -15,6 +15,7 @@ import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { withAlpha } from '../lib/colorUtils';
+import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
 import type { LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
@@ -450,6 +451,22 @@ const ArtistNamesInline = ({ artists, fallback }: { artists: Array<{ name: strin
   );
 };
 
+const TrackTitleBadges = ({ badges }: { badges: string[] }) => {
+  if (badges.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className="rounded-full bg-white/[0.075] px-2 py-1 text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/42 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] backdrop-blur-xl"
+        >
+          {badge}
+        </span>
+      ))}
+    </div>
+  );
+};
+
 const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (link: TrackLink) => void }) => {
   const icon = link.kind === 'statsfm'
     ? <StatsFmMark className="h-4 w-4 text-current" />
@@ -500,6 +517,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const artistId = getMainArtistId(track);
   const albumId = getAlbumId(track);
   const trackTitle = track?.name || 'Música';
+  const parsedTrackTitle = React.useMemo(() => parseTrackTitleBadges(trackTitle), [trackTitle]);
   const artistName = getTrackArtistName(track);
   const trackArtists = React.useMemo(() => getTrackArtists(track), [track]);
   const artwork = getTrackArtwork(track);
@@ -791,7 +809,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
                 <div className="min-w-0 pt-1">
                   <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">{panel === 'lyrics' ? 'Letra' : 'Stats da música'}</span>
-                  <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{trackTitle}</h3>
+                  <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{parsedTrackTitle.displayTitle || trackTitle}</h3>
+                  <TrackTitleBadges badges={parsedTrackTitle.badges} />
                   <p className="mt-1 text-sm font-semibold leading-tight text-white/48">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>

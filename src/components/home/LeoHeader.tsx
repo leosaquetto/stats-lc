@@ -22,6 +22,7 @@ import { twMerge } from 'tailwind-merge';
 import { getDominantColor, withAlpha, ensureVisibility, getSaturation, getPerceivedBrightness, normalizeColor } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 import { attachLiveNowPlayingToMember, getCanonicalMembers, getVisibleMembersWithLive } from '../../lib/memberSelectors';
+import { parseTrackTitleBadges } from '../../lib/trackTitleBadges';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -87,6 +88,22 @@ const ScrollingTrackTitle = React.memo(({
         {title}
       </span>
     </button>
+  );
+});
+
+const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
+  if (badges.length === 0) return null;
+  return (
+    <div className="mt-1 flex max-w-[62vw] flex-wrap items-center gap-1.5 sm:max-w-[300px]">
+      {badges.map((badge) => (
+        <span
+          key={badge}
+          className="rounded-full bg-white/[0.075] px-2 py-1 text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl"
+        >
+          {badge}
+        </span>
+      ))}
+    </div>
   );
 });
 
@@ -765,6 +782,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const activeUser = attachLiveNowPlayingToMember(storeUser || user, liveNowPlayingByUserId);
   const nowPlaying = activeUser.nowPlaying;
   const track = nowPlaying?.track as any;
+  const parsedTrackTitle = useMemo(() => parseTrackTitleBadges(track?.name), [track?.name]);
   const albumImage = useMemo(() => {
     if (!track) return "";
     const candidates = [
@@ -1259,9 +1277,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-40">
                       <div className="flex flex-col gap-0.5">
                         <ScrollingTrackTitle
-                          title={track.name}
+                          title={parsedTrackTitle.displayTitle || track.name}
                           onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                         />
+                        <TrackTitleBadges badges={parsedTrackTitle.badges} />
                         <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 block pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
                           {displayArtists.map((artist, idx) => {
                             const isLast = idx === displayArtists.length - 1;
