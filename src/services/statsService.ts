@@ -943,14 +943,22 @@ export const statsService = {
     try {
       const match = await this.fetchLyricsMatch(title, artist);
       if (match.hasLyrics && match.match?.id != null) {
-        const lyrics = await fetchGeniusEmbedLyrics(match.match.id);
-        if (lyrics) return { ...match, lyrics };
+        const [lyrics, writersResponse] = await Promise.all([
+          fetchGeniusEmbedLyrics(match.match.id),
+          fetchFromApi<LyricsFullResponse>('/api/lyrics', {
+            title: title.trim(),
+            ...(artist?.trim() ? { artist: artist.trim() } : {}),
+            includeWriters: '1',
+          }, false, 0, true).catch(() => null),
+        ]);
+        if (lyrics) return { ...match, writers: writersResponse?.writers, lyrics };
       }
 
       return await fetchFromApi<LyricsFullResponse>('/api/lyrics', {
         title: title.trim(),
         ...(artist?.trim() ? { artist: artist.trim() } : {}),
         includeLyrics: '1',
+        includeWriters: '1',
       }, false, 0, true);
     } catch (e) {
       if ((import.meta as any).env?.DEV) {

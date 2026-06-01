@@ -692,7 +692,7 @@ const ArenaRankingBubble = ({
     >
       <div className="relative h-11 w-11 overflow-visible rounded-full drop-shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
         {isSelected && (
-          <div className="pointer-events-none absolute inset-[-5px] rounded-full bg-orange-500/28 blur-md" />
+          <div className="pointer-events-none absolute inset-[-2px] rounded-full bg-[#ff5f00]/36 blur-[6px]" />
         )}
         <div className="relative h-full w-full overflow-hidden rounded-full">
           <SmartImage src={user.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
@@ -702,7 +702,7 @@ const ArenaRankingBubble = ({
       <div
         className={cn(
           "absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none text-white drop-shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
-          isSelected ? "bg-orange-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]" : "glass-aura border-0"
+          isSelected ? "bg-[#ff6a00] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.26)]" : "glass-aura border-0"
         )}
       >
         {coreUtils.formatNumber(user.plays)}
@@ -736,6 +736,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     return 0.72 + slotProgress * 0.28;
   });
   const [arenaShiftedSlots, setArenaShiftedSlots] = useState(0);
+  const arenaShiftedSlotsRef = useRef(0);
 
   const handleVinylClick = () => {
     const scrolled = window.scrollY > 200;
@@ -922,19 +923,23 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const selectedHiddenOnLeft = selectedArenaIndex >= 0 && selectedArenaIndex < arenaShiftedSlots;
   const selectedHiddenOnRight = selectedArenaIndex >= arenaPageSize + arenaShiftedSlots;
   const arenaVisibleSlots = Math.min(arenaPageSize, trackArenaUsers.length);
-  const arenaSummaryWidth = rightHiddenArenaCount > 0
+  const arenaSummaryWidth = hiddenArenaCount > 0
     ? ARENA_BADGE_MORE_LEFT + 42
     : Math.max(44, (arenaVisibleSlots - 1) * ARENA_BADGE_SLOT_SIZE + 44);
 
   useEffect(() => {
     arenaTrailX.set(0);
+    arenaShiftedSlotsRef.current = 0;
     setArenaShiftedSlots(0);
   }, [arenaTrailX, hiddenArenaCount, track?.id]);
 
   useEffect(() => {
     const updateShiftedSlots = (value: number) => {
       const shiftedSlots = Math.min(hiddenArenaCount, Math.floor((Math.abs(value) + 0.5) / ARENA_BADGE_SLOT_SIZE));
-      setArenaShiftedSlots(shiftedSlots);
+      if (arenaShiftedSlotsRef.current !== shiftedSlots) {
+        arenaShiftedSlotsRef.current = shiftedSlots;
+        setArenaShiftedSlots(shiftedSlots);
+      }
     };
 
     updateShiftedSlots(arenaTrailX.get());
@@ -1357,7 +1362,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    className={cn(
 	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnLeft
-	                                        ? "bg-orange-600/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]"
+	                                        ? "bg-[#ff6a00]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
 	                                        : "glass-aura border-0"
 	                                    )}
 	                                    style={{
@@ -1392,7 +1397,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    className={cn(
 	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnRight
-	                                        ? "bg-orange-600/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(249,115,22,0.28)]"
+	                                        ? "bg-[#ff6a00]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
 	                                        : "glass-aura border-0"
 	                                    )}
 	                                    style={{

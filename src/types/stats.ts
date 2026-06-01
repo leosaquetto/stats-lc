@@ -44,6 +44,7 @@ export interface LyricsMatch {
   hasLyrics: boolean;
   source?: 'genius';
   reason?: string;
+  writers?: string[];
   match?: {
     id?: string | number | null;
     title?: string | null;

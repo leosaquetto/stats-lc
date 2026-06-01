@@ -13,6 +13,7 @@ import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
+import { getMainArtistName } from '../lib/artistUtils';
 import type { LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
@@ -166,6 +167,8 @@ const getTrackArtwork = (track: any) => {
 };
 
 const getTrackArtistName = (track: any) => {
+  const prioritized = getMainArtistName(track);
+  if (prioritized) return prioritized;
   const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
   if (typeof firstArtist === 'string') return firstArtist;
   if (firstArtist?.name) return firstArtist.name;
@@ -242,6 +245,43 @@ const formatFullDate = (value: any) => {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'sem registro';
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const cleanLyricsForDisplay = (lyrics?: string | null) => {
+  if (!lyrics) return '';
+
+  const lines = lyrics.replace(/\r/g, '').split('\n');
+  const output: string[] = [];
+  let hasStarted = false;
+  let previousBlank = false;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const isBracketLine = /^\[[^\]]+\]$/.test(line);
+
+    if (isBracketLine) {
+      if (!hasStarted) continue;
+      if (!previousBlank) {
+        output.push('');
+        previousBlank = true;
+      }
+      continue;
+    }
+
+    if (!line) {
+      if (hasStarted && !previousBlank) {
+        output.push('');
+        previousBlank = true;
+      }
+      continue;
+    }
+
+    hasStarted = true;
+    previousBlank = false;
+    output.push(line);
+  }
+
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 };
 
 const getDayKey = (value: any) => {
@@ -386,6 +426,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
   const trackLinks = React.useMemo(() => getTrackLinks(track), [track]);
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
+  const writerNames = React.useMemo(() => {
+    return (lyricsMatch?.writers || [])
+      .map((writer) => writer.trim())
+      .filter(Boolean)
+      .join(', ');
+  }, [lyricsMatch?.writers]);
+  const cleanedLyricsText = React.useMemo(() => cleanLyricsForDisplay(lyricsText), [lyricsText]);
+  const lyricsAvailable = lyricsMatch?.hasLyrics === true;
 
   React.useEffect(() => {
     if (!track?.name) {
@@ -509,7 +557,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     setSelectedTrackLink(null);
   };
 
-  const handleLyrics = async () => {
+  const handleLyrics = React.useCallback(async () => {
     if (!track?.name) return;
     setLyricsLoading(true);
     const response = await statsService.fetchLyricsFull(track.name, artistName);
@@ -521,7 +569,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
     setPanel('lyrics');
-  };
+  }, [artistName, track?.name]);
+
+  React.useEffect(() => {
+    if (panel !== 'lyrics' || !isOpen || !track?.name) return;
+    handleLyrics();
+  }, [handleLyrics, isOpen, panel, track?.name]);
 
   React.useEffect(() => {
     const openTrackStats = (event: Event) => {
@@ -569,14 +622,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               animate={{ y: 0, scale: 1, opacity: 1 }}
               exit={{ y: 28, scale: 0.98, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 240, damping: 28 }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.18}
               onDragEnd={(_, info) => {
-                if (info.offset.x < -58) {
+                if (info.offset.y < -58 && lyricsAvailable) {
                   if (!lyricsText) handleLyrics();
                   else setPanel('lyrics');
-                } else if (info.offset.x > 58) {
+                } else if (info.offset.y > 58) {
                   setPanel('stats');
                 }
               }}
@@ -596,12 +649,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <X className="h-4 w-4" />
               </button>
 
-              <motion.div
-                animate={{ x: panel === 'stats' ? '0%' : '-108%' }}
-                transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-                className="flex w-full"
-              >
-              <div className="w-full shrink-0">
               <div className="flex items-start gap-4 pr-10">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/[0.04]">
                   {artwork ? (
@@ -613,12 +660,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                 </div>
                 <div className="min-w-0 pt-1">
-                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">Stats da música</span>
+                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">{panel === 'lyrics' ? 'Letra' : 'Stats da música'}</span>
                   <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{trackTitle}</h3>
                   <p className="mt-1 truncate text-sm font-semibold text-white/48">{artistName}</p>
                 </div>
               </div>
 
+              <AnimatePresence mode="wait">
+              {panel === 'stats' ? (
+              <motion.div
+                key="stats"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              >
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
                   <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
@@ -756,10 +812,18 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <button
                     type="button"
                     onClick={handleLyrics}
-                    className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-white/[0.06] px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/72 transition-colors hover:bg-white/[0.1] hover:text-white"
+                    disabled={lyricsLoading || lyricsMatch?.hasLyrics === false}
+                    className={clsx(
+                      "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                      lyricsMatch?.hasLyrics === false
+                        ? "cursor-not-allowed bg-white/[0.035] text-white/28"
+                        : "bg-white/[0.06] text-white/72 hover:bg-white/[0.1] hover:text-white"
+                    )}
                   >
                     {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GeniusLogo className="h-4 w-4 text-current" />}
-                    <span className="whitespace-nowrap">{lyricsMatch?.hasLyrics === false ? 'Buscar letra' : 'Letra'}</span>
+                    <span className="whitespace-nowrap">
+                      {lyricsLoading ? 'Buscando' : lyricsMatch?.hasLyrics === false ? 'Letra indisponível' : 'Ver letra'}
+                    </span>
                   </button>
                 )}
                 {trackLinks.length > 0 && (
@@ -809,34 +873,33 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </AnimatePresence>
 
               <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
-                arraste para a esquerda para ver a letra
+                arraste para cima para ver a letra
               </p>
-              </div>
-
-              <div className="w-full shrink-0 pl-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div>
-                    <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">Letra</span>
-                    <h3 className="mt-1 line-clamp-1 text-xl font-black text-white">{trackTitle}</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setPanel('stats')}
-                    className="rounded-full bg-white/[0.055] px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/52"
-                  >
-                    stats
-                  </button>
-                </div>
+              </motion.div>
+              ) : (
+              <motion.div
+                key="lyrics"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                className="mt-5"
+              >
                 {lyricsLoading ? (
-                  <div className="flex h-[34vh] items-center justify-center rounded-[24px] bg-black/22">
+                  <div className="flex h-[34vh] items-center justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
                   </div>
-                ) : lyricsText ? (
-                  <div className="max-h-[42vh] overflow-y-auto rounded-[24px] bg-black/22 p-4 text-sm font-medium leading-relaxed text-white/72 whitespace-pre-line">
-                  {lyricsText}
+                ) : cleanedLyricsText ? (
+                  <div className="max-h-[42vh] overflow-y-auto pr-2 text-[24px] font-black leading-[1.26] text-white/92">
+                    <div className="whitespace-pre-line">{cleanedLyricsText}</div>
+                    {writerNames && (
+                      <p className="mt-9 text-[22px] font-normal leading-[1.28] text-white/88">
+                        <strong className="font-black text-white">Autoria:</strong> {writerNames}
+                      </p>
+                    )}
                   </div>
                 ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
-                  <div className="flex h-[34vh] flex-col items-center justify-center gap-4 rounded-[24px] bg-black/22 px-5 text-center">
+                  <div className="flex h-[34vh] flex-col items-center justify-center gap-4 px-5 text-center">
                     <FileText className="h-8 w-8 text-orange-300" />
                     <div>
                       <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
@@ -857,14 +920,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <button
                     type="button"
                     onClick={handleLyrics}
-                    className="flex h-[34vh] w-full flex-col items-center justify-center gap-3 rounded-[24px] bg-black/22 text-white/52"
+                    className="flex h-[34vh] w-full flex-col items-center justify-center gap-3 text-white/52"
                   >
                     <FileText className="h-7 w-7 text-orange-300" />
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
                   </button>
                 )}
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setPanel('stats')}
+                  className="mt-4 w-full rounded-full bg-white/[0.055] px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-white/52"
+                >
+                  stats
+                </button>
               </motion.div>
+              )}
+              </AnimatePresence>
             </motion.section>
           </motion.div>
         )}
