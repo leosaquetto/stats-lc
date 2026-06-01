@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from 'motion/react';
 
 interface VinylTonearmProps {
   isPlaying: boolean;
+  onUserPlaybackChange?: (isPlaying: boolean) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
+export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
   const [level, setLevel] = useState(0.5);
   const isDraggingRef = useRef(false);
@@ -87,6 +88,15 @@ export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
     setLevel(clamp01((idleAngle - pointerAngle) / (idleAngle - playingAngle)));
   };
 
+  const commitPointerLevel = () => {
+    setLevel((currentLevel) => {
+      const nextIsPlaying = currentLevel >= 0.58;
+      const targetLevel = nextIsPlaying ? 1 : 0;
+      onUserPlaybackChange?.(nextIsPlaying);
+      return targetLevel;
+    });
+  };
+
   return (
     <AnimatePresence>
       <motion.svg
@@ -129,9 +139,11 @@ export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
           onPointerUp={(event) => {
             isDraggingRef.current = false;
             event.currentTarget.releasePointerCapture(event.pointerId);
+            commitPointerLevel();
           }}
           onPointerCancel={() => {
             isDraggingRef.current = false;
+            setLevel(isPlaying ? 1 : 0);
           }}
         >
           <g transform={`translate(${pivotX} ${pivotY}) rotate(34)`}>

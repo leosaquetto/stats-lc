@@ -15,6 +15,7 @@ interface VinylRecordProps {
   dominantColor: string;
   isPlaying: boolean;
   hideTonearm?: boolean;
+  onPlaybackIntent?: (isPlaying: boolean) => void;
 }
 
 const hashString = (value: string) => {
@@ -87,10 +88,14 @@ export const VinylRecord = ({
   albumImage,
   dominantColor,
   isPlaying,
-  hideTonearm = false
+  hideTonearm = false,
+  onPlaybackIntent
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
+  const discRef = useRef<HTMLDivElement | null>(null);
+  const rotationRef = useRef(0);
+  const lastFrameRef = useRef(0);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
 
@@ -113,6 +118,38 @@ export const VinylRecord = ({
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const resinAlpha        = isPlaying ? 0.38 : 0.32;
+
+  useEffect(() => {
+    const node = discRef.current;
+    if (!node) return;
+    node.style.transform = `rotate(${rotationRef.current}deg)`;
+  }, [albumImage]);
+
+  useEffect(() => {
+    const node = discRef.current;
+    if (!node || !canAnimate || !isPlaying) {
+      lastFrameRef.current = 0;
+      return;
+    }
+
+    let frameId = 0;
+    const tick = (now: number) => {
+      if (!lastFrameRef.current) lastFrameRef.current = now;
+      const delta = now - lastFrameRef.current;
+      lastFrameRef.current = now;
+      rotationRef.current = (rotationRef.current + delta * 0.12) % 360;
+      node.style.transform = `rotate(${rotationRef.current}deg)`;
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      lastFrameRef.current = 0;
+      const currentNode = discRef.current;
+      if (currentNode) currentNode.style.transform = `rotate(${rotationRef.current}deg)`;
+    };
+  }, [canAnimate, isPlaying, albumImage]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -183,8 +220,18 @@ export const VinylRecord = ({
       </AnimatePresence>
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
+      <AnimatePresence initial={false} mode="popLayout">
       <motion.div
-        className={`absolute inset-0 overflow-hidden rounded-full shadow-2xl z-10 flex items-center justify-center border border-white/10 ${isPlaying && canAnimate ? "vinyl-record-spin" : canAnimate ? "vinyl-record-idle" : ""}`}
+        key={albumImage || 'placeholder-disc'}
+        className="absolute inset-0 z-10"
+        initial={canAnimate ? { x: -46, opacity: 0 } : false}
+        animate={{ x: 0, opacity: 1 }}
+        exit={canAnimate ? { x: 46, opacity: 0 } : { opacity: 0 }}
+        transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+      >
+      <div
+        ref={discRef}
+        className="h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10"
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
@@ -210,7 +257,10 @@ export const VinylRecord = ({
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
-          willChange: isPlaying ? 'transform' : 'auto',
+          transform: `rotate(${rotationRef.current}deg)`,
+          willChange: isPlaying && canAnimate ? 'transform' : 'auto',
+          transition: isPlaying ? 'filter 0.45s ease, box-shadow 0.45s ease, opacity 0.45s ease' : 'filter 0.65s ease, box-shadow 0.65s ease, opacity 0.65s ease',
+          opacity: isPlaying ? 1 : 0.82,
           filter: isPlaying ? 'brightness(1.08) saturate(1.08)' : 'none',
           boxShadow: isPlaying
             ? `0 0 24px ${withAlpha(safeDominantColor, 0.32)}, 0 0 48px ${withAlpha(safeDominantColor, 0.18)}`
@@ -434,10 +484,12 @@ export const VinylRecord = ({
           </AnimatePresence>
         </div>
 
+      </div>
       </motion.div>
+      </AnimatePresence>
       </>
 
-      {!hideTonearm && <VinylTonearm isPlaying={isPlaying} />}
+      {!hideTonearm && <VinylTonearm isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}
 
     </div>
   );

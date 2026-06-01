@@ -91,6 +91,12 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
             const trackImage = track?.image || "";
+            const livePlayback = friend.nowPlaying as any;
+            const trackVisualKey = [
+              friend.id,
+              track?.id || track?.name || 'silence',
+              livePlayback?.playbackKey || livePlayback?.streamId || livePlayback?.timestamp || '',
+            ].join(':');
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -121,12 +127,23 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
                   {/* Artwork Background */}
                   <div className="absolute inset-0 z-0">
-                    <SmartImage 
-                      src={trackImage} 
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-40 group-hover:opacity-60" 
-                      rounded="none"
-                      fallback=""
-                    />
+                    <AnimatePresence initial={false} mode="popLayout">
+                      <motion.div
+                        key={trackVisualKey}
+                        className="absolute inset-0"
+                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 1.04, y: -8 }}
+                        transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        <SmartImage
+                          src={trackImage}
+                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-40 group-hover:opacity-60"
+                          rounded="none"
+                          fallback=""
+                        />
+                      </motion.div>
+                    </AnimatePresence>
                     <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
                   </div>
 

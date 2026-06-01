@@ -14,7 +14,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const LIMIT = 20;
+const LIMIT = 15;
 
 const getTrackImage = (track: any) => {
   const candidates = [
@@ -232,6 +232,8 @@ export const UserHistoryModal = ({
     const cachedItems = store.getHistoryCache(user.id);
     if (cachedItems && cachedItems.length > 0) {
       loadedCache = true;
+      const initialCachedItems = cachedItems.slice(0, LIMIT);
+      setHasMore(cachedItems.length >= LIMIT);
       if (user.nowPlaying?.track) {
          const liveTrackItem = {
            id: 'live-' + user.nowPlaying.track.id + '-' + Date.now(),
@@ -242,11 +244,11 @@ export const UserHistoryModal = ({
            durationMs: user.nowPlaying.durationMs || user.nowPlaying.track.durationMs,
            isLive: true
          };
-         let newCached = cachedItems.filter((it: any) => it.track?.id !== user.nowPlaying?.track?.id);
+         let newCached = initialCachedItems.filter((it: any) => it.track?.id !== user.nowPlaying?.track?.id);
          newCached = [liveTrackItem, ...newCached];
          setItems(newCached);
       } else {
-         setItems(cachedItems);
+         setItems(initialCachedItems);
       }
       setLoading(false);
     }

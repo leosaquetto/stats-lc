@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
 import { Repeat, TrendingUp, Star, BookOpen } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -1010,6 +1010,30 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     fetchGroupLive,
   });
   const isActuallyLive = backendIsLive && livePlayback.shouldSpinVinyl;
+  const playbackSignatureSource = nowPlaying as any;
+  const backendPlaybackSignature = useMemo(() => `${getPlaybackKey(user.id, nowPlaying, null)}:${nowPlaying?.isNow === true ? 'live' : 'idle'}`, [
+    user.id,
+    nowPlaying?.track?.id,
+    nowPlaying?.isNow,
+    playbackSignatureSource?.playbackKey,
+    playbackSignatureSource?.streamId,
+    playbackSignatureSource?.stream?.id,
+    playbackSignatureSource?.playedAt,
+    playbackSignatureSource?.endTime,
+    nowPlaying?.timestamp,
+  ]);
+  const [playbackOverride, setPlaybackOverride] = useState<{ signature: string; isPlaying: boolean } | null>(null);
+  useEffect(() => {
+    if (playbackOverride && playbackOverride.signature !== backendPlaybackSignature) {
+      setPlaybackOverride(null);
+    }
+  }, [backendPlaybackSignature, playbackOverride]);
+  const visualIsLive = playbackOverride?.signature === backendPlaybackSignature
+    ? playbackOverride.isPlaying
+    : isActuallyLive;
+  const handleVinylPlaybackIntent = useCallback((nextIsPlaying: boolean) => {
+    setPlaybackOverride({ signature: backendPlaybackSignature, isPlaying: nextIsPlaying });
+  }, [backendPlaybackSignature]);
   const statusLabel = isActuallyLive
     ? "OUVINDO AGORA"
     : isToday
@@ -1056,11 +1080,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   return (
     <div className={cn(
       "relative -mt-3 px-5 sm:px-8 overflow-visible",
-      isActuallyLive ? "mb-4" : "mb-2"
+      visualIsLive ? "mb-4" : "mb-2"
     )}>
       <div className={cn(
         "w-full relative overflow-visible",
-        isActuallyLive ? "min-h-[334px] sm:min-h-[410px]" : "min-h-[306px] sm:min-h-[376px]"
+        visualIsLive ? "min-h-[334px] sm:min-h-[410px]" : "min-h-[306px] sm:min-h-[376px]"
       )}>
       <motion.div
         className="relative h-full overflow-visible"
@@ -1079,7 +1103,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         }}
         >
           <AnimatePresence>
-            {isActuallyLive ? (
+            {visualIsLive ? (
               <motion.div
                 key="live-bg"
                 initial={{ opacity: 0 }}
@@ -1156,7 +1180,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               <VinylRecord
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
-                isPlaying={isActuallyLive}
+                isPlaying={visualIsLive}
+                onPlaybackIntent={handleVinylPlaybackIntent}
               />
             </div>
           </div>

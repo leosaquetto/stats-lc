@@ -803,6 +803,15 @@ const HomeRecentPlays = ({ recent, onViewMore }: { recent: any[]; onViewMore?: (
             </div>
           );
         })}
+        {list.length > 0 && (
+          <button
+            type="button"
+            onClick={onViewMore}
+            className="mt-1 w-full rounded-[22px] border border-orange-500/15 bg-orange-500/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200/82 transition-colors hover:bg-orange-500/[0.13] hover:text-orange-100"
+          >
+            Ver todo histórico
+          </button>
+        )}
       </div>
     </section>
   );
@@ -1145,9 +1154,13 @@ export default function HomeScreen() {
         const track = member?.nowPlaying?.track as any;
         return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
       }),
+      ...resolvedRecentPlays.slice(0, 10).map((item) => {
+        const track = item?.track || item;
+        return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
+      }),
     ];
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
-  }, [allMembers, membersSignature, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
+  }, [allMembers, membersSignature, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, resolvedRecentPlays]);
 
   useEffect(() => {
     if (!primaryUser) {

@@ -506,6 +506,20 @@ const getBottomTrackStatsCacheKey = (
   memberIds: string,
 ) => `${userId}:${trackId}:${albumId}:${artistIds}:${memberIds}`;
 
+const getBottomTrackStatsLookupKey = (
+  user: any,
+  trackId: string,
+  albumId: string,
+  trackArtists: Array<{ id: string }>,
+  members: any[],
+) => getBottomTrackStatsCacheKey(
+  user?.id || '',
+  trackId,
+  albumId,
+  trackArtists.map((artist) => artist.id).filter(Boolean).sort().join('|'),
+  members.map((member) => member.id).filter(Boolean).sort().join('|'),
+);
+
 const loadBottomTrackStatsPanelData = async ({
   user,
   trackId,
@@ -519,9 +533,7 @@ const loadBottomTrackStatsPanelData = async ({
   trackArtists: Array<{ id: string; name: string; image: string; key: string }>;
   members: any[];
 }) => {
-  const artistIds = trackArtists.map((artist) => artist.id).filter(Boolean).sort().join('|');
-  const memberIds = members.map((member) => member.id).filter(Boolean).sort().join('|');
-  const cacheKey = getBottomTrackStatsCacheKey(user?.id || '', trackId, albumId, artistIds, memberIds);
+  const cacheKey = getBottomTrackStatsLookupKey(user, trackId, albumId, trackArtists, members);
   const cached = readExpiringCache(bottomTrackStatsCache, cacheKey);
   if (cached) return cached;
 
@@ -654,6 +666,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
   const [toastMessage, setToastMessage] = React.useState('');
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
+  const [panelDataLoading, setPanelDataLoading] = React.useState(false);
 
   const track = user?.nowPlaying?.track;
   const trackId = String(track?.id || track?.track?.id || '');
@@ -685,7 +698,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const lyricsAvailable = lyricsMatch?.hasLyrics === true;
 
   React.useEffect(() => {
-    if (!track?.name) {
+    if (!track?.name || !isOpen) {
       setLyricsMatch(null);
       setLyricsText(null);
       return;
@@ -699,50 +712,67 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
 
-    loadLyricsMatch(track.name, artistName)
+    const idleId = window.setTimeout(() => {
+      loadLyricsMatch(track.name, artistName)
       .then((match) => {
         if (cancelled) return;
         setLyricsMatch(match);
-        if (match.hasLyrics) {
-          loadLyricsFull(track.name, artistName)
-            .then((response) => {
-              if (!cancelled) setLyricsText(response.lyrics || null);
-            })
-            .catch(() => undefined);
-        }
-      });
+      })
+      .catch(() => undefined);
+    }, 220);
     return () => {
       cancelled = true;
+      window.clearTimeout(idleId);
     };
-  }, [track?.name, artistName]);
+  }, [track?.name, artistName, isOpen]);
 
   React.useEffect(() => {
-    if (!trackId || !members.length) return;
+    if (!isOpen || !trackId || !members.length) return;
     fetchTrackStatsForAll(trackId).catch(() => undefined);
-  }, [trackId, members.length, fetchTrackStatsForAll]);
+  }, [isOpen, trackId, members.length, fetchTrackStatsForAll]);
 
   React.useEffect(() => {
     if (!user?.id || !trackId) {
       setPanelData(emptyBottomTrackStatsPanelData);
+      setPanelDataLoading(false);
       return;
     }
 
+    const cacheKey = getBottomTrackStatsLookupKey(user, trackId, albumId, trackArtists, members);
+    const cached = readExpiringCache(bottomTrackStatsCache, cacheKey);
+    if (cached) {
+      setPanelData(cached);
+      setPanelDataLoading(false);
+    } else if (!isOpen) {
+      setPanelData(emptyBottomTrackStatsPanelData);
+      setPanelDataLoading(false);
+      return;
+    }
+
+    if (!isOpen) return;
+
     let cancelled = false;
-    loadBottomTrackStatsPanelData({
-      user,
-      trackId,
-      albumId,
-      trackArtists,
-      members,
-    }).then((nextPanelData) => {
-      if (cancelled) return;
-      setPanelData(nextPanelData);
-    });
+    const idleId = window.setTimeout(() => {
+      setPanelDataLoading(!cached);
+      loadBottomTrackStatsPanelData({
+        user,
+        trackId,
+        albumId,
+        trackArtists,
+        members,
+      }).then((nextPanelData) => {
+        if (cancelled) return;
+        setPanelData(nextPanelData);
+      }).finally(() => {
+        if (!cancelled) setPanelDataLoading(false);
+      });
+    }, cached ? 0 : 80);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(idleId);
     };
-  }, [albumId, membersSignature, trackArtistsSignature, trackId, user?.id]);
+  }, [albumId, isOpen, membersSignature, trackArtistsSignature, trackId, user?.id]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -868,7 +898,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     <>
       <motion.button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setPanel('stats');
+          setIsOpen(true);
+        }}
         className="pointer-events-auto relative mb-[calc(env(safe-area-inset-bottom)+12px)] flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.22] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
         whileTap={{ scale: 0.94 }}
         aria-label="Abrir stats da música"
@@ -983,6 +1016,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}><AnimatedNumber value={entityStats.album} /></strong>
                 </div>
               </div>
+
+              {panelDataLoading && (
+                <div className="mt-3 flex items-center justify-center gap-2 rounded-full bg-white/[0.035] px-3 py-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/34">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-300" />
+                  <span>atualizando dados</span>
+                </div>
+              )}
 
               {artistStats.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true">
