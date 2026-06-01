@@ -998,6 +998,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const arenaPageSize = ARENA_BADGE_VISIBLE_SLOTS;
   const trailingArenaUsers = trackArenaUsers.slice(arenaPageSize);
   const hiddenArenaCount = trailingArenaUsers.length;
+  const visibleArenaCount = Math.min(trackArenaUsers.length, ARENA_BADGE_VISIBLE_SLOTS);
+  const arenaSummaryWidth = hiddenArenaCount > 0
+    ? ARENA_BADGE_RIGHT_MORE_LEFT + 40
+    : Math.max(0, ((visibleArenaCount - 1) * ARENA_BADGE_SLOT_SIZE) + 52);
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
   const arenaDragDistance = Math.max(0, hiddenArenaCount * ARENA_BADGE_SLOT_SIZE);
   const arenaRenderableUsers = trackArenaUsers;
@@ -1623,7 +1627,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 ref={arenaTrailRef}
                                 key={`arena-trail-${track.id || track.name || 'track'}`}
                                 data-home-horizontal-scroll="true"
-                                className="relative h-[58px] w-[198px] overflow-visible py-2 pr-0 sm:w-[210px]"
+                                className="relative h-[58px] overflow-visible py-2 pr-0"
+                                style={{ width: `${arenaSummaryWidth}px` }}
                               >
                                 <div
                                   className="absolute -inset-x-5 -inset-y-4 z-[80] cursor-grab touch-none active:cursor-grabbing"
@@ -1746,7 +1751,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }));
                               }}
                               whileTap={{ scale: 0.94 }}
-	                              className="leo-soft-badge relative z-[90] -ml-3 flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2 transition-colors"
+	                              className="leo-soft-badge relative z-[90] flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2 transition-colors"
                               aria-label="Abrir letra"
                             >
                               <BookOpen

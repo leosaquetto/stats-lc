@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, X, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -15,7 +15,6 @@ import { statsService } from '../services/statsService';
 import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
-import { withAlpha } from '../lib/colorUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
 import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
 
@@ -704,14 +703,14 @@ const ArtistNamesInline = ({ artists, fallback }: { artists: Array<{ name: strin
   );
 };
 
-const TrackTitleBadges = ({ badges }: { badges: string[] }) => {
+const TrackTitleBadges = ({ badges, className }: { badges: string[]; className?: string }) => {
   if (badges.length === 0) return null;
   return (
-    <div className="flex max-w-[128px] shrink-0 flex-col items-start justify-start gap-px">
+    <div className={clsx("flex max-w-[128px] shrink-0 flex-col items-start justify-start gap-px", className)}>
       {badges.map((badge, index) => (
         <span
           key={badge}
-          className="rounded-full px-2 py-1 text-left text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/72 shadow-[0_8px_20px_rgba(0,0,0,0.22)] backdrop-blur-md"
+          className="rounded-full px-1.5 py-[3px] text-left text-[6px] font-black uppercase leading-none tracking-[0.11em] text-white/72 backdrop-blur-md"
           style={{ backgroundColor: index === 0 ? 'rgba(255,255,255,0.062)' : 'rgba(255,255,255,0.036)' }}
         >
           {badge}
@@ -721,7 +720,7 @@ const TrackTitleBadges = ({ badges }: { badges: string[] }) => {
   );
 };
 
-const ModalScrollingTrackTitle = ({ title }: { title: string }) => {
+const ModalScrollingTrackTitle = ({ title, wide = false }: { title: string; wide?: boolean }) => {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const measureRef = React.useRef<HTMLSpanElement | null>(null);
   const [scrollDistance, setScrollDistance] = React.useState(0);
@@ -745,7 +744,8 @@ const ModalScrollingTrackTitle = ({ title }: { title: string }) => {
     <div
       ref={containerRef}
       className={clsx(
-        "relative block min-w-0 max-w-[170px] shrink overflow-hidden text-left",
+        "relative block min-w-0 shrink overflow-hidden text-left",
+        wide ? "max-w-[250px]" : "max-w-[170px]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_78%,transparent_100%)]"
       )}
       title={title}
@@ -775,7 +775,7 @@ const ModalScrollingTrackTitle = ({ title }: { title: string }) => {
   );
 };
 
-const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (link: TrackLink) => void }) => {
+const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (link: TrackLink, button: HTMLButtonElement) => void }) => {
   const icon = link.kind === 'statsfm'
     ? <StatsFmMark className="h-4 w-4 text-current" />
     : link.kind === 'spotify'
@@ -787,9 +787,9 @@ const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (l
   return (
     <button
       type="button"
-      onClick={() => onChoose(link)}
+      onClick={(event) => onChoose(link, event.currentTarget)}
       aria-label={`Opções do ${link.label}`}
-      className="flex h-10 w-10 items-center justify-center rounded-full border-0 bg-white/[0.045] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] transition-transform active:scale-95"
+      className="flex h-10 w-10 items-center justify-center rounded-full border-0 bg-white/[0.045] text-white/72 transition-transform active:scale-95"
     >
       {icon}
     </button>
@@ -825,6 +825,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [lyricsLoading, setLyricsLoading] = React.useState(false);
   const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
+  const [trackLinkSheetAnchor, setTrackLinkSheetAnchor] = React.useState({ right: 16, bottom: 16 });
   const [toastMessage, setToastMessage] = React.useState('');
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
   const [panelDataReady, setPanelDataReady] = React.useState(false);
@@ -862,6 +863,18 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const isAppleMusicUser = user?.platform?.primary === 'appleMusic' || user?.platform === 'appleMusic' || user?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
+  const chooseTrackLink = React.useCallback((link: TrackLink, button: HTMLButtonElement) => {
+    const modal = button.closest('.bottom-track-stats-modal');
+    if (modal) {
+      const modalRect = modal.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      setTrackLinkSheetAnchor({
+        right: modalRect.right - buttonRect.left,
+        bottom: modalRect.bottom - buttonRect.top + 4,
+      });
+    }
+    setSelectedTrackLink(link);
+  }, []);
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const membersSignature = React.useMemo(() => members.map((member) => member.id).filter(Boolean).sort().join('|'), [members]);
   const trackArtistsSignature = React.useMemo(() => trackArtists.map((artist) => artist.id || artist.name).filter(Boolean).sort().join('|'), [trackArtists]);
@@ -1114,6 +1127,40 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return () => window.removeEventListener('stats-lc-open-track-stats', openTrackStats);
   }, [handleLyrics]);
 
+  React.useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') return;
+
+    const scrollY = window.scrollY;
+    const { body, documentElement } = document;
+    const previousBodyStyles = {
+      left: body.style.left,
+      overflow: body.style.overflow,
+      position: body.style.position,
+      right: body.style.right,
+      top: body.style.top,
+      width: body.style.width,
+    };
+    const previousRootStyles = {
+      overflow: documentElement.style.overflow,
+      overscrollBehavior: documentElement.style.overscrollBehavior,
+    };
+
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    documentElement.style.overflow = 'hidden';
+    documentElement.style.overscrollBehavior = 'none';
+
+    return () => {
+      Object.assign(body.style, previousBodyStyles);
+      Object.assign(documentElement.style, previousRootStyles);
+      window.scrollTo(0, scrollY);
+    };
+  }, [isOpen]);
+
   if (!track && !user) return null;
 
   return (
@@ -1138,14 +1185,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-[999] flex pointer-events-none items-end justify-center px-4 pb-3"
+            className="fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+112px)] z-[999] flex pointer-events-auto items-end justify-center px-4 pb-3"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
             <button
               type="button"
-              className="absolute inset-0 pointer-events-auto cursor-default"
+              className="absolute inset-0 pointer-events-auto touch-none cursor-default bg-black/[0.06] backdrop-blur-[1.5px]"
               aria-label="Fechar stats da música"
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
@@ -1155,6 +1202,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
             />
             <motion.section
+              layout
               initial={{ y: 24, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 18, opacity: 0 }}
@@ -1198,20 +1246,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               className="bottom-track-stats-modal glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-hidden rounded-[34px] border-0 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y [contain:layout_paint]"
               style={{ willChange: 'transform, opacity' }}
             >
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setIsOpen(false);
-                  setPanel('stats');
-                }}
-                className="absolute right-4 top-4 z-20 rounded-full bg-white/[0.055] p-2 text-white/45 transition-colors hover:text-white"
-                aria-label="Fechar stats"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 h-1 w-10 -translate-x-1/2 rounded-full bg-white/22" aria-hidden="true" />
 
-              <div className="flex items-center gap-4 pr-10">
+              <div className="flex items-center gap-4 pt-2">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[20px] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
@@ -1233,9 +1270,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? `Histórico - ${playbackIndex}` : 'Stats da música'}
                   </span>
                   <div className="mt-1 flex items-start gap-1.5">
-                    <ModalScrollingTrackTitle title={parsedTrackTitle.displayTitle || trackTitle} />
-                    <TrackTitleBadges badges={parsedTrackTitle.badges} />
+                    <ModalScrollingTrackTitle title={parsedTrackTitle.displayTitle || trackTitle} wide={parsedTrackTitle.badges.length <= 1} />
+                    {parsedTrackTitle.badges.length > 1 && <TrackTitleBadges badges={parsedTrackTitle.badges} />}
                   </div>
+                  {parsedTrackTitle.badges.length === 1 && <TrackTitleBadges badges={parsedTrackTitle.badges} className="mt-1" />}
                   <p className="mt-1 text-sm font-semibold leading-tight text-white/48">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
@@ -1255,10 +1293,30 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               {panel === 'stats' ? (
               <motion.div
                 key="stats"
+                layout
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
+              >
+              {!panelDataReady ? (
+                <motion.div
+                  key="stats-loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-5 flex items-center gap-3 rounded-full bg-white/[0.035] px-4 py-3"
+                >
+                  <ModalSkeleton className="h-4 w-4 shrink-0" />
+                  <ModalSkeleton className="h-2.5 flex-1" />
+                </motion.div>
+              ) : (
+              <motion.div
+                key="stats-ready"
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               >
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
@@ -1284,20 +1342,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               </div>
 
-              {!panelDataReady && (
-                <div className="mt-3 flex gap-2 overflow-hidden pb-1">
-                  <ModalSkeleton className="h-[48px] flex-1" />
-                  <ModalSkeleton className="h-[48px] flex-1" />
-                </div>
-              )}
-
               {panelDataReady && artistStats.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true">
                   {artistStats.map((artist) => (
                     <div
                       key={artist.key}
                       className={clsx(
-                        "leo-glass-badge flex min-w-0 items-center gap-2 rounded-full px-2.5 py-2",
+                        "bottom-track-stats-surface flex min-w-0 items-center gap-2 rounded-full px-2.5 py-2",
                         artistStats.length <= 3 ? "flex-1 shrink" : "min-w-[128px] flex-1 shrink-0"
                       )}
                     >
@@ -1313,18 +1364,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              {!panelDataReady ? (
-                <div className="mt-2">
-                  <div className="grid grid-cols-[1fr_1fr_1.05fr] gap-1.5">
-                    {['Primeiro stream', 'Último stream', 'Ano recorde'].map((label) => (
-                      <div key={label} className="min-w-0 rounded-full border-0 bg-white/[0.045] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
-                        <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/28">{label}</span>
-                        <ModalSkeleton className="mt-1 h-2.5 w-14" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : hasPreviousTrackHistory ? (
+              {hasPreviousTrackHistory ? (
                 <motion.div
                   className="mt-2"
                   initial={{ opacity: 0, y: 4 }}
@@ -1332,16 +1372,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                 >
                   <div className={clsx("grid gap-1.5", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
-                    <div className="min-w-0 rounded-full border-0 bg-white/[0.045] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                    <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Primeiro stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.firstPlayedAt)}</span>
                     </div>
-                    <div className="min-w-0 rounded-full border-0 bg-white/[0.045] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                    <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Último stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.lastPlayedAt)}</span>
                     </div>
                     {trackHistory.bestYear && (
-                    <div className="min-w-0 rounded-full border-0 bg-white/[0.045] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]">
+                    <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5">
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Ano recorde</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">
                         {trackHistory.bestYearCount}x em {trackHistory.bestYear}
@@ -1361,12 +1401,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </motion.div>
               )}
 
-              {!panelDataReady ? (
-                <div className="mt-3 flex items-center gap-2">
-                  <ModalSkeleton className="h-[64px] w-[132px] shrink-0" />
-                  <ModalSkeleton className="h-[90px] flex-1" />
-                </div>
-              ) : (
               <motion.div
                 className="mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
                 data-home-horizontal-scroll="true"
@@ -1376,7 +1410,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               >
                 {visibleSocialRanking.length > 0 && (
                   <div
-                    className="flex h-[64px] w-max shrink-0 items-center rounded-full bg-white/[0.045] py-3 pl-3 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]"
+                    className="bottom-track-stats-surface flex h-[48px] w-max shrink-0 items-center rounded-full py-1.5 pl-3 pr-2"
                     aria-label="ranking de reproduções no círculo"
                   >
                     {visibleSocialRanking.map((item, index) => (
@@ -1386,14 +1420,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         style={{ zIndex: visibleSocialRanking.length - index }}
                       >
                         <div className={clsx(
-                          "h-9 w-9 overflow-hidden rounded-full bg-black shadow-[0_5px_12px_rgba(0,0,0,0.28)]",
+                          "h-[29px] w-[29px] overflow-hidden rounded-full bg-black shadow-[0_5px_12px_rgba(0,0,0,0.28)]",
                           "ring-0"
                         )}>
                           <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
                         </div>
                         <span className={clsx(
                           "absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full bg-black/42 px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.25)] backdrop-blur-md",
-                          index === 0 ? "text-orange-100" : "text-white/86"
+                          "text-white"
                         )}>
                           {item.count}
                         </span>
@@ -1402,24 +1436,17 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   </div>
                 )}
                 <div className={clsx(
-                  "relative flex min-h-[90px] w-[250px] shrink-0 items-center gap-2 overflow-hidden rounded-[42px] bg-white/[0.045] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]",
+                  "bottom-track-stats-surface relative flex h-[48px] w-fit max-w-[310px] shrink-0 items-center gap-2 overflow-hidden rounded-full px-3 py-1",
                   visibleSocialRanking.length === 0 && "w-full min-w-full"
                 )}
                 >
                   <div
-                    className="pointer-events-none absolute inset-0 rounded-full"
-                    style={{
-                      background: `linear-gradient(135deg, ${withAlpha(dominantColor, 0.11)} 0%, rgba(0,0,0,0.08) 58%, ${withAlpha(dominantColor, 0.05)} 100%)`,
-                    }}
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.025] via-transparent to-white/[0.018]" />
-                  <div
-                    className="relative flex h-12 shrink-0 items-center py-1.5 pl-1 pr-2"
+                    className="relative flex h-9 shrink-0 items-center py-0.5 pl-1 pr-2"
                   >
                     {(firstDayGroup.length > 0 ? firstDayGroup : [{ user, playedAt: 0 }]).map((entry, index) => (
                       <div
                         key={`${entry.user.id || index}-${entry.playedAt}`}
-                        className="-mr-3 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.055] ring-0 shadow-[0_4px_10px_rgba(0,0,0,0.24)]"
+                        className="-mr-2.5 h-[29px] w-[29px] shrink-0 overflow-hidden rounded-full bg-white/[0.055] ring-0 shadow-[0_4px_10px_rgba(0,0,0,0.24)]"
                         style={{ zIndex: firstDayGroup.length - index }}
                       >
                         <SmartImage
@@ -1432,15 +1459,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     ))}
                   </div>
                   <div
-                    className="relative min-w-0 flex-1 py-1"
+                    className="relative w-fit max-w-[220px] py-1"
                   >
-                    <span className="block text-balance text-[9.5px] font-bold leading-[1.15] text-white/58">
+                    <span className="block max-w-[220px] text-balance text-[9px] font-bold leading-[1.12] text-white/58">
                       {socialInsight}
                     </span>
                   </div>
                 </div>
               </motion.div>
-              )}
 
               <div className="mt-4 flex items-center gap-2">
                 {track?.name && (
@@ -1452,7 +1478,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
                         ? "cursor-not-allowed bg-white/[0.035] text-white/28"
-                        : "border-0 bg-white/[0.045] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.045)] hover:text-white"
+                        : "border-0 bg-white/[0.045] text-white/72 hover:text-white"
                     )}
                   >
                     {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
@@ -1464,7 +1490,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 {(trackLinks.length > 0 || lyricsMatch?.match?.url) && (
                   <div className="flex shrink-0 items-center gap-1.5">
                     {trackLinks.map((link) => (
-                      <TrackLinkIconButton key={link.label} link={link} onChoose={setSelectedTrackLink} />
+                      <TrackLinkIconButton key={link.label} link={link} onChoose={chooseTrackLink} />
                     ))}
                     {lyricsMatch?.match?.url && (
                       <TrackLinkIconButton
@@ -1474,7 +1500,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           url: lyricsMatch.match.url,
                           appUrl: lyricsMatch.match.url,
                         }}
-                        onChoose={setSelectedTrackLink}
+                        onChoose={chooseTrackLink}
                       />
                     )}
                   </div>
@@ -1484,16 +1510,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <AnimatePresence>
                 {selectedTrackLink && (
                   <motion.div
-                    className="absolute inset-0 z-30 flex items-end px-4 pb-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-30 rounded-[34px]"
+                    initial={false}
                     onClick={() => setSelectedTrackLink(null)}
                   >
                     <motion.div
-                      initial={{ y: 28, scale: 0.985 }}
-                      animate={{ y: 0, scale: 1 }}
-                      exit={{ y: 22, scale: 0.985 }}
+                      initial={{ scale: 0.82 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0.88 }}
                       transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
                       drag="y"
                       dragConstraints={{ top: 0, bottom: 0 }}
@@ -1502,46 +1526,54 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         if (info.offset.y > 44 || info.velocity.y > 420) setSelectedTrackLink(null);
                       }}
                       onClick={(event) => event.stopPropagation()}
-                      className="liquid-glass-modal w-full overflow-hidden rounded-[24px] px-2 py-2 shadow-[0_18px_58px_rgba(0,0,0,0.58)]"
+                      className="glass-aura absolute w-max max-w-[calc(100%_-_16px)] overflow-hidden rounded-[14px] px-1 py-1"
+                      style={{
+                        right: trackLinkSheetAnchor.right,
+                        bottom: trackLinkSheetAnchor.bottom,
+                        background: 'rgba(7, 9, 12, 0.68)',
+                        backdropFilter: 'blur(148px) saturate(145%)',
+                        WebkitBackdropFilter: 'blur(148px) saturate(145%)',
+                        border: 'none',
+                        transformOrigin: 'bottom right',
+                      }}
                     >
-                    <div className="mx-auto mb-1.5 h-1 w-9 rounded-full bg-white/22" />
-                    <div className="divide-y divide-white/[0.075]">
+                    <div className="space-y-1">
                       <a
                         href={selectedTrackLink.appUrl || selectedTrackLink.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setSelectedTrackLink(null)}
-                        className="flex items-center gap-3 rounded-[18px] px-3 py-3 text-white/86 active:bg-white/[0.055]"
+                        className="flex items-center gap-2 rounded-[10px] py-1.5 pl-2.5 pr-2 text-white/86 active:bg-white/[0.055]"
                       >
-                        <ExternalLink className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
-                        <span className="text-[15px] font-semibold leading-none">
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[11px] font-semibold leading-none">
                           Abrir no {selectedTrackLink.label === 'stats.fm' && isAppleMusicUser ? 'stats.am' : selectedTrackLink.label}
                         </span>
                       </a>
                       <button
                         type="button"
                         onClick={() => copyTrackLink(selectedTrackLink.url)}
-                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
+                        className="flex w-full items-center gap-2 rounded-[10px] py-1.5 pl-2.5 pr-2 text-left text-white/86 active:bg-white/[0.055]"
                       >
-                        <Copy className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
-                        <span className="text-[15px] font-semibold leading-none">Copiar link</span>
+                        <Copy className="h-3.5 w-3.5 shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[11px] font-semibold leading-none">Copiar link</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => shareTrackLink(selectedTrackLink)}
-                        className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
+                        className="flex w-full items-center gap-2 rounded-[10px] py-1.5 pl-2.5 pr-2 text-left text-white/86 active:bg-white/[0.055]"
                       >
-                        <Share className="h-[18px] w-[18px] shrink-0 text-white/74" strokeWidth={2.4} />
-                        <span className="text-[15px] font-semibold leading-none">Compartilhar</span>
+                        <Share className="h-3.5 w-3.5 shrink-0 text-white/74" strokeWidth={2.4} />
+                        <span className="text-[11px] font-semibold leading-none">Compartilhar</span>
                       </button>
                       {selectedTrackLink.kind === 'genius' && (
                         <button
                           type="button"
                           onClick={copyLyrics}
-                          className="flex w-full items-center gap-3 rounded-[18px] px-3 py-3 text-left text-white/86 active:bg-white/[0.055]"
+                          className="flex w-full items-center gap-2 rounded-[10px] py-1.5 pl-2.5 pr-2 text-left text-white/86 active:bg-white/[0.055]"
                         >
-                          <FileText className="h-[18px] w-[18px] shrink-0 text-white/74" />
-                          <span className="text-[15px] font-semibold leading-none">Copiar letra</span>
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-white/74" />
+                          <span className="text-[11px] font-semibold leading-none">Copiar letra</span>
                         </button>
                       )}
                     </div>
@@ -1567,6 +1599,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
                 {lyricsMatch?.hasLyrics === false ? 'letra indisponível' : 'arraste para cima para ver a letra'}
               </p>
+              </motion.div>
+              )}
               </motion.div>
               ) : (
               <motion.div
