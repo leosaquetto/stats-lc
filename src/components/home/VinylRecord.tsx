@@ -245,7 +245,7 @@ export const VinylRecord = ({
       >
       <div
         ref={discRef}
-        className="h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10"
+        className={`h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10 ${!isPlaying && canAnimate ? "vinyl-record-idle" : ""}`}
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
@@ -272,7 +272,7 @@ export const VinylRecord = ({
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
           transform: `rotate(${rotationRef.current}deg)`,
-          willChange: isPlaying && canAnimate ? 'transform' : 'auto',
+          willChange: canAnimate ? 'transform' : 'auto',
           transition: isPlaying ? 'filter 0.45s ease, box-shadow 0.45s ease, opacity 0.45s ease' : 'filter 0.65s ease, box-shadow 0.65s ease, opacity 0.65s ease',
           opacity: isPlaying ? 1 : 0.82,
           filter: isPlaying ? 'brightness(1.08) saturate(1.08)' : 'none',

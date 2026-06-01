@@ -1319,14 +1319,34 @@ export const useStatsStore = create<StatsState>()(
               return;
             }
 
-            await prepareLiveVisuals(changedLiveUsers);
-
             newGroupStats.users = newUsers;
             newGroupStats.members = newMembers;
             const canonicalGroupStats = stripNowPlayingFromGroupStats(canonicalizeGroupStats(newGroupStats) || newGroupStats) || newGroupStats;
             canonicalGroupStats.lastUpdated = liveData.lastUpdated;
 
             const persistNow = Date.now();
+            set({
+              groupStats: canonicalGroupStats,
+              liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
+              lastFetchTime: { ...get().lastFetchTime, group: persistNow }
+            });
+
+            prepareLiveVisuals(changedLiveUsers).then(() => {
+              const enrichedLiveNowPlaying = changedLiveUsers.reduce<LiveNowPlayingByUserId>((acc, changedUser) => {
+                if (changedUser?.id && changedUser?.nowPlaying?.dominantColor) {
+                  acc[changedUser.id] = changedUser.nowPlaying;
+                }
+                return acc;
+              }, {});
+              if (Object.keys(enrichedLiveNowPlaying).length === 0) return;
+              set((state) => ({
+                liveNowPlayingByUserId: {
+                  ...state.liveNowPlayingByUserId,
+                  ...enrichedLiveNowPlaying,
+                },
+              }));
+            }).catch(() => undefined);
+
             if (persistNow - lastLiveCachePersistAt >= LIVE_CACHE_PERSIST_INTERVAL_MS) {
               lastLiveCachePersistAt = persistNow;
               const liveMembersForCache = getCanonicalMembersWithLive(canonicalGroupStats, nextLiveNowPlayingByUserId);
@@ -1337,11 +1357,6 @@ export const useStatsStore = create<StatsState>()(
               });
               mmkv.set('groupStats_timestamp', persistNow);
             }
-            set({
-              groupStats: canonicalGroupStats,
-              liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
-              lastFetchTime: { ...get().lastFetchTime, group: persistNow }
-            });
           }
         } catch (e) {
           if ((import.meta as any).env?.DEV) {

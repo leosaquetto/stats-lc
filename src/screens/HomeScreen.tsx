@@ -985,11 +985,7 @@ const getReplayTrackUrl = (track: any) => {
 
 export default function HomeScreen() {
   const hasBootReadySession = () => {
-    try {
-      return window.__STATS_LC_HOME_READY__ === true || sessionStorage.getItem('stats-lc-home-boot-ready') === '1';
-    } catch {
-      return window.__STATS_LC_HOME_READY__ === true;
-    }
+    return window.__STATS_LC_HOME_READY__ === true;
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
