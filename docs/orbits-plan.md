@@ -1,0 +1,80 @@
+# Orbits
+
+Orbits sao sugestoes de musicas entre membros do circulo. A feature precisa de backend porque os estados de visto, aberto, ouvido e a contagem de plays depois do envio devem ser compartilhados entre usuarios e comparados contra historico real.
+
+## Modelo
+
+```ts
+type OrbitStatus = 'sent' | 'seen' | 'opened' | 'listened' | 'dismissed';
+
+interface Orbit {
+  id: string;
+  fromUserId: string;
+  toUserId: string;
+  track: NormalizedTrack;
+  message?: string;
+  status: OrbitStatus;
+  createdAt: string;
+  seenAt?: string;
+  openedAt?: string;
+  firstListenedAt?: string;
+  listenCountSinceSent: number;
+  lastCheckedAt?: string;
+  targetPlatform?: string;
+  listenUrl?: string;
+}
+```
+
+## API
+
+- `GET /api/orbits?user=<id>&box=received|sent|all`
+- `GET /api/orbits/summary?user=<id>`
+- `POST /api/orbits`
+- `POST /api/orbits/:id/seen`
+- `POST /api/orbits/:id/opened`
+- `POST /api/orbits/:id/dismiss`
+- `POST /api/orbits/:id/check-listens`
+
+## Regras
+
+- `listenUrl` deve priorizar a plataforma primaria do destinatario (`member.platform.primary`).
+- Se a faixa nao existir na plataforma primaria, usar disponibilidade de catalogo como fallback.
+- Nao inferir origem de playback por `externalIds`; eles servem so para match/catalogo.
+- Para marcar como ouvido, contar streams do destinatario depois de `createdAt`.
+- Match de faixa: `track.id` primeiro, depois `externalIds.spotify/appleMusic`.
+- Nao usar `force=1` em checks automaticos.
+- Nao persistir listas completas de Orbits no Zustand.
+
+## UI em `/circle`
+
+- Inserir bloco `Orbits` entre Arena Live e Timeline da sessao.
+- Mostrar contadores: recebidos, enviados, enviados ouvidos.
+- Abas: `Recebidos`, `Enviados`, `Criar`.
+- Recebidos: quem enviou, capa, musica, artista, mensagem, status e acao ouvir.
+- Enviados: destinatario, visto, link aberto, ouvido e plays desde envio.
+- Criar: escolher amigo, buscar musica, preview, mensagem curta e enviar.
+
+## Ordem
+
+1. Contrato frontend: tipos e `orbitService`. Feito.
+2. UI inicial em `/circle` com estados de loading/erro/vazio. Feito.
+3. Composer com busca de musica e destinatario. Feito.
+4. Backend real no `stats-lc-api`. Feito com fallback em memoria.
+5. Persistencia duravel. Feito via Postgres/Neon quando `DATABASE_URL` ou `POSTGRES_URL` existir.
+6. Integrar acoes de visto/aberto/ouvido. Parcial: visto, aberto e check de plays implementados.
+7. Adicionar entrada `Enviar Orbit` nos modais/cards de musica. Feito na Timeline e no modal de faixa.
+
+## Progresso em 2026-06-01
+
+- `stats-lc-api` ganhou `lib/api-handlers/orbits.ts` e `lib/orbits-store.ts`.
+- Rotas adicionadas no catch-all: `/api/orbits`, `/api/orbits/summary`, `/api/orbits/:id/seen`, `/opened`, `/dismiss`, `/check-listens`, `/delete-sent`, `/delete-received`.
+- `lib/orbits-store.ts` usa Neon/Postgres com `@neondatabase/serverless` se `DATABASE_URL` ou `POSTGRES_URL` estiver configurado.
+- Sem URL de banco, o store usa `Map` em memoria para desenvolvimento.
+- Schema criado automaticamente:
+  - tabela `orbits`
+  - indices `orbits_to_user_idx`, `orbits_from_user_idx`, `orbits_track_idx`
+  - exclusao por lado com `sender_deleted_at` e `recipient_deleted_at`
+- `stats-lc` ganhou `src/services/orbitService.ts` e `src/components/circle/OrbitsSection.tsx`.
+- `/circle` mostra Orbits entre Arena Live e Timeline.
+- Timeline e `TrackHistoryModal` disparam `stats-lc:compose-orbit` para abrir composer com a faixa preenchida.
+- Proximo passo recomendado: configurar Neon no Vercel e setar `DATABASE_URL` no projeto correto antes de validar em producao.

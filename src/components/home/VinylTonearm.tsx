@@ -19,28 +19,62 @@ export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
   const idleAngle = 161;
   const playingAngle = 143;
   const angle = idleAngle + (playingAngle - idleAngle) * level;
-  const cartridgeRotation = angle - 103;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
-  const pointForAngle = (nextAngle: number) => {
-    const angleRadians = nextAngle * Math.PI / 180;
-    return {
-      x: pivotX + Math.cos(angleRadians) * armLength,
-      y: pivotY + Math.sin(angleRadians) * armLength,
-    };
-  };
-  const armEnd = pointForAngle(angle);
-  const playbackAngles = isPlaying
-    ? [angle - 1.15, angle + 0.85, angle - 0.6, angle + 1.05, angle - 1.15]
-    : null;
-  const playbackPoints = playbackAngles?.map(pointForAngle);
-  const playbackRotations = playbackAngles?.map((nextAngle) => nextAngle - 103);
-  const playbackTransition = playbackAngles
-    ? { duration: 4.2, repeat: Infinity, ease: 'easeInOut' as const }
-    : transition;
+  const angleRadians = angle * Math.PI / 180;
+  const unitX = Math.cos(angleRadians);
+  const unitY = Math.sin(angleRadians);
+  const perpX = -unitY;
+  const perpY = unitX;
+  const pointAt = (distance: number, offset = 0) => ({
+    x: pivotX + unitX * distance + perpX * offset,
+    y: pivotY + unitY * distance + perpY * offset,
+  });
+  const polygonPoints = (corners: Array<[number, number]>) =>
+    corners
+      .map(([distance, offset]) => {
+        const point = pointAt(distance, offset);
+        return `${point.x},${point.y}`;
+      })
+      .join(' ');
+  const armEnd = pointAt(armLength);
+  const collarPoints = polygonPoints([
+    [42.8, -1.55],
+    [50.8, -1.55],
+    [50.8, 1.55],
+    [42.8, 1.55],
+  ]);
+  const headPoints = polygonPoints([
+    [49.4, -2.45],
+    [56.6, -2.18],
+    [56.2, 2.48],
+    [49.1, 2.2],
+  ]);
+  const headHighlight = polygonPoints([
+    [50.3, -1.35],
+    [55.3, -1.14],
+    [55.2, -0.52],
+    [50.2, -0.74],
+  ]);
+  const needleStart = pointAt(56.2, -2.12);
+  const needleEnd = pointAt(56.88, -2.76);
 
   useEffect(() => {
     if (isDraggingRef.current) return;
     setLevel(isPlaying ? 1 : 0);
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+
+    let step = 0;
+    const levels = [1, 0.965, 0.99, 0.955];
+    const intervalId = window.setInterval(() => {
+      if (isDraggingRef.current) return;
+      step = (step + 1) % levels.length;
+      setLevel(levels[step]);
+    }, 1150);
+
+    return () => window.clearInterval(intervalId);
   }, [isPlaying]);
 
   const updateFromPointer = (event: ReactPointerEvent<SVGGElement>) => {
@@ -104,13 +138,32 @@ export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
             <circle
               cx="0"
               cy="0"
-              r="10.8"
-              fill="rgba(255,255,255,0.025)"
-              stroke="rgba(0,0,0,0.34)"
-              strokeWidth="0.85"
+              r="14.2"
+              fill="rgba(255,255,255,0.035)"
+              stroke="rgba(0,0,0,0.26)"
+              strokeWidth="0.7"
             />
-            <rect x="-4.6" y="-4.2" width="9.2" height="8.4" rx="1.9" fill={`url(#${uniqueId}-tonearm-head)`} />
-            <rect x="-3.2" y="1.7" width="6.4" height="3.2" rx="1.1" fill="#101115" />
+            <circle
+              cx="0"
+              cy="0"
+              r="12.2"
+              fill="transparent"
+              stroke="rgba(255,255,255,0.055)"
+              strokeWidth="0.42"
+            />
+            <rect
+              x="-5.4"
+              y="-4.1"
+              width="10.8"
+              height="8.9"
+              rx="1.6"
+              fill={`url(#${uniqueId}-tonearm-head)`}
+              stroke="rgba(255,255,255,0.075)"
+              strokeWidth="0.24"
+            />
+            <rect x="1.6" y="-5.45" width="5.1" height="4.7" rx="1" fill="#101115" />
+            <rect x="-3.55" y="3.2" width="7.1" height="3.2" rx="1.1" fill="#0c0d10" />
+            <rect x="-5.55" y="0.5" width="2.15" height="5.4" rx="0.8" fill="#111216" />
           </g>
 
           <motion.line
@@ -119,51 +172,91 @@ export const VinylTonearm = ({ isPlaying }: VinylTonearmProps) => {
             stroke="transparent"
             strokeWidth="7"
             strokeLinecap="round"
-            animate={{
-              x2: playbackPoints?.map((point) => point.x) ?? armEnd.x,
-              y2: playbackPoints?.map((point) => point.y) ?? armEnd.y,
-            }}
-            transition={playbackTransition}
+            animate={{ x2: armEnd.x, y2: armEnd.y }}
+            transition={transition}
+          />
+          <motion.line
+            x1={pivotX}
+            y1={pivotY + 0.44}
+            stroke="rgba(0,0,0,0.26)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            animate={{ x2: armEnd.x, y2: armEnd.y + 0.24 }}
+            transition={transition}
+          />
+          <motion.line
+            x1={pivotX}
+            y1={pivotY + 1.12}
+            stroke="rgba(0,0,0,0.12)"
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            animate={{ x2: armEnd.x, y2: armEnd.y + 0.98 }}
+            transition={transition}
           />
           <motion.line
             x1={pivotX}
             y1={pivotY}
             stroke="rgba(0,0,0,0.72)"
-            strokeWidth="1.28"
+            strokeWidth="1.46"
             strokeLinecap="round"
-            animate={{
-              x2: playbackPoints?.map((point) => point.x) ?? armEnd.x,
-              y2: playbackPoints?.map((point) => point.y) ?? armEnd.y,
-            }}
-            transition={playbackTransition}
+            animate={{ x2: armEnd.x, y2: armEnd.y }}
+            transition={transition}
           />
           <motion.line
             x1={pivotX}
             y1={pivotY}
             stroke="#c4cad2"
-            strokeWidth="0.82"
+            strokeWidth="0.94"
             strokeLinecap="round"
-            animate={{
-              x2: playbackPoints?.map((point) => point.x) ?? armEnd.x,
-              y2: playbackPoints?.map((point) => point.y) ?? armEnd.y,
-            }}
-            transition={playbackTransition}
+            animate={{ x2: armEnd.x, y2: armEnd.y }}
+            transition={transition}
           />
 
-          <motion.g
+          <motion.polygon points={collarPoints} animate={{ points: collarPoints }} transition={transition} fill="#17181c" stroke="rgba(255,255,255,0.1)" strokeWidth="0.28" />
+          <motion.polygon
+            points={polygonPoints([
+              [49.6, 3.35],
+              [56.9, 3.6],
+              [56.5, 5.28],
+              [49.2, 5.02],
+            ])}
             animate={{
-              x: playbackPoints?.map((point) => point.x) ?? armEnd.x,
-              y: playbackPoints?.map((point) => point.y) ?? armEnd.y,
-              rotate: playbackRotations ?? cartridgeRotation,
+              points: polygonPoints([
+                [49.6, 3.35],
+                [56.9, 3.6],
+                [56.5, 5.28],
+                [49.2, 5.02],
+              ])
             }}
-            transition={playbackTransition}
-          >
-            <rect x="-1.65" y="-0.5" width="3.3" height="3.1" rx="0.82" fill="#17181c" stroke="rgba(255,255,255,0.1)" strokeWidth="0.28" />
-            <rect x="-2.25" y="1.85" width="4.5" height="6.8" rx="1.18" fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.12)" strokeWidth="0.32" />
-            <rect x="-1.5" y="2.65" width="3" height="0.68" rx="0.34" fill="rgba(255,255,255,0.08)" />
-            <line x1="2.35" y1="8.25" x2="4.25" y2="8.9" stroke="rgba(251,146,60,0.78)" strokeWidth="0.42" strokeLinecap="round" />
-            <circle cx="4.25" cy="8.9" r="0.2" fill="rgba(254,215,170,0.82)" />
-          </motion.g>
+            transition={transition}
+            fill="rgba(0,0,0,0.13)"
+          />
+          <motion.polygon points={headPoints} animate={{ points: headPoints }} transition={transition} fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.12)" strokeWidth="0.32" />
+          <motion.polygon points={headHighlight} animate={{ points: headHighlight }} transition={transition} fill="rgba(255,255,255,0.08)" />
+          <motion.line
+            x1={needleStart.x}
+            y1={needleStart.y}
+            x2={needleEnd.x}
+            y2={needleEnd.y}
+            animate={{
+              x1: needleStart.x,
+              y1: needleStart.y,
+              x2: needleEnd.x,
+              y2: needleEnd.y,
+            }}
+            transition={transition}
+            stroke="rgba(251,146,60,0.78)"
+            strokeWidth="0.36"
+            strokeLinecap="round"
+          />
+          <motion.circle
+            cx={needleEnd.x}
+            cy={needleEnd.y}
+            r="0.16"
+            animate={{ cx: needleEnd.x, cy: needleEnd.y }}
+            transition={transition}
+            fill="rgba(254,215,170,0.82)"
+          />
         </g>
       </motion.svg>
     </AnimatePresence>

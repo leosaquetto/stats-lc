@@ -8,12 +8,37 @@ import { MusicCard } from '../shared/MusicCard';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useStatsStore } from '../../store/useStatsStore';
+import { getArtistListString } from '../../lib/artistUtils';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 const LIMIT = 20;
+
+const getTrackImage = (track: any) => {
+  const candidates = [
+    track?.albumImage,
+    track?.album?.image,
+    track?.album?.images?.[0]?.url,
+    track?.album?.images?.[0],
+    track?.image,
+    track?.images?.[0]?.url,
+    track?.images?.[0],
+    track?.albumArt,
+    track?.coverArt,
+    track?.cover_art,
+    track?.album_image,
+    track?.cover,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.length > 5) return candidate;
+    if (candidate?.url && typeof candidate.url === 'string') return candidate.url;
+  }
+
+  return '';
+};
 
 interface HistoryRowProps {
   index: number;
@@ -46,7 +71,7 @@ const HistoryRow = React.memo(({ index, style, data }: HistoryRowProps) => {
               {loadingMore ? (
                 <div className="h-4 w-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
               ) : null}
-              <span>{loadingMore ? "Carregando..." : "Carrega mais histórico"}</span>
+              <span>{loadingMore ? "Carregando..." : "Carregar mais histórico"}</span>
             </div>
           </button>
         </div>
@@ -107,9 +132,9 @@ const HistoryRow = React.memo(({ index, style, data }: HistoryRowProps) => {
         userId={user.id}
         userName={user.name}
         songName={trackItem.track?.name}
-        artistName={trackItem.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ')}
+        artistName={getArtistListString(trackItem.track)}
         track={trackItem.track}
-        imageUrl={trackItem.track?.image}
+        imageUrl={getTrackImage(trackItem.track)}
         isNowPlaying={isActuallyLive}
         isFirstPlay={isFirstPlay}
         playCount={userPlayCount}
@@ -235,7 +260,7 @@ export const UserHistoryModal = ({
      if (search) {
        const query = search.toLowerCase();
        const title = (item.track?.name || "").toLowerCase();
-       const artist = (item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "").toLowerCase();
+       const artist = getArtistListString(item.track).toLowerCase();
        const dateStr = coreUtils.formatTimeSP(new Date(item.playedAt || item.timestamp)).toLowerCase();
        if (!title.includes(query) && !artist.includes(query) && !dateStr.includes(query)) {
          return false;
@@ -270,7 +295,7 @@ export const UserHistoryModal = ({
      // 3. Specific fields search
      if (artistFilter) {
        const q = artistFilter.toLowerCase();
-       const artistsStr = (item.track?.artists?.map((a: any) => typeof a === 'string' ? a : a.name).join(', ') || "").toLowerCase();
+       const artistsStr = getArtistListString(item.track).toLowerCase();
        if (!artistsStr.includes(q)) return false;
      }
 
@@ -356,7 +381,7 @@ export const UserHistoryModal = ({
                   />
                  <div className="flex flex-col">
                     <h2 className="text-xl font-mundial font-bold text-white">{user.name}</h2>
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico & Filtros</span>
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico completo</span>
                  </div>
              </div>
              <button onClick={onClose} className="h-10 w-10 glass rounded-full flex items-center justify-center text-xl">×</button>
@@ -383,7 +408,7 @@ export const UserHistoryModal = ({
                  onClick={() => setShowFilters(true)}
                  className="w-full py-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-[10px] font-black uppercase tracking-widest text-orange-400 border border-orange-500/10 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5"
                >
-                 Ver histórico completo (Filtros)
+                 Filtros
                </button>
              ) : (
                <motion.div 

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, History, Users, RefreshCcw } from 'lucide-react';
+import { X, History, Users, RefreshCcw, Send } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
@@ -35,6 +35,11 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
 
     loadHistory();
   }, [track.id, track.spotifyId, track.appleMusicId]);
+
+  const openOrbitComposer = () => {
+    window.dispatchEvent(new CustomEvent('stats-lc:compose-orbit', { detail: { track } }));
+    onClose();
+  };
 
   return (
     <motion.div
@@ -93,6 +98,15 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
                </span>
              </div>
           </div>
+
+          <button
+            type="button"
+            onClick={openOrbitComposer}
+            className="mt-4 flex items-center justify-center gap-2 rounded-2xl bg-orange-500 px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white transition-transform active:scale-95"
+          >
+            <Send className="h-3.5 w-3.5" />
+            Enviar Orbit
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 no-scrollbar">

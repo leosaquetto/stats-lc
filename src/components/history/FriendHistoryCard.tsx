@@ -6,7 +6,7 @@ import { coreUtils } from '../../services/statsCore';
 import { getArtistListString } from '../../lib/artistUtils';
 import { statsCacheService } from '../../services/statsCacheService';
 import { useStatsStore } from '../../store/useStatsStore';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Send } from 'lucide-react';
 import { getCanonicalMembers } from '../../lib/memberSelectors';
 
 const historyItemKey = (item: any, index: number) => {
@@ -97,6 +97,11 @@ const getActivityTimestamp = (user: any) => (
   user?.recent?.[0]?.endTime ||
   null
 );
+
+const openOrbitComposer = (track: any) => {
+  if (!track) return;
+  window.dispatchEvent(new CustomEvent('stats-lc:compose-orbit', { detail: { track } }));
+};
 
 export const FriendHistoryCard = memo(({
   user,
@@ -428,7 +433,18 @@ export const FriendHistoryCard = memo(({
                     </div>
 
                     {/* Direita: tempo ou ícone ao vivo */}
-                    <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openOrbitComposer(item.track);
+                        }}
+                        className="flex h-7 w-7 items-center justify-center rounded-full border border-orange-500/15 bg-orange-500/10 text-orange-400 opacity-70 transition-opacity hover:opacity-100"
+                        aria-label="Enviar Orbit"
+                      >
+                        <Send className="h-3 w-3" />
+                      </button>
                       {item.isLive ? (
                         <LiveWaveIcon />
                       ) : (

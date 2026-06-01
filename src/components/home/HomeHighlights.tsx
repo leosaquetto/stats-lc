@@ -60,6 +60,12 @@ const getOrbitAvatarRadius = (size: 'large' | 'normal' | 'small') => {
   return 6.5;
 };
 
+const getOrbitCenterClearance = (size: 'large' | 'normal' | 'small') => {
+  if (size === 'large') return 34;
+  if (size === 'normal') return 30;
+  return 27;
+};
+
 const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = React.useState(0);
   const previousValueRef = React.useRef(0);
@@ -118,11 +124,15 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
       const size = index === 0 ? 'large' : index < 4 ? 'normal' : 'small';
       let candidate: { left: number; top: number; size: 'large' | 'normal' | 'small' } = { left: 50, top: 50, size };
 
-      for (let attempt = 0; attempt < 28; attempt += 1) {
+      for (let attempt = 0; attempt < 36; attempt += 1) {
         const angle = seededOrbitUnit(arenaSeed + index * 13, attempt) * Math.PI * 2;
-        const radius = index === 0 ? 19 : 29 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 22;
+        const radius = index === 0 ? 32 : 31 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 22;
         const left = Math.max(12, Math.min(88, 50 + Math.cos(angle) * radius));
         const top = Math.max(12, Math.min(88, 50 + Math.sin(angle) * radius * 0.76));
+        const centerDistance = Math.sqrt(
+          Math.pow(left - 50, 2) + Math.pow((top - 50) / 0.76, 2)
+        );
+        const crossesCenter = centerDistance < getOrbitCenterClearance(size);
         const overlaps = placed.some((position) => {
           const dx = position.left - left;
           const dy = position.top - top;
@@ -130,7 +140,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           return Math.sqrt(dx * dx + dy * dy) < spacing;
         });
         candidate = { left, top, size };
-        if (!overlaps) break;
+        if (!crossesCenter && !overlaps) break;
       }
 
       placed.push(candidate);
@@ -268,23 +278,17 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     dragConstraints={stageRef}
                     dragMomentum={false}
                     dragElastic={0.18}
+                    whileDrag={{ scale: 1.06, zIndex: 30 }}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
                       opacity: hasZeroStreams ? 0.5 : 1,
-                      scale: 1,
-                      y: shouldReduceMotion ? 0 : [0, -3, 0]
+                      scale: 1
                     }}
                     exit={{ opacity: 0, scale: 0.5 }}
                     transition={{
                       duration: 0.4,
                       delay: i * 0.1,
-                      ease: [0.16, 1, 0.3, 1],
-                      y: {
-                        duration: 5 + i * 0.5,
-                        repeat: shouldReduceMotion ? 0 : Infinity,
-                        ease: "easeInOut",
-                        delay: i * 0.3
-                      }
+                      ease: [0.16, 1, 0.3, 1]
                     }}
                     className="absolute"
                     style={{
@@ -294,7 +298,16 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       touchAction: 'none',
                     }}
                   >
-                    <div className="relative">
+                    <motion.div
+                      className="relative"
+                      animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
+                      transition={{
+                        duration: 5 + i * 0.5,
+                        repeat: shouldReduceMotion ? 0 : Infinity,
+                        ease: "easeInOut",
+                        delay: i * 0.3
+                      }}
+                    >
                       <div
                         className={cn(
                           "rounded-full overflow-hidden border-2 shadow-2xl transition-all cursor-grab active:cursor-grabbing",
@@ -323,7 +336,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                           <ArenaAnimatedNumber value={streamsToday} />
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
                   </motion.div>
                 );
               })}

@@ -9,6 +9,7 @@ import { AlertTriangle, HeartHandshake, Loader2, Swords, Trophy, Users } from 'l
 import { clsx } from 'clsx';
 import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
+import { OrbitsSection } from '../components/circle/OrbitsSection';
 import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
@@ -286,6 +287,8 @@ function OrbitOverviewSection() {
         </div>
       ) : null}
 
+      <OrbitsSection currentUserId={featuredUserId} members={arenaMembers} />
+
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
@@ -339,7 +342,7 @@ function OrbitOverviewSection() {
                   index={idx}
                   onTrackClick={setSelectedTrackHistory}
                   onFullHistoryClick={(userStats) => setViewingFullHistoryUser(userStats)}
-                  showFullHistoryButton={timelineExpanded}
+                  showFullHistoryButton
                   showInlineHistory
                 />
               </motion.div>
