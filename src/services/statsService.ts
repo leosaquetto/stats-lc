@@ -60,20 +60,28 @@ const decodeHtml = (value: string) => {
 };
 
 const htmlToText = (value: string) => {
-  return decodeHtml(
+  const text = decodeHtml(
     value
       .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|section|h[1-6])>/gi, '\n')
+      .replace(/<\/(p|section|h[1-6])>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, '')
-  )
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  );
+
+  const lines = text.split('\n').map(line => line.trim());
+  const output: string[] = [];
+
+  for (const line of lines) {
+    if (!line) {
+      if (output.length > 0 && output[output.length - 1] !== '') output.push('');
+      continue;
+    }
+    output.push(line);
+  }
+
+  return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 };
 
 const decodeJsStringLiteral = (value: string) => {
@@ -196,6 +204,8 @@ const normalizeTrack = (track: any) => {
     albumArtistId: track.albumArtistId || track.album?.artistId || track.album?.primaryArtistId || track.album?.artist?.id || track.album?.primaryArtist?.id,
     albumArtistName: track.albumArtistName || albumArtistName || track.album?.artistName || track.album?.primaryArtistName || track.album?.artist?.name || track.album?.primaryArtist?.name,
     albumImage: track.albumImage || track.album?.image,
+    albumReleaseDate: track.album?.releaseDate || track.album?.releasedAt || track.album?.release_date || track.albumReleaseDate || track.albums?.[0]?.releaseDate || track.albums?.[0]?.releasedAt || track.albums?.[0]?.release_date,
+    releaseDate: track.releaseDate || track.releasedAt || track.release_date,
     durationMs: track.durationMs,
     playedCount: track.playedCount,
     spotifyId: track.spotifyId,

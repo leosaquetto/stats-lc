@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, X, FileText, Loader2, Disc3, UserCircle, ListMusic } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, X, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -13,7 +13,8 @@ import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
-import { getMainArtistName } from '../lib/artistUtils';
+import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
+import { withAlpha } from '../lib/colorUtils';
 import type { LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
@@ -176,8 +177,22 @@ const getTrackArtistName = (track: any) => {
   return track?.artist?.name || track?.artistName || 'Artista';
 };
 
+const getArtistDisplayName = (artist: any) => {
+  if (!artist) return '';
+  if (typeof artist === 'string') return artist;
+  return artist.name || artist.artistName || artist.displayName || artist.primaryArtistName || '';
+};
+
+const getArtistDisplayId = (artist: any) => {
+  if (!artist || typeof artist === 'string') return '';
+  return String(artist.id || artist.statsfmId || artist.spotifyId || artist.appleMusicId || artist.artistId || '');
+};
+
 const getTrackArtists = (track: any) => {
   const rawArtists = Array.isArray(track?.artists) ? track.artists : [];
+  const mainArtist = getMainArtist(track);
+  const mainArtistId = getArtistDisplayId(mainArtist);
+  const mainArtistName = getArtistDisplayName(mainArtist).trim().toLowerCase();
   const normalized = rawArtists
     .map((artist: any, index: number) => {
       if (typeof artist === 'string') {
@@ -190,7 +205,16 @@ const getTrackArtists = (track: any) => {
     })
     .filter((artist) => artist.name);
 
-  if (normalized.length > 0) return normalized;
+  if (normalized.length > 0) {
+    const mainIndex = normalized.findIndex((artist) => {
+      if (mainArtistId && artist.id === mainArtistId) return true;
+      return !!mainArtistName && artist.name.trim().toLowerCase() === mainArtistName;
+    });
+    if (mainIndex > 0) {
+      return [normalized[mainIndex], ...normalized.filter((_, index) => index !== mainIndex)];
+    }
+    return normalized;
+  }
 
   const fallbackName = getTrackArtistName(track);
   const fallbackId = getMainArtistId(track);
@@ -198,8 +222,12 @@ const getTrackArtists = (track: any) => {
 };
 
 const getTrackArtistImage = (track: any) => {
+  const mainArtist = getMainArtist(track);
   const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
   return [
+    mainArtist?.image,
+    mainArtist?.avatar,
+    mainArtist?.artistImage,
     firstArtist?.image,
     firstArtist?.avatar,
     firstArtist?.artistImage,
@@ -211,26 +239,54 @@ const getTrackArtistImage = (track: any) => {
 };
 
 const getMainArtistId = (track: any) => {
+  const mainArtist = getMainArtist(track);
   const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : undefined;
-  return String(firstArtist?.id || firstArtist?.statsfmId || firstArtist?.spotifyId || firstArtist?.appleMusicId || track?.artist?.id || track?.artistId || '');
+  return String(
+    getArtistDisplayId(mainArtist) ||
+    firstArtist?.id ||
+    firstArtist?.statsfmId ||
+    firstArtist?.spotifyId ||
+    firstArtist?.appleMusicId ||
+    track?.artist?.id ||
+    track?.artistId ||
+    ''
+  );
 };
 
 const getAlbumId = (track: any) => String(track?.albumId || track?.album?.id || '');
+
+const getAlbumReleaseDate = (track: any) => {
+  const firstAlbum = Array.isArray(track?.albums) ? track.albums[0] : undefined;
+  return [
+    track?.album?.releaseDate,
+    track?.album?.releasedAt,
+    track?.album?.release_date,
+    track?.album?.date,
+    firstAlbum?.releaseDate,
+    firstAlbum?.releasedAt,
+    firstAlbum?.release_date,
+    firstAlbum?.date,
+    track?.albumReleaseDate,
+    // Último recurso para payloads antigos: a data da faixa não deve sobrepor a do álbum.
+    track?.releaseDate,
+    track?.releasedAt,
+  ].find((value) => typeof value === 'string' && value.trim().length > 0) || '';
+};
 
 const firstExternalId = (value: any) => {
   if (Array.isArray(value)) return value.find((item) => typeof item === 'string' && item.trim()) || '';
   return typeof value === 'string' ? value : '';
 };
 
-const getTrackLinks = (track: any) => {
+const getTrackLinks = (track: any, statsAppUrl?: string) => {
   const spotifyId = track?.spotifyId || firstExternalId(track?.externalIds?.spotify);
   const appleMusicId = track?.appleMusicId || firstExternalId(track?.externalIds?.appleMusic);
   const statsId = track?.id || track?.statsfmId;
   return [
-    statsId && { kind: 'statsfm' as const, label: 'stats.fm', url: `https://stats.fm/track/${statsId}` },
+    statsId && { kind: 'statsfm' as const, label: 'stats.fm', url: `https://stats.fm/track/${statsId}`, appUrl: statsAppUrl },
     spotifyId && { kind: 'spotify' as const, label: 'Spotify', url: `https://open.spotify.com/track/${spotifyId}`, appUrl: `spotify:track:${spotifyId}` },
     appleMusicId && { kind: 'apple' as const, label: 'Apple Music', url: `https://music.apple.com/song/${appleMusicId}`, appUrl: `music://music.apple.com/song/${appleMusicId}` },
-  ].filter(Boolean) as Array<{ kind: 'statsfm' | 'spotify' | 'apple'; label: string; url: string; appUrl?: string }>;
+  ].filter(Boolean) as Array<{ kind: 'statsfm' | 'spotify' | 'apple' | 'genius'; label: string; url: string; appUrl?: string }>;
 };
 
 const formatShortDate = (value: any) => {
@@ -245,6 +301,17 @@ const formatFullDate = (value: any) => {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'sem registro';
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatAlbumReleaseDate = (value: any) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const currentYear = new Date().getFullYear();
+  const options: Intl.DateTimeFormatOptions = date.getFullYear() === currentYear
+    ? { day: '2-digit', month: 'short' }
+    : { day: '2-digit', month: 'short', year: 'numeric' };
+  return date.toLocaleDateString('pt-BR', options).replace('.', '.');
 };
 
 const cleanLyricsForDisplay = (lyrics?: string | null) => {
@@ -358,26 +425,39 @@ const getUserTrackStatsSource = (user: any) => {
 
 type TrackLink = ReturnType<typeof getTrackLinks>[number];
 
+const ArtistNamesInline = ({ artists, fallback }: { artists: Array<{ name: string }>; fallback: string }) => {
+  const names = artists.map((artist) => artist.name).filter(Boolean);
+  const displayNames = names.length > 0 ? names : [fallback].filter(Boolean);
+
+  return (
+    <>
+      {displayNames.map((name, index) => {
+        const isLast = index === displayNames.length - 1;
+        const separator = index === 0
+          ? ''
+          : isLast
+            ? ' & '
+            : ', ';
+
+        return (
+          <React.Fragment key={`${name}-${index}`}>
+            {separator && <span className="text-orange-300/72">{separator}</span>}
+            <span>{name}</span>
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+};
+
 const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (link: TrackLink) => void }) => {
   const icon = link.kind === 'statsfm'
     ? <StatsFmMark className="h-4 w-4 text-current" />
     : link.kind === 'spotify'
       ? <SpotifyMark className="h-4 w-4 text-current" />
-      : <AppleMark className="h-4 w-4 text-current" />;
-
-  if (link.kind === 'statsfm') {
-    return (
-      <a
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Abrir no stats.fm"
-        className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.065] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform active:scale-95"
-      >
-        {icon}
-      </a>
-    );
-  }
+      : link.kind === 'apple'
+        ? <AppleMark className="h-4 w-4 text-current" />
+        : <GeniusLogo className="h-4 w-4 text-current" />;
 
   return (
     <button
@@ -402,6 +482,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [lyricsLoading, setLyricsLoading] = React.useState(false);
   const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
+  const [toastMessage, setToastMessage] = React.useState('');
   const [entityStats, setEntityStats] = React.useState({ artist: 0, track: 0, album: 0 });
   const [artistStats, setArtistStats] = React.useState<Array<{ id: string; name: string; image: string; key: string; count: number }>>([]);
   const [circleFirstListen, setCircleFirstListen] = React.useState<{ user: any; playedAt: number } | null>(null);
@@ -424,7 +505,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const artwork = getTrackArtwork(track);
   const artistImage = trackArtists[0]?.image || getTrackArtistImage(track) || artwork;
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
-  const trackLinks = React.useMemo(() => getTrackLinks(track), [track]);
+  const dominantColor = user?.nowPlaying?.dominantColor || track?.dominantColor || '#ff5f00';
+  const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(getAlbumReleaseDate(track)), [track]);
+  const isAppleMusicUser = user?.platform?.primary === 'appleMusic' || user?.platform === 'appleMusic' || user?.nowPlaying?.platform === 'appleMusic';
+  const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
+  const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
@@ -529,30 +614,49 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       .sort((a, b) => b.count - a.count);
   }, [members, trackId, userTrackStats]);
   const hasPreviousTrackHistory = !!trackHistory.firstPlayedAt;
-  const visibleSocialRanking = hasFriendHistory ? ranking.slice(0, 3) : [];
-  const hiddenSocialRankingCount = hasFriendHistory ? Math.max(0, ranking.length - visibleSocialRanking.length) : 0;
+  const visibleSocialRanking = hasFriendHistory ? ranking : [];
   const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0]?.toLowerCase() || '';
   const firstDayGroup = circleFirstListeners.length > 0
     ? circleFirstListeners
     : circleFirstListen
       ? [circleFirstListen]
       : [];
-  const visibleFirstDayGroup = firstDayGroup.slice(0, 3);
-  const hiddenFirstDayGroupCount = Math.max(0, firstDayGroup.length - visibleFirstDayGroup.length);
   const hasFirstDayGroup = firstDayGroup.length > 1;
   const socialInsight = circleFirstListen
     ? hasFirstDayGroup
-      ? 'Vocês ouviram primeiro juntos!'
+      ? `Vocês foram os primeiros do círculo a ouvirem essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
       : circleFirstListen.user.id === user.id
-      ? `Você ouviu primeiro em ${formatShortDate(circleFirstListen.playedAt)}.`
-      : `${circleFirstName.charAt(0).toUpperCase()}${circleFirstName.slice(1)} ouviu primeiro em ${formatShortDate(circleFirstListen.playedAt)}.`
+      ? `Você foi o primeiro do círculo a ouvir essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
+      : `${circleFirstName.charAt(0).toUpperCase()}${circleFirstName.slice(1)} foi o primeiro do círculo a ouvir essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
     : hasFriendHistory
       ? 'O círculo já ouviu, mas sem data confiável.'
       : 'Só você ouviu essa faixa por enquanto.';
 
+  const showToast = React.useCallback((message: string) => {
+    setToastMessage(message);
+    window.setTimeout(() => setToastMessage(''), 1800);
+  }, []);
+
   const copyTrackLink = async (url: string) => {
     try {
       await navigator.clipboard?.writeText(url);
+      showToast('Link copiado para a área de transferência.');
+    } catch {}
+    setSelectedTrackLink(null);
+  };
+
+  const shareTrackLink = async (link: TrackLink) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${trackTitle} - ${artistName}`,
+          text: `${trackTitle} - ${artistName}`,
+          url: link.url,
+        });
+      } else {
+        await navigator.clipboard?.writeText(link.url);
+        showToast('Link copiado para a área de transferência.');
+      }
     } catch {}
     setSelectedTrackLink(null);
   };
@@ -570,6 +674,25 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }
     setPanel('lyrics');
   }, [artistName, track?.name]);
+
+  const copyLyrics = React.useCallback(async () => {
+    if (!track?.name) return;
+    setLyricsLoading(true);
+    const response = await statsService.fetchLyricsFull(track.name, artistName);
+    setLyricsLoading(false);
+    setLyricsMatch(response);
+    const cleaned = cleanLyricsForDisplay(response.lyrics);
+    if (!cleaned) {
+      showToast('Letra indisponível.');
+      return;
+    }
+    setLyricsText(response.lyrics || '');
+    try {
+      await navigator.clipboard?.writeText(cleaned);
+      showToast('Letra copiada para a área de transferência.');
+    } catch {}
+    setSelectedTrackLink(null);
+  }, [artistName, showToast, track?.name]);
 
   React.useEffect(() => {
     if (panel !== 'lyrics' || !isOpen || !track?.name) return;
@@ -649,8 +772,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <X className="h-4 w-4" />
               </button>
 
-              <div className="flex items-start gap-4 pr-10">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-white/[0.04]">
+              <div className="flex items-center gap-4 pr-10">
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[20px] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
                   ) : (
@@ -658,11 +781,29 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       <Music2 className="h-9 w-9 text-white/36" />
                     </div>
                   )}
+                  {panel === 'lyrics' && (
+                    <img
+                      src="/genius_colored.svg"
+                      alt=""
+                      className="absolute bottom-1.5 right-1.5 h-6 w-6 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]"
+                    />
+                  )}
                 </div>
                 <div className="min-w-0 pt-1">
                   <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">{panel === 'lyrics' ? 'Letra' : 'Stats da música'}</span>
                   <h3 className="mt-1 line-clamp-2 text-[22px] font-black leading-[1.02] text-white">{trackTitle}</h3>
-                  <p className="mt-1 truncate text-sm font-semibold text-white/48">{artistName}</p>
+                  <p className="mt-1 text-sm font-semibold leading-tight text-white/48">
+                    <ArtistNamesInline artists={trackArtists} fallback={artistName} />
+                  </p>
+                  <p className="mt-1 line-clamp-1 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
+                    {albumName}
+                    {albumReleaseDate && (
+                      <>
+                        <span className="px-1.5 text-orange-300/60">•</span>
+                        <span>{albumReleaseDate}</span>
+                      </>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -696,13 +837,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               {artistStats.length > 1 && (
                 <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true">
                   {artistStats.map((artist) => (
-                    <div key={artist.key} className="flex min-w-[118px] shrink-0 items-center gap-2 rounded-full bg-black/18 px-2.5 py-2">
+                    <div
+                      key={artist.key}
+                      className={clsx(
+                        "flex min-w-0 items-center gap-2 rounded-full bg-black/18 px-2.5 py-2",
+                        artistStats.length <= 3 ? "flex-1 shrink" : "min-w-[128px] flex-1 shrink-0"
+                      )}
+                    >
                       <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.05]">
                         <SmartImage src={artist.image || artistImage} className="h-full w-full object-cover" rounded="full" fallback={artist.name} />
                       </div>
                       <div className="min-w-0">
                         <span className="block truncate text-[9px] font-black text-white/78">{artist.name}</span>
-                        <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-orange-300"><AnimatedNumber value={artist.count} /></span>
+                        <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-orange-300"><AnimatedNumber value={artist.count} /></span>
                       </div>
                     </div>
                   ))}
@@ -713,16 +860,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="mt-2">
                   <div className={clsx("grid gap-1.5", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
                     <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
-                      <span className="block text-[5px] font-black uppercase leading-none tracking-[0.08em] text-white/32">Primeiro stream</span>
+                      <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Primeiro stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.firstPlayedAt)}</span>
                     </div>
                     <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
-                      <span className="block text-[5px] font-black uppercase leading-none tracking-[0.08em] text-white/32">Último stream</span>
+                      <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Último stream</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.lastPlayedAt)}</span>
                     </div>
                     {trackHistory.bestYear && (
                     <div className="min-w-0 rounded-full bg-black/20 px-3 py-2">
-                      <span className="block text-[5px] font-black uppercase leading-none tracking-[0.08em] text-white/32">Mais ouviu em</span>
+                      <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Ano recorde</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">
                         {trackHistory.bestYearCount}x em {trackHistory.bestYear}
                       </span>
@@ -738,51 +885,54 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
               <div className="mt-3 flex items-center gap-2">
                 {visibleSocialRanking.length > 0 && (
-                  <div className="relative h-[48px] w-[92px] shrink-0" aria-label="ranking de reproduções no círculo">
+                  <div
+                    className="flex h-[64px] max-w-[34%] shrink-0 items-center overflow-x-auto no-scrollbar py-3 pl-3 pr-4"
+                    aria-label="ranking de reproduções no círculo"
+                    data-home-horizontal-scroll="true"
+                  >
                     {visibleSocialRanking.map((item, index) => (
                       <div
                         key={item.user.id}
-                        className="absolute top-1"
-                        style={{ left: index * 20, zIndex: visibleSocialRanking.length - index }}
+                        className="relative -mr-1.5 shrink-0"
+                        style={{ zIndex: visibleSocialRanking.length - index }}
                       >
                         <div className={clsx(
-                          "h-9 w-9 overflow-hidden rounded-full bg-black shadow-[0_8px_18px_rgba(0,0,0,0.35)]",
+                          "h-9 w-9 overflow-hidden rounded-full bg-black shadow-[0_5px_12px_rgba(0,0,0,0.28)]",
                           "ring-1 ring-white/12"
                         )}>
                           <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
                         </div>
                         <span className={clsx(
-                          "absolute -bottom-1.5 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_4px_10px_rgba(0,0,0,0.35)]",
+                          "absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_3px_8px_rgba(0,0,0,0.28)]",
                           index === 0 ? "bg-orange-500 text-white" : "bg-[#272727] text-white/86"
                         )}>
                           {item.count}
                         </span>
                       </div>
                     ))}
-                    {hiddenSocialRankingCount > 0 && (
-                      <div
-                        className="absolute top-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.1] bg-black/38 text-[10px] font-black text-white shadow-[0_8px_20px_rgba(0,0,0,0.35)] backdrop-blur-xl"
-                        style={{ left: visibleSocialRanking.length * 20, zIndex: 0 }}
-                      >
-                        +{hiddenSocialRankingCount}
-                      </div>
-                    )}
                   </div>
                 )}
                 <div className={clsx(
-                  "relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-full bg-white/[0.055] px-3 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_30px_rgba(0,0,0,0.24)]",
+                  "relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-full bg-black/18 px-3 py-2 backdrop-blur-xl",
                   visibleSocialRanking.length === 0 && "w-full"
-                )}>
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.035] via-transparent to-white/[0.025]" />
+                )}
+                >
                   <div
-                    className="relative h-9 shrink-0"
-                    style={{ width: visibleFirstDayGroup.length > 1 ? 36 + (visibleFirstDayGroup.length - 1) * 18 + (hiddenFirstDayGroupCount > 0 ? 18 : 0) : 36 }}
+                    className="pointer-events-none absolute inset-0 rounded-full"
+                    style={{
+                      background: `linear-gradient(135deg, ${withAlpha(dominantColor, 0.11)} 0%, rgba(0,0,0,0.08) 58%, ${withAlpha(dominantColor, 0.05)} 100%)`,
+                    }}
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.025] via-transparent to-white/[0.018]" />
+                  <div
+                    className="relative flex h-12 max-w-[42%] shrink-0 items-center overflow-x-auto no-scrollbar py-1.5 pl-2 pr-4"
+                    data-home-horizontal-scroll="true"
                   >
-                    {(visibleFirstDayGroup.length > 0 ? visibleFirstDayGroup : [{ user, playedAt: 0 }]).map((entry, index) => (
+                    {(firstDayGroup.length > 0 ? firstDayGroup : [{ user, playedAt: 0 }]).map((entry, index) => (
                       <div
                         key={`${entry.user.id || index}-${entry.playedAt}`}
-                        className="absolute top-0 h-9 w-9 overflow-hidden rounded-full bg-white/[0.055] ring-1 ring-white/12 shadow-[0_6px_14px_rgba(0,0,0,0.28)]"
-                        style={{ left: index * 18, zIndex: visibleFirstDayGroup.length - index }}
+                        className="-mr-1.5 h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/[0.055] ring-1 ring-white/12 shadow-[0_4px_10px_rgba(0,0,0,0.24)]"
+                        style={{ zIndex: firstDayGroup.length - index }}
                       >
                         <SmartImage
                           src={coreUtils.getUserAvatar(entry.user?.id || user.id, entry.user?.avatar || user.avatar)}
@@ -792,18 +942,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         />
                       </div>
                     ))}
-                    {hiddenFirstDayGroupCount > 0 && (
-                      <div
-                        className="absolute top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/42 text-[9px] font-black text-white ring-1 ring-white/10 backdrop-blur-xl"
-                        style={{ left: visibleFirstDayGroup.length * 18, zIndex: 0 }}
-                      >
-                        +{hiddenFirstDayGroupCount}
-                      </div>
-                    )}
                   </div>
-                  <span className="relative min-w-0 line-clamp-2 text-[10px] font-bold leading-[1.12] text-white/58">
-                    {socialInsight}
-                  </span>
+                  <div
+                    className="relative min-w-0 flex-1 overflow-x-auto no-scrollbar py-1"
+                    data-home-horizontal-scroll="true"
+                  >
+                    <span className="block w-max whitespace-nowrap text-[10px] font-bold leading-none text-white/58">
+                      {socialInsight}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -820,17 +967,28 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         : "bg-white/[0.06] text-white/72 hover:bg-white/[0.1] hover:text-white"
                     )}
                   >
-                    {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GeniusLogo className="h-4 w-4 text-current" />}
+                    {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
                     <span className="whitespace-nowrap">
                       {lyricsLoading ? 'Buscando' : lyricsMatch?.hasLyrics === false ? 'Letra indisponível' : 'Ver letra'}
                     </span>
                   </button>
                 )}
-                {trackLinks.length > 0 && (
+                {(trackLinks.length > 0 || lyricsMatch?.match?.url) && (
                   <div className="flex shrink-0 items-center gap-1.5">
                     {trackLinks.map((link) => (
                       <TrackLinkIconButton key={link.label} link={link} onChoose={setSelectedTrackLink} />
                     ))}
+                    {lyricsMatch?.match?.url && (
+                      <TrackLinkIconButton
+                        link={{
+                          kind: 'genius',
+                          label: 'Genius',
+                          url: lyricsMatch.match.url,
+                          appUrl: lyricsMatch.match.url,
+                        }}
+                        onChoose={setSelectedTrackLink}
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -838,42 +996,72 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <AnimatePresence>
                 {selectedTrackLink && (
                   <motion.div
-                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                    initial={{ opacity: 0, y: 28, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.97 }}
+                    exit={{ opacity: 0, y: 18, scale: 0.97 }}
                     transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-                    className="absolute inset-x-5 bottom-20 z-30 rounded-[24px] border border-white/[0.08] bg-black/72 p-3 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur-2xl"
+                    className="glass-aura absolute inset-x-9 bottom-4 z-30 overflow-hidden rounded-[28px] px-4 py-3 shadow-[0_24px_70px_rgba(0,0,0,0.56)]"
                   >
-                    <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                      <span className="text-[9px] font-black uppercase tracking-[0.16em] text-white/48">{selectedTrackLink.label}</span>
-                      <button type="button" onClick={() => setSelectedTrackLink(null)} className="rounded-full p-1 text-white/36" aria-label="Fechar opções">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="divide-y divide-white/[0.08]">
                       <a
                         href={selectedTrackLink.appUrl || selectedTrackLink.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setSelectedTrackLink(null)}
-                        className="rounded-full bg-white/[0.08] px-3 py-3 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white/72"
+                        className="flex items-center gap-4 py-3.5 text-white/86 active:bg-white/[0.04]"
                       >
-                        Abrir no app
+                        <ExternalLink className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
+                        <span className="text-[17px] font-medium leading-none">
+                          Abrir no {selectedTrackLink.label === 'stats.fm' && isAppleMusicUser ? 'stats.am' : selectedTrackLink.label}
+                        </span>
                       </a>
                       <button
                         type="button"
                         onClick={() => copyTrackLink(selectedTrackLink.url)}
-                        className="rounded-full bg-white/[0.08] px-3 py-3 text-[10px] font-black uppercase tracking-[0.12em] text-white/72"
+                        className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
                       >
-                        Copiar link
+                        <Copy className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
+                        <span className="text-[17px] font-medium leading-none">Copiar link</span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => shareTrackLink(selectedTrackLink)}
+                        className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
+                      >
+                        <Share className="h-5 w-5 shrink-0 text-white/78" strokeWidth={2.4} />
+                        <span className="text-[17px] font-medium leading-none">Compartilhar</span>
+                      </button>
+                      {selectedTrackLink.kind === 'genius' && (
+                        <button
+                          type="button"
+                          onClick={copyLyrics}
+                          className="flex w-full items-center gap-4 py-3.5 text-left text-white/86 active:bg-white/[0.04]"
+                        >
+                          <FileText className="h-5 w-5 shrink-0 text-white/78" />
+                          <span className="text-[17px] font-medium leading-none">Copiar letra</span>
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
+              <AnimatePresence>
+                {toastMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                    className="absolute inset-x-8 bottom-5 z-40 rounded-full bg-black/72 px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82 shadow-[0_16px_38px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+                  >
+                    {toastMessage}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
-                arraste para cima para ver a letra
+                {lyricsMatch?.hasLyrics === false ? 'letra indisponível' : 'arraste para cima para ver a letra'}
               </p>
               </motion.div>
               ) : (
@@ -890,13 +1078,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
                   </div>
                 ) : cleanedLyricsText ? (
-                  <div className="max-h-[42vh] overflow-y-auto pr-2 text-[24px] font-black leading-[1.26] text-white/92">
+                  <div className="max-h-[34vh] overflow-y-auto pr-2 text-[17px] font-black leading-[1.36] text-white/92 sm:text-[18px]">
                     <div className="whitespace-pre-line">{cleanedLyricsText}</div>
-                    {writerNames && (
-                      <p className="mt-9 text-[22px] font-normal leading-[1.28] text-white/88">
-                        <strong className="font-black text-white">Autoria:</strong> {writerNames}
-                      </p>
-                    )}
                   </div>
                 ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
                   <div className="flex h-[34vh] flex-col items-center justify-center gap-4 px-5 text-center">
@@ -926,13 +1109,29 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => setPanel('stats')}
-                  className="mt-4 w-full rounded-full bg-white/[0.055] px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] text-white/52"
-                >
-                  stats
-                </button>
+                <div className="mt-4 rounded-[18px] bg-white/[0.055] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <span className="block text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">Composição</span>
+                  <p className="mt-1 text-[11px] font-medium leading-snug text-white/62">
+                    {writerNames || 'Autoria indisponível'}
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
+                  <span>Powered by</span>
+                  {lyricsMatch?.match?.url ? (
+                    <a
+                      href={lyricsMatch.match.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-start gap-1 text-white/24 transition-colors hover:text-white/42"
+                      aria-label="Abrir Genius"
+                    >
+                      <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-40 grayscale invert transition-opacity group-hover:opacity-60" />
+                      <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
+                    </a>
+                  ) : (
+                    <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-40 grayscale invert" />
+                  )}
+                </div>
               </motion.div>
               )}
               </AnimatePresence>

@@ -21,6 +21,24 @@ export interface Track {
   albumArtist?: string;
   albumId?: string;
   albumImage?: string;
+  albumReleaseDate?: string;
+  releaseDate?: string;
+  album?: {
+    id?: string;
+    name?: string;
+    image?: string;
+    releaseDate?: string;
+    releasedAt?: string;
+    release_date?: string;
+  };
+  albums?: Array<{
+    id?: string;
+    name?: string;
+    image?: string;
+    releaseDate?: string;
+    releasedAt?: string;
+    release_date?: string;
+  }>;
   image?: string;
   spotifyId?: string;
   appleMusicId?: string;

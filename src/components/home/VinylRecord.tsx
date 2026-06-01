@@ -122,6 +122,7 @@ export const VinylRecord = ({
   }, [baseDominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
+  const resinAlpha        = isPlaying ? 0.38 : 0.32;
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -203,18 +204,18 @@ export const VinylRecord = ({
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
-            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.55 : 0.26)} 0%, transparent 46%),
+            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.42 : 0.22)} 0%, transparent 46%),
             radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.22 : 0.06)} 0%, transparent 50%),
             radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
             conic-gradient(
               from ${118 + textureVariant * 34}deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.3 : 0.52)} 0deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.18 : 0.3)} 46deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : 0.42)} 118deg,
-              ${withAlpha(darkColor, 0.10)} 174deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.2 : 0.34)} 232deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : 0.42)} 304deg,
-              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.3 : 0.52)} 360deg
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : resinAlpha)} 0deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.18 : 0.22)} 46deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.26 : resinAlpha - 0.06)} 118deg,
+              ${withAlpha(darkColor, 0.08)} 174deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.2 : 0.24)} 232deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.26 : resinAlpha - 0.06)} 304deg,
+              ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : resinAlpha)} 360deg
             )
           `,
           isolation: 'isolate',
@@ -238,7 +239,20 @@ export const VinylRecord = ({
           style={{
             background: textureVariant === 1
               ? 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.1) 0%, transparent 50%)'
-              : 'radial-gradient(circle at 50% 50%, transparent 0 24%, rgba(255,255,255,0.06) 25%, transparent 29%)',
+              : 'radial-gradient(circle at 50% 50%, transparent 0 22%, rgba(255,255,255,0.09) 23%, rgba(255,255,255,0.045) 31%, transparent 53%, rgba(255,255,255,0.055) 78%, transparent 100%)',
+          }}
+        />
+
+        {/* Resina externa mais translúcida, como o vinil físico fora do rótulo. */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none z-[12]"
+          style={{
+            background: `
+              radial-gradient(circle at 36% 24%, rgba(255,255,255,0.18) 0%, transparent 26%),
+              radial-gradient(circle at center, transparent 0 31%, rgba(255,255,255,0.05) 32%, rgba(255,255,255,0.015) 72%, transparent 100%)
+            `,
+            mixBlendMode: 'screen',
+            opacity: isPlaying ? 0.86 : 0.72,
           }}
         />
 
@@ -378,7 +392,16 @@ export const VinylRecord = ({
                     fallback="💿"
                     rounded="full"
                   />
-                  <div className="absolute inset-0 rounded-full border border-white/5 pointer-events-none" />
+                  <div
+                    className="absolute inset-0 rounded-full border border-white/5 pointer-events-none"
+                    style={{
+                      background: `
+                        radial-gradient(circle at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.14) 7%, transparent 11%),
+                        radial-gradient(circle at center, transparent 0 58%, rgba(0,0,0,0.22) 100%)
+                      `,
+                      boxShadow: 'inset 0 0 18px rgba(0,0,0,0.34), inset 0 0 1px rgba(255,255,255,0.38)',
+                    }}
+                  />
                 </div>
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-900 z-10">

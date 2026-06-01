@@ -5,14 +5,15 @@
 
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
-import { Repeat, Music2, TrendingUp, Star, BookOpen } from 'lucide-react';
+import { Repeat, TrendingUp, Star, BookOpen } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { formatTimeSP, isTodaySP, formatDateSP, isYesterdaySP } from '../../lib/time';
 import { UserStats } from '../../types/stats';
 import {
   SmartImage,
-  AnimatedNumber
+  AnimatedNumber,
+  StatsLCLogo
 } from '../shared/CommonUI';
 import { VinylRecord } from './VinylRecord';
 import { statsService } from '../../services/statsService';
@@ -644,6 +645,7 @@ const ArenaRankingBubble = ({
   isHiddenInitial: boolean;
 }) => {
   const isSelected = user.id === selectedUserId;
+  const showFirstListenStar = isSelected && user.plays === 1;
   const x = useTransform(dragX, value => {
     const position = index * ARENA_BADGE_SLOT_SIZE + Number(value);
     const visiblePosition = Math.max(0, Math.min(ARENA_BADGE_MORE_SLOT * ARENA_BADGE_SLOT_SIZE, position));
@@ -705,7 +707,11 @@ const ArenaRankingBubble = ({
           isSelected ? "bg-[#ff6a00] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.26)]" : "glass-aura border-0"
         )}
       >
-        {coreUtils.formatNumber(user.plays)}
+        {showFirstListenStar ? (
+          <Star className="h-2.5 w-2.5 fill-white text-white" strokeWidth={2.4} />
+        ) : (
+          coreUtils.formatNumber(user.plays)
+        )}
       </div>
     </motion.div>
   );
@@ -786,6 +792,25 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const mainArtistName = useMemo(() => track ? getMainArtistName(track) : '', [track]);
   const [hasLyricsBadge, setHasLyricsBadge] = useState(false);
   const secondaryArtists = useMemo(() => track ? getSecondaryArtists(track) : [], [track]);
+  const displayArtists = useMemo(() => {
+    const artists = [];
+    if (mainArtistName) {
+      artists.push({
+        id: mainArtist?.id || '',
+        name: mainArtistName,
+        type: 'primary' as const,
+      });
+    }
+    secondaryArtists.forEach((artist) => {
+      if (!artist?.name) return;
+      artists.push({
+        id: artist.id || '',
+        name: artist.name,
+        type: 'secondary' as const,
+      });
+    });
+    return artists;
+  }, [mainArtist?.id, mainArtistName, secondaryArtists]);
   const albumArtistName = useMemo(() => {
     if (!track) return '';
     const candidate =
@@ -969,6 +994,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const othersPlayed = allTrackArenaUsers.some(u => u.id !== user.id);
   const showRankingSummary = !hideRankingBadge && othersPlayed;
+  const showExclusiveFirstListen = playCount === 1 && !showRankingSummary;
 
   const shouldShowAlbumTitle = !!track?.albumName;
   const liveRingDuration = useMemo(() => 2.7 + (user.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % 7) * 0.18, [user.id]);
@@ -1236,45 +1262,32 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           title={track.name}
                           onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                         />
-                        <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 flex items-center flex-wrap gap-x-1 pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
-                          <span
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (mainArtist) {
-                                onTrackClick?.({
-                                  id: mainArtist.id || '',
-                                  name: mainArtistName,
-                                  type: 'artist'
-                                });
-                              }
-                            }}
-                            className="hover:underline cursor-pointer text-white/72"
-                          >
-                            {mainArtistName}
-                          </span>
-                          {secondaryArtists.length > 0 && (
-                            <>
-                              <span className="text-white/40">·</span>
-                              {secondaryArtists.map((sec, idx) => (
-                                <React.Fragment key={`secondary-${sec.id || sec.name || 'artist'}-${idx}`}>
-                                  {idx > 0 && <span className="text-white/40">·</span>}
-                                  <span
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onTrackClick?.({
-                                        id: sec.id || '',
-                                        name: sec.name,
-                                        type: 'artist'
-                                      });
-                                    }}
-                                    className="hover:underline cursor-pointer text-white/58"
-                                  >
-                                    {sec.name}
-                                  </span>
-                                </React.Fragment>
-                              ))}
-                            </>
-                          )}
+                        <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 block pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
+                          {displayArtists.map((artist, idx) => {
+                            const isLast = idx === displayArtists.length - 1;
+                            const separator = idx === 0 ? '' : isLast ? '\u00a0&\u00a0' : ',\u00a0';
+                            return (
+                              <React.Fragment key={`${artist.type}-${artist.id || artist.name}-${idx}`}>
+                                {separator && <span className="text-white/40">{separator}</span>}
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTrackClick?.({
+                                      id: artist.id || '',
+                                      name: artist.name,
+                                      type: 'artist'
+                                    });
+                                  }}
+                                  className={cn(
+                                    "hover:underline cursor-pointer",
+                                    artist.type === 'primary' ? "text-white/72" : "text-white/58"
+                                  )}
+                                >
+                                  {artist.name}
+                                </span>
+                              </React.Fragment>
+                            );
+                          })}
                         </div>
                         {shouldShowAlbumTitle && (
                           <div
@@ -1317,7 +1330,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                       <div className="relative flex w-[calc(100vw-40px)] max-w-[350px] items-start justify-between gap-2 pr-1">
                         <div className="flex min-w-0 max-w-[calc(100%-48px)] flex-wrap items-center gap-2">
-                          {playCount === 1 ? (
+                          {showExclusiveFirstListen ? (
                             <div className="flex h-7 items-center gap-1.5 rounded-full border border-orange-400/20 bg-black/20 px-3 backdrop-blur-xl shadow-[0_0_22px_rgba(249,115,22,0.10)]">
                               <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
                               <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
@@ -1454,11 +1467,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }));
                               }}
                               whileTap={{ scale: 0.94 }}
-                              className="glass relative z-[90] flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 text-orange-400 transition-colors hover:text-orange-300"
+                              className="glass relative z-[90] flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 transition-colors"
                               style={{ border: 0 }}
                               aria-label="Abrir letra"
                             >
-                              <BookOpen className="h-2.5 w-2.5 text-current transition-colors duration-500" strokeWidth={2.4} />
+                              <BookOpen
+                                className={cn(
+                                  "h-2.5 w-2.5 transition-colors duration-500",
+                                  isActuallyLive ? "text-orange-400" : "text-white/40"
+                                )}
+                                strokeWidth={2.4}
+                              />
                               <span className={cn(
                                 "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
                                 isActuallyLive ? "text-white/60" : "text-white/40"
@@ -1479,19 +1498,16 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_0%,transparent_70%)] animate-pulse" />
                   <motion.div
-                    animate={shouldReduceMotion ? {} : { y: [0, -8, 0], scale: [1, 1.1, 1] }}
+                    animate={shouldReduceMotion ? {} : { y: [0, -5, 0], scale: [1, 1.04, 1] }}
                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                    className="relative"
+                    className="relative mb-4 sm:mb-6"
                   >
-                    <Music2 className="h-10 sm:h-14 w-10 sm:w-14 mb-4 sm:mb-6 text-white/10 group-hover:text-orange-500/40 transition-colors duration-700" />
-                    <div className="absolute inset-0 bg-orange-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <StatsLCLogo size={34} className="opacity-55 grayscale transition-all duration-700 group-hover:opacity-95 group-hover:grayscale-0 sm:scale-110" />
+                    <div className="absolute inset-[-10px] bg-orange-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </motion.div>
                   <span className="text-[11px] sm:text-[13px] font-black uppercase tracking-[0.4em] sm:tracking-[0.5em] text-white/40 drop-shadow-lg">Sinal de Fã</span>
-                  <span className="text-[8px] sm:text-[10px] font-medium text-white/15 mt-2 sm:mt-3 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-white/20 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="h-1 w-1 rounded-full bg-white/20 animate-bounce" style={{ animationDelay: '200ms' }} />
+                  <span className="text-[8px] sm:text-[10px] font-medium text-white/18 mt-2 sm:mt-3 uppercase tracking-[0.2em] flex items-center gap-2">
                     Sintonizando...
-                    <span className="h-1 w-1 rounded-full bg-white/20 animate-bounce" style={{ animationDelay: '400ms' }} />
                   </span>
                 </motion.div>
               )}
