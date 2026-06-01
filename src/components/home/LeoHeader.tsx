@@ -61,7 +61,7 @@ const ScrollingTrackTitle = React.memo(({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative block max-w-[50vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
+        "relative block max-w-[42vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_86%,transparent_100%)]"
       )}
       title={title}
@@ -96,11 +96,14 @@ const ScrollingTrackTitle = React.memo(({
 const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
   if (badges.length === 0) return null;
   return (
-    <div className="mt-1 flex max-w-[62vw] flex-wrap items-center gap-1.5 sm:max-w-[300px]">
-      {badges.map((badge) => (
+    <div className="flex max-w-[92px] shrink-0 flex-col items-start gap-[2px] pt-[3px] sm:max-w-[104px]">
+      {badges.map((badge, index) => (
         <span
           key={badge}
-          className="rounded-full bg-white/[0.075] px-2 py-1 text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/44 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-xl"
+          className={cn(
+            "glass-aura max-w-full truncate rounded-[6px] border-0 px-1.5 py-px text-[5.4px] font-black uppercase leading-none tracking-[0.08em] text-white/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_6px_14px_rgba(0,0,0,0.18)] sm:text-[5.8px]",
+            index === 0 ? "bg-orange-400/[0.075]" : "bg-white/[0.052]"
+          )}
         >
           {badge}
         </span>
@@ -709,11 +712,12 @@ const ArenaRankingBubble = ({
         x: shouldReduceMotion ? ARENA_BADGE_LEFT_PAD + index * ARENA_BADGE_SLOT_SIZE : x,
         scale: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : scale,
         opacity: shouldReduceMotion ? (isHiddenInitial ? 0 : 1) : opacity,
+        willChange: shouldReduceMotion ? undefined : 'transform, opacity',
       }}
     >
-      <div className="relative h-11 w-11 overflow-visible rounded-full drop-shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
+      <div className="relative h-11 w-11 overflow-visible rounded-full shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
         {isSelected && (
-          <div className="pointer-events-none absolute inset-[-2px] rounded-full bg-[#ff5f00]/36 blur-[6px]" />
+          <div className="pointer-events-none absolute inset-[-2px] rounded-full bg-[#ff5f00]/28 shadow-[0_0_14px_rgba(255,95,0,0.32)]" />
         )}
         <div className="relative h-full w-full overflow-hidden rounded-full">
           <SmartImage src={user.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
@@ -722,8 +726,8 @@ const ArenaRankingBubble = ({
 
       <div
         className={cn(
-          "absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none text-white drop-shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
-          isSelected ? "bg-[#ff6a00] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.26)]" : "glass-aura border-0"
+          "absolute -bottom-1.5 -right-1.5 z-30 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none text-white shadow-[0_8px_10px_rgba(0,0,0,0.42)] sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
+          isSelected ? "glass-aura border-0 bg-[#ff6a00]/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.26)]" : "glass-aura border-0"
         )}
       >
         {showFirstListenStar ? (
@@ -751,13 +755,11 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const arenaLeftMoreOpacity = useTransform(arenaTrailX, value => {
     const offset = Math.abs(Number(value));
     if (offset <= 0.5) return 0;
-    const remainder = offset % ARENA_BADGE_SLOT_SIZE;
-    return remainder <= 0.5 ? 1 : remainder / ARENA_BADGE_SLOT_SIZE;
+    return clamp01(offset / (ARENA_BADGE_SLOT_SIZE * 0.82));
   });
   const arenaLeftMoreScale = useTransform(arenaTrailX, value => {
     const offset = Math.abs(Number(value));
-    const remainder = offset % ARENA_BADGE_SLOT_SIZE;
-    const slotProgress = offset <= 0.5 ? 0 : remainder <= 0.5 ? 1 : remainder / ARENA_BADGE_SLOT_SIZE;
+    const slotProgress = offset <= 0.5 ? 0 : clamp01(offset / ARENA_BADGE_SLOT_SIZE);
     return 0.72 + slotProgress * 0.28;
   });
   const [arenaShiftedSlots, setArenaShiftedSlots] = useState(0);
@@ -1086,24 +1088,16 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     : 'linear-gradient(135deg, rgba(0,0,0,0.76) 0%, rgba(88,28,135,0.22) 52%, rgba(0,0,0,0.2) 100%)'
                 }}
               >
-                <motion.div
-                  animate={{
-                    opacity: [0.62, 0.95, 0.62]
-                  }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute inset-0 pointer-events-none mix-blend-screen"
+                <div
+                  className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
                       ? `radial-gradient(circle at 68% 38%, ${withAlpha(dominantColor, 0.48)} 0%, transparent 64%)`
                       : "radial-gradient(circle at 68% 38%, rgba(168,85,247,0.42) 0%, transparent 64%)"
                   }}
                 />
-                <motion.div
-                  animate={{
-                    opacity: [0.34, 0.62, 0.34]
-                  }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                  className="absolute inset-0 pointer-events-none mix-blend-screen"
+                <div
+                  className="stats-lc-ambient-drift-secondary absolute -inset-[20%] pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
                       ? `radial-gradient(circle at 18% 58%, ${withAlpha(dominantColor, 0.32)} 0%, transparent 58%)`
@@ -1120,36 +1114,28 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                  exit={{ opacity: 0 }}
                  className="absolute inset-0 overflow-hidden"
               >
-                 {/* Névoa lenta com cor do álbum anterior */}
-                 <motion.div
-                   animate={{
-                     x:       ['-8%', '8%', '-8%'],
-                     y:       ['-4%', '12%', '-4%'],
-                     opacity: [0.15, 0.4, 0.15],
-                   }}
-                   transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut' }}
-                   className="absolute -inset-[40%] pointer-events-none"
+                 <div
+                   className="absolute inset-0 pointer-events-none"
                    style={{
-                     background: dominantColor
-                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.12)} 0%, transparent 55%)`
-                       : 'radial-gradient(circle at 40% 40%, rgba(180,180,180,0.10) 0%, transparent 55%)',
-                     filter: 'blur(30px)',
+                     background: track
+                       ? 'linear-gradient(135deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 48%, rgba(0,0,0,0.34) 100%)'
+                       : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.055) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.08) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.72) 0%, rgba(15,12,12,0.38) 52%, rgba(0,0,0,0.64) 100%)',
                    }}
                  />
-                 {/* Segunda névoa deslocada — profundidade */}
-                 <motion.div
-                   animate={{
-                     x:       ['10%', '-6%', '10%'],
-                     y:       ['8%', '-6%', '8%'],
-                     opacity: [0.08, 0.22, 0.08],
-                   }}
-                   transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
-                   className="absolute -inset-[40%] pointer-events-none"
+                 <div
+                   className="stats-lc-ambient-drift-primary absolute -inset-[36%] pointer-events-none"
                    style={{
-                     background: dominantColor
+                     background: track && dominantColor
+                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.12)} 0%, transparent 55%)`
+                       : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.055) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.065) 0%, transparent 54%)',
+                   }}
+                 />
+                 <div
+                   className="stats-lc-ambient-drift-secondary absolute -inset-[38%] pointer-events-none"
+                   style={{
+                     background: track && dominantColor
                        ? `radial-gradient(circle at 65% 60%, ${withAlpha(dominantColor, 0.08)} 0%, transparent 50%)`
-                       : 'radial-gradient(circle at 65% 60%, rgba(160,160,160,0.07) 0%, transparent 50%)',
-                     filter: 'blur(40px)',
+                       : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.035) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.08) 0%, transparent 52%)',
                    }}
                  />
                  {/* Vinheta escura nas bordas */}
@@ -1158,6 +1144,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               </motion.div>
             )}
           </AnimatePresence>
+          <div className="stats-lc-grain stats-lc-header-grain absolute inset-0 pointer-events-none" />
         </div>
         {track && (
           <div className="absolute right-[-142px] top-[-58px] h-[330px] w-[330px] sm:right-[-188px] sm:top-[-82px] sm:h-[470px] sm:w-[470px] shrink-0 z-20 pointer-events-auto">
@@ -1247,7 +1234,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                   {/* Streams hoje */}
                   <div
-                    className="glass -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full px-2 transition-all duration-500"
+                    className="glass-aura -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full border-0 bg-white/[0.055] px-2 transition-all duration-500"
                     style={{ border: 0 }}
                   >
                     <TrendingUp className={cn(
@@ -1278,11 +1265,13 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     {/* Conteúdo Esquerdo: textos e ranking compactos, com o vinil vazando por trás */}
                     <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-40">
                       <div className="flex flex-col gap-0.5">
-                        <ScrollingTrackTitle
-                          title={parsedTrackTitle.displayTitle || track.name}
-                          onClick={() => onTrackClick?.({ ...track, type: 'track' })}
-                        />
-                        <TrackTitleBadges badges={parsedTrackTitle.badges} />
+                        <div className="flex max-w-[66vw] items-start gap-1.5 sm:max-w-[390px]">
+                          <ScrollingTrackTitle
+                            title={parsedTrackTitle.displayTitle || track.name}
+                            onClick={() => onTrackClick?.({ ...track, type: 'track' })}
+                          />
+                          <TrackTitleBadges badges={parsedTrackTitle.badges} />
+                        </div>
                         <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 block pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
                           {displayArtists.map((artist, idx) => {
                             const isLast = idx === displayArtists.length - 1;
@@ -1352,7 +1341,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       <div className="relative flex w-[calc(100vw-40px)] max-w-[350px] items-start justify-between gap-2 pr-1">
                         <div className="flex min-w-0 max-w-[calc(100%-48px)] flex-wrap items-center gap-2">
                           {showExclusiveFirstListen ? (
-                            <div className="flex h-7 items-center gap-1.5 rounded-full border border-orange-400/20 bg-black/20 px-3 backdrop-blur-xl shadow-[0_0_22px_rgba(249,115,22,0.10)]">
+                            <div className="glass-aura flex h-7 items-center gap-1.5 rounded-full border-0 bg-white/[0.055] px-3 shadow-[0_0_22px_rgba(249,115,22,0.10)]">
                               <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
                               <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
                                 <AnimatedNumber value={1} />
@@ -1384,29 +1373,24 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                >
 	                                  <div className="h-full w-[240px]" />
 	                                </motion.div>
-	                                {leftHiddenArenaCount > 0 && (
+	                                {hiddenArenaCount > 0 && (
 	                                  <motion.div
-	                                    key={`arena-more-left-${leftHiddenArenaCount}`}
-	                                    initial={{ opacity: 0, y: 4 }}
-	                                    animate={shouldReduceMotion ? { opacity: 1, y: 0 } : {
-	                                      opacity: 1,
-	                                      y: 0,
-	                                    }}
-	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-	                                    className={cn(
-	                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
+	                                    key="arena-more-left"
+		                                    className={cn(
+		                                      "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnLeft
-	                                        ? "bg-[#ff6a00]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
+		                                        ? "glass-aura border-0 bg-[#ff6a00]/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
 	                                        : "glass-aura border-0"
 	                                    )}
-	                                    style={{
-	                                      opacity: shouldReduceMotion ? undefined : arenaLeftMoreOpacity,
-	                                      scale: shouldReduceMotion ? undefined : arenaLeftMoreScale,
-	                                    }}
-	                                  >
-	                                    +{leftHiddenArenaCount}
-	                                  </motion.div>
-	                                )}
+		                                    style={{
+		                                      opacity: shouldReduceMotion ? (leftHiddenArenaCount > 0 ? 1 : 0) : arenaLeftMoreOpacity,
+		                                      scale: shouldReduceMotion ? (leftHiddenArenaCount > 0 ? 1 : 0.72) : arenaLeftMoreScale,
+		                                      willChange: shouldReduceMotion ? undefined : 'transform, opacity',
+		                                    }}
+		                                  >
+		                                    +{Math.max(1, leftHiddenArenaCount)}
+		                                  </motion.div>
+		                                )}
 	                                {arenaRenderableUsers.map((u, i) => (
 	                                  <ArenaRankingBubble
 	                                    key={u.id}
@@ -1419,26 +1403,21 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                    isHiddenInitial={i >= arenaPageSize}
 	                                  />
 	                                ))}
-                                {rightHiddenArenaCount > 0 && (
-	                                  <motion.div
-	                                    key={`arena-more-${rightHiddenArenaCount}`}
-	                                    initial={{ opacity: 0, y: 4 }}
-	                                    animate={shouldReduceMotion ? { opacity: 1, y: 0 } : {
-	                                      opacity: 1,
-	                                      y: 0,
-	                                    }}
-	                                    transition={{ type: 'spring', stiffness: 460, damping: 30 }}
-	                                    className={cn(
-	                                      "pointer-events-none absolute top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white drop-shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
+	                                {rightHiddenArenaCount > 0 && (
+		                                  <motion.div
+		                                    key="arena-more-right"
+		                                    className={cn(
+		                                      "pointer-events-none absolute top-1/2 z-[1] flex h-11 min-w-11 -translate-y-1/2 transform-gpu items-center justify-center rounded-full px-2.5 text-[10px] font-black text-white shadow-[0_14px_20px_rgba(0,0,0,0.38)] sm:h-12 sm:min-w-12",
 	                                      selectedHiddenOnRight
-	                                        ? "bg-[#ff6a00]/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
+		                                        ? "glass-aura border-0 bg-[#ff6a00]/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_16px_rgba(255,106,0,0.24)]"
 	                                        : "glass-aura border-0"
 	                                    )}
 	                                    style={{
-	                                      left: ARENA_BADGE_MORE_LEFT,
-	                                      opacity: shouldReduceMotion ? undefined : arenaMoreOpacity,
-	                                      scale: shouldReduceMotion ? undefined : arenaMoreScale,
-	                                    }}
+		                                      left: ARENA_BADGE_MORE_LEFT,
+		                                      opacity: shouldReduceMotion ? undefined : arenaMoreOpacity,
+		                                      scale: shouldReduceMotion ? undefined : arenaMoreScale,
+		                                      willChange: shouldReduceMotion ? undefined : 'transform, opacity',
+		                                    }}
 	                                  >
 	                                    +{rightHiddenArenaCount}
 	                                  </motion.div>
@@ -1455,7 +1434,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
                               ) : (
                                 <div
-                                  className="glass flex h-7 items-center gap-1.5 rounded-full px-3"
+	                                  className="glass-aura flex h-7 items-center gap-1.5 rounded-full border-0 bg-white/[0.055] px-3"
                                   style={{ border: 0 }}
                                 >
                                   <Repeat className={cn(
@@ -1488,7 +1467,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }));
                               }}
                               whileTap={{ scale: 0.94 }}
-                              className="glass relative z-[90] flex h-7 shrink-0 items-center gap-1.5 rounded-full px-3 transition-colors"
+	                              className="glass-aura relative z-[90] flex h-7 shrink-0 items-center gap-1.5 rounded-full border-0 bg-white/[0.055] px-3 transition-colors"
                               style={{ border: 0 }}
                               aria-label="Abrir letra"
                             >

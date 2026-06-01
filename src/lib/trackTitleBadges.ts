@@ -18,6 +18,7 @@ const CONTAINS_BADGE_PATTERNS = [
   /\bacoustic\b/i,
   /\bacústico\b/i,
   /\bdemo\b/i,
+  /\bfrom the vault\b/i,
 ];
 
 const normalizeBadgeText = (value: string) => (

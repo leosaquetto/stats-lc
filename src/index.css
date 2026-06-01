@@ -287,6 +287,16 @@
   50% { opacity: 0.34; transform: scale(1.02); }
 }
 
+@keyframes stats-lc-ambient-drift-primary {
+  0%, 100% { opacity: 0.58; transform: translate3d(-2%, -1%, 0) scale(1); }
+  50% { opacity: 0.82; transform: translate3d(3%, 2%, 0) scale(1.045); }
+}
+
+@keyframes stats-lc-ambient-drift-secondary {
+  0%, 100% { opacity: 0.36; transform: translate3d(2%, 2%, 0) scale(1.02); }
+  50% { opacity: 0.62; transform: translate3d(-3%, -1.5%, 0) scale(1.075); }
+}
+
 @keyframes progress-fill {
   from { transform: scaleX(var(--progress-start, 0)); }
   to { transform: scaleX(1); }
@@ -315,6 +325,44 @@
 
 .vinyl-reflection-spin {
   animation: vinyl-record-spin 8s linear infinite;
+}
+
+.stats-lc-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cg fill='%23fff' fill-opacity='.7'%3E%3Ccircle cx='9' cy='12' r='.55'/%3E%3Ccircle cx='31' cy='7' r='.42'/%3E%3Ccircle cx='58' cy='16' r='.5'/%3E%3Ccircle cx='82' cy='5' r='.38'/%3E%3Ccircle cx='18' cy='35' r='.4'/%3E%3Ccircle cx='44' cy='29' r='.58'/%3E%3Ccircle cx='72' cy='38' r='.44'/%3E%3Ccircle cx='91' cy='27' r='.5'/%3E%3Ccircle cx='7' cy='66' r='.48'/%3E%3Ccircle cx='27' cy='78' r='.36'/%3E%3Ccircle cx='50' cy='58' r='.45'/%3E%3Ccircle cx='67' cy='76' r='.55'/%3E%3Ccircle cx='88' cy='86' r='.4'/%3E%3C/g%3E%3Cg fill='%23000' fill-opacity='.55'%3E%3Ccircle cx='20' cy='14' r='.42'/%3E%3Ccircle cx='48' cy='9' r='.5'/%3E%3Ccircle cx='74' cy='20' r='.36'/%3E%3Ccircle cx='12' cy='46' r='.52'/%3E%3Ccircle cx='37' cy='43' r='.36'/%3E%3Ccircle cx='63' cy='51' r='.48'/%3E%3Ccircle cx='84' cy='47' r='.44'/%3E%3Ccircle cx='15' cy='88' r='.38'/%3E%3Ccircle cx='42' cy='72' r='.5'/%3E%3Ccircle cx='76' cy='69' r='.35'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 96px 96px;
+}
+
+.stats-lc-vinyl-grain {
+  mix-blend-mode: soft-light;
+  opacity: 0.045;
+}
+
+.stats-lc-header-grain {
+  mix-blend-mode: soft-light;
+  opacity: 0.032;
+}
+
+.stats-lc-ambient-drift-primary,
+.stats-lc-ambient-drift-secondary {
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
+  will-change: transform, opacity;
+}
+
+.stats-lc-ambient-drift-primary {
+  animation: stats-lc-ambient-drift-primary 24s ease-in-out infinite;
+}
+
+.stats-lc-ambient-drift-secondary {
+  animation: stats-lc-ambient-drift-secondary 32s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stats-lc-ambient-drift-primary,
+  .stats-lc-ambient-drift-secondary {
+    animation: none;
+  }
 }
 
 .live-progress-fill {
