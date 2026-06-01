@@ -1177,7 +1177,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
           <AnimatePresence mode="wait">
             <motion.div
-              key={`${user.id}-${track?.id || 'idle'}`}
+              key={user.id}
               variants={containerVariants}
               initial="initial"
               animate="animate"
@@ -1409,7 +1409,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                                )}
 	                                {arenaRenderableUsers.map((u, i) => (
 	                                  <ArenaRankingBubble
-	                                    key={`${u.id}-arena-${i}`}
+	                                    key={u.id}
 	                                    user={u}
 	                                    index={i}
 	                                    total={trackArenaUsers.length}

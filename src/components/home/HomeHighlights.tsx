@@ -430,7 +430,7 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
           return (
             <motion.div 
               layout
-              key={`${user.id}-${i}`}
+              key={user.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ 
@@ -535,7 +535,7 @@ export const FriendsLiveCarousel = React.memo(() => {
 
           return (
             <motion.div
-              key={`${friend.id}-${idx}`}
+              key={friend.id}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.1 }}

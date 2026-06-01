@@ -244,7 +244,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
 
             return (
               <motion.div
-                key={`${member.id}-${index}`}
+                key={member.id}
                 animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
                 transition={{ type: 'spring', stiffness: 160, damping: 24 }}
                 className="absolute left-1/2 top-[48%] w-[292px]"

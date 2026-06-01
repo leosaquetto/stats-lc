@@ -1521,7 +1521,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
                     return (
                       <motion.div 
-                        key={`${user.id}-${index}`}
+                        key={user.id}
                         animate={isBubbleHighlighted ? {
                           scale: [1, 1.2, 1],
                         } : {}}
