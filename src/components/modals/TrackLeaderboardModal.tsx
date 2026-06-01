@@ -17,10 +17,107 @@ import { getVisibleMembers } from '../../lib/memberSelectors';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+type TrackLeaderboardStats = Record<string, { track: number, album: number, artist: number }>;
+
+const TRACK_LEADERBOARD_CACHE_TTL = 15 * 60 * 1000;
+const trackLeaderboardStatsCache = new Map<string, { expiresAt: number; data: TrackLeaderboardStats }>();
+const trackLeaderboardStatsInFlight = new Map<string, Promise<TrackLeaderboardStats>>();
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const getTrackLeaderboardIds = (track: any, selectedArtist?: any) => {
+  const chosenArtist = selectedArtist || getMainArtist(track);
+  const artistId = chosenArtist?.id || track?.artistId || track?.artist?.id || (Array.isArray(track?.artists) && track.artists[0]?.id) || (track?.type === 'artist' ? track?.id : null);
+  const albumId = track?.albumId || track?.album?.id || (Array.isArray(track?.albums) && track.albums[0]?.id) || (track?.type === 'album' ? track?.id : null);
+  const trackId = track?.type === 'track' ? track?.id : (track?.type === 'artist' || track?.type === 'album' ? null : (track?.artists || track?.name ? track?.id : null));
+
+  return {
+    trackId: trackId ? String(trackId) : '',
+    albumId: albumId ? String(albumId) : '',
+    artistId: artistId ? String(artistId) : '',
+  };
+};
+
+const getTrackLeaderboardCacheKey = (track: any, selectedArtist: any, members: any[]) => {
+  const ids = getTrackLeaderboardIds(track, selectedArtist);
+  const membersKey = members.map((member) => member?.id).filter(Boolean).sort().join('|');
+  return `${ids.trackId}:${ids.albumId}:${ids.artistId}:${membersKey}`;
+};
+
+const readTrackLeaderboardCache = (cacheKey: string) => {
+  const cached = trackLeaderboardStatsCache.get(cacheKey);
+  if (!cached || cached.expiresAt <= Date.now()) return null;
+  return cached.data;
+};
+
+const loadTrackLeaderboardStats = async (track: any, members: any[], selectedArtist?: any): Promise<TrackLeaderboardStats> => {
+  if (!track?.id || members.length === 0) return {};
+
+  const cacheKey = getTrackLeaderboardCacheKey(track, selectedArtist, members);
+  const cached = readTrackLeaderboardCache(cacheKey);
+  if (cached) return cached;
+
+  const running = trackLeaderboardStatsInFlight.get(cacheKey);
+  if (running) return running;
+
+  const promise = (async () => {
+    const { trackId, albumId, artistId } = getTrackLeaderboardIds(track, selectedArtist);
+    if ((import.meta as any).env?.DEV) console.log("[TrackLeaderboardModal] IDs identificados:", { trackId, artistId, albumId });
+
+    const [trackStats, albumStats, artistStats] = await Promise.all([
+      trackId ? statsService.fetchEntityGroupStats('track', trackId).catch(async () => {
+        const fallback: Record<string, number> = {};
+        await Promise.all(members.map(async u => {
+          fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'track', trackId).catch(() => 0);
+        }));
+        return fallback;
+      }) : Promise.resolve({} as Record<string, number>),
+
+      albumId ? statsService.fetchEntityGroupStats('album', albumId).catch(async () => {
+        const fallback: Record<string, number> = {};
+        await Promise.all(members.map(async u => {
+          fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'album', albumId).catch(() => 0);
+        }));
+        return fallback;
+      }) : Promise.resolve({} as Record<string, number>),
+
+      artistId ? statsService.fetchEntityGroupStats('artist', artistId).catch(async () => {
+        const fallback: Record<string, number> = {};
+        await Promise.all(members.map(async u => {
+          fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'artist', artistId).catch(() => 0);
+        }));
+        return fallback;
+      }) : Promise.resolve({} as Record<string, number>)
+    ]);
+
+    const results: TrackLeaderboardStats = {};
+    members.forEach((u) => {
+      results[u.id] = {
+        track: trackStats[u.id] || 0,
+        album: albumStats[u.id] || 0,
+        artist: artistStats[u.id] || 0
+      };
+    });
+
+    trackLeaderboardStatsCache.set(cacheKey, {
+      data: results,
+      expiresAt: Date.now() + TRACK_LEADERBOARD_CACHE_TTL,
+    });
+    return results;
+  })().finally(() => {
+    trackLeaderboardStatsInFlight.delete(cacheKey);
+  });
+
+  trackLeaderboardStatsInFlight.set(cacheKey, promise);
+  return promise;
+};
+
+export const preloadTrackLeaderboardStats = (track: any, members: any[]) => {
+  return loadTrackLeaderboardStats(track, members).catch(() => ({}));
+};
+
 export const TrackLeaderboardModal = ({ 
   track, 
   onClose,
@@ -30,7 +127,7 @@ export const TrackLeaderboardModal = ({
   onClose: () => void,
   onArtistClick?: (artist: any) => void
 }) => {
-  const [stats, setStats] = useState<Record<string, { track: number, album: number, artist: number }>>({});
+  const [stats, setStats] = useState<TrackLeaderboardStats>({});
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'track' | 'album' | 'artist'>('track');
   const [selectedArtist, setSelectedArtist] = useState<any>(null);
@@ -38,11 +135,11 @@ export const TrackLeaderboardModal = ({
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const members = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const membersSignature = React.useMemo(() => members.map((member) => member.id).filter(Boolean).sort().join('|'), [members]);
 
   useEffect(() => {
     async function loadStats() {
       if (!track?.id) return;
-      setLoading(true);
 
       // Honour explicit type first (vinil/arena badge always pass type:'track',
       // StatsScreen passes 'artist'/'album' when appropriate)
@@ -57,57 +154,22 @@ export const TrackLeaderboardModal = ({
       }
 
 
-      // Identificação ultra-robusta dos IDs
-      const chosenArtist = selectedArtist || getMainArtist(track);
-      const artistId = chosenArtist?.id || track.artistId || track.artist?.id || (Array.isArray(track.artists) && track.artists[0]?.id) || (track.type === 'artist' ? track.id : null);
-      const albumId = track.albumId || track.album?.id || (Array.isArray(track.albums) && track.albums[0]?.id) || (track.type === 'album' ? track.id : null);
-      const trackId = track.type === 'track' ? track.id : (track.type === 'artist' || track.type === 'album' ? null : (track.artists || track.name ? track.id : null));
-      
-      if ((import.meta as any).env?.DEV) console.log("[TrackLeaderboardModal] IDs identificados:", { trackId, artistId, albumId });
+      const cacheKey = getTrackLeaderboardCacheKey(track, selectedArtist, members);
+      const cached = readTrackLeaderboardCache(cacheKey);
+      if (cached) {
+        setStats(cached);
+        setLoading(false);
+        return;
+      }
 
-      const users = members;
-      const results: Record<string, { track: number, album: number, artist: number }> = {};
-      
-      // Processa chamadas usando endpoint agregado. Fallback individual em caso de erro por tipo.
-      const [trackStats, albumStats, artistStats] = await Promise.all([
-        trackId ? statsService.fetchEntityGroupStats('track', trackId).catch(async () => {
-          const fallback: Record<string, number> = {};
-          await Promise.all(users.map(async u => {
-            fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'track', trackId).catch(() => 0);
-          }));
-          return fallback;
-        }) : Promise.resolve({} as Record<string, number>),
-        
-        albumId ? statsService.fetchEntityGroupStats('album', albumId).catch(async () => {
-          const fallback: Record<string, number> = {};
-          await Promise.all(users.map(async u => {
-            fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'album', albumId).catch(() => 0);
-          }));
-          return fallback;
-        }) : Promise.resolve({} as Record<string, number>),
-        
-        artistId ? statsService.fetchEntityGroupStats('artist', artistId).catch(async () => {
-          const fallback: Record<string, number> = {};
-          await Promise.all(users.map(async u => {
-            fallback[u.id] = await statsCacheService.fetchEntityStats(u.id, 'artist', artistId).catch(() => 0);
-          }));
-          return fallback;
-        }) : Promise.resolve({} as Record<string, number>)
-      ]);
-
-      users.forEach((u) => {
-        results[u.id] = { 
-          track: trackStats[u.id] || 0, 
-          album: albumStats[u.id] || 0, 
-          artist: artistStats[u.id] || 0 
-        };
-      });
+      setLoading(true);
+      const results = await loadTrackLeaderboardStats(track, members, selectedArtist);
 
       setStats(results);
       setLoading(false);
     }
     loadStats();
-  }, [track?.id, track?.albumId, track?.artistId, selectedArtist?.id, selectedArtist?.name, members]);
+  }, [track?.id, track?.albumId, track?.artistId, track?.type, selectedArtist?.id, selectedArtist?.name, membersSignature]);
 
   const sortedUsers = members
     .map(u => {

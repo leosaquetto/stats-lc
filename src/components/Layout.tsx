@@ -16,7 +16,7 @@ import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../li
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { withAlpha } from '../lib/colorUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
-import type { LyricsMatch } from '../types/stats';
+import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -426,6 +426,159 @@ const getUserTrackStatsSource = (user: any) => {
 
 type TrackLink = ReturnType<typeof getTrackLinks>[number];
 
+type BottomTrackStatsPanelData = {
+  entityStats: { artist: number; track: number; album: number };
+  artistStats: Array<{ id: string; name: string; image: string; key: string; count: number }>;
+  circleFirstListen: { user: any; playedAt: number } | null;
+  circleFirstListeners: Array<{ user: any; playedAt: number }>;
+  hasFriendHistory: boolean;
+  trackHistory: { firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number };
+};
+
+const emptyBottomTrackStatsPanelData: BottomTrackStatsPanelData = {
+  entityStats: { artist: 0, track: 0, album: 0 },
+  artistStats: [],
+  circleFirstListen: null,
+  circleFirstListeners: [],
+  hasFriendHistory: false,
+  trackHistory: { firstPlayedAt: 0, lastPlayedAt: 0, bestYear: '', bestYearCount: 0 },
+};
+
+const BOTTOM_TRACK_STATS_CACHE_TTL = 15 * 60 * 1000;
+const bottomTrackStatsCache = new Map<string, { expiresAt: number; data: BottomTrackStatsPanelData }>();
+const bottomTrackStatsInFlight = new Map<string, Promise<BottomTrackStatsPanelData>>();
+const lyricsMatchCache = new Map<string, { expiresAt: number; data: LyricsMatch }>();
+const lyricsFullCache = new Map<string, { expiresAt: number; data: LyricsFullResponse }>();
+const lyricsInFlight = new Map<string, Promise<LyricsMatch | LyricsFullResponse>>();
+
+const getLyricsCacheKey = (trackName: string, artistName: string) => `${trackName.trim().toLowerCase()}::${artistName.trim().toLowerCase()}`;
+
+const readExpiringCache = <T,>(cache: Map<string, { expiresAt: number; data: T }>, key: string) => {
+  const cached = cache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) return null;
+  return cached.data;
+};
+
+const loadLyricsMatch = (trackName: string, artistName: string) => {
+  const key = getLyricsCacheKey(trackName, artistName);
+  const cached = readExpiringCache(lyricsMatchCache, key);
+  if (cached) return Promise.resolve(cached);
+
+  const inFlightKey = `match:${key}`;
+  const running = lyricsInFlight.get(inFlightKey);
+  if (running) return running as Promise<LyricsMatch>;
+
+  const promise = statsService.fetchLyricsMatch(trackName, artistName)
+    .then((match) => {
+      lyricsMatchCache.set(key, { data: match, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      return match;
+    })
+    .finally(() => lyricsInFlight.delete(inFlightKey));
+  lyricsInFlight.set(inFlightKey, promise);
+  return promise;
+};
+
+const loadLyricsFull = (trackName: string, artistName: string) => {
+  const key = getLyricsCacheKey(trackName, artistName);
+  const cached = readExpiringCache(lyricsFullCache, key);
+  if (cached) return Promise.resolve(cached);
+
+  const inFlightKey = `full:${key}`;
+  const running = lyricsInFlight.get(inFlightKey);
+  if (running) return running as Promise<LyricsFullResponse>;
+
+  const promise = statsService.fetchLyricsFull(trackName, artistName)
+    .then((response) => {
+      lyricsFullCache.set(key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      lyricsMatchCache.set(key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      return response;
+    })
+    .finally(() => lyricsInFlight.delete(inFlightKey));
+  lyricsInFlight.set(inFlightKey, promise);
+  return promise;
+};
+
+const getBottomTrackStatsCacheKey = (
+  userId: string,
+  trackId: string,
+  albumId: string,
+  artistIds: string,
+  memberIds: string,
+) => `${userId}:${trackId}:${albumId}:${artistIds}:${memberIds}`;
+
+const loadBottomTrackStatsPanelData = async ({
+  user,
+  trackId,
+  albumId,
+  trackArtists,
+  members,
+}: {
+  user: any;
+  trackId: string;
+  albumId: string;
+  trackArtists: Array<{ id: string; name: string; image: string; key: string }>;
+  members: any[];
+}) => {
+  const artistIds = trackArtists.map((artist) => artist.id).filter(Boolean).sort().join('|');
+  const memberIds = members.map((member) => member.id).filter(Boolean).sort().join('|');
+  const cacheKey = getBottomTrackStatsCacheKey(user?.id || '', trackId, albumId, artistIds, memberIds);
+  const cached = readExpiringCache(bottomTrackStatsCache, cacheKey);
+  if (cached) return cached;
+
+  const running = bottomTrackStatsInFlight.get(cacheKey);
+  if (running) return running;
+
+  const promise = (async () => {
+    const artistsToFetch = trackArtists.filter((artist) => artist.id);
+    const [artistCounts, trackCount, album, history, memberHistories] = await Promise.all([
+      Promise.all(artistsToFetch.map((artist) => statsService.fetchEntityStats(user.id, 'artist', artist.id).catch(() => 0))),
+      statsService.fetchEntityStats(user.id, 'track', trackId).catch(() => 0),
+      albumId ? statsService.fetchEntityStats(user.id, 'album', albumId).catch(() => 0) : Promise.resolve(0),
+      statsService.fetchEntityStreams(user.id, 'track', trackId, 240).catch(() => []),
+      Promise.all(members.map((member) =>
+        statsService.fetchEntityStreams(member.id, 'track', trackId, 80)
+          .then((items) => ({ member, items }))
+          .catch(() => ({ member, items: [] }))
+      )),
+    ]);
+    const nextArtistStats = artistsToFetch.map((artist, index) => ({
+      ...artist,
+      count: artistCounts[index] || 0,
+    }));
+    const primaryArtistCount = nextArtistStats[0]?.count || 0;
+    const friendEntries = memberHistories
+      .map(({ member, items }) => {
+        const sourceItems = member.id === user.id ? history : items;
+        return { member, playedAt: getEarliestStream(sourceItems), hasItems: sourceItems.length > 0 };
+      })
+      .filter((entry) => entry.playedAt > 0)
+      .sort((a, b) => a.playedAt - b.playedAt);
+    const friendsWithHistory = friendEntries.filter((entry) => entry.member.id !== user.id);
+    const firstEntry = friendEntries[0];
+    const firstDayEntries = firstEntry
+      ? friendEntries.filter((entry) => getDayKey(entry.playedAt) === getDayKey(firstEntry.playedAt))
+      : [];
+
+    const data = {
+      artistStats: nextArtistStats,
+      entityStats: { artist: primaryArtistCount, track: trackCount, album },
+      trackHistory: summarizeTrackHistory(history, user?.nowPlaying?.timestamp),
+      circleFirstListen: friendsWithHistory.length > 0 && firstEntry
+        ? { user: firstEntry.member, playedAt: firstEntry.playedAt }
+        : null,
+      circleFirstListeners: friendsWithHistory.length > 0
+        ? firstDayEntries.map((entry) => ({ user: entry.member, playedAt: entry.playedAt }))
+        : [],
+      hasFriendHistory: friendsWithHistory.length > 0,
+    };
+    bottomTrackStatsCache.set(cacheKey, { data, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+    return data;
+  })().finally(() => bottomTrackStatsInFlight.delete(cacheKey));
+
+  bottomTrackStatsInFlight.set(cacheKey, promise);
+  return promise;
+};
+
 const ArtistNamesInline = ({ artists, fallback }: { artists: Array<{ name: string }>; fallback: string }) => {
   const names = artists.map((artist) => artist.name).filter(Boolean);
   const displayNames = names.length > 0 ? names : [fallback].filter(Boolean);
@@ -500,17 +653,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [panel, setPanel] = React.useState<'stats' | 'lyrics'>('stats');
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
   const [toastMessage, setToastMessage] = React.useState('');
-  const [entityStats, setEntityStats] = React.useState({ artist: 0, track: 0, album: 0 });
-  const [artistStats, setArtistStats] = React.useState<Array<{ id: string; name: string; image: string; key: string; count: number }>>([]);
-  const [circleFirstListen, setCircleFirstListen] = React.useState<{ user: any; playedAt: number } | null>(null);
-  const [circleFirstListeners, setCircleFirstListeners] = React.useState<Array<{ user: any; playedAt: number }>>([]);
-  const [hasFriendHistory, setHasFriendHistory] = React.useState(false);
-  const [trackHistory, setTrackHistory] = React.useState<{ firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number }>({
-    firstPlayedAt: 0,
-    lastPlayedAt: 0,
-    bestYear: '',
-    bestYearCount: 0,
-  });
+  const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
 
   const track = user?.nowPlaying?.track;
   const trackId = String(track?.id || track?.track?.id || '');
@@ -529,6 +672,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
+  const membersSignature = React.useMemo(() => members.map((member) => member.id).filter(Boolean).sort().join('|'), [members]);
+  const trackArtistsSignature = React.useMemo(() => trackArtists.map((artist) => artist.id || artist.name).filter(Boolean).sort().join('|'), [trackArtists]);
+  const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
       .map((writer) => writer.trim())
@@ -545,11 +691,25 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
 
+    const cachedFullLyrics = readExpiringCache(lyricsFullCache, getLyricsCacheKey(track.name, artistName));
     let cancelled = false;
-    setLyricsText(null);
-    statsService.fetchLyricsMatch(track.name, artistName)
+    setLyricsText(cachedFullLyrics?.lyrics || null);
+    if (cachedFullLyrics) {
+      setLyricsMatch(cachedFullLyrics);
+      return;
+    }
+
+    loadLyricsMatch(track.name, artistName)
       .then((match) => {
-        if (!cancelled) setLyricsMatch(match);
+        if (cancelled) return;
+        setLyricsMatch(match);
+        if (match.hasLyrics) {
+          loadLyricsFull(track.name, artistName)
+            .then((response) => {
+              if (!cancelled) setLyricsText(response.lyrics || null);
+            })
+            .catch(() => undefined);
+        }
       });
     return () => {
       cancelled = true;
@@ -563,63 +723,26 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   React.useEffect(() => {
     if (!user?.id || !trackId) {
-      setEntityStats({ artist: 0, track: 0, album: 0 });
-      setArtistStats([]);
-      setTrackHistory({ firstPlayedAt: 0, lastPlayedAt: 0, bestYear: '', bestYearCount: 0 });
-      setCircleFirstListen(null);
-      setCircleFirstListeners([]);
-      setHasFriendHistory(false);
+      setPanelData(emptyBottomTrackStatsPanelData);
       return;
     }
 
     let cancelled = false;
-    const artistsToFetch = trackArtists.filter((artist) => artist.id);
-    Promise.all([
-      Promise.all(artistsToFetch.map((artist) => statsService.fetchEntityStats(user.id, 'artist', artist.id).catch(() => 0))),
-      statsService.fetchEntityStats(user.id, 'track', trackId).catch(() => 0),
-      albumId ? statsService.fetchEntityStats(user.id, 'album', albumId).catch(() => 0) : Promise.resolve(0),
-      statsService.fetchEntityStreams(user.id, 'track', trackId, 240).catch(() => []),
-      Promise.all(members.map((member) =>
-        statsService.fetchEntityStreams(member.id, 'track', trackId, 80)
-          .then((items) => ({ member, items }))
-          .catch(() => ({ member, items: [] }))
-      )),
-    ]).then(([artistCounts, trackCount, album, history, memberHistories]) => {
+    loadBottomTrackStatsPanelData({
+      user,
+      trackId,
+      albumId,
+      trackArtists,
+      members,
+    }).then((nextPanelData) => {
       if (cancelled) return;
-      const nextArtistStats = artistsToFetch.map((artist, index) => ({
-        ...artist,
-        count: artistCounts[index] || 0,
-      }));
-      const primaryArtistCount = nextArtistStats[0]?.count || 0;
-      const friendEntries = memberHistories
-        .map(({ member, items }) => {
-          const sourceItems = member.id === user.id ? history : items;
-          return { member, playedAt: getEarliestStream(sourceItems), hasItems: sourceItems.length > 0 };
-        })
-        .filter((entry) => entry.playedAt > 0)
-        .sort((a, b) => a.playedAt - b.playedAt);
-      const friendsWithHistory = friendEntries.filter((entry) => entry.member.id !== user.id);
-      const firstEntry = friendEntries[0];
-      const firstDayEntries = firstEntry
-        ? friendEntries.filter((entry) => getDayKey(entry.playedAt) === getDayKey(firstEntry.playedAt))
-        : [];
-
-      setArtistStats(nextArtistStats);
-      setEntityStats({ artist: primaryArtistCount, track: trackCount, album });
-      setTrackHistory(summarizeTrackHistory(history, user?.nowPlaying?.timestamp));
-      setCircleFirstListen(friendsWithHistory.length > 0 && firstEntry
-        ? { user: firstEntry.member, playedAt: firstEntry.playedAt }
-        : null);
-      setCircleFirstListeners(friendsWithHistory.length > 0
-        ? firstDayEntries.map((entry) => ({ user: entry.member, playedAt: entry.playedAt }))
-        : []);
-      setHasFriendHistory(friendsWithHistory.length > 0);
+      setPanelData(nextPanelData);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [albumId, members, trackArtists, trackId, user?.id, user?.nowPlaying?.timestamp]);
+  }, [albumId, membersSignature, trackArtistsSignature, trackId, user?.id]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -681,41 +804,49 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   const handleLyrics = React.useCallback(async () => {
     if (!track?.name) return;
-    setLyricsLoading(true);
-    const response = await statsService.fetchLyricsFull(track.name, artistName);
-    setLyricsLoading(false);
-    setLyricsMatch(response);
-    if (response.lyrics) {
-      setLyricsText(response.lyrics);
+    const cachedFullLyrics = readExpiringCache(lyricsFullCache, getLyricsCacheKey(track.name, artistName));
+    if (cachedFullLyrics) {
+      setLyricsMatch(cachedFullLyrics);
+      setLyricsText(cachedFullLyrics.lyrics || '');
       setPanel('lyrics');
       return;
     }
-    setPanel('lyrics');
+
+    setLyricsLoading(true);
+    try {
+      const response = await loadLyricsFull(track.name, artistName);
+      setLyricsMatch(response);
+      if (response.lyrics) {
+        setLyricsText(response.lyrics);
+      }
+      setPanel('lyrics');
+      return;
+    } finally {
+      setLyricsLoading(false);
+    }
   }, [artistName, track?.name]);
 
   const copyLyrics = React.useCallback(async () => {
     if (!track?.name) return;
     setLyricsLoading(true);
-    const response = await statsService.fetchLyricsFull(track.name, artistName);
-    setLyricsLoading(false);
-    setLyricsMatch(response);
-    const cleaned = cleanLyricsForDisplay(response.lyrics);
-    if (!cleaned) {
-      showToast('Letra indisponível.');
-      return;
-    }
-    setLyricsText(response.lyrics || '');
     try {
-      await navigator.clipboard?.writeText(cleaned);
-      showToast('Letra copiada para a área de transferência.');
-    } catch {}
-    setSelectedTrackLink(null);
+      const response = await loadLyricsFull(track.name, artistName);
+      setLyricsMatch(response);
+      const cleaned = cleanLyricsForDisplay(response.lyrics);
+      if (!cleaned) {
+        showToast('Letra indisponível.');
+        return;
+      }
+      setLyricsText(response.lyrics || '');
+      try {
+        await navigator.clipboard?.writeText(cleaned);
+        showToast('Letra copiada para a área de transferência.');
+      } catch {}
+      setSelectedTrackLink(null);
+    } finally {
+      setLyricsLoading(false);
+    }
   }, [artistName, showToast, track?.name]);
-
-  React.useEffect(() => {
-    if (panel !== 'lyrics' || !isOpen || !track?.name) return;
-    handleLyrics();
-  }, [handleLyrics, isOpen, panel, track?.name]);
 
   React.useEffect(() => {
     const openTrackStats = (event: Event) => {
@@ -759,10 +890,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             exit={{ opacity: 0 }}
           >
             <motion.section
-              initial={{ y: 42, scale: 0.96, opacity: 0 }}
-              animate={{ y: 0, scale: 1, opacity: 1 }}
-              exit={{ y: 28, scale: 0.98, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 28 }}
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 18, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               drag="y"
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.18}
@@ -826,14 +957,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               </div>
 
-              <AnimatePresence mode="wait">
+              <AnimatePresence initial={false}>
               {panel === 'stats' ? (
               <motion.div
                 key="stats"
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
               >
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
@@ -1086,10 +1217,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               ) : (
               <motion.div
                 key="lyrics"
-                initial={{ opacity: 0, y: 14 }}
+                initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.14, ease: 'easeOut' }}
                 className="mt-5"
               >
                 {lyricsLoading ? (

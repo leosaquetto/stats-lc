@@ -20,14 +20,15 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
+import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 import { VinylRecord } from '../components/home/VinylRecord';
 
 const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
-const loadTrackLeaderboardModal = () => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal }));
+const loadTrackLeaderboardModule = () => import('../components/modals/TrackLeaderboardModal');
+const loadTrackLeaderboardModal = () => loadTrackLeaderboardModule().then(module => ({ default: module.TrackLeaderboardModal }));
 const loadAlbumDetailModal = () => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal }));
 const loadUserAlbumHistoryModal = () => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal }));
 
@@ -1028,6 +1029,7 @@ export default function HomeScreen() {
   const [circleTopPeriodTops, setCircleTopPeriodTops] = useState<Record<string, { artists: any[]; tracks: any[]; albums: any[] }>>({});
   const [alikePrepState, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [recentPrepState, setRecentPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [trackModalPrepState, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
@@ -1124,7 +1126,8 @@ export default function HomeScreen() {
       (replayState === 'ready' || replayState === 'error') &&
       (circleTopState === 'ready' || circleTopState === 'error') &&
       (alikePrepState === 'ready' || alikePrepState === 'error') &&
-      (recentPrepState === 'ready' || recentPrepState === 'error')
+      (recentPrepState === 'ready' || recentPrepState === 'error') &&
+      (trackModalPrepState === 'ready' || trackModalPrepState === 'error')
     );
 
   const pipelineStreamLinesMemo = useMemo(() => [
@@ -1136,6 +1139,19 @@ export default function HomeScreen() {
     { left: '91.5%', duration: 3.7, delay: 0.55 },
   ], []);
 
+  const homeWarmupImageUrls = useMemo(() => {
+    const urls = [
+      miniHeaderAlbumImage,
+      primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : '',
+      ...allMembers.map((member) => coreUtils.getUserAvatar(member.id, member.avatar)),
+      ...allMembers.map((member) => {
+        const track = member?.nowPlaying?.track as any;
+        return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
+      }),
+    ];
+    return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
+  }, [allMembers, membersSignature, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
+
   useEffect(() => {
     if (!primaryUser) {
       setIsVisualWarmupReady(false);
@@ -1143,8 +1159,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const urls = [miniHeaderAlbumImage, coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar)]
-      .filter((url): url is string => typeof url === 'string' && url.trim().length > 5);
+    const urls = homeWarmupImageUrls;
 
     if (urls.length === 0) {
       setIsVisualWarmupReady(true);
@@ -1152,24 +1167,9 @@ export default function HomeScreen() {
     }
 
     let cancelled = false;
-    setIsVisualWarmupReady(false);
-
-    const warmImage = (url: string) => new Promise<void>((resolve) => {
-      const image = new Image();
-      const done = () => resolve();
-      const timer = window.setTimeout(done, 1500);
-      image.onload = () => {
-        window.clearTimeout(timer);
-        if (image.decode) {
-          image.decode().then(done).catch(done);
-        } else {
-          done();
-        }
-      };
-      image.onerror = done;
-      image.decoding = 'async';
-      image.src = url;
-    });
+    if (!hasReleasedHomeRef.current) {
+      setIsVisualWarmupReady(false);
+    }
 
     const resolveArtworkColor = () => {
       if (!hasMiniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
@@ -1179,7 +1179,7 @@ export default function HomeScreen() {
     };
 
     const visualPreparation = Promise.all([
-      Promise.all(urls.map(warmImage)).then(() => undefined),
+      preloadSmartImages(urls),
       resolveArtworkColor(),
     ]).then(([, color]) => color);
     const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
@@ -1195,7 +1195,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [hasMiniHeaderAlbumImage, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, primaryUser?.nowPlaying?.dominantColor]);
+  }, [hasMiniHeaderAlbumImage, homeWarmupImageUrls, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, primaryUser?.nowPlaying?.dominantColor]);
 
   useEffect(() => {
     let frame = 0;
@@ -1648,6 +1648,30 @@ export default function HomeScreen() {
       cancelled = true;
     };
   }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, setHistoryCache]);
+
+  useEffect(() => {
+    const track = primaryUser?.nowPlaying?.track;
+    if (!track?.id || members.length === 0) {
+      setTrackModalPrepState(primaryUser ? 'ready' : 'idle');
+      return;
+    }
+
+    let cancelled = false;
+    setTrackModalPrepState('loading');
+
+    loadTrackLeaderboardModule()
+      .then((module) => module.preloadTrackLeaderboardStats(track, members))
+      .then(() => {
+        if (!cancelled) setTrackModalPrepState('ready');
+      })
+      .catch(() => {
+        if (!cancelled) setTrackModalPrepState('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [primaryUser?.id, primaryUser?.nowPlaying?.track?.id, membersSignature]);
 
   const replayArtists = replayTopItems.artists || [];
   const replayTracks = replayTopItems.tracks || [];

@@ -239,13 +239,15 @@ export const VinylRecord = ({
           style={{
             background: textureVariant === 1
               ? 'radial-gradient(circle at 50% 50%, rgba(0,0,0,0.1) 0%, transparent 50%)'
-              : 'radial-gradient(circle at 50% 50%, transparent 0 22%, rgba(255,255,255,0.09) 23%, rgba(255,255,255,0.045) 31%, transparent 53%, rgba(255,255,255,0.055) 78%, transparent 100%)',
+              : 'radial-gradient(circle at 50% 50%, transparent 0 28%, rgba(0,0,0,0.14) 29%, rgba(0,0,0,0.08) 35%, transparent 42%, rgba(255,255,255,0.055) 78%, transparent 100%)',
+            mixBlendMode: 'multiply',
+            opacity: 0.42,
           }}
         />
 
         {/* Resina externa mais translúcida, como o vinil físico fora do rótulo. */}
         <div
-          className="absolute inset-0 rounded-full pointer-events-none z-[12]"
+          className="absolute inset-0 rounded-full pointer-events-none z-[13]"
           style={{
             background: `
               radial-gradient(circle at 36% 24%, rgba(255,255,255,0.18) 0%, transparent 26%),
@@ -258,7 +260,7 @@ export const VinylRecord = ({
 
         {/* Reflexo plástico principal. */}
         <div
-          className="absolute inset-0 rounded-full pointer-events-none z-[14]"
+          className="absolute inset-0 rounded-full pointer-events-none z-[15]"
           style={{
             background: 'conic-gradient(from 35deg, transparent 0deg, rgba(255,255,255,0.12) 12deg, transparent 28deg, transparent 180deg, rgba(255,255,255,0.12) 192deg, transparent 208deg)',
             mixBlendMode: 'screen',
@@ -271,7 +273,7 @@ export const VinylRecord = ({
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 h-full w-full pointer-events-none"
-          style={{ zIndex: 13, opacity: isPlaying ? 1 : 0.85 }}
+          style={{ zIndex: 14, opacity: isPlaying ? 1 : 0.85 }}
         >
           <defs>
             <clipPath id={`${uniqueId}-vinyl-disc-clip`}>
@@ -348,14 +350,49 @@ export const VinylRecord = ({
           </g>
         </svg>
 
-        {/* Furo central com sombra — profundidade no miolo */}
+        {/* Faixa transparente do vinil, desenhada como anel físico logo fora do rótulo. */}
+        <svg
+          viewBox="0 0 100 100"
+          className="absolute inset-0 h-full w-full pointer-events-none"
+          style={{ zIndex: 16 }}
+        >
+          <circle
+            cx="50"
+            cy="50"
+            r="32.3"
+            fill="none"
+            stroke="rgba(0,0,0,0.2)"
+            strokeWidth="5.8"
+            opacity={isPlaying ? 0.68 : 0.56}
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="29.3"
+            fill="none"
+            stroke="rgba(255,255,255,0.16)"
+            strokeWidth="0.45"
+            opacity="0.58"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="35.2"
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth="0.35"
+            opacity="0.42"
+          />
+        </svg>
+
+        {/* Furo central do disco, visível fora do rótulo quando a capa ainda não carregou. */}
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-15"
           style={{
-            width: '9%',
-            height: '9%',
-            background: 'radial-gradient(circle at center, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.75) 100%)',
-            boxShadow: 'inset 0 0 30px rgba(0,0,0,0.95), inset 0 0 8px rgba(0,0,0,0.7)',
+            width: '7.5%',
+            height: '7.5%',
+            background: 'radial-gradient(circle at 45% 42%, rgba(255,255,255,0.18) 0%, rgba(20,20,20,0.98) 34%, rgba(0,0,0,0.98) 100%)',
+            boxShadow: 'inset 0 0 12px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.22)',
           }}
         />
 
@@ -396,10 +433,18 @@ export const VinylRecord = ({
                     className="absolute inset-0 rounded-full border border-white/5 pointer-events-none"
                     style={{
                       background: `
-                        radial-gradient(circle at center, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.14) 7%, transparent 11%),
                         radial-gradient(circle at center, transparent 0 58%, rgba(0,0,0,0.22) 100%)
                       `,
-                      boxShadow: 'inset 0 0 18px rgba(0,0,0,0.34), inset 0 0 1px rgba(255,255,255,0.38)',
+                      boxShadow: 'inset 0 0 18px rgba(0,0,0,0.28), inset 0 0 1px rgba(255,255,255,0.38)',
+                    }}
+                  />
+                  <div
+                    className="absolute left-1/2 top-1/2 z-30 h-[13%] w-[13%] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                    style={{
+                      background: `
+                        radial-gradient(circle at 42% 38%, rgba(255,255,255,0.2) 0%, rgba(0,0,0,0.92) 28%, rgba(0,0,0,0.98) 58%, rgba(0,0,0,0.78) 100%)
+                      `,
+                      boxShadow: 'inset 0 1px 3px rgba(255,255,255,0.16), inset 0 -2px 5px rgba(0,0,0,0.95), 0 0 0 1px rgba(255,255,255,0.2), 0 4px 10px rgba(0,0,0,0.32)',
                     }}
                   />
                 </div>

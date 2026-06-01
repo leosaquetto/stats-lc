@@ -86,6 +86,51 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
   );
 };
 
+const loadedImageSrcs = new Set<string>();
+const preloadingImageSrcs = new Map<string, Promise<void>>();
+
+export const preloadSmartImages = (sources: Array<string | undefined | null>) => {
+  if (typeof window === 'undefined') return Promise.resolve();
+
+  const uniqueSources = Array.from(new Set(
+    sources
+      .map((source) => typeof source === 'string' ? source : '')
+      .filter((source) => source.trim().length > 5 && !source.includes('private.webp'))
+  ));
+
+  return Promise.allSettled(uniqueSources.map((source) => {
+    if (loadedImageSrcs.has(source)) return Promise.resolve();
+
+    const existing = preloadingImageSrcs.get(source);
+    if (existing) return existing;
+
+    const promise = new Promise<void>((resolve) => {
+      const image = new Image();
+      const done = () => {
+        loadedImageSrcs.add(source);
+        preloadingImageSrcs.delete(source);
+        resolve();
+      };
+      const timeout = window.setTimeout(done, 1800);
+
+      image.onload = () => {
+        window.clearTimeout(timeout);
+        if (image.decode) {
+          image.decode().then(done).catch(done);
+        } else {
+          done();
+        }
+      };
+      image.onerror = done;
+      image.decoding = 'async';
+      image.src = source;
+    });
+
+    preloadingImageSrcs.set(source, promise);
+    return promise;
+  })).then(() => undefined);
+};
+
 export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" }: { src?: string, className?: string, fallback?: string, rounded?: string }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -102,7 +147,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
   useEffect(() => {
     setError(false);
     setShowFallback(false);
-    setLoading(!!displaySrc);
+    setLoading(!!displaySrc && !loadedImageSrcs.has(displaySrc));
 
     if (!displaySrc || displaySrc.includes("private.webp")) {
       const timer = setTimeout(() => setShowFallback(true), 400);
@@ -116,6 +161,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
 
     if (image.complete && image.naturalWidth > 0) {
       lastGoodSrcRef.current = displaySrc;
+      loadedImageSrcs.add(displaySrc);
       setLoading(false);
       setShowFallback(false);
     }
@@ -169,6 +215,7 @@ export const SmartImage = ({ src, className, fallback = "👤", rounded = "2xl" 
           ref={imageRef}
           onLoad={() => {
             lastGoodSrcRef.current = displaySrc;
+            loadedImageSrcs.add(displaySrc);
             setLoading(false);
           }}
           onError={() => {

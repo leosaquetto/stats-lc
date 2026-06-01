@@ -67,14 +67,16 @@ const ScrollingTrackTitle = React.memo(({
       title={title}
     >
       {shouldScroll ? (
-        <motion.span
-          className="flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal"
-          animate={{ x: [0, -scrollDistance] }}
-          transition={{ duration: Math.min(18, Math.max(8, title.length * 0.34)), repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
+        <span
+          className="stats-lc-track-marquee flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal"
+          style={{
+            '--track-title-distance': `${scrollDistance}px`,
+            '--track-title-duration': `${Math.min(18, Math.max(8, title.length * 0.34))}s`,
+          } as React.CSSProperties}
         >
           <span className="pr-8">{title}</span>
           <span className="pr-8" aria-hidden="true">{title}</span>
-        </motion.span>
+        </span>
       ) : (
         <span className="block whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal">
           {title}

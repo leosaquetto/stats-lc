@@ -1,20 +1,28 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# stats.lc
 
-# Run and deploy your AI Studio app
+Frontend React/Vite do stats.lc.
 
-This contains everything you need to run your app locally.
+## Rodar Local
 
-View your app in AI Studio: https://ai.studio/apps/c3937595-c344-445e-9e80-ad931324f3c4
+```bash
+npm install
+npm run dev
+```
 
-## Run Locally
+App local: `http://localhost:3000/`.
 
-**Prerequisites:**  Node.js
+## Validar
 
+```bash
+npm run lint
+npm run build
+git diff --check
+```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Documentos
+
+- `AGENTS.md`: guia ativo para agentes e manutencao.
+- `api-contract.md`: contrato consumido pelo frontend.
+- `docs/live-playback-architecture.md`: arquitetura de live playback.
+- `docs/backlog.md`: follow-ups tecnicos.
+- `docs/history.md`: resumo historico consolidado.
