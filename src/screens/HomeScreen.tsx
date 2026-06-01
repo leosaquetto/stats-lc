@@ -140,9 +140,6 @@ const FloatingMiniHeader = React.memo(({
               albumImage={albumImage}
               dominantColor={dominantColor}
               isPlaying={isPlaying}
-              progressMs={0}
-              durationMs={undefined}
-              onClick={onClick}
               hideTonearm
             />
           </motion.div>

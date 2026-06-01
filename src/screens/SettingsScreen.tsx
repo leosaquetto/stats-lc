@@ -1,13 +1,39 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Users, EyeOff, MinusCircle, Bell, BellRing, Sparkles, Activity, Check, Info, AlertTriangle, X, Clock, Image as ImageIcon, ChevronRight, Swords, Loader2, Database, Disc } from 'lucide-react';
-import { useStatsStore } from '../store/useStatsStore';
-import { coreUtils } from '../services/statsCore';
-import { notificationService } from '../services/notificationService';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  Activity,
+  AlertTriangle,
+  Bell,
+  BellRing,
+  Check,
+  ChevronRight,
+  Clock,
+  Database,
+  EyeOff,
+  GripVertical,
+  Image as ImageIcon,
+  Info,
+  Loader2,
+  Settings,
+  Sparkles,
+  Swords,
+  Users,
+  X,
+} from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, SmartImage } from '../components/shared/CommonUI';
+import { useStatsStore } from '../store/useStatsStore';
+import { notificationService } from '../services/notificationService';
 import { SnapshotHistoryModal } from '../components/shared/SnapshotHistoryModal';
 import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
+import type { UserStats } from '../types/stats';
+import {
+  MemberCard,
+  MemberVisibilityChip,
+  PreferenceRow,
+  SettingsGroup,
+  SettingsPanel,
+  ToggleSwitch,
+} from '../components/settings/SettingsUI';
 
 interface ToastItem {
   id: string;
@@ -16,6 +42,19 @@ interface ToastItem {
   type: 'success' | 'info' | 'error';
   timestamp: string;
 }
+
+const NAV_ITEMS = [
+  { id: 'profile', label: 'Perfil' },
+  { id: 'privacy', label: 'Privacidade' },
+  { id: 'home', label: 'Home' },
+  { id: 'share', label: 'Snaps' },
+  { id: 'alerts', label: 'Alertas' },
+  { id: 'sync', label: 'Dados' },
+  { id: 'system', label: 'Sistema' },
+] as const;
+
+const getFirstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || name || '';
+const sectionDivider = <div className="h-px w-full bg-white/5" />;
 
 export default function SettingsScreen() {
   const groupStats = useStatsStore(state => state.groupStats);
@@ -35,16 +74,6 @@ export default function SettingsScreen() {
   const setNotifyOnArenaBattle = useStatsStore(state => state.setNotifyOnArenaBattle);
   const arenaName = useStatsStore(state => state.arenaName);
   const setArenaName = useStatsStore(state => state.setArenaName);
-  const pollingFrequency = useStatsStore(state => state.pollingFrequency);
-  const setPollingFrequency = useStatsStore(state => state.setPollingFrequency);
-  const animationDuration = useStatsStore(state => state.animationDuration);
-  const setAnimationDuration = useStatsStore(state => state.setAnimationDuration);
-  const animationDelay = useStatsStore(state => state.animationDelay);
-  const setAnimationDelay = useStatsStore(state => state.setAnimationDelay);
-  const shimmerDuration = useStatsStore(state => state.shimmerDuration);
-  const setShimmerDuration = useStatsStore(state => state.setShimmerDuration);
-  const vinylTextureMode = useStatsStore(state => state.vinylTextureMode);
-  const setVinylTextureMode = useStatsStore(state => state.setVinylTextureMode);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
   const isRefreshing = useStatsStore(state => state.isRefreshing);
   const lastFetchTime = useStatsStore(state => state.lastFetchTime);
@@ -52,27 +81,27 @@ export default function SettingsScreen() {
   const setHistoryOrder = useStatsStore(state => state.setHistoryOrder);
   const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
   const setHistoryCustomOrder = useStatsStore(state => state.setHistoryCustomOrder);
-  
-  const members = getCanonicalMembers(groupStats);
-  const getFirstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || name || '';
-  const alphabeticalMembers = [...members].sort((a: any, b: any) => {
-    return getFirstName(a.name).localeCompare(getFirstName(b.name), 'pt-BR', { sensitivity: 'base' });
-  });
 
-  const customSortedMembers = [...members].sort((a: any, b: any) => {
-    const arr = historyCustomOrder || [];
-    const indexA = arr.indexOf(a.id);
-    const indexB = arr.indexOf(b.id);
-    if (indexA === -1 && indexB === -1) return 0;
-    if (indexA === -1) return 1;
-    if (indexB === -1) return -1;
-    return indexA - indexB;
-  });
+  const members = useMemo(() => getCanonicalMembers(groupStats), [groupStats]);
+  const alphabeticalMembers = useMemo(
+    () => [...members].sort((a, b) => getFirstName(a.name).localeCompare(getFirstName(b.name), 'pt-BR', { sensitivity: 'base' })),
+    [members]
+  );
+  const customSortedMembers = useMemo(() => {
+    const order = historyCustomOrder || [];
+    return [...members].sort((a, b) => {
+      const indexA = order.indexOf(a.id);
+      const indexB = order.indexOf(b.id);
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
+  }, [historyCustomOrder, members]);
 
   const [permissionState, setPermissionState] = useState<NotificationPermission>(
     notificationService.getPermissionState()
   );
-
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isResettingApp, setIsResettingApp] = useState(false);
@@ -83,108 +112,17 @@ export default function SettingsScreen() {
     setArenaNameDraft(arenaName || '');
   }, [arenaName]);
 
-  const showToast = (title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
+  const showToast = (title: string, message: string, type: ToastItem['type'] = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
     const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setToasts(prev => [...prev, { id, title, message, type, timestamp }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500); // Slightly longer for more reading time
+    window.setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 4200);
   };
 
-  const toggleHideUser = (id: string, name: string) => {
-    if (hiddenUsers.includes(id)) {
-      setHiddenUsers(dedupeIds(hiddenUsers.filter(u => u !== id)));
-      showToast(
-        'Privacidade Atualizada',
-        `O membro ${name} agora está visível e será contabilizado no ranking global da Arena.`,
-        'success'
-      );
-    } else {
-      // Ocultar usuário não muda featuredUserId - ele continua selecionado mas oculto das listas
-      setHiddenUsers(dedupeIds([...hiddenUsers, id]));
-      showToast(
-        'Privacidade Atualizada',
-        `O membro ${name} foi ocultado. Seus dados não aparecerão mais no ranking para você.`,
-        'info'
-      );
-    }
-  };
-
-  const handleTogglePush = async () => {
-    if (!pushNotificationsEnabled) {
-      try {
-        const perm = await notificationService.requestPermission();
-        setPermissionState(perm);
-        if (perm === 'granted') {
-          setPushNotificationsEnabled(true);
-          showToast(
-            'Sincronização Ativada', 
-            'Alertas de atividade em tempo real foram configurados com sucesso para este dispositivo.', 
-            'success'
-          );
-          setTimeout(() => {
-            notificationService.sendTestNotification();
-          }, 500);
-        } else {
-          setPushNotificationsEnabled(false);
-          showToast(
-            'Permissão Negada', 
-            'Não foi possível ativar as notificações pois o acesso foi bloqueado pelo sistema operacional.', 
-            'error'
-          );
-        }
-      } catch (err) {
-        showToast(
-          'Erro na Configuração', 
-          'Ocorreu uma falha inesperada ao tentar registrar o serviço de notificações.', 
-          'error'
-        );
-      }
-    } else {
-      setPushNotificationsEnabled(false);
-      showToast(
-        'Notificações Desativadas', 
-        'Você não receberá mais alertas de atividade. As métricas continuam sendo atualizadas no fundo.', 
-        'info'
-      );
-    }
-  };
-
-  const triggerTestNotification = () => {
-    notificationService.sendTestNotification();
-    showToast(
-      'Sinal Enviado',
-      'Um pacote de teste foi disparado para validar a integridade da comunicação push.',
-      'success'
-    );
-  };
-
-  const handleSaveArenaName = () => {
-    const normalizedName = arenaNameDraft.trim().replace(/\s+/g, ' ');
-    if (!normalizedName) {
-      showToast('Nome da Arena', 'Informe um nome para salvar sua Arena.', 'error');
-      return;
-    }
-
-    if (normalizedName.length > 50) {
-      showToast('Nome da Arena', 'Use no máximo 50 caracteres.', 'error');
-      return;
-    }
-
-    setArenaName(normalizedName);
-    setArenaNameDraft(normalizedName);
-    showToast('Nome da Arena', 'Nome salvo para os próximos relatórios e compartilhamentos.', 'success');
-  };
-
-  const handleFeaturedUserChange = (user: any) => {
+  const handleFeaturedUserChange = (user: UserStats) => {
     if (!user?.id) return;
     if (user.id === featuredUserId) {
-      showToast(
-        'Usuário em Destaque',
-        `${user.name} já está carregado como referência principal.`,
-        'info'
-      );
+      showToast('Usuário em Destaque', `${user.name} já está carregado como referência principal.`, 'info');
       return;
     }
 
@@ -197,25 +135,71 @@ export default function SettingsScreen() {
     localStorage.setItem('stats-lc-has-selected-user', '1');
     sessionStorage.removeItem('stats-lc-home-boot-ready');
     window.__STATS_LC_HOME_READY__ = false;
-
     window.location.hash = '#/';
     window.location.reload();
   };
 
+  const toggleHideUser = (id: string, name: string) => {
+    const isHidden = hiddenUsers.includes(id);
+    setHiddenUsers(isHidden ? dedupeIds(hiddenUsers.filter(userId => userId !== id)) : dedupeIds([...hiddenUsers, id]));
+    showToast(
+      'Privacidade Atualizada',
+      isHidden
+        ? `${name} voltou para listas e rankings deste dispositivo.`
+        : `${name} foi ocultado de listas e rankings deste dispositivo.`,
+      isHidden ? 'success' : 'info'
+    );
+  };
+
+  const handleSaveArenaName = () => {
+    const normalizedName = arenaNameDraft.trim().replace(/\s+/g, ' ');
+    if (!normalizedName) {
+      showToast('Nome da Arena', 'Informe um nome para salvar sua Arena.', 'error');
+      return;
+    }
+    if (normalizedName.length > 50) {
+      showToast('Nome da Arena', 'Use no máximo 50 caracteres.', 'error');
+      return;
+    }
+    setArenaName(normalizedName);
+    setArenaNameDraft(normalizedName);
+    showToast('Nome da Arena', 'Nome salvo para relatórios e compartilhamentos.', 'success');
+  };
+
+  const handleTogglePush = async () => {
+    if (pushNotificationsEnabled) {
+      setPushNotificationsEnabled(false);
+      showToast('Notificações Desativadas', 'Alertas de atividade foram pausados neste dispositivo.', 'info');
+      return;
+    }
+
+    try {
+      const permission = await notificationService.requestPermission();
+      setPermissionState(permission);
+      if (permission !== 'granted') {
+        setPushNotificationsEnabled(false);
+        showToast('Permissão Negada', 'Libere notificações no navegador para ativar os alertas.', 'error');
+        return;
+      }
+      setPushNotificationsEnabled(true);
+      showToast('Notificações Ativadas', 'Alertas da Arena foram configurados para este dispositivo.', 'success');
+      window.setTimeout(() => notificationService.sendTestNotification(), 500);
+    } catch (error) {
+      console.error(error);
+      showToast('Erro na Configuração', 'Não foi possível registrar as notificações agora.', 'error');
+    }
+  };
+
   const handleResetApp = async () => {
     const confirmed = window.confirm(
-      'Reiniciar app?\n\nIsso limpa o cache local deste dispositivo e recarrega o app. Seus dados do stats.fm não serão apagados.'
+      'Limpar cache e reiniciar?\n\nIsso remove dados locais deste dispositivo e recarrega o app. Seus dados do stats.fm não serão apagados.'
     );
-
     if (!confirmed) return;
 
     setIsResettingApp(true);
-
     try {
-      // 1. Clear localStorage keys related to the app
-      const keysToRemove = [
+      [
         'stats-lc-storage',
-        // MockMMKV keys with 'stats-cache_' prefix
         'stats-cache_groupStats',
         'stats-cache_groupStats_timestamp',
         'stats-cache_userFullStatsCache',
@@ -224,964 +208,444 @@ export default function SettingsScreen() {
         'stats-cache_timeRangeStatsCacheMeta',
         'stats-cache_topItemsCache',
         'stats-cache_topItemsCacheMeta',
-      ];
+      ].forEach(key => localStorage.removeItem(key));
 
-      keysToRemove.forEach(key => {
-        try {
-          localStorage.removeItem(key);
-        } catch (e) {
-          console.warn(`Failed to remove localStorage key: ${key}`, e);
-        }
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('stats-cache_')) localStorage.removeItem(key);
       });
+      sessionStorage.clear();
 
-      // 2. Clear all localStorage keys that start with 'stats-cache_'
-      try {
-        const allKeys = Object.keys(localStorage);
-        allKeys.forEach(key => {
-          if (key.startsWith('stats-cache_')) {
-            try {
-              localStorage.removeItem(key);
-            } catch (e) {
-              console.warn(`Failed to remove localStorage key: ${key}`, e);
-            }
-          }
-        });
-      } catch (e) {
-        console.warn('Failed to iterate localStorage keys', e);
-      }
-
-      // 3. Clear sessionStorage (temporary, safe to clear entirely)
-      try {
-        sessionStorage.clear();
-      } catch (e) {
-        console.warn('Failed to clear sessionStorage', e);
-      }
-
-      // 4. Clear CacheStorage (service worker caches)
       if ('caches' in window) {
-        try {
-          const cacheKeys = await caches.keys();
-          await Promise.all(
-            cacheKeys.map(key =>
-              caches.delete(key).catch(err => {
-                console.warn(`Failed to delete cache: ${key}`, err);
-                return false;
-              })
-            )
-          );
-        } catch (e) {
-          console.warn('Failed to clear CacheStorage', e);
-        }
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(key => caches.delete(key).catch(() => false)));
       }
 
-      // 5. Show success toast
-      showToast(
-        'Cache Limpo',
-        'Cache limpo. Reiniciando o app…',
-        'success'
-      );
-
-      // 6. Wait and reload
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // 7. Hard reload to root
+      showToast('Cache Limpo', 'Reiniciando o app...', 'success');
+      await new Promise(resolve => window.setTimeout(resolve, 300));
       window.location.href = '/#/';
     } catch (error) {
       console.error('Failed to reset app:', error);
       setIsResettingApp(false);
-      showToast(
-        'Erro ao Limpar',
-        'Não foi possível limpar tudo. Tente fechar e abrir o app.',
-        'error'
-      );
+      showToast('Erro ao Limpar', 'Não foi possível limpar tudo. Tente fechar e abrir o app.', 'error');
     }
   };
 
+  const reorderCustomMember = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    const items = [...customSortedMembers];
+    const [draggedItem] = items.splice(fromIndex, 1);
+    items.splice(toIndex, 0, draggedItem);
+    setHistoryCustomOrder(dedupeIds(items.map(member => member.id)));
+    showToast('Ordem Atualizada', 'Prioridade personalizada da Home foi salva.', 'success');
+  };
+
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4">
-      <header className="px-1 flex justify-between items-start">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Privacidade & Grid</span>
+    <div className="flex flex-col gap-5 px-4 pb-32">
+      <header className="px-1">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-orange-500" />
+              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/30">Preferências</span>
+            </div>
+            <h1 className="mt-1 text-4xl font-black tracking-tight text-white">Ajustes</h1>
+            <p className="mt-2 max-w-xl text-[12px] font-medium leading-relaxed text-white/40">
+              Configure perfil em destaque, privacidade, Home, alertas e dados deste dispositivo.
+            </p>
           </div>
-          <h1 className="text-4xl font-display font-black text-white tracking-tighter">Ajustes</h1>
-        </div>
-        <div className="h-12 w-12 glass rounded-2xl flex items-center justify-center text-white/40">
-           <Settings className="h-5 w-5" />
+          <div className="glass flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white/40">
+            <Settings className="h-5 w-5" />
+          </div>
         </div>
       </header>
 
-      <div className="flex flex-col gap-10 mt-4">
-        {/* User Selection */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Usuário em Destaque" action={<Users className="h-4 w-4 text-white/20" />} />
-           <p className="text-[11px] text-white/40 font-medium px-1">Selecione quem aparecerá no topo da sua Arena pessoal.</p>
-           
-           <div className="grid grid-cols-4 gap-2">
-	             {alphabeticalMembers.map((user: any) => (
-               <button
-                 key={user.id}
-                 onClick={() => handleFeaturedUserChange(user)}
-                 className={clsx(
-                   "glass group relative flex min-h-[154px] flex-col justify-end overflow-hidden rounded-3xl p-2 text-center transition-all active:scale-[0.98]",
-                   featuredUserId === user.id 
-                    ? "ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.1)]" 
-                    : "hover:bg-white/[0.04]"
-                 )}
-                 style={{ border: 0 }}
-               >
-                 <SmartImage
-                   src={coreUtils.getUserAvatar(user.id, user.avatar)}
-                   className="absolute inset-0 h-full w-full scale-105 object-cover opacity-78 transition-transform duration-500 group-hover:scale-110"
-                   fallback=""
-                 />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/28 to-transparent" />
-                 <div className="absolute inset-0 bg-black/10" />
-                 {featuredUserId === user.id && (
-                   <div className="absolute right-3 top-3 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 shadow-lg">
-                      <div className="h-2 w-2 rounded-full bg-white" />
-                   </div>
-                 )}
-                 <div className="relative z-10 flex min-h-[42px] w-full items-end justify-center px-1 pb-2">
-                   <span className={clsx("w-full whitespace-normal break-words text-[10px] font-black leading-[1.12]", featuredUserId === user.id ? "text-orange-400" : "text-white/88")}>
-	                     {getFirstName(user.name)}
-                   </span>
-                 </div>
-               </button>
-             ))}
-           </div>
+      <nav className="sticky top-2 z-30 -mx-1 overflow-x-auto px-1 py-2">
+        <div className="flex w-max gap-2 rounded-2xl border border-white/5 bg-black/45 p-1 backdrop-blur-xl">
+          {NAV_ITEMS.map(item => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/45 transition-colors hover:bg-white/5 hover:text-white"
+            >
+              {item.label}
+            </a>
+          ))}
         </div>
+      </nav>
 
-        {/* Visibility */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Visibilidade" action={<EyeOff className="h-4 w-4 text-white/20" />} />
-           <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-4">
-                 <span className="text-[11px] font-black uppercase tracking-widest text-white/20">Ocultar Membros</span>
-                 <div className="grid grid-cols-2 gap-2">
-	                    {alphabeticalMembers.map((user: any) => (
-                      <button
-                        key={user.id}
-                        onClick={() => toggleHideUser(user.id, user.name)}
-                        className={clsx(
-	                          "flex min-h-[52px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2 text-left text-[11px] font-bold transition-all",
-                          hiddenUsers.includes(user.id)
-                            ? "bg-red-500/10 border-red-500/20 text-red-400"
-                            : "bg-white/5 border-white/5 text-white/40"
-                        )}
-                      >
-                         <SmartImage 
-                           src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-	                           className="h-7 w-7 rounded-full opacity-80" 
-                           fallback="" 
-                         />
-	                         <span className="min-w-0 flex-1 truncate leading-tight">{getFirstName(user.name)}</span>
-                         {hiddenUsers.includes(user.id) && <MinusCircle className="h-3 w-3" />}
-                      </button>
-                    ))}
-                 </div>
-              </div>
-           </div>
+      <main className="flex flex-col gap-8">
+        <SettingsGroup
+          id="profile"
+          eyebrow="Perfil"
+          title="Usuário em destaque"
+          description="Define quem guia a Home. A troca reinicia a Home para carregar o perfil completo."
+          action={<Users className="h-4 w-4" />}
+        >
+          <SettingsPanel>
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+              {alphabeticalMembers.map(user => (
+                <MemberCard
+                  key={user.id}
+                  user={user}
+                  active={featuredUserId === user.id}
+                  onClick={() => handleFeaturedUserChange(user)}
+                />
+              ))}
+            </div>
+          </SettingsPanel>
+        </SettingsGroup>
 
-           <div className="glass-card p-6 flex items-center justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                 <span className="text-[13px] font-bold text-white/90">Distintivo de Ranking</span>
-                 <span className="text-[10px] text-white/30">Ocultar a medalha de 1º, 2º e 3º na Arena.</span>
+        <SettingsGroup
+          id="privacy"
+          eyebrow="Privacidade"
+          title="Visibilidade"
+          description="Ocultar membros afeta listas e rankings, sem resetar o usuário em destaque."
+          action={<EyeOff className="h-4 w-4" />}
+        >
+          <SettingsPanel className="flex flex-col gap-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[13px] font-bold text-white/90">Membros ocultos</div>
+                <div className="mt-1 text-[10px] font-medium text-white/34">
+                  {hiddenUsers.length === 0 ? 'Todos os membros estão visíveis.' : `${hiddenUsers.length} membro(s) oculto(s).`}
+                </div>
               </div>
-              <button 
+              <button
+                type="button"
+                disabled={hiddenUsers.length === 0}
                 onClick={() => {
-                  const nextValue = !hideRankingBadge;
-                  setHideRankingBadge(nextValue);
-                  showToast(
-                    'Visibilidade de Ranking',
-                    nextValue 
-                      ? 'As medalhas de posição (1º, 2º, 3º) foram ocultadas do layout global.' 
-                      : 'As medalhas de ranking voltaram a ser exibidas para todos os membros.',
-                    'info'
-                  );
+                  setHiddenUsers([]);
+                  showToast('Privacidade Atualizada', 'Todos os membros voltaram a aparecer.', 'success');
                 }}
-                className={clsx(
-                  "relative h-6 w-12 shrink-0 rounded-full transition-all duration-300",
-                  hideRankingBadge ? "bg-orange-500" : "bg-white/10"
-                )}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/55 transition-all active:scale-95 disabled:opacity-25"
               >
-                <motion.div 
-                  animate={{ x: hideRankingBadge ? 24 : 4 }}
-                  className="absolute top-1 h-4 w-4 rounded-full bg-white shadow-xl"
-                />
+                Mostrar todos
               </button>
-           </div>
-        </div>
-
-        {/* Ordering Preferences */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Ordem do Histórico" action={<Clock className="h-4 w-4 text-white/20" />} />
-           <p className="text-[11px] text-white/40 font-medium px-1">Configure como os cards de histórico e atividade dos amigos são organizados no painel principal.</p>
-           
-           <div className="glass-card p-6 flex flex-col gap-6">
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: 'lastPlayed', title: 'Última Reprodução', desc: 'Atividade recente' },
-                  { id: 'alphabetical', title: 'Ordem Alfabética', desc: 'A - Z' },
-                  { id: 'custom', title: 'Personalizada', desc: 'Arrastar membros' },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    onClick={() => {
-                      setHistoryOrder(opt.id as any);
-                      if (opt.id === 'custom' && (!historyCustomOrder || historyCustomOrder.length === 0)) {
-                        setHistoryCustomOrder(dedupeIds(members.map((m: any) => m.id)));
-                      }
-                      showToast(
-                        'Preferência de Ordem',
-                        `Ordem do histórico de atividades alterada para: ${opt.title}.`,
-                        'success'
-                      );
-                    }}
-                    className={clsx(
-                      "flex flex-col items-center justify-center p-3 rounded-2xl border text-center transition-all cursor-pointer relative",
-                      historyOrder === opt.id 
-                        ? "bg-orange-500/10 border-orange-500/40 text-orange-400 font-extrabold shadow-[0_4px_15px_rgba(249,115,22,0.1)]" 
-                        : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04] text-white/60 hover:text-white/80"
-                    )}
-                  >
-                    <span className="text-xs font-bold whitespace-nowrap">{opt.title}</span>
-                    <span className="text-[9px] text-white/30 font-medium mt-0.5">{opt.desc}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Drag and drop section if selected */}
-              {historyOrder === 'custom' && (
-                <div className="flex flex-col gap-3">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Arraste para Alterar a Ordem:</span>
-                  <div className="flex flex-col gap-1.5 bg-black/10 p-2 rounded-2xl border border-white/5">
-                    {customSortedMembers.map((user: any, idx: number) => (
-                      <div
-                        key={user.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.effectAllowed = 'move';
-                          (window as any)._draggedIndex = idx;
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const fromIndex = (window as any)._draggedIndex;
-                          if (fromIndex === undefined || fromIndex === null || fromIndex === idx) return;
-                          
-                          const items = [...customSortedMembers];
-                          const draggedItem = items[fromIndex];
-                          items.splice(fromIndex, 1);
-                          items.splice(idx, 0, draggedItem);
-                          
-                          setHistoryCustomOrder(dedupeIds(items.map((m: any) => m.id)));
-                          (window as any)._draggedIndex = null;
-                          showToast(
-                            'Ordem Atualizada',
-                            'Você alterou a disposição personalizada dos seus amigos.',
-                            'success'
-                          );
-                        }}
-                        className="flex items-center justify-between p-3 bg-white/[0.03] border border-white/5 rounded-xl cursor-grab active:cursor-grabbing hover:bg-white/[0.06] transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-[10px] font-mono font-bold text-white/30 w-4">
-                            {idx + 1}º
-                          </span>
-                          <SmartImage 
-                            src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                            className="h-7 w-7 rounded-full border border-white/10" 
-                            fallback="" 
-                            rounded="full"
-                          />
-                          <span className="text-xs font-bold text-white/80">
-                            {user.name}
-                          </span>
-                        </div>
-                        <div className="flex flex-col gap-0.5 items-end text-white/30 pr-1 text-sm select-none">
-                          ☰
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-white/40 italic leading-snug px-1">
-                    * Segure e arraste as linhas da lista de amigos acima para definir a prioridade de visualização. Essa preferência reflete instantaneamente no carrossel e timeline da página inicial.
-                  </p>
-                </div>
-              )}
-           </div>
-        </div>
-
-        {/* Snap Gallery */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Snaps & Compartilhamento" action={<ImageIcon className="h-4 w-4 text-white/20" />} />
-            <div className="glass-card p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                   <span className="text-[13px] font-bold text-white/90 flex items-center gap-2">
-                     <Swords className="h-3.5 w-3.5 text-orange-500" />
-                     Nome da Arena
-                   </span>
-                   <span className="text-[10px] text-white/30">O título que aparecerá nos relatórios semanais. (Ex: "Arena Stats LC")</span>
-                </div>
-                <input 
-                  type="text" 
-                  value={arenaNameDraft}
-                  onChange={(e) => setArenaNameDraft(e.target.value.slice(0, 50))}
-                  onBlur={(event) => {
-                    if (event.relatedTarget === arenaNameSaveButtonRef.current) return;
-                    if (arenaNameDraft.trim() && arenaNameDraft.trim() !== (arenaName || '').trim()) {
-                      handleSaveArenaName();
-                    }
-                  }}
-                  maxLength={50}
-                  placeholder="Nome da sua Arena"
-                  className="bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-white outline-none focus:border-orange-500/50 transition-all placeholder:text-white/20"
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {alphabeticalMembers.map(user => (
+                <MemberVisibilityChip
+                  key={user.id}
+                  user={user}
+                  hidden={hiddenUsers.includes(user.id)}
+                  featured={featuredUserId === user.id}
+                  onClick={() => toggleHideUser(user.id, user.name)}
                 />
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-white/25">
-                    {arenaNameDraft.length}/50
-                  </span>
-                  <button
-                    ref={arenaNameSaveButtonRef}
-                    type="button"
-                    onClick={handleSaveArenaName}
-                    disabled={arenaNameDraft.trim() === (arenaName || '').trim()}
-                    className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-white/60 transition-all active:scale-95 disabled:cursor-default disabled:opacity-30"
-                  >
-                    Salvar nome
-                  </button>
-                </div>
-              </div>
-
-              <div className="h-px w-full bg-white/5 my-2" />
-
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                   <span className="text-[13px] font-bold text-white/90">Histórico de Visualizações</span>
-                   <span className="text-[10px] text-white/30">Acesse snapshots gerados recentemente para compartilhar novamente.</span>
-                </div>
-                <button 
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 rounded-xl text-[11px] font-black text-white hover:bg-orange-600 transition-all active:scale-95 shadow-lg shadow-orange-500/20"
-                >
-                  ABRIR GALERIA
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-           </div>
-        </div>
-
-        {/* Push Notifications Configuration */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Notificações Push" action={<Bell className="h-4 w-4 text-white/20" />} />
-           <div className="glass-card p-6 flex flex-col gap-6">
-              
-              {/* Main Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                   <div className="flex items-center gap-2">
-                     <span className="text-[13px] font-bold text-white/90">Alertas de Atividade</span>
-                     {permissionState === 'granted' && pushNotificationsEnabled && (
-                       <span className="text-[8px] bg-green-500/10 text-green-400 border border-green-500/20 px-1.5 py-0.5 rounded-full font-black uppercase font-mono">Ativo</span>
-                     )}
-                     {permissionState === 'denied' && (
-                       <span className="text-[8px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-full font-black uppercase font-mono">Bloqueado</span>
-                     )}
-                   </div>
-                   <span className="text-[10px] text-white/30">Ative para receber updates em tempo real da Arena.</span>
-                </div>
-                <button 
-                  onClick={handleTogglePush}
-                  disabled={permissionState === 'denied'}
-                  className={clsx(
-                    "w-12 h-6 rounded-full relative transition-all duration-300",
-                    pushNotificationsEnabled && permissionState === 'granted' ? "bg-orange-500" : "bg-white/10 opacity-70",
-                    permissionState === 'denied' && "cursor-not-allowed opacity-30"
-                  )}
-                >
-                  <motion.div 
-                    animate={{ x: pushNotificationsEnabled && permissionState === 'granted' ? 24 : 4 }}
-                    className="absolute top-1 h-4 w-4 rounded-full bg-white shadow-xl"
-                  />
-                </button>
-              </div>
-
-              {permissionState === 'denied' && (
-                <div className="text-[9px] text-red-400/80 bg-red-500/5 border border-red-500/10 p-3 rounded-xl flex items-center gap-2">
-                  <span>⚠️ Notificações bloqueadas pelo navegador. Por favor, libere as permissões nas configurações do seu navegador para receber alertas.</span>
-                </div>
-              )}
-
-              <div className="h-px w-full bg-white/5" />
-
-              {/* Advanced settings visible when enabled */}
-              <div className={clsx(
-                "flex flex-col gap-5 transition-all duration-300",
-                (!pushNotificationsEnabled || permissionState !== 'granted') && "opacity-30 pointer-events-none select-none"
-              )}>
-                {/* Notify on New Streams */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col gap-1">
-                     <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80">
-                       <Activity className="h-3.5 w-3.5 text-orange-500" />
-                       <span>Novos streams de amigos</span>
-                     </div>
-                     <span className="text-[10px] text-white/30">Notificar quando alguém na Arena der play em uma nova faixa.</span>
-                  </div>
-                  <button 
-                    disabled={!pushNotificationsEnabled || permissionState !== 'granted'}
-                    onClick={() => {
-                      const val = !notifyOnNewStreams;
-                      setNotifyOnNewStreams(val);
-                      showToast(
-                        'Preferência de Alerta',
-                        val 
-                          ? 'Configurado: Você será notificado sempre que um amigo iniciar uma nova reprodução.' 
-                          : 'Configurado: Alertas de novos streams foram silenciados.',
-                        'info'
-                      );
-                    }}
-                    className={clsx(
-                      "w-10 h-5 rounded-full relative transition-all duration-300",
-                      notifyOnNewStreams ? "bg-orange-500" : "bg-white/10"
-                    )}
-                  >
-                    <motion.div 
-                      animate={{ x: notifyOnNewStreams ? 20 : 4 }}
-                      className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-xl"
-                    />
-                  </button>
-                </div>
-
-                <div className="h-px w-full bg-white/5" />
-
-                {/* Notify on Group Highlights */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col gap-1">
-                     <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80">
-                       <Sparkles className="h-3.5 w-3.5 text-orange-500" />
-                       <span>Destaques do grupo</span>
-                     </div>
-                     <span className="text-[10px] text-white/30">Notificar recordes, picos dramáticos ou novos marcos diários de streams.</span>
-                  </div>
-                  <button 
-                    disabled={!pushNotificationsEnabled || permissionState !== 'granted'}
-                    onClick={() => {
-                      const val = !notifyOnGroupHighlights;
-                      setNotifyOnGroupHighlights(val);
-                      showToast(
-                        'Preferência de Alerta',
-                        val 
-                          ? 'Configurado: Destaques, recordes e picos de atividade serão notificados.' 
-                          : 'Configurado: Alertas de destaques do grupo foram silenciados.',
-                        'info'
-                      );
-                    }}
-                    className={clsx(
-                      "w-10 h-5 rounded-full relative transition-all duration-300",
-                      notifyOnGroupHighlights ? "bg-orange-500" : "bg-white/10"
-                    )}
-                  >
-                    <motion.div 
-                      animate={{ x: notifyOnGroupHighlights ? 20 : 4 }}
-                      className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-xl"
-                    />
-                  </button>
-                </div>
-
-                <div className="h-px w-full bg-white/5" />
-
-                {/* Notify on Arena Battle Overtakes */}
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col gap-1">
-                     <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80">
-                       <Swords className="h-3.5 w-3.5 text-orange-500" />
-                       <span>Arena Battle (Ultrapassagens)</span>
-                     </div>
-                     <span className="text-[10px] text-white/30">Notificar quando alguém ultrapassar outra pessoa no ranking diário.</span>
-                  </div>
-                  <button 
-                    disabled={!pushNotificationsEnabled || permissionState !== 'granted'}
-                    onClick={() => {
-                      const val = !notifyOnArenaBattle;
-                      setNotifyOnArenaBattle(val);
-                      showToast(
-                        'Preferência de Alerta',
-                        val 
-                          ? 'Configurado: Você será avisado de ultrapassagens na Arena.' 
-                          : 'Configurado: Avisos de ultrapassagem foram desativados.',
-                        'info'
-                      );
-                    }}
-                    className={clsx(
-                      "w-10 h-5 rounded-full relative transition-all duration-300",
-                      notifyOnArenaBattle ? "bg-orange-500" : "bg-white/10"
-                    )}
-                  >
-                    <motion.div 
-                      animate={{ x: notifyOnArenaBattle ? 20 : 4 }}
-                      className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-xl"
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Test Button */}
-              {permissionState === 'granted' && pushNotificationsEnabled && (
-                <button
-                  type="button"
-                  onClick={triggerTestNotification}
-                  className="mt-2 w-full flex items-center justify-center gap-2 p-3 bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] rounded-2xl text-[11px] font-black text-white/70 hover:text-white uppercase tracking-wider transition-all"
-                >
-                  <BellRing className="h-3.5 w-3.5" />
-                  <span>Testar Sinal de Notificação</span>
-                </button>
-              )}
-
-           </div>
-        </div>
-
-        {/* Polling Frequency Configuration - Independent Premium Section */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Sincronização de Dados" action={<Clock className="h-4 w-4 text-white/20" />} />
-           <p className="text-[11px] text-white/40 font-medium px-1">
-             Configure o tempo de resposta do sistema. Defina o intervalo em que a Arena fará requisições de fundo para capturar novos streams e picos de reprodução.
-           </p>
-           
-           <div className="glass-card p-6 flex flex-col gap-6">
-              <div className="flex flex-col justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                   <span className="text-[13px] font-bold text-white/90">Tempo do Intervalo</span>
-                   <span className="text-[10px] text-white/30">Determina com precisão a cada quantos segundos os dados são requisitados.</span>
-                </div>
-                
-                {/* Manual Numeric input with visual styling */}
-                <div className="flex items-center gap-2 self-start shrink-0">
-                   <input 
-                     type="number"
-                     min={5}
-                     max={900}
-                     value={pollingFrequency}
-                     onChange={(e) => {
-                       const val = parseInt(e.target.value, 10);
-                       if (!isNaN(val)) {
-                         setPollingFrequency(val);
-                       }
-                     }}
-                     onBlur={(e) => {
-                       let val = parseInt(e.target.value, 10);
-                       if (isNaN(val)) val = 60;
-                       const clamped = Math.max(5, Math.min(900, val));
-                       setPollingFrequency(clamped);
-                        showToast(
-                          'Sincronização Ajustada', 
-                          `O intervalo de busca de dados foi definido para ${clamped} segundos.`, 
-                          'success'
-                        );
-                     }}
-                     style={{ contentVisibility: 'auto' }}
-                     className="w-20 px-3 py-1.5 bg-black/40 border border-white/10 rounded-xl text-center text-xs font-mono font-bold text-white focus:border-orange-500/50 outline-none hover:border-white/20 transition-all font-mono"
-                   />
-                   <span className="text-xs font-bold text-white/40 font-mono font-bold">segundos</span>
-                </div>
-              </div>
-
-              {/* Range Selector slider */}
-              <div className="flex flex-col gap-3">
-                 <div className="flex justify-between items-center text-[10px] text-white/30 font-black font-mono tracking-wider">
-                    <span>RÁPIDO (5s)</span>
-                    <span className="text-orange-400 font-extrabold text-[11px] bg-orange-500/10 px-2 py-0.5 rounded-full border border-orange-500/20 font-mono">
-                      {pollingFrequency}s ({Math.floor(pollingFrequency / 60)}m {pollingFrequency % 60}s)
-                    </span>
-                    <span>PAUSADO (15m / 900s)</span>
-                 </div>
-                 <div className="relative flex items-center">
-                   <input 
-                     type="range"
-                     min={5}
-                     max={900}
-                     step={1}
-                     value={pollingFrequency}
-                     onChange={(e) => {
-                       const val = parseInt(e.target.value, 10);
-                       setPollingFrequency(val);
-                     }}
-                     className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none focus:ring-0"
-                   />
-                 </div>
-                 <div className="text-[10px] text-white/40 flex items-start gap-1.5 leading-snug">
-                   <Info className="h-3 w-3 text-orange-400 shrink-0 mt-0.5" />
-                   <span>Recomendado: 30s a 120s. Valores abaixo de 10s podem gerar maior consumo de banda ou sobrecarregar as requisições se houver conexões instáveis.</span>
-                 </div>
-              </div>
-
-              <div className="h-px w-full bg-white/5 my-2" />
-
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  disabled={isRefreshing}
-                  onClick={async () => {
-                    try {
-                      await fetchGroup(true);
-                      showToast('Sincronia Completa', 'Banco de dados do grupo atualizado do zero.', 'success');
-                    } catch (err: any) {
-                      console.error(err);
-                      showToast('Erro de Sincronia', err?.message || 'Falha ao sincronizar dados completos.', 'error');
-                    }
+              ))}
+            </div>
+            {sectionDivider}
+            <PreferenceRow
+              title="Distintivo de Ranking"
+              description="Oculta medalhas de 1o, 2o e 3o na Arena."
+              control={
+                <ToggleSwitch
+                  label="Alternar distintivo de ranking"
+                  checked={hideRankingBadge}
+                  onClick={() => {
+                    const nextValue = !hideRankingBadge;
+                    setHideRankingBadge(nextValue);
+                    showToast('Ranking', nextValue ? 'Medalhas ocultadas.' : 'Medalhas voltaram a aparecer.', 'info');
                   }}
-                  className="w-full h-11 flex items-center justify-center gap-2.5 px-4 bg-orange-500 hover:bg-orange-600 border border-orange-600/30 text-white rounded-2xl text-xs font-black uppercase tracking-[0.1em] shadow-[0_10px_25px_rgba(249,115,22,0.15)] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-wait"
-                >
-                  {isRefreshing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                      <span className="truncate">Atualizando Sincronia...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Database className="h-4 w-4 shrink-0" />
-                      <span className="truncate">Atualizar banco de dados completo</span>
-                    </>
+                />
+              }
+            />
+          </SettingsPanel>
+        </SettingsGroup>
+
+        <SettingsGroup
+          id="home"
+          eyebrow="Home"
+          title="Ordem do histórico"
+          description="Controla a ordem dos cards de histórico e atividade no painel principal."
+          action={<Clock className="h-4 w-4" />}
+        >
+          <SettingsPanel className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                { id: 'lastPlayed', title: 'Última reprodução', desc: 'Atividade recente' },
+                { id: 'alphabetical', title: 'Ordem alfabética', desc: 'A - Z' },
+                { id: 'custom', title: 'Personalizada', desc: 'Manual' },
+              ].map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    setHistoryOrder(option.id as 'lastPlayed' | 'alphabetical' | 'custom');
+                    if (option.id === 'custom' && historyCustomOrder.length === 0) {
+                      setHistoryCustomOrder(dedupeIds(members.map(member => member.id)));
+                    }
+                    showToast('Ordem da Home', `${option.title} selecionada.`, 'success');
+                  }}
+                  className={clsx(
+                    'min-h-[64px] rounded-2xl border p-3 text-left transition-all active:scale-[0.98]',
+                    historyOrder === option.id
+                      ? 'border-orange-500/40 bg-orange-500/10 text-orange-300'
+                      : 'border-white/6 bg-white/[0.035] text-white/64 hover:bg-white/[0.06]'
                   )}
+                >
+                  <div className="text-[12px] font-black leading-tight">{option.title}</div>
+                  <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-white/30">{option.desc}</div>
                 </button>
-                <span className="text-[10px] text-white/40 leading-normal px-1">
-                  Diferente do refresh live da Home, isso força uma varredura profunda sincronizando do zero os tops, streams e dados históricos de todos os usuários do grupo.
-                </span>
-              </div>
-           </div>
-        </div>
-
-        {/* Visual Customizations - Animations & Effects */}
-        <div className="flex flex-col gap-4">
-           <SectionHeader title="Ajustes Visuais & Animações" action={<Sparkles className="h-4 w-4 text-white/20" />} />
-           <p className="text-[11px] text-white/40 font-medium px-1">
-             Personalize o ritmo de carregamento, brilho (shimmer) e fade-in dos cards de músicas e histórico de amigos.
-           </p>
-           
-           <div className="glass-card p-6 flex flex-col gap-6">
-              <div className="flex flex-col gap-4">
-                 <div className="flex items-center justify-between gap-4">
-                    <div className="flex flex-col gap-1">
-                       <span className="text-[13px] font-bold text-white/90">Modelo padrão do vinil</span>
-                       <span className="text-[10px] text-white/30">Modelo liso fixado enquanto refinamos as outras texturas.</span>
-                    </div>
-                    <Disc className="h-4 w-4 shrink-0 text-white/25" />
-                 </div>
-
-                 <div className="grid grid-cols-1 gap-2">
-                   {[
-                     { value: '1', label: 'Modelo 1' },
-                   ].map((option) => {
-                     const active = vinylTextureMode === option.value;
-                     return (
-                       <button
-                         key={option.value}
-                         onClick={() => {
-                           setVinylTextureMode('1');
-                           showToast(
-                             'Vinil',
-                             'Modelo 1 fixado para todos os vinis.',
-                             'info'
-                           );
-                         }}
-                         className={clsx(
-                           "glass h-10 rounded-2xl text-[10px] font-black uppercase tracking-[0.14em] transition-all active:scale-[0.97]",
-                           active ? "text-orange-400 ring-1 ring-orange-500/50" : "text-white/45 hover:text-white/75"
-                         )}
-                         style={{ border: 0 }}
-                       >
-                         {option.label}
-                       </button>
-                     );
-                   })}
-                 </div>
-              </div>
-
-              <div className="h-px w-full bg-white/5" />
-
-              
-              {/* Animation Duration (Fade In) */}
-              <div className="flex flex-col gap-4">
-                 <div className="flex justify-between items-center bg-transparent">
-                    <div className="flex flex-col gap-1">
-                       <span className="text-[13px] font-bold text-white/90">Duração do Fade-In</span>
-                       <span className="text-[10px] text-white/30">Duração do efeito de esmaecimento ao carregar e expandir cards.</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 self-start shrink-0">
-                       <input 
-                         type="number"
-                         min="0.05"
-                         max="3.0"
-                         step="0.05"
-                         value={animationDuration}
-                         onChange={(e) => {
-                           const val = parseFloat(e.target.value);
-                           if (!isNaN(val)) {
-                             setAnimationDuration(Math.max(0.05, Math.min(3.0, val)));
-                             showToast(
-                               'Efeito Visual', 
-                               `Duração do fade-in ajustada para ${val.toFixed(2)}s.`, 
-                               'info'
-                             );
-                           }
-                         }}
-                         className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-xl text-center text-xs font-mono font-bold text-white focus:border-orange-500/50 outline-none hover:border-white/20 transition-all font-mono"
-                       />
-                       <span className="text-xs font-bold text-white/40 font-mono font-bold">seg</span>
-                    </div>
-                 </div>
-
-                 {/* Slider for Duration */}
-                 <div className="relative flex items-center">
-                   <input 
-                     type="range"
-                     min="0.05"
-                     max="3.0"
-                     step="0.05"
-                     value={animationDuration}
-                     onChange={(e) => {
-                       const val = parseFloat(e.target.value);
-                       setAnimationDuration(val);
-                     }}
-                     className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none focus:ring-0"
-                   />
-                 </div>
-              </div>
-
-              <div className="h-px w-full bg-white/5" />
-
-              {/* Animation Delay */}
-              <div className="flex flex-col gap-4">
-                 <div className="flex justify-between items-center bg-transparent">
-                    <div className="flex flex-col gap-1">
-                       <span className="text-[13px] font-bold text-white/90">Atraso (Delay) do Cascade</span>
-                       <span className="text-[10px] text-white/30">O delay multiplicador entre o surgimento sequencial de cada card.</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 self-start shrink-0">
-                       <input 
-                         type="number"
-                         min="0.0"
-                         max="0.5"
-                         step="0.01"
-                         value={animationDelay}
-                         onChange={(e) => {
-                           const val = parseFloat(e.target.value);
-                           if (!isNaN(val)) {
-                             setAnimationDelay(Math.max(0.0, Math.min(0.5, val)));
-                             showToast(
-                               'Ritmo de Exibição', 
-                               `Atraso do cascade definido em ${val.toFixed(2)}s por item.`, 
-                               'info'
-                             );
-                           }
-                         }}
-                         className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-xl text-center text-xs font-mono font-bold text-white focus:border-orange-500/50 outline-none hover:border-white/20 transition-all font-mono"
-                       />
-                       <span className="text-xs font-bold text-white/40 font-mono font-bold">seg</span>
-                    </div>
-                 </div>
-
-                 {/* Slider for Delay */}
-                 <div className="relative flex items-center">
-                   <input 
-                     type="range"
-                     min="0.0"
-                     max="0.5"
-                     step="0.01"
-                     value={animationDelay}
-                     onChange={(e) => {
-                       const val = parseFloat(e.target.value);
-                       setAnimationDelay(val);
-                     }}
-                     className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none focus:ring-0"
-                   />
-                 </div>
-              </div>
-
-              <div className="h-px w-full bg-white/5" />
-
-              {/* Shimmer Speed */}
-              <div className="flex flex-col gap-4">
-                 <div className="flex justify-between items-center bg-transparent">
-                    <div className="flex flex-col gap-1">
-                       <span className="text-[13px] font-bold text-white/90">Velocidade do Shimmer</span>
-                       <span className="text-[10px] text-white/30">Duração do ciclo de varredura brilhante em imagens carregando.</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 self-start shrink-0">
-                       <input 
-                         type="number"
-                         min="0.5"
-                         max="5.0"
-                         step="0.1"
-                         value={shimmerDuration}
-                         onChange={(e) => {
-                           const val = parseFloat(e.target.value);
-                           if (!isNaN(val)) {
-                             setShimmerDuration(Math.max(0.5, Math.min(5.0, val)));
-                             showToast(
-                               'Estética de Carregamento', 
-                               `Velocidade do brilho (shimmer) ajustada para ${val.toFixed(1)}s.`, 
-                               'info'
-                             );
-                           }
-                         }}
-                         className="w-16 px-2 py-1 bg-black/40 border border-white/10 rounded-xl text-center text-xs font-mono font-bold text-white focus:border-orange-500/50 outline-none hover:border-white/20 transition-all font-mono"
-                       />
-                       <span className="text-xs font-bold text-white/40 font-mono font-bold">seg</span>
-                    </div>
-                 </div>
-
-                 {/* Slider for Shimmer */}
-                 <div className="relative flex items-center">
-                   <input 
-                     type="range"
-                     min="0.5"
-                     max="5.0"
-                     step="0.1"
-                     value={shimmerDuration}
-                     onChange={(e) => {
-                       const val = parseFloat(e.target.value);
-                       setShimmerDuration(val);
-                     }}
-                     className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-orange-500 focus:outline-none focus:ring-0"
-                   />
-                 </div>
-              </div>
-
-           </div>
-        </div>
-
-        {/* Sistema */}
-        <div className="flex flex-col gap-4">
-          <SectionHeader title="Sistema" action={<Database className="h-4 w-4 text-white/20" />} />
-          <div className="glass-card p-6 flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-bold text-white/90">Reiniciar App</span>
-              <span className="text-[10px] text-white/30 leading-relaxed">
-                Limpa o cache local, dados salvos da Home e força o app a abrir do zero neste dispositivo.
-              </span>
-              <div className="mt-2 p-3 rounded-xl bg-orange-500/5 border border-orange-500/10">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 text-orange-500/60 shrink-0 mt-0.5" />
-                  <span className="text-[9px] text-orange-500/60 leading-relaxed">
-                    Seus dados do stats.fm não serão apagados. Apenas o cache local deste navegador/app será limpo.
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
 
-            <button
-              onClick={handleResetApp}
-              disabled={isResettingApp}
-              className={clsx(
-                "w-full py-3 px-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all",
-                "flex items-center justify-center gap-2",
-                isResettingApp
-                  ? "bg-white/5 text-white/30 cursor-not-allowed"
-                  : "bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 border border-orange-500/20 active:scale-[0.98]"
-              )}
-            >
-              {isResettingApp ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Limpando...
-                </>
-              ) : (
-                <>
-                  <Database className="h-3.5 w-3.5" />
-                  Limpar e Reiniciar
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-10 mb-20 flex flex-col items-center gap-4 py-8">
-           {(import.meta as any).env.DEV && (
-             <div className="flex flex-col gap-4 w-full">
-               <SectionHeader title="DEBUG (SYNC)" action={<AlertTriangle className="h-4 w-4 text-red-500" />} />
-               <div className="glass-card p-6 bg-red-950/10 border-red-500/20 rounded-3xl">
-                 <pre className="text-[10px] text-white/70 font-mono">
-                   Ultimo Fetch Live: {new Date(lastFetchTime.live || 0).toLocaleTimeString()}
-                   Ultimo Fetch Grupo: {new Date(lastFetchTime.group || 0).toLocaleTimeString()}
-                   NowPlaying Count: {members.filter((m: any) => m.nowPlaying?.isNow).length}
-                   Endpoint: /api/group-live
-                 </pre>
-               </div>
-             </div>
-           )}
-
-           <div className="flex flex-col items-center gap-1 opacity-40 mt-4">
-              <span className="text-[10px] font-black uppercase tracking-widest text-white">stats.lc</span>
-              <span className="text-[9px] font-medium text-white/50">feito por leo saquetto</span>
-           </div>
-        </div>
-      </div>
-
-      <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-3 max-w-sm w-[calc(100%-2rem)] pointer-events-none">
-        <AnimatePresence>
-          {toasts.map(toast => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, y: -20, scale: 0.9, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -10, scale: 0.9, filter: "blur(8px)" }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="pointer-events-auto flex flex-col gap-2 p-4 rounded-[24px] border backdrop-blur-2xl bg-black/60 shadow-[0_20px_50px_rgba(0,0,0,0.4)] cursor-default overflow-hidden relative group"
-              style={{
-                borderColor: toast.type === 'success' ? 'rgba(249, 115, 22, 0.2)' : toast.type === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              {/* Background Accent glow */}
-              <div className={clsx(
-                "absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-20 pointer-events-none transition-all duration-500 group-hover:opacity-30",
-                toast.type === 'success' ? "bg-orange-500" : toast.type === 'error' ? "bg-red-500" : "bg-white"
-              )} />
-
-              <div className="flex items-start gap-3.5 relative z-10">
-                {/* Icon Swab */}
-                <div className={clsx(
-                  "h-8 w-8 rounded-xl flex items-center justify-center shrink-0 shadow-inner",
-                  toast.type === 'success' ? "bg-orange-500/15 text-orange-500 border border-orange-500/20" : 
-                  toast.type === 'error' ? "bg-red-500/15 text-red-500 border border-red-500/20" : 
-                  "bg-white/10 text-white/60 border border-white/10"
-                )}>
-                  {toast.type === 'success' && <Check className="h-4 w-4 stroke-[2.5]" />}
-                  {toast.type === 'error' && <AlertTriangle className="h-4 w-4 stroke-[2.5]" />}
-                  {toast.type === 'info' && <Info className="h-4 w-4 stroke-[2.5]" />}
-                </div>
-
-                <div className="flex flex-col flex-1 gap-1 pr-4">
-                  <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">{toast.title}</span>
-                     <span className="text-[7px] font-mono font-black text-white/20">{toast.timestamp}</span>
+            {historyOrder === 'custom' && (
+              <div className="flex flex-col gap-2 rounded-2xl border border-white/5 bg-black/12 p-2">
+                {customSortedMembers.map((user, index) => (
+                  <div
+                    key={user.id}
+                    draggable
+                    onDragStart={event => {
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', String(index));
+                    }}
+                    onDragOver={event => event.preventDefault()}
+                    onDrop={event => {
+                      event.preventDefault();
+                      const fromIndex = Number(event.dataTransfer.getData('text/plain'));
+                      if (!Number.isNaN(fromIndex)) reorderCustomMember(fromIndex, index);
+                    }}
+                    className="flex min-h-[48px] items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2"
+                  >
+                    <span className="w-6 font-mono text-[10px] font-bold text-white/32">{index + 1}o</span>
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-bold text-white/78">{user.name}</span>
+                    <GripVertical className="h-4 w-4 shrink-0 text-white/25" />
                   </div>
-                  <span className="text-[12px] font-bold text-white/90 leading-tight">
-                    {toast.message}
-                  </span>
-                </div>
+                ))}
+              </div>
+            )}
+          </SettingsPanel>
+        </SettingsGroup>
 
-                <button 
-                  onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                  className="absolute top-0 -right-1 h-6 w-6 rounded-lg hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white/80 transition-all cursor-pointer"
+        <SettingsGroup
+          id="share"
+          eyebrow="Compartilhamento"
+          title="Snaps"
+          description="Nome da Arena e galeria de snapshots usados em relatórios e compartilhamentos."
+          action={<ImageIcon className="h-4 w-4" />}
+        >
+          <SettingsPanel className="flex flex-col gap-5">
+            <div className="flex flex-col gap-3">
+              <label className="text-[13px] font-bold text-white/90" htmlFor="arena-name">Nome da Arena</label>
+              <input
+                id="arena-name"
+                type="text"
+                value={arenaNameDraft}
+                onChange={event => setArenaNameDraft(event.target.value.slice(0, 50))}
+                onBlur={event => {
+                  if (event.relatedTarget === arenaNameSaveButtonRef.current) return;
+                  if (arenaNameDraft.trim() && arenaNameDraft.trim() !== (arenaName || '').trim()) handleSaveArenaName();
+                }}
+                maxLength={50}
+                placeholder="Nome da sua Arena"
+                className="h-11 rounded-2xl border border-white/10 bg-black/25 px-4 text-sm font-bold text-white outline-none transition-all placeholder:text-white/22 focus:border-orange-500/60"
+              />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-white/25">{arenaNameDraft.length}/50</span>
+                <button
+                  ref={arenaNameSaveButtonRef}
+                  type="button"
+                  onClick={handleSaveArenaName}
+                  disabled={arenaNameDraft.trim() === (arenaName || '').trim()}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/60 transition-all active:scale-95 disabled:opacity-30"
                 >
-                  <X className="h-3 w-3" />
+                  Salvar
                 </button>
               </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+            </div>
+            {sectionDivider}
+            <PreferenceRow
+              icon={<Swords className="h-4 w-4" />}
+              title="Histórico de Visualizações"
+              description="Reabra snapshots recentes para compartilhar novamente."
+              control={
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="flex h-10 items-center gap-2 rounded-2xl bg-orange-500 px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-orange-500/15 transition-all active:scale-95"
+                >
+                  Abrir
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              }
+            />
+          </SettingsPanel>
+        </SettingsGroup>
 
-      <SnapshotHistoryModal 
-        isOpen={isHistoryOpen} 
-        onClose={() => setIsHistoryOpen(false)} 
-      />
+        <SettingsGroup
+          id="alerts"
+          eyebrow="Alertas"
+          title="Notificações Push"
+          description="Preferências locais para alertas de atividade da Arena."
+          action={<Bell className="h-4 w-4" />}
+        >
+          <SettingsPanel className="flex flex-col gap-5">
+            <PreferenceRow
+              title="Alertas de Atividade"
+              description={permissionState === 'denied' ? 'Bloqueado pelo navegador.' : 'Receber updates em tempo real neste dispositivo.'}
+              control={
+                <ToggleSwitch
+                  label="Alternar notificações push"
+                  checked={pushNotificationsEnabled && permissionState === 'granted'}
+                  disabled={permissionState === 'denied'}
+                  onClick={handleTogglePush}
+                />
+              }
+            />
+            {permissionState === 'denied' && (
+              <div className="rounded-2xl border border-red-500/15 bg-red-500/8 p-3 text-[10px] font-medium leading-relaxed text-red-300/85">
+                Notificações estão bloqueadas. Libere a permissão nas configurações do navegador.
+              </div>
+            )}
+            {sectionDivider}
+            <div className={clsx('flex flex-col gap-5', (!pushNotificationsEnabled || permissionState !== 'granted') && 'pointer-events-none opacity-35')}>
+              <PreferenceRow
+                icon={<Activity className="h-4 w-4" />}
+                title="Novos streams de amigos"
+                description="Avisar quando alguém der play em uma nova faixa."
+                control={<ToggleSwitch size="sm" label="Alertas de novos streams" checked={notifyOnNewStreams} onClick={() => setNotifyOnNewStreams(!notifyOnNewStreams)} />}
+              />
+              <PreferenceRow
+                icon={<Sparkles className="h-4 w-4" />}
+                title="Destaques do grupo"
+                description="Recordes, picos e marcos diários."
+                control={<ToggleSwitch size="sm" label="Alertas de destaques" checked={notifyOnGroupHighlights} onClick={() => setNotifyOnGroupHighlights(!notifyOnGroupHighlights)} />}
+              />
+              <PreferenceRow
+                icon={<Swords className="h-4 w-4" />}
+                title="Arena Battle"
+                description="Ultrapassagens no ranking diário."
+                control={<ToggleSwitch size="sm" label="Alertas de ultrapassagem" checked={notifyOnArenaBattle} onClick={() => setNotifyOnArenaBattle(!notifyOnArenaBattle)} />}
+              />
+            </div>
+            {permissionState === 'granted' && pushNotificationsEnabled && (
+              <button
+                type="button"
+                onClick={() => {
+                  notificationService.sendTestNotification();
+                  showToast('Sinal Enviado', 'Notificação de teste disparada.', 'success');
+                }}
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/5 bg-white/[0.04] text-[11px] font-black uppercase tracking-[0.12em] text-white/70 transition-all active:scale-[0.98]"
+              >
+                <BellRing className="h-4 w-4" />
+                Testar notificação
+              </button>
+            )}
+          </SettingsPanel>
+        </SettingsGroup>
+
+        <SettingsGroup
+          id="sync"
+          eyebrow="Dados"
+          title="Sincronização"
+          description="Atualização completa do banco local."
+          action={<Database className="h-4 w-4" />}
+        >
+          <SettingsPanel className="flex flex-col gap-5">
+            <button
+              type="button"
+              disabled={isRefreshing}
+              onClick={async () => {
+                try {
+                  await fetchGroup(true);
+                  showToast('Sincronia Completa', 'Banco de dados do grupo atualizado do zero.', 'success');
+                } catch (error: any) {
+                  console.error(error);
+                  showToast('Erro de Sincronia', error?.message || 'Falha ao sincronizar dados completos.', 'error');
+                }
+              }}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_10px_25px_rgba(249,115,22,0.15)] transition-all active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+            >
+              {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isRefreshing ? 'Atualizando...' : 'Atualizar banco completo'}
+            </button>
+            {(import.meta as any).env.DEV && (
+              <div className="rounded-2xl border border-red-500/15 bg-red-950/10 p-3 font-mono text-[10px] leading-relaxed text-white/62">
+                Último live: {new Date(lastFetchTime.live || 0).toLocaleTimeString()}<br />
+                Último grupo: {new Date(lastFetchTime.group || 0).toLocaleTimeString()}<br />
+                NowPlaying: {members.filter(member => member.nowPlaying?.isNow).length}<br />
+                Endpoint: /api/group-live
+              </div>
+            )}
+          </SettingsPanel>
+        </SettingsGroup>
+
+        <SettingsGroup
+          id="system"
+          eyebrow="Sistema"
+          title="Cache local"
+          description="Ações de manutenção deste navegador/app."
+          action={<AlertTriangle className="h-4 w-4 text-orange-400" />}
+        >
+          <SettingsPanel className="flex flex-col gap-4">
+            <div className="rounded-2xl border border-orange-500/12 bg-orange-500/7 p-3 text-[10px] font-medium leading-relaxed text-orange-300/80">
+              Seus dados do stats.fm não serão apagados. Apenas cache e preferências locais deste dispositivo são removidos.
+            </div>
+            <button
+              type="button"
+              onClick={handleResetApp}
+              disabled={isResettingApp}
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-[11px] font-black uppercase tracking-[0.12em] text-orange-400 transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {isResettingApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isResettingApp ? 'Limpando...' : 'Limpar e reiniciar'}
+            </button>
+          </SettingsPanel>
+        </SettingsGroup>
+
+        <footer className="flex flex-col items-center gap-1 py-8 opacity-40">
+          <span className="text-[10px] font-black uppercase tracking-widest text-white">stats.lc</span>
+          <span className="text-[9px] font-medium text-white/50">feito por leo saquetto</span>
+        </footer>
+      </main>
+
+      <ToastStack toasts={toasts} onClose={id => setToasts(prev => prev.filter(toast => toast.id !== id))} />
+      <SnapshotHistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+    </div>
+  );
+}
+
+function ToastStack({ toasts, onClose }: { toasts: ToastItem[]; onClose: (id: string) => void }) {
+  return (
+    <div className="pointer-events-none fixed left-1/2 top-24 z-50 flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 flex-col gap-3">
+      <AnimatePresence>
+        {toasts.map(toast => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: -16, scale: 0.96, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -10, scale: 0.96, filter: 'blur(8px)' }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="pointer-events-auto relative overflow-hidden rounded-[24px] border bg-black/70 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+            style={{
+              borderColor: toast.type === 'error' ? 'rgba(239,68,68,0.22)' : toast.type === 'success' ? 'rgba(249,115,22,0.24)' : 'rgba(255,255,255,0.1)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className={clsx(
+                'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border',
+                toast.type === 'error' ? 'border-red-500/20 bg-red-500/15 text-red-400' : toast.type === 'success' ? 'border-orange-500/20 bg-orange-500/15 text-orange-400' : 'border-white/10 bg-white/10 text-white/65'
+              )}>
+                {toast.type === 'error' ? <AlertTriangle className="h-4 w-4" /> : toast.type === 'success' ? <Check className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+              </div>
+              <div className="min-w-0 flex-1 pr-6">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-white/40">{toast.title}</span>
+                  <span className="font-mono text-[7px] font-black text-white/20">{toast.timestamp}</span>
+                </div>
+                <p className="mt-1 text-[12px] font-bold leading-tight text-white/90">{toast.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onClose(toast.id)}
+                className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-white/25 transition-colors hover:bg-white/5 hover:text-white/80"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

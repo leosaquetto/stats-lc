@@ -765,17 +765,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const [arenaShiftedSlots, setArenaShiftedSlots] = useState(0);
   const arenaShiftedSlotsRef = useRef(0);
 
-  const handleVinylClick = () => {
-    const scrolled = window.scrollY > 200;
-    if (scrolled) {
-      // Se estiver scrollado, volta para o topo
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      // Se estiver no topo, abre o modal da track
-      onTrackClick?.({ ...track, type: 'track' });
-    }
-  };
-
   const profileAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
   const groupStatsForUser = useStatsStore(s => s.groupStats);
   const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
@@ -1153,9 +1142,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
                 isPlaying={isActuallyLive}
-                progressMs={livePlayback.progressMs}
-                durationMs={durationMs || undefined}
-                onClick={handleVinylClick}
               />
             </div>
           </div>

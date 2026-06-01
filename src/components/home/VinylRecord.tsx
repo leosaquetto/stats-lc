@@ -8,14 +8,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
+import { VinylTonearm } from './VinylTonearm';
 
 interface VinylRecordProps {
   albumImage: string;
   dominantColor: string;
   isPlaying: boolean;
-  progressMs?: number;
-  durationMs?: number;
-  onClick?: () => void;
   hideTonearm?: boolean;
 }
 
@@ -89,20 +87,12 @@ export const VinylRecord = ({
   albumImage,
   dominantColor,
   isPlaying,
-  progressMs,
-  durationMs,
-  onClick,
   hideTonearm = false
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
-
-  const currentRatio = useMemo(() => {
-    if (!durationMs || progressMs == null) return 0.5;
-    return Math.min(1, Math.max(0, progressMs / durationMs));
-  }, [progressMs, durationMs]);
 
   const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#647062'), [dominantColor]);
   const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
@@ -171,16 +161,10 @@ export const VinylRecord = ({
   }, [textureSeed, textureVariant]);
   const grooveRings = useMemo(() => Array.from({ length: 28 }, (_, i) => 22 + i * 0.95 + seededValue(textureSeed, i + 309) * 0.05), [textureSeed]);
 
-  const tonearmNeedleX = 78 - currentRatio * 7;
-  const tonearmNeedleY = 31 + currentRatio * 6;
-  const tonearmPivotX = 93;
-  const tonearmPivotY = 17;
-
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-square flex items-center justify-center cursor-pointer"
-      onClick={onClick}
+      className="relative w-full aspect-square flex items-center justify-center"
       data-vinyl-variant={textureName}
     >
       <>
@@ -289,7 +273,7 @@ export const VinylRecord = ({
           </defs>
           <g clipPath={`url(#${uniqueId}-vinyl-disc-clip)`}>
             <circle cx="50" cy="50" r="32.0" fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth="0.35" opacity="0.12" />
-            <circle cx="50" cy="50" r="41.5" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" opacity="0.5" />
+            <circle cx="50" cy="50" r="43" fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.7" opacity="0.15" />
             {grooveRings.map((r, i) => (
               <circle
                 key={`${uniqueId}-groove-${i}`}
@@ -359,20 +343,20 @@ export const VinylRecord = ({
           <circle
             cx="50"
             cy="50"
-            r="32.3"
+            r="31"
             fill="none"
-            stroke="rgba(0,0,0,0.1)"
-            strokeWidth="4.6"
-            opacity={isPlaying ? 0.42 : 0.34}
+            stroke="rgba(0,0,0,0.115)"
+            strokeWidth="7.8"
+            opacity={isPlaying ? 0.46 : 0.38}
           />
           <circle
             cx="50"
             cy="50"
-            r="29.35"
+            r="26.55"
             fill="none"
-            stroke="rgba(255,255,255,0.11)"
-            strokeWidth="0.32"
-            opacity={isPlaying ? 0.5 : 0.42}
+            stroke="rgba(255,255,255,0.14)"
+            strokeWidth="1.1"
+            opacity={isPlaying ? 0.62 : 0.54}
           />
         </svg>
 
@@ -390,7 +374,7 @@ export const VinylRecord = ({
         />
 
         {/* ── CAPA DO ÁLBUM ──────────────────────────────────────── */}
-        <div className="absolute inset-[22%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
+        <div className="absolute inset-[24%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={albumImage || 'placeholder'}
@@ -453,103 +437,7 @@ export const VinylRecord = ({
       </motion.div>
       </>
 
-      {/* ── TONEARM ─────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {!hideTonearm && isPlaying && (
-          <motion.svg
-            className="absolute inset-0 pointer-events-none"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            style={{ zIndex: 80, overflow: 'visible', filter: 'drop-shadow(0 9px 18px rgba(0,0,0,0.78))' }}
-            initial={{ opacity: 0, x: 16, y: -14, rotate: -10 }}
-            animate={{
-              opacity: 1,
-              x: [0, -0.75, 0.45, 0],
-              y: [0, 0.5, -0.2, 0],
-              rotate: [0, -0.35, 0.25, 0],
-            }}
-            exit={{ opacity: 0, x: 16, y: -14, rotate: -9 }}
-            transition={{
-              opacity: { duration: 0.32, ease: [0.16, 1, 0.3, 1] },
-              x: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
-              y: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
-              rotate: { duration: 18, repeat: Infinity, ease: 'easeInOut' },
-            }}
-          >
-            <defs>
-              <linearGradient id={`${uniqueId}-tonearm-metal`} x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0%" stopColor="#f8fafc" />
-                <stop offset="42%" stopColor="#94a3b8" />
-                <stop offset="72%" stopColor="#e5e7eb" />
-                <stop offset="100%" stopColor="#1f2937" />
-              </linearGradient>
-              <radialGradient id={`${uniqueId}-tonearm-head`} cx="38%" cy="25%" r="85%">
-                <stop offset="0%" stopColor="#2b2c30" />
-                <stop offset="62%" stopColor="#111216" />
-                <stop offset="100%" stopColor="#000000" />
-              </radialGradient>
-            </defs>
-            <circle
-              cx={tonearmPivotX}
-              cy={tonearmPivotY}
-              r="5.5"
-              fill="rgba(0,0,0,0.16)"
-              stroke="rgba(255,255,255,0.12)"
-              strokeWidth="0.5"
-            />
-            <line
-              x1={tonearmPivotX}
-              y1={tonearmPivotY}
-              x2={tonearmNeedleX}
-              y2={tonearmNeedleY}
-              stroke="rgba(0,0,0,0.72)"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
-            <line
-              x1={tonearmPivotX - 0.8}
-              y1={tonearmPivotY + 0.6}
-              x2={tonearmNeedleX + 0.8}
-              y2={tonearmNeedleY - 0.6}
-              stroke="#b0b8c1"
-              strokeWidth="0.9"
-              strokeLinecap="round"
-            />
-            <circle
-              cx={tonearmPivotX}
-              cy={tonearmPivotY}
-              r="4.6"
-              fill={`url(#${uniqueId}-tonearm-head)`}
-              stroke="rgba(255,255,255,0.14)"
-              strokeWidth="0.5"
-            />
-            <circle cx={tonearmPivotX - 1.2} cy={tonearmPivotY - 1.1} r="1.15" fill="rgba(255,255,255,0.22)" />
-            <g transform={`translate(${tonearmNeedleX} ${tonearmNeedleY}) rotate(-38)`}>
-              <rect
-                x="-4.2"
-                y="-4.0"
-                width="9.2"
-                height="7.4"
-                rx="2.0"
-                fill={`url(#${uniqueId}-tonearm-head)`}
-                stroke="rgba(255,255,255,0.12)"
-                strokeWidth="0.45"
-              />
-              <rect x="-3.2" y="-2.9" width="7" height="1.1" rx="0.55" fill="rgba(255,255,255,0.08)" />
-              <line
-                x1="0"
-                y1="3"
-                x2="4.2"
-                y2="7.8"
-                stroke="rgba(251,146,60,0.78)"
-                strokeWidth="0.9"
-                strokeLinecap="round"
-              />
-              <circle cx="4.2" cy="7.8" r="0.55" fill="rgba(254,215,170,0.82)" />
-            </g>
-          </motion.svg>
-        )}
-      </AnimatePresence>
+      {!hideTonearm && <VinylTonearm isPlaying={isPlaying} />}
 
     </div>
   );
