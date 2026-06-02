@@ -12,6 +12,7 @@ const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
   const [level, setLevel] = useState(0.5);
+  const [isDragging, setIsDragging] = useState(false);
   const levelRef = useRef(0.5);
   const isDraggingRef = useRef(false);
 
@@ -67,21 +68,6 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     setLevel(nextLevel);
   }, [isPlaying]);
 
-  useEffect(() => {
-    if (!isPlaying) return undefined;
-
-    let step = 0;
-    const levels = [1, 0.965, 0.99, 0.955];
-    const intervalId = window.setInterval(() => {
-      if (isDraggingRef.current) return;
-      step = (step + 1) % levels.length;
-      levelRef.current = levels[step];
-      setLevel(levels[step]);
-    }, 1150);
-
-    return () => window.clearInterval(intervalId);
-  }, [isPlaying]);
-
   const updateFromPointer = (event: ReactPointerEvent<SVGGElement>) => {
     const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
     if (!rect || !rect.width || !rect.height) return;
@@ -99,7 +85,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     const targetLevel = nextIsPlaying ? 1 : 0;
     levelRef.current = targetLevel;
     setLevel(targetLevel);
-    onUserPlaybackChange?.(nextIsPlaying);
+    if (nextIsPlaying !== isPlaying) {
+      onUserPlaybackChange?.(nextIsPlaying);
+    }
   };
 
   return (
@@ -134,6 +122,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           onPointerDown={(event) => {
             event.stopPropagation();
             isDraggingRef.current = true;
+            setIsDragging(true);
             event.currentTarget.setPointerCapture(event.pointerId);
             updateFromPointer(event);
           }}
@@ -143,11 +132,13 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           }}
           onPointerUp={(event) => {
             isDraggingRef.current = false;
+            setIsDragging(false);
             event.currentTarget.releasePointerCapture(event.pointerId);
             commitPointerLevel();
           }}
           onPointerCancel={() => {
             isDraggingRef.current = false;
+            setIsDragging(false);
             const nextLevel = isPlaying ? 1 : 0;
             levelRef.current = nextLevel;
             setLevel(nextLevel);
@@ -185,6 +176,16 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             <rect x="-5.55" y="0.5" width="2.15" height="5.4" rx="0.8" fill="#111216" />
           </g>
 
+          <motion.g
+            animate={isPlaying && !isDragging
+              ? { rotate: [0, 0.42, -0.24, 0], transformOrigin: `${pivotX}px ${pivotY}px` }
+              : { rotate: 0, transformOrigin: `${pivotX}px ${pivotY}px` }
+            }
+            transition={isPlaying && !isDragging
+              ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }
+              : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+            }
+          >
           <motion.line
             x1={pivotX}
             y1={pivotY}
@@ -276,6 +277,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             transition={transition}
             fill="rgba(254,215,170,0.82)"
           />
+          </motion.g>
         </g>
       </motion.svg>
     </AnimatePresence>

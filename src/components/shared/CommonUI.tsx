@@ -142,9 +142,10 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
   const lastGoodSrcRef = useRef('');
   const imageRef = useRef<HTMLImageElement>(null);
 
-  const inputSrc = typeof src === 'string' ? src : ((src as any)?.url || "");
+  const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
   const resolvedSrc = overrideSrc || inputSrc;
   const displaySrc = resolvedSrc || lastGoodSrcRef.current;
+  const hasDisplayableSrc = !!displaySrc && !displaySrc.includes("private.webp") && !error;
 
   useEffect(() => {
     setOverrideSrc('');
@@ -183,7 +184,7 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
     return name.slice(0, 2).toUpperCase();
   };
 
-  const shouldShowFallback = (error || !displaySrc || displaySrc.includes("private.webp")) && showFallback;
+  const shouldShowFallback = !hasDisplayableSrc && showFallback;
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
@@ -212,7 +213,7 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
             {getInitials(fallback)}
           </span>
         </div>
-      ) : (
+      ) : hasDisplayableSrc ? (
         <img
           src={displaySrc}
           className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
@@ -238,7 +239,7 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
           }}
           alt=""
         />
-      )}
+      ) : null}
     </div>
   );
 };

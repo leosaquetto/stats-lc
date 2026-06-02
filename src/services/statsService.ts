@@ -7,7 +7,7 @@
 import axios from 'axios';
 import { UserStats, GroupStats, LyricsMatch, LyricsFullResponse } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
-import { getCanonicalMembers } from '../lib/memberSelectors';
+import { getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
 
 const getBaseUrl = () => {
@@ -30,7 +30,7 @@ const API_BASE_URL = getBaseUrl();
 const GENIUS_EMBED_TIMEOUT_MS = 7000;
 
 if ((import.meta as any).env?.DEV) {
-  console.log('[statsService] API_BASE_URL:', API_BASE_URL);
+  console.debug('[statsService] API_BASE_URL:', API_BASE_URL);
 }
 
 const api = axios.create({
@@ -340,6 +340,30 @@ const API_RESPONSE_CACHE_TTL = 5 * 60 * 1000;
 const apiResponseCache = new Map<string, { expiresAt: number; data: any }>();
 const apiRequestInFlight = new Map<string, Promise<any>>();
 
+const isSilentGroupLiveFailure = (endpoint: string, error: any) => {
+  if (endpoint !== '/api/group-live') return false;
+  const status = error?.response?.status;
+  const isNetworkError = !error?.response && error?.request;
+  return status === 504 || error?.code === 'ECONNABORTED' || isNetworkError;
+};
+
+const buildLiveGroupFallback = (): GroupStats | null => {
+  try {
+    const adapter = getStoreAdapter();
+    const state = adapter.getState();
+    if (!state.groupStats) return null;
+
+    const members = getCanonicalMembersWithLive(state.groupStats, state.liveNowPlayingByUserId);
+    return {
+      ...state.groupStats,
+      users: Object.fromEntries(members.map((member) => [member.id, member])),
+      members,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const stableStringify = (value: any): string => {
   if (typeof value === 'undefined') return '"__undefined__"';
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? String(value);
@@ -399,13 +423,14 @@ const fetchFromApi = async <T>(
     } catch (error: any) {
       const status = error.response?.status;
       const isNetworkError = !error.response && error.request;
+      const shouldSilenceLiveError = isSilentGroupLiveFailure(endpoint, error);
 
       const isOptionalDatesEndpoint = endpoint === '/api/stats-dates';
       const isExpectedEmptyTopRange =
         endpoint === '/api/top' &&
         status === 400 &&
         error.response?.data?.error === 'upstream_error';
-      if ((import.meta as any).env?.DEV && !isOptionalDatesEndpoint && !isExpectedEmptyTopRange) {
+      if ((import.meta as any).env?.DEV && !isOptionalDatesEndpoint && !isExpectedEmptyTopRange && !shouldSilenceLiveError) {
         console.error(`Vercel API Fetch Error [${endpoint}]:`, {
           message: error.message,
           code: error.code,
@@ -425,7 +450,7 @@ const fetchFromApi = async <T>(
       );
 
       if (isRetryable && retries > 0) {
-        if ((import.meta as any).env?.DEV) console.warn(`Retryable error [${status || error.code}] on ${endpoint}. Retrying...`);
+        if ((import.meta as any).env?.DEV && !shouldSilenceLiveError) console.warn(`Retryable error [${status || error.code}] on ${endpoint}. Retrying...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return fetchFromApi(endpoint, params, forceRefresh, retries - 1, false, requestOptions);
       }
@@ -504,7 +529,7 @@ export const statsService = {
         offset,
         resolveAlbums: 1,
       });
-      if ((import.meta as any).env?.DEV) console.log(`[statsService] fetchRecent for ${userId}:`, res);
+      if ((import.meta as any).env?.DEV) console.debug(`[statsService] fetchRecent for ${userId}:`, res);
       return (res?.items || []).map(normalizeRecentStream);
     } catch (e) {
       console.error(`Failed to fetch recents for ${userId}`);
@@ -590,11 +615,16 @@ export const statsService = {
 
     const request = (async () => {
       try {
-        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1, profile: 0 }, forceRefresh, 1, !forceRefresh);
-        if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupLiveData raw response:", data);
+        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1, profile: 0 }, forceRefresh, 0, !forceRefresh);
+        if ((import.meta as any).env?.DEV) console.debug("[statsService] getGroupLiveData raw response:", data);
 
         return normalizeGroupStats(data);
       } catch (e: any) {
+        if (isSilentGroupLiveFailure('/api/group-live', e)) {
+          const fallback = buildLiveGroupFallback();
+          if (fallback) return fallback;
+        }
+
         if (e.message?.includes("Network Error")) {
           throw new Error("Timeout ou Falha de Conexão com o servidor. A API pode estar indisponível.");
         }
@@ -623,7 +653,7 @@ export const statsService = {
     const request = (async () => {
       try {
         const data = await fetchFromApi<any>('/api/group', {}, forceRefresh);
-        if ((import.meta as any).env?.DEV) console.log("[statsService] getGroupData raw response:", data);
+        if ((import.meta as any).env?.DEV) console.debug("[statsService] getGroupData raw response:", data);
 
       return normalizeGroupStats(data);
     } catch (e: any) {
@@ -746,7 +776,7 @@ export const statsService = {
       if (store.getUserFullStatsFromCache) {
         const cached = store.getUserFullStatsFromCache(userId);
         if (cached) {
-          if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached userFullStats for ${userId}`);
+          if ((import.meta as any).env?.DEV) console.debug(`[statsService] Serving valid cached userFullStats for ${userId}`);
           return cached;
         }
       }
@@ -758,7 +788,7 @@ export const statsService = {
         store.setUserFullStatsCache(userId, res);
       }
       
-      if ((import.meta as any).env?.DEV) console.log(`[statsService] getUserFullStats for ${userId}:`, res);
+      if ((import.meta as any).env?.DEV) console.debug(`[statsService] getUserFullStats for ${userId}:`, res);
       return res;
     } catch (e) {
       console.error(`Failed to load full stats for ${userId}. Falling back to cache:`, e);
@@ -769,14 +799,14 @@ export const statsService = {
         if (store.getUserFullStatsFromCache) {
           const cached = store.getUserFullStatsFromCache(userId, true);
           if (cached) {
-            if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving stale fallback userFullStats graciously for ${userId}`);
+            if ((import.meta as any).env?.DEV) console.debug(`[statsService] Serving stale fallback userFullStats graciously for ${userId}`);
             return cached;
           }
         }
         
         const cachedRaw = store.userFullStatsCache?.[userId];
         if (cachedRaw) {
-          if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving stale raw fallback userFullStats graciously for ${userId}`);
+          if ((import.meta as any).env?.DEV) console.debug(`[statsService] Serving stale raw fallback userFullStats graciously for ${userId}`);
           return cachedRaw;
         }
       } catch {}
@@ -833,7 +863,7 @@ export const statsService = {
       const shouldForce = typeof period !== 'string' && !!period.force && period.after !== 0 && period.period !== 'all' && period.period !== 'lifetime';
       const cachedTopItems = shouldForce ? null : store.getTopItemsFromCache?.(cacheKey);
       if (cachedTopItems) {
-        if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached top items for ${cacheKey}`);
+        if ((import.meta as any).env?.DEV) console.debug(`[statsService] Serving valid cached top items for ${cacheKey}`);
         return cachedTopItems;
       }
       
@@ -841,7 +871,7 @@ export const statsService = {
       if (store.isOffline) {
         const cached = store.topItemsCache?.[cacheKey];
         if (cached) {
-          if ((import.meta as any).env?.DEV) console.log(`[statsService] Offline: Serving cached top items for ${cacheKey}`);
+          if ((import.meta as any).env?.DEV) console.debug(`[statsService] Offline: Serving cached top items for ${cacheKey}`);
           return cached;
         }
       }
@@ -867,7 +897,7 @@ export const statsService = {
         store.setTopItemsCache(cacheKey, items);
       }
 
-      if ((import.meta as any).env?.DEV) console.log(`[statsService] getTopItems for ${userId} (${type}, ${params.period || params.after}):`, res);
+      if ((import.meta as any).env?.DEV) console.debug(`[statsService] getTopItems for ${userId} (${type}, ${params.period || params.after}):`, res);
       return items;
     } catch (e: any) {
       if (e?.response?.status === 400 && e?.response?.data?.error === 'upstream_error') {
@@ -992,7 +1022,7 @@ export const statsService = {
       if (store.getTimeRangeStatsFromCache) {
         const cached = store.getTimeRangeStatsFromCache(cacheKey);
         if (cached) {
-          if ((import.meta as any).env?.DEV) console.log(`[statsService] Serving valid cached timeRangeStats for ${cacheKey}`);
+          if ((import.meta as any).env?.DEV) console.debug(`[statsService] Serving valid cached timeRangeStats for ${cacheKey}`);
           return cached;
         }
       }

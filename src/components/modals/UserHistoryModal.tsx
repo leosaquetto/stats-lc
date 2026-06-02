@@ -15,6 +15,65 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const LIMIT = 15;
+const MAX_CACHED_ITEMS = 200;
+
+const getHistoryItemKey = (item: any) => {
+  const track = item?.track || {};
+  const trackKey = track?.id || track?.name || item?.trackId || item?.trackName || 'track';
+  const playedKey = item?.playedAt || item?.timestamp || item?.endTime || item?.date || '';
+  return `${item?.isLive ? 'live' : 'history'}:${item?.id || ''}:${trackKey}:${playedKey}`;
+};
+
+const dedupeHistoryItems = (items: any[]) => {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+
+  items.forEach((item) => {
+    if (!item) return;
+    const key = getHistoryItemKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+
+  return unique;
+};
+
+const mergeFreshHistory = (freshItems: any[], existingItems: any[]) => {
+  const merged: any[] = [];
+  const seen = new Set<string>();
+
+  const pushUnique = (item: any) => {
+    if (!item) return;
+    const key = getHistoryItemKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  };
+
+  freshItems.forEach(pushUnique);
+  existingItems.forEach(pushUnique);
+
+  return merged.slice(0, MAX_CACHED_ITEMS);
+};
+
+const appendHistoryPage = (existingItems: any[], nextItems: any[]) => {
+  const merged: any[] = [];
+  const seen = new Set<string>();
+
+  const pushUnique = (item: any) => {
+    if (!item) return;
+    const key = getHistoryItemKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  };
+
+  existingItems.forEach(pushUnique);
+  nextItems.forEach(pushUnique);
+
+  return merged.slice(0, MAX_CACHED_ITEMS);
+};
 
 const getTrackImage = (track: any) => {
   const candidates = [
@@ -181,6 +240,30 @@ export const UserHistoryModal = ({
   const [trackFilter, setTrackFilter] = useState('');
   const [albumFilter, setAlbumFilter] = useState('');
 
+  const buildLiveItem = () => {
+    if (!user.nowPlaying?.track) return null;
+
+    const timestamp = user.nowPlaying.timestamp || user.nowPlaying.playedAt || user.nowPlaying.endTime || Date.now();
+
+    return {
+      id: `live-${user.nowPlaying.track.id}-${timestamp}`,
+      track: user.nowPlaying.track,
+      platformCandidate: user.platform,
+      playedAt: timestamp,
+      progressMs: user.nowPlaying.progressMs,
+      durationMs: user.nowPlaying.durationMs || user.nowPlaying.track.durationMs,
+      isLive: true
+    };
+  };
+
+  const injectLiveItem = (items: any[]) => {
+    const liveItem = buildLiveItem();
+    if (!liveItem) return items;
+
+    const withoutLiveTrack = items.filter((item: any) => item.track?.id !== liveItem.track?.id);
+    return dedupeHistoryItems([liveItem, ...withoutLiveTrack]);
+  };
+
   const loadData = async (newOffset = 0, hasInitialCache = false) => {
     if (newOffset === 0) {
       if (!hasInitialCache && items.length === 0) setLoading(true);
@@ -191,30 +274,17 @@ export const UserHistoryModal = ({
 
     try {
       const data = await statsCacheService.fetchPaginatedHistory(user.id, newOffset, LIMIT);
-      let newItems = data;
+      const normalizedData = dedupeHistoryItems(data.map(statsService.normalizeRecentStream).filter(Boolean));
+      let newItems = normalizedData;
       
-      if (data.length < LIMIT) {
+      if (normalizedData.length < LIMIT) {
         setHasMore(false);
       }
       
-      if (newOffset === 0 && user.nowPlaying?.track) {
-        const liveTrackItem = {
-           id: 'live-' + user.nowPlaying.track.id + '-' + Date.now(),
-           track: user.nowPlaying.track,
-           platformCandidate: user.platform,
-           playedAt: user.nowPlaying.timestamp || Date.now(),
-           progressMs: user.nowPlaying.progressMs,
-           durationMs: user.nowPlaying.durationMs || user.nowPlaying.track.durationMs,
-           isLive: true
-        };
-        newItems = newItems.filter((it: any) => it.track?.id !== user.nowPlaying?.track?.id);
-        newItems = [liveTrackItem, ...newItems];
-      }
-
       if (newOffset === 0) {
-        setItems(newItems);
+        setItems(injectLiveItem(newItems));
       } else {
-        setItems(prev => [...prev, ...data]);
+        setItems(prev => appendHistoryPage(prev, normalizedData));
       }
       setOffset(newOffset);
     } catch (e) {
@@ -227,33 +297,51 @@ export const UserHistoryModal = ({
   };
 
   useEffect(() => {
-    let loadedCache = false;
+    let cancelled = false;
     const store = useStatsStore.getState();
-    const cachedItems = store.getHistoryCache(user.id);
-    if (cachedItems && cachedItems.length > 0) {
-      loadedCache = true;
-      const initialCachedItems = cachedItems.slice(0, LIMIT);
+    const cachedItems = dedupeHistoryItems((store.getHistoryCache(user.id) || []).map(statsService.normalizeRecentStream).filter(Boolean));
+
+    if (cachedItems.length > 0) {
+      const initialCachedItems = injectLiveItem(cachedItems).slice(0, LIMIT);
       setHasMore(cachedItems.length >= LIMIT);
-      if (user.nowPlaying?.track) {
-         const liveTrackItem = {
-           id: 'live-' + user.nowPlaying.track.id + '-' + Date.now(),
-           track: user.nowPlaying.track,
-           platformCandidate: user.platform,
-           playedAt: user.nowPlaying.timestamp || Date.now(),
-           progressMs: user.nowPlaying.progressMs,
-           durationMs: user.nowPlaying.durationMs || user.nowPlaying.track.durationMs,
-           isLive: true
-         };
-         let newCached = initialCachedItems.filter((it: any) => it.track?.id !== user.nowPlaying?.track?.id);
-         newCached = [liveTrackItem, ...newCached];
-         setItems(newCached);
-      } else {
-         setItems(initialCachedItems);
-      }
+      setItems(initialCachedItems);
       setLoading(false);
+
+      if (cachedItems.length >= LIMIT) {
+        void statsService.fetchRecent(user.id, LIMIT, 0)
+          .then((freshItems) => {
+            if (cancelled) return;
+
+            const normalizedFresh = dedupeHistoryItems(freshItems.map(statsService.normalizeRecentStream).filter(Boolean));
+            if (normalizedFresh.length === 0) return;
+
+            const currentCache = dedupeHistoryItems((store.getHistoryCache(user.id) || []).map(statsService.normalizeRecentStream).filter(Boolean));
+            const merged = injectLiveItem(mergeFreshHistory(normalizedFresh, currentCache.length > 0 ? currentCache : cachedItems));
+
+            store.setHistoryCache(user.id, merged);
+
+            if (cancelled) return;
+            setItems(merged.slice(0, LIMIT));
+            setHasMore(merged.length >= LIMIT);
+            setOffset(0);
+          })
+          .catch((error) => {
+            if (!cancelled) {
+              console.error('Failed to refresh full history cache', error);
+            }
+          });
+      }
+
+      return () => {
+        cancelled = true;
+      };
     }
 
-    loadData(0, loadedCache);
+    void loadData(0, false);
+
+    return () => {
+      cancelled = true;
+    };
   }, [user.id]);
   
   // Filtering system

@@ -49,6 +49,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const HOME_CACHE_TTL = 15 * 60 * 1000;
+const HOME_CRITICAL_WARMUP_TIMEOUT_MS = 1800;
 
 const readHomeSessionCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -68,6 +69,45 @@ const writeHomeSessionCache = (key: string, value: any) => {
   try {
     sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), value }));
   } catch {}
+};
+
+const normalizeHomeRecentItems = (items: any[]) => items
+  .map(statsService.normalizeRecentStream)
+  .filter((item: any) => item?.track?.name);
+
+const getHomeRecentItemKey = (item: any) => {
+  const track = item?.track || item;
+  return `${track?.id || track?.name || 'track'}:${item?.playedAt || item?.timestamp || item?.endTime || item?.date || ''}:${item?.isLive ? 'live' : 'history'}`;
+};
+
+const mergeHomeRecentItems = (freshItems: any[], existingItems: any[]) => {
+  const merged: any[] = [];
+  const seen = new Set<string>();
+
+  const pushUnique = (item: any) => {
+    if (!item) return;
+    const key = getHomeRecentItemKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(item);
+  };
+
+  freshItems.forEach(pushUnique);
+  existingItems.forEach(pushUnique);
+
+  return merged;
+};
+
+const getRecentArtworkUrl = (item: any) => {
+  const track = item?.track || item;
+  return (
+    track?.image ||
+    track?.albumImage ||
+    track?.album?.image ||
+    track?.album?.images?.[0]?.url ||
+    track?.album?.images?.[0] ||
+    ''
+  );
 };
 
 const normalizeProfileSlug = (value: unknown) => {
@@ -985,7 +1025,7 @@ const getReplayTrackUrl = (track: any) => {
 
 export default function HomeScreen() {
   const hasBootReadySession = () => {
-    return window.__STATS_LC_HOME_READY__ === true;
+    return window.__STATS_LC_HOME_READY__ === true || window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1';
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
@@ -1027,11 +1067,11 @@ export default function HomeScreen() {
     tracks: [],
     albums: []
   });
-  const [circleTopState, setCircleTopState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [, setCircleTopState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [circleTopPeriodTops, setCircleTopPeriodTops] = useState<Record<string, { artists: any[]; tracks: any[]; albums: any[] }>>({});
-  const [alikePrepState, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [recentPrepState, setRecentPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [trackModalPrepState, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
@@ -1052,6 +1092,12 @@ export default function HomeScreen() {
     setIsAppReady(true);
     window.__STATS_LC_DISMISS_SPLASH__?.();
   }, []);
+
+  useEffect(() => {
+    if (!isAppReady) return;
+    window.__STATS_LC_HOME_READY__ = true;
+    window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+  }, [isAppReady]);
 
   const allMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId) || [], [groupStats, liveNowPlayingByUserId]);
   const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId) || [], [groupStats, hiddenUsers, liveNowPlayingByUserId]);
@@ -1122,15 +1168,15 @@ export default function HomeScreen() {
     () => members.map((member) => member.id).filter(Boolean).join('|'),
     [members]
   );
-  const homePreparationSettled =
-    !primaryUser ||
-    (
-      (replayState === 'ready' || replayState === 'error') &&
-      (circleTopState === 'ready' || circleTopState === 'error') &&
-      (alikePrepState === 'ready' || alikePrepState === 'error') &&
-      (recentPrepState === 'ready' || recentPrepState === 'error') &&
-      (trackModalPrepState === 'ready' || trackModalPrepState === 'error')
-    );
+  const bootRecentPlays = useMemo(() => {
+    if (!primaryUser?.id) return [];
+    const directRecent = normalizeHomeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []);
+    const cachedRecent = normalizeHomeRecentItems(getHistoryCache(primaryUser.id) || []);
+    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
+    return ([cachedRecent, sessionRecent, directRecent].sort((a, b) => b.length - a.length)[0] || []).slice(0, 10);
+  }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, (primaryUser as any)?.history]);
+
+  const criticalRecentPlays = resolvedRecentPlays.length > 0 ? resolvedRecentPlays : bootRecentPlays;
 
   const pipelineStreamLinesMemo = useMemo(() => [
     { left: '16.6%', duration: 2.2, delay: 0 },
@@ -1142,21 +1188,19 @@ export default function HomeScreen() {
   ], []);
 
   const homeWarmupImageUrls = useMemo(() => {
+    const activeFriends = members.filter((member) => member.id !== primaryUser?.id);
     const urls = [
       miniHeaderAlbumImage,
       primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : '',
-      ...allMembers.map((member) => coreUtils.getUserAvatar(member.id, member.avatar)),
-      ...allMembers.map((member) => {
+      ...activeFriends.map((member) => coreUtils.getUserAvatar(member.id, member.avatar)),
+      ...activeFriends.map((member) => {
         const track = member?.nowPlaying?.track as any;
         return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
       }),
-      ...resolvedRecentPlays.slice(0, 10).map((item) => {
-        const track = item?.track || item;
-        return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
-      }),
+      ...criticalRecentPlays.slice(0, 10).map(getRecentArtworkUrl),
     ];
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
-  }, [allMembers, membersSignature, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, resolvedRecentPlays]);
+  }, [criticalRecentPlays, members, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
 
   useEffect(() => {
     if (!primaryUser) {
@@ -1188,7 +1232,7 @@ export default function HomeScreen() {
       preloadSmartImages(urls),
       resolveArtworkColor(),
     ]).then(([, color]) => color);
-    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, 1800));
+    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, HOME_CRITICAL_WARMUP_TIMEOUT_MS));
     Promise.race([
       visualPreparation,
       timeout.then(() => ''),
@@ -1338,12 +1382,13 @@ export default function HomeScreen() {
     }
   }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, setFeaturedUserId]);
 
-  // Mark Home as ready after the primary hero and cold Home sections are prepared.
+  // Mark Home as ready after the primary hero data and critical artwork are prepared.
   // After the first release, period changes can update below without returning to splash.
   useEffect(() => {
-    const hasCoreData = !isLoading && !!groupStats && !!primaryUser;
+    const hasCoreData = !!groupStats && !!primaryUser;
+    const hasRecentBaseline = !primaryUser || recentPrepState === 'ready' || recentPrepState === 'error';
 
-    if (hasReleasedHomeRef.current && hasCoreData) {
+    if (hasReleasedHomeRef.current) {
       if (window.__STATS_LC_HOME_READY__ !== true) {
         window.__STATS_LC_HOME_READY__ = true;
         window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
@@ -1353,7 +1398,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const ready = hasCoreData && isVisualWarmupReady && homePreparationSettled;
+    const ready = hasCoreData && isVisualWarmupReady && hasRecentBaseline;
 
     if (!ready) {
       if (!hasReleasedHomeRef.current) {
@@ -1382,7 +1427,7 @@ export default function HomeScreen() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [isLoading, groupStats, isVisualWarmupReady, primaryUser, homePreparationSettled]);
+  }, [groupStats, isVisualWarmupReady, primaryUser, recentPrepState]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -1605,10 +1650,6 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
-      const normalizeRecentItems = (items: any[]) => items
-        .map(statsService.normalizeRecentStream)
-        .filter((item: any) => item?.track?.name);
-      const directRecent = normalizeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 20);
 
     if (!primaryUser?.id) {
       setResolvedRecentPlays([]);
@@ -1616,8 +1657,9 @@ export default function HomeScreen() {
       return;
     }
 
-      const cachedRecent = normalizeRecentItems(getHistoryCache(primaryUser.id) || []);
-      const sessionRecent = normalizeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
+    const directRecent = normalizeHomeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 20);
+    const cachedRecent = normalizeHomeRecentItems(getHistoryCache(primaryUser.id) || []);
+    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
     const preparedRecent = [cachedRecent, sessionRecent, directRecent]
       .sort((a, b) => b.length - a.length)[0] || [];
 
@@ -1625,10 +1667,25 @@ export default function HomeScreen() {
       setResolvedRecentPlays(preparedRecent.slice(0, 10));
     }
 
-    if (preparedRecent.length >= 20) {
+    if (preparedRecent.length >= 10) {
       setHistoryCache(primaryUser.id, preparedRecent);
       writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, preparedRecent);
       setRecentPrepState('ready');
+      void statsService.fetchRecent(primaryUser.id, 20, 0)
+        .then((freshItems) => {
+          if (cancelled) return;
+
+          const normalizedFresh = normalizeHomeRecentItems(freshItems || []);
+          if (normalizedFresh.length === 0) return;
+
+          const merged = mergeHomeRecentItems(normalizedFresh, preparedRecent);
+          if (merged.length > 0) {
+            setHistoryCache(primaryUser.id, merged);
+            writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, merged);
+            setResolvedRecentPlays(merged.slice(0, 10));
+          }
+        })
+        .catch(() => {});
       return;
     }
 
@@ -1653,7 +1710,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, setHistoryCache]);
+  }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, (primaryUser as any)?.history, setHistoryCache]);
 
   useEffect(() => {
     const track = primaryUser?.nowPlaying?.track;

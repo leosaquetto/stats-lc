@@ -138,7 +138,12 @@ export const MusicCard = React.memo(({
           
           {/* User Badge Overlay */}
           <div className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full border-2 border-[#111] bg-black overflow-hidden shadow-lg shadow-black/80 z-20">
-            <img src={userAvatar} className="h-full w-full object-cover" referrerPolicy="no-referrer" alt="" />
+            <SmartImage
+              src={userAvatar}
+              className="h-full w-full object-cover"
+              rounded="full"
+              fallback={userName || userId || ""}
+            />
           </div>
           
           {/* Play Count Badge Overlay */}

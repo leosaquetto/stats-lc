@@ -293,7 +293,7 @@ function useLivePlaybackProgress({
   userId: string;
   nowPlaying: any;
   durationMs?: number | null;
-  fetchGroupLive: (force?: boolean) => Promise<void>;
+  fetchGroupLive: (force?: boolean, options?: { bypassThrottle?: boolean }) => Promise<void>;
 }) {
   const snapshotRef = React.useRef<PlaybackSnapshot | null>(null);
   const completedPlaybackKeyRef = React.useRef<string | null>(null);
@@ -409,7 +409,7 @@ function useLivePlaybackProgress({
       checkingPlaybackKeyRef.current = snapshot.playbackKey;
       setIsCheckingNext(true);
 
-      fetchGroupLive(true)
+      fetchGroupLive(false, { bypassThrottle: true })
         .catch(() => undefined)
         .finally(() => {
           if (checkingPlaybackKeyRef.current === snapshot.playbackKey) {
@@ -907,16 +907,6 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [track?.name, mainArtistName]);
 
   const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
-  const prevNowPlaying = React.useRef(nowPlaying);
-
-  useEffect(() => {
-    const wasPlaying = prevNowPlaying.current?.isNow === true;
-    const isCurrentlyPlaying = nowPlaying?.isNow === true;
-    if (wasPlaying && !isCurrentlyPlaying) {
-      fetchGroupLive();
-    }
-    prevNowPlaying.current = nowPlaying;
-  }, [nowPlaying, fetchGroupLive]);
 
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
   const backendIsLive = playback.status === "live" && nowPlaying?.isNow === true;
@@ -969,12 +959,18 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
   const trackStatsKey = `${user.id}:${track?.id}`;
   const playCount = userTrackStats[trackStatsKey];
+  const hasHydratedTrackRanking = useMemo(() => {
+    if (!track?.id) return false;
+    const members = getCanonicalMembers(groupStats);
+    if (members.length === 0) return false;
+    return members.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${track.id}`));
+  }, [groupStats, track?.id, userTrackStats]);
 
   useEffect(() => {
-    if (track?.id) {
+    if (track?.id && !hasHydratedTrackRanking) {
       fetchTrackStatsForAll(track.id);
     }
-  }, [track?.id, fetchTrackStatsForAll]);
+  }, [track?.id, fetchTrackStatsForAll, hasHydratedTrackRanking]);
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];

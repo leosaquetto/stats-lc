@@ -220,7 +220,8 @@ export default function App() {
       window.setTimeout(() => setInitialBootSettled(true), delay);
     };
 
-    Promise.allSettled([fetchStats(), preloadSecondaryRoutes()]).then(settleSplash).catch(settleSplash);
+    fetchStats().then(settleSplash).catch(settleSplash);
+    preloadSecondaryRoutes().catch(() => undefined);
 
     return () => {
       window.removeEventListener('online', handleOnline);

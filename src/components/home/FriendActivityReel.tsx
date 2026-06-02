@@ -90,13 +90,14 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
-            const trackImage = track?.image || "";
+            const trackImage = track?.image || undefined;
             const livePlayback = friend.nowPlaying as any;
             const trackVisualKey = [
               friend.id,
               track?.id || track?.name || 'silence',
               livePlayback?.playbackKey || livePlayback?.streamId || livePlayback?.timestamp || '',
             ].join(':');
+            const artworkVisualKey = `${friend.id}:${trackImage || 'no-artwork'}`;
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -120,107 +121,110 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                     <div className="absolute -inset-1 rounded-[26px] border border-orange-500/18 bg-orange-500/[0.035]" />
                   )}
 
-                  <div className={clsx(
-                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-all duration-300 shadow-lg",
-                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
-                  )}>
+	                  <div className={clsx(
+	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-all duration-300 shadow-lg",
+	                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
+	                  )}>
+	                    <div className="absolute inset-0 z-0">
+	                      <AnimatePresence initial={false} mode="popLayout">
+	                        <motion.div
+	                          key={artworkVisualKey}
+	                          className="absolute inset-0"
+	                          initial={{ opacity: 0, scale: 1.035 }}
+	                          animate={{ opacity: 1, scale: 1 }}
+	                          exit={{ opacity: 0, scale: 0.985 }}
+	                          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+	                        >
+	                          <SmartImage
+	                            src={trackImage}
+	                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-40 group-hover:opacity-60"
+	                            rounded="none"
+	                            fallback=""
+	                          />
+	                        </motion.div>
+	                      </AnimatePresence>
+	                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
+	                    </div>
 
-                  {/* Artwork Background */}
-                  <div className="absolute inset-0 z-0">
-                    <AnimatePresence initial={false} mode="popLayout">
-                      <motion.div
-                        key={trackVisualKey}
-                        className="absolute inset-0"
-                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 1.04, y: -8 }}
-                        transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
-                      >
-                        <SmartImage
-                          src={trackImage}
-                          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-40 group-hover:opacity-60"
-                          rounded="none"
-                          fallback=""
-                        />
-                      </motion.div>
-                    </AnimatePresence>
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
-                  </div>
+	                    <div className="absolute inset-0 z-10 p-3.5 flex flex-col justify-between">
+	                      <div className="flex items-center gap-2">
+	                        <div className="relative">
+	                          <div className={clsx(
+	                            "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-all duration-300",
+	                            isPlaying ? "border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "border-white/10"
+	                          )}>
+	                            <SmartImage src={userAvatar} className="h-full w-full object-cover rounded-full" rounded="full" fallback="" />
+	                          </div>
+	                          {isPlaying && (
+	                            <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 flex items-center justify-center border border-white/10">
+	                              <EqualizerIcon />
+	                            </div>
+	                          )}
+	                        </div>
+	                        <div className="flex flex-col min-w-0">
+	                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors">
+	                            {friend.name.split(' ')[0]}
+	                          </span>
+	                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none">
+	                            {isPlaying ? "Ouvindo agora" : coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
+	                          </span>
+	                        </div>
+	                      </div>
 
-                  {/* Content Overlay */}
-                  <div className="absolute inset-0 z-10 p-3.5 flex flex-col justify-between">
-                    {/* Top: User Info */}
-                    <div className="flex items-center gap-2">
-                       <div className="relative">
-                         <div className={clsx(
-                           "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-all duration-300",
-                           isPlaying ? "border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "border-white/10"
-                         )}>
-                            <SmartImage src={userAvatar} className="h-full w-full object-cover rounded-full" rounded="full" fallback="" />
-                         </div>
-                         {isPlaying && (
-                           <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 flex items-center justify-center border border-white/10">
-                              <EqualizerIcon />
-                           </div>
-                         )}
-                       </div>
-                       <div className="flex flex-col min-w-0">
-                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors">
-                            {friend.name.split(' ')[0]}
-                          </span>
-                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none">
-                            {isPlaying ? "Ouvindo agora" : coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
-                          </span>
-                       </div>
-                    </div>
+	                      <AnimatePresence initial={false} mode="popLayout">
+	                        <motion.div
+	                          key={trackVisualKey}
+	                          className="flex flex-col gap-1"
+	                          initial={{ opacity: 0, y: 8 }}
+	                          animate={{ opacity: 1, y: 0 }}
+	                          exit={{ opacity: 0, y: -6 }}
+	                          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+	                        >
+	                          <div
+	                            className="flex flex-col min-w-0"
+	                            onClick={(e) => {
+	                              e.stopPropagation();
+	                              if (track) onTrackClick(track);
+	                            }}
+	                          >
+	                            <h4 className="text-[11px] font-bold text-white leading-tight line-clamp-2 mix-blend-plus-lighter">
+	                              {track?.name || "Silêncio"}
+	                            </h4>
+	                            <p className="text-[8.5px] font-medium text-white/50 truncate leading-tight mt-0.5">
+	                              {artistName}
+	                            </p>
+	                          </div>
 
-                    {/* Bottom: Track Info */}
-                    <div className="flex flex-col gap-1">
-                       <div 
-                         className="flex flex-col min-w-0"
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           if (track) onTrackClick(track);
-                         }}
-                       >
-                          <h4 className="text-[11px] font-bold text-white leading-tight line-clamp-2 mix-blend-plus-lighter">
-                            {track?.name || "Silêncio"}
-                          </h4>
-                          <p className="text-[8.5px] font-medium text-white/50 truncate leading-tight mt-0.5">
-                            {artistName}
-                          </p>
-                       </div>
-                       
-                       <div className="flex items-center gap-2 mt-0.5">
-                          <MusicPlatformBadge platform={friend.platform} variant="minimal" />
-                          {isPlaying && (
-                            <motion.div 
-                              animate={{ 
-                                backgroundColor: ["rgba(255,255,255,0.05)", "rgba(249,115,22,0.1)", "rgba(255,255,255,0.05)"]
-                              }}
-                              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                              className="px-1.5 py-0.5 rounded-full border border-orange-500/20 flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.05)]"
-                            >
-                               <div className="relative flex h-1 w-1">
-                                 <motion.span 
-                                   animate={{ scale: [1, 1.8, 1], opacity: [1, 0.4, 1] }}
-                                   transition={{ duration: 2, repeat: Infinity }}
-                                   className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"
-                                 />
-                                 <span className="relative inline-flex rounded-full h-1 w-1 bg-orange-500" />
-                               </div>
-                               <span className="text-[6px] font-black text-white uppercase tracking-widest">Live</span>
-                            </motion.div>
-                          )}
-                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Glass Shimmer */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent pointer-events-none" />
-                  </div>
-                </div>
-              </motion.div>
+	                          <div className="flex items-center gap-2 mt-0.5">
+	                            <MusicPlatformBadge platform={friend.platform} variant="minimal" />
+	                            {isPlaying && (
+	                              <motion.div
+	                                animate={{
+	                                  backgroundColor: ["rgba(255,255,255,0.05)", "rgba(249,115,22,0.1)", "rgba(255,255,255,0.05)"]
+	                                }}
+	                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+	                                className="px-1.5 py-0.5 rounded-full border border-orange-500/20 flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.05)]"
+	                              >
+	                                <div className="relative flex h-1 w-1">
+	                                  <motion.span
+	                                    animate={{ scale: [1, 1.8, 1], opacity: [1, 0.4, 1] }}
+	                                    transition={{ duration: 2, repeat: Infinity }}
+	                                    className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"
+	                                  />
+	                                  <span className="relative inline-flex rounded-full h-1 w-1 bg-orange-500" />
+	                                </div>
+	                                <span className="text-[6px] font-black text-white uppercase tracking-widest">Live</span>
+	                              </motion.div>
+	                            )}
+	                          </div>
+	                        </motion.div>
+	                      </AnimatePresence>
+	                    </div>
+
+	                    <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent pointer-events-none" />
+	                  </div>
+	                </div>
+	              </motion.div>
             );
           })}
           </AnimatePresence>

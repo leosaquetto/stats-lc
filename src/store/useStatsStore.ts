@@ -149,7 +149,7 @@ const saveGroupStatsToMMKV = (groupStats: GroupStats | null) => {
     if (stripped) {
       mmkv.set('groupStats', JSON.stringify(stripped));
       if ((import.meta as any).env?.DEV) {
-        console.log('[persist] Saved stripped groupStats to MMKV');
+        console.debug('[persist] Saved stripped groupStats to MMKV');
       }
     }
   } catch (e: any) {
@@ -168,6 +168,12 @@ const saveGroupStatsToMMKV = (groupStats: GroupStats | null) => {
 const isValidGroupStats = (value: any): value is GroupStats => {
   return !!value && typeof value === 'object' && Array.isArray(value.members) && value.users && typeof value.users === 'object';
 };
+
+const hasTrackStatsForUsers = (
+  userTrackStats: Record<string, number>,
+  users: UserStats[],
+  trackId: string
+) => users.every((user) => Object.prototype.hasOwnProperty.call(userTrackStats, `${user.id}:${trackId}`));
 
 const hasAliasOnlyNames = (groupStats: GroupStats | null) => {
   if (!groupStats) return false;
@@ -220,12 +226,20 @@ const trimCacheByMeta = <T>(
 
 const FRIEND_PREFETCH_DELAY_MS = 1500;
 const LIVE_CACHE_PERSIST_INTERVAL_MS = 30 * 1000;
+const LIVE_FETCH_MIN_INTERVAL_MS = 6000;
+const TRACK_STATS_CACHE_TTL_MS = 12 * 1000;
 let friendPrefetchTimer: ReturnType<typeof setTimeout> | null = null;
 let friendPrefetchController: AbortController | null = null;
 let lastLiveCachePersistAt = 0;
+const trackStatsRequestInFlight = new Map<string, Promise<void>>();
+const trackStatsFetchedAt = new Map<string, number>();
 
 // In-flight guard for prefetchUserTops to prevent duplicate simultaneous calls
 const prefetchUserTopsInFlight = new Set<string>();
+
+type LiveFetchOptions = {
+  bypassThrottle?: boolean;
+};
 
 const isLivePayloadOlder = (existing?: any, incoming?: any) => {
   if (!existing?.timestamp || !incoming?.timestamp) return false;
@@ -525,7 +539,7 @@ interface StatsState {
   isUserPreloaded: (userId: string) => boolean;
   clearUserCache: (userId: string) => void;
   fetchGroup: (force?: boolean) => Promise<void>;
-  fetchGroupLive: (force?: boolean) => Promise<void>;
+  fetchGroupLive: (force?: boolean, options?: LiveFetchOptions) => Promise<void>;
   fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
   fetchTrackStatsForAll: (trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
@@ -746,7 +760,7 @@ export const useStatsStore = create<StatsState>()(
         // In-flight guard: prevent duplicate simultaneous calls
         if (prefetchUserTopsInFlight.has(cacheKey)) {
           if ((import.meta as any).env?.DEV) {
-            console.log(`[prefetchUserTops] Already in-flight for ${cacheKey}, skipping`);
+            console.debug(`[prefetchUserTops] Already in-flight for ${cacheKey}, skipping`);
           }
           return {
             tracks: existingTracks || [],
@@ -773,7 +787,7 @@ export const useStatsStore = create<StatsState>()(
           get().setTopItemsCache(existingAlbumsKey, topItems.albums || []);
 
           if ((import.meta as any).env?.DEV) {
-            console.log(`[prefetchUserTops] Fetched topItems for ${userId}:`, {
+            console.debug(`[prefetchUserTops] Fetched topItems for ${userId}:`, {
               tracks: topItems.tracks?.length || 0,
               artists: topItems.artists?.length || 0,
               albums: topItems.albums?.length || 0
@@ -1073,7 +1087,7 @@ export const useStatsStore = create<StatsState>()(
                 isRefreshing: false,
                 error: null,
               });
-              if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Serving valid MMKV cache, skipping fetch.");
+              if ((import.meta as any).env?.DEV) console.debug("[fetchGroup] Serving valid MMKV cache, skipping fetch.");
               return;
             }
           }
@@ -1113,7 +1127,7 @@ export const useStatsStore = create<StatsState>()(
                   error: null,
                 });
                 clearTimeout(safetyTimer);
-                if ((import.meta as any).env?.DEV) console.log("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
+                if ((import.meta as any).env?.DEV) console.debug("[fetchGroup] Network is offline, served stencil/stale MMKV data without error.");
                 return;
               }
             }
@@ -1204,39 +1218,26 @@ export const useStatsStore = create<StatsState>()(
         }
       },
 
-      fetchGroupLive: async (force = false) => {
+      fetchGroupLive: async (force = false, options = {}) => {
         if (!force && (get().isLoading || !get().groupStats)) {
-          if ((import.meta as any).env?.DEV) {
-            console.log('[fetchGroupLive] Skipped while initial group data is loading');
-          }
           return;
         }
 
+        const bypassThrottle = options.bypassThrottle === true;
         const now = Date.now();
         const timeSinceLastFetch = now - get().lastLiveFetchTime;
-        const MIN_FETCH_INTERVAL = 6000;
 
         // Throttling: não permite chamadas muito frequentes
-        if (!force && timeSinceLastFetch < MIN_FETCH_INTERVAL) {
-          if ((import.meta as any).env?.DEV) {
-            console.log(`[fetchGroupLive] Throttled: ${Math.round((MIN_FETCH_INTERVAL - timeSinceLastFetch) / 1000)}s remaining`);
-          }
+        if (!force && !bypassThrottle && timeSinceLastFetch < LIVE_FETCH_MIN_INTERVAL_MS) {
           return;
         }
 
-        if (get().isLiveFetching && !force) return;
-
-        if ((import.meta as any).env?.DEV) {
-          console.log('[fetchGroupLive] Starting live fetch...');
-        }
+        if (get().isLiveFetching) return;
 
         set({ isLiveFetching: true, lastLiveFetchTime: now });
 
         // Safety timeout: 35s
         const safetyTimer = setTimeout(() => {
-          if ((import.meta as any).env?.DEV) {
-            console.warn('[fetchGroupLive] Safety timeout triggered after 35s');
-          }
           set({ isLiveFetching: false });
         }, 35000);
 
@@ -1359,14 +1360,9 @@ export const useStatsStore = create<StatsState>()(
             }
           }
         } catch (e) {
-          if ((import.meta as any).env?.DEV) {
-            console.error('[fetchGroupLive] Error:', e);
-          }
-          console.warn('Silent live fetch failed:', e);
+          void e;
+          // Live polling failures are intentionally silent; keep the existing UI snapshot.
         } finally {
-          if ((import.meta as any).env?.DEV) {
-            console.log('[fetchGroupLive] Completed, resetting isLiveFetching to false');
-          }
           set({ isLiveFetching: false });
           clearTimeout(safetyTimer);
         }
@@ -1384,32 +1380,57 @@ export const useStatsStore = create<StatsState>()(
 
       fetchTrackStatsForAll: async (trackId: string) => {
         const users = getCanonicalMembers(get().groupStats);
-        try {
-          const newStats = { ...get().userTrackStats };
-          const groupStats = await statsService.fetchEntityGroupStats('track', trackId);
+        if (!trackId || users.length === 0) return;
 
-          users.forEach((u) => {
-            newStats[`${u.id}:${trackId}`] = groupStats[u.id] || 0;
-          });
+        const now = Date.now();
+        const cachedAt = trackStatsFetchedAt.get(trackId) || 0;
+        if (
+          now - cachedAt < TRACK_STATS_CACHE_TTL_MS &&
+          hasTrackStatsForUsers(get().userTrackStats, users, trackId)
+        ) {
+          return;
+        }
 
-          set({ userTrackStats: newStats });
-        } catch (e) {
+        const running = trackStatsRequestInFlight.get(trackId);
+        if (running) {
+          return running;
+        }
+
+        const request = (async () => {
           try {
-            const results = await Promise.all(users.map(async (u) => {
-              const count = await statsService.fetchEntityStats(u.id, 'track', trackId);
-              return { userId: u.id, count };
-            }));
-
             const newStats = { ...get().userTrackStats };
-            results.forEach(({ userId, count }) => {
-              newStats[`${userId}:${trackId}`] = count;
+            const groupStats = await statsService.fetchEntityGroupStats('track', trackId);
+
+            users.forEach((u) => {
+              newStats[`${u.id}:${trackId}`] = groupStats[u.id] || 0;
             });
 
             set({ userTrackStats: newStats });
-          } catch (fallbackError) {
-            console.error("fetchTrackStatsForAll error:", fallbackError);
+            trackStatsFetchedAt.set(trackId, Date.now());
+          } catch (e) {
+            try {
+              const results = await Promise.all(users.map(async (u) => {
+                const count = await statsService.fetchEntityStats(u.id, 'track', trackId);
+                return { userId: u.id, count };
+              }));
+
+              const newStats = { ...get().userTrackStats };
+              results.forEach(({ userId, count }) => {
+                newStats[`${userId}:${trackId}`] = count;
+              });
+
+              set({ userTrackStats: newStats });
+              trackStatsFetchedAt.set(trackId, Date.now());
+            } catch (fallbackError) {
+              console.error("fetchTrackStatsForAll error:", fallbackError);
+            }
           }
-        }
+        })().finally(() => {
+          trackStatsRequestInFlight.delete(trackId);
+        });
+
+        trackStatsRequestInFlight.set(trackId, request);
+        return request;
       },
 
       getUserById: (id: string) => {

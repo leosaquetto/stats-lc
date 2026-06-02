@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
-import { SmartImage } from '../shared/CommonUI';
+import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
 import { VinylTonearm } from './VinylTonearm';
 
@@ -102,14 +102,16 @@ export const VinylRecord = ({
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
+  const [displayAlbumImage, setDisplayAlbumImage] = useState(albumImage);
   const discRef = useRef<HTMLDivElement | null>(null);
   const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
+  const previousPlayingRef = useRef(isPlaying);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
 
   const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#647062'), [dominantColor]);
-  const textureProfile    = useMemo(() => getTextureProfile(albumImage, baseDominantColor), [albumImage, baseDominantColor]);
+  const textureProfile    = useMemo(() => getTextureProfile(displayAlbumImage, baseDominantColor), [displayAlbumImage, baseDominantColor]);
   const textureSeed       = textureProfile.seed;
   const textureVariant: number = 0;
   const textureName       = 'classic';
@@ -129,29 +131,83 @@ export const VinylRecord = ({
   const resinAlpha        = isPlaying ? 0.38 : 0.32;
 
   useEffect(() => {
-    const node = discRef.current;
-    if (!node) return;
-    node.style.transform = `rotate(${rotationRef.current}deg)`;
-  }, [albumImage]);
+    if (albumImage === displayAlbumImage) return;
+
+    if (!albumImage) {
+      setDisplayAlbumImage('');
+      return;
+    }
+
+    let cancelled = false;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled) setDisplayAlbumImage(albumImage);
+    }, 700);
+
+    preloadSmartImages([albumImage])
+      .catch(() => undefined)
+      .then(() => {
+        if (!cancelled) setDisplayAlbumImage(albumImage);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, [albumImage, displayAlbumImage]);
 
   useEffect(() => {
     const node = discRef.current;
-    const stopSpin = () => {
+    if (!node) return;
+    node.style.transform = `rotate(${rotationRef.current}deg)`;
+  }, [displayAlbumImage]);
+
+  useEffect(() => {
+    const node = discRef.current;
+    const stopSpin = (mode: 'instant' | 'decelerate' = 'instant') => {
       const animation = spinAnimationRef.current;
-      if (!node || !animation) return;
+      if (!node) return;
+
       const currentRotation = getRotationFromTransform(window.getComputedStyle(node).transform);
       if (currentRotation != null) rotationRef.current = currentRotation;
-      animation.cancel();
-      spinAnimationRef.current = null;
+
+      if (animation) {
+        animation.cancel();
+        spinAnimationRef.current = null;
+      }
+
+      if (mode === 'decelerate' && canAnimate) {
+        const endRotation = rotationRef.current + 18;
+        const deceleration = node.animate(
+          [
+            { transform: `rotate(${rotationRef.current}deg)` },
+            { transform: `rotate(${endRotation}deg)` },
+          ],
+          { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+        );
+        spinAnimationRef.current = deceleration;
+        deceleration.onfinish = () => {
+          rotationRef.current = endRotation % 360;
+          node.style.transform = `rotate(${rotationRef.current}deg)`;
+          if (spinAnimationRef.current === deceleration) spinAnimationRef.current = null;
+        };
+        deceleration.oncancel = () => {
+          node.style.transform = `rotate(${rotationRef.current}deg)`;
+          if (spinAnimationRef.current === deceleration) spinAnimationRef.current = null;
+        };
+        return;
+      }
+
       node.style.transform = `rotate(${rotationRef.current}deg)`;
     };
 
     if (!node || !canAnimate || !isPlaying) {
-      stopSpin();
+      const shouldDecelerate = previousPlayingRef.current && !isPlaying;
+      stopSpin(shouldDecelerate ? 'decelerate' : 'instant');
+      previousPlayingRef.current = isPlaying;
       return;
     }
 
-    stopSpin();
+    stopSpin('instant');
     const startRotation = rotationRef.current;
     node.style.transform = `rotate(${startRotation}deg)`;
     spinAnimationRef.current = node.animate(
@@ -161,9 +217,10 @@ export const VinylRecord = ({
       ],
       { duration: 3000, iterations: Infinity, easing: 'linear' }
     );
+    previousPlayingRef.current = isPlaying;
 
-    return stopSpin;
-  }, [canAnimate, isPlaying, albumImage]);
+    return () => stopSpin('instant');
+  }, [canAnimate, isPlaying, displayAlbumImage]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -236,9 +293,9 @@ export const VinylRecord = ({
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={false} mode="popLayout">
       <motion.div
-        key={albumImage || 'placeholder-disc'}
+        key={displayAlbumImage || 'placeholder-disc'}
         className="absolute inset-0 z-10"
-        initial={canAnimate ? { x: -46, opacity: 0 } : false}
+        initial={canAnimate ? { x: 46, opacity: 0 } : false}
         animate={{ x: 0, opacity: 1 }}
         exit={canAnimate ? { x: 46, opacity: 0 } : { opacity: 0 }}
         transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
@@ -441,17 +498,17 @@ export const VinylRecord = ({
         <div className="absolute inset-[24%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={albumImage || 'placeholder'}
+              key={displayAlbumImage || 'placeholder'}
               className="w-full h-full absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 0, scale: 1.04, filter: 'blur(4px)' }}
-              animate={{ opacity: 1,  scale: 1,    filter: 'blur(0px)' }}
-              exit={{    opacity: 0,  scale: 0.96, filter: 'blur(4px)' }}
-              transition={{ duration: 0.45 }}
+              initial={{ opacity: 0, x: 16, scale: 1.01 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 16, scale: 0.99 }}
+              transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
             >
-              {albumImage ? (
+              {displayAlbumImage ? (
                 <div className="w-full h-full relative">
                   <SmartImage
-                    src={albumImage}
+                    src={displayAlbumImage}
                     className="w-full h-full object-cover"
                     fallback="💿"
                     rounded="full"
