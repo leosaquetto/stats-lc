@@ -259,7 +259,7 @@ export default function SettingsScreen() {
         </div>
       </header>
 
-      <nav className="sticky top-2 z-30 -mx-1 overflow-x-auto px-1 py-2">
+      <nav className="no-scrollbar scrolling-touch sticky top-2 z-30 -mx-1 overflow-x-auto px-1 py-2">
         <div className="flex w-max gap-2 rounded-2xl border border-white/5 bg-black/45 p-1 backdrop-blur-xl">
           {NAV_ITEMS.map(item => (
             <a

@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import { coreUtils } from '../../services/statsCore';
 import { getArtistListString } from '../../lib/artistUtils';
 import { statsCacheService } from '../../services/statsCacheService';
+import { statsService } from '../../services/statsService';
 import { useStatsStore } from '../../store/useStatsStore';
 import { ExternalLink, Send } from 'lucide-react';
 import { getCanonicalMembers } from '../../lib/memberSelectors';
@@ -160,14 +161,14 @@ export const FriendHistoryCard = memo(({
 
       const embeddedRecent = storeUser.recent || user.recent || [];
       if (embeddedRecent.length > 0 && mounted) {
-        setRecents(embeddedRecent);
+        setRecents(embeddedRecent.map(statsService.normalizeRecentStream).filter(Boolean));
         setLoading(false);
       }
 
       // 1. Servir cache imediatamente se disponível
       const cachedHistory = store.getHistoryCache(user.id);
       if (cachedHistory && cachedHistory.length > 0 && mounted) {
-        setRecents(cachedHistory);
+        setRecents(cachedHistory.map(statsService.normalizeRecentStream).filter(Boolean));
         setLoading(false);
       }
 
@@ -193,7 +194,7 @@ export const FriendHistoryCard = memo(({
         // 3. Buscar histórico real apenas se não tiver cache
         const historyData = await statsCacheService.cacheUserHistory(user.id);
         if (mounted) {
-          setRecents(historyData);
+          setRecents(historyData.map(statsService.normalizeRecentStream).filter(Boolean));
           setLoading(false);
         }
 

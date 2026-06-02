@@ -31,7 +31,7 @@ Validacoes principais:
 | Area | O que verificar | Status |
 | --- | --- | --- |
 | Home | Splash, LeoHeader, vinil, tonearm, faixa atual, progresso, replay, recentes, Stats Alike, Top 1 e modais | Parcial validado: Home sem imagens quebradas/console; modais album/artista abrem |
-| Stats | Filtros, graficos, heatmap, cards, rankings, listas e calculos por periodo | Pendente |
+| Stats | Filtros, graficos, heatmap, cards, rankings, listas e calculos por periodo | Parcial validado: grafico visivel e lista mobile sem vazio |
 | Circle/Ranking | Rankings, usuarios ocultos, imagens, listas e modais | Pendente |
 | Alike | Afinidade, ordenacao, imagens e estados vazios | Pendente |
 | Settings | Troca de destaque, persistencia, reset de boot e navegacao | Pendente |
@@ -60,3 +60,22 @@ Cada item so fecha quando:
   destaque orbital, modal de album pelo LeoHeader, abas e letra in-app.
 - A auditoria visual sera atualizada conforme as correcoes forem validadas no
   navegador in-app.
+- Baseline movel em 2026-06-02: Home com `3893px`, `54` imagens, nenhuma
+  imagem quebrada e retry indevido de `/api/compare` apos `ERR_CANCELED`.
+- Wrapper generico de API agora ignora cancelamentos esperados antes de logar
+  ou decidir retry.
+- Home pausou rotacoes/floats de Seus Destaques e Perceptions fora da viewport.
+- Filtro anual deixou de usar lista fixa encerrada em `2026`.
+- Trocas de rota receberam transicao curta interna sem remontar a barra
+  inferior.
+- Stats deixou de usar lista virtual com altura fixa para apenas `15` rankings
+  paginados. As linhas usam scroll natural e o botao `Carregar Mais` nao fica
+  mais separado por uma area vazia no mobile.
+- Ultimas Reproducoes deixou de buscar o feed quente pelo historico compacto
+  `/api/user-streams`: `fetchRecent()` usa `/api/recent?resolveAlbums=1` e as
+  dez capas reais foram confirmadas no navegador.
+- Ajustes esconde o scrollbar nativo da navegacao horizontal sem bloquear o
+  gesto de deslizar.
+- A transicao de rota desmonta a tela anterior imediatamente. O
+  `AnimatePresence` externo foi removido porque movimentos descendentes da
+  Home podiam segurar a tela antiga depois da mudanca de URL.

@@ -424,6 +424,13 @@ const fetchFromApi = async <T>(
       const status = error.response?.status;
       const isNetworkError = !error.response && error.request;
       const shouldSilenceLiveError = isSilentGroupLiveFailure(endpoint, error);
+      const isCanceledRequest =
+        requestOptions.signal?.aborted
+        || axios.isCancel(error)
+        || error?.name === 'CanceledError'
+        || error?.code === 'ERR_CANCELED';
+
+      if (isCanceledRequest) throw error;
 
       const isOptionalDatesEndpoint = endpoint === '/api/stats-dates';
       const isExpectedEmptyTopRange =
@@ -523,7 +530,7 @@ export const statsService = {
   async fetchRecent(userId: string, limit = 20, offset = 0): Promise<any[]> {
     try {
       const userParam = coreUtils.getUserApiParam(userId);
-      const res = await fetchFromApi<any>('/api/user-streams', {
+      const res = await fetchFromApi<any>('/api/recent', {
         user: userParam,
         limit,
         offset,
@@ -560,11 +567,18 @@ export const statsService = {
   /**
    * Busca estatísticas de uma entidade (track, artist, album) via backend Vercel
    */
-  async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string, range?: string): Promise<number> {
+  async fetchEntityStatsSummary(
+    userId: string,
+    type: 'track' | 'artist' | 'album',
+    id: string,
+    options: { range?: string; after?: number; before?: number } = {}
+  ): Promise<{ count: number; durationMs: number }> {
     try {
       const userParam = coreUtils.getUserApiParam(userId);
       const params: any = { user: userParam, type, id, limit: 1 };
-      if (range) params.range = range;
+      if (options.range) params.range = options.range;
+      if (options.after) params.after = options.after;
+      if (options.before) params.before = options.before;
       
       let data: any;
       try {
@@ -572,10 +586,17 @@ export const statsService = {
       } catch {
         data = await fetchFromApi<any>('/api/entity-streams', params);
       }
-      return data?.count || data?.streams || data?.total || data?.items?.length || 0;
+      return {
+        count: data?.count || data?.streams || data?.total || data?.items?.length || 0,
+        durationMs: data?.durationMs || data?.playedMs || 0,
+      };
     } catch (e) {
-      return 0;
+      return { count: 0, durationMs: 0 };
     }
+  },
+
+  async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string, range?: string): Promise<number> {
+    return (await this.fetchEntityStatsSummary(userId, type, id, { range })).count;
   },
 
   /**

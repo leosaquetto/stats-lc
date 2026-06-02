@@ -276,8 +276,9 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     layout
                     drag
                     dragConstraints={stageRef}
-                    dragMomentum={false}
+                    dragMomentum={!shouldReduceMotion}
                     dragElastic={0.18}
+                    dragTransition={{ power: 0.18, timeConstant: 280, bounceStiffness: 220, bounceDamping: 24 }}
                     whileDrag={{ scale: 1.06, zIndex: 30 }}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
@@ -310,7 +311,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     >
                       <div
                         className={cn(
-                          "rounded-full overflow-hidden border-2 shadow-2xl transition-all cursor-grab active:cursor-grabbing",
+                          "rounded-full overflow-hidden border-2 shadow-2xl transition-[transform,border-color,opacity] cursor-grab active:cursor-grabbing",
                           isLeader
                             ? "h-[76px] w-[76px] border-orange-500/70 ring-4 ring-orange-500/20 shadow-orange-500/30"
                             : position.size === 'small'

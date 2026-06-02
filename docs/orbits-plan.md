@@ -78,3 +78,19 @@ interface Orbit {
 - `/circle` mostra Orbits entre Arena Live e Timeline.
 - Timeline e `TrackHistoryModal` disparam `stats-lc:compose-orbit` para abrir composer com a faixa preenchida.
 - Proximo passo recomendado: configurar Neon no Vercel e setar `DATABASE_URL` no projeto correto antes de validar em producao.
+
+## Progresso em 2026-06-02
+
+- `/circle` foi reorganizado como shell com `Agora`, `Orbits`, `Arena`,
+  `Duelos` e `Afinidade`; somente a aba ativa monta.
+- `/ranking` continua abrindo Arena e `/alike` continua abrindo Afinidade.
+- `GET /api/orbits` passou a ser leitura rapida do store. Auditoria de plays nao
+  bloqueia mais a listagem.
+- O frontend chama `/check-listens` progressivamente para ate tres itens
+  enviados desatualizados por montagem, com TTL de cinco minutos.
+- Criacao de Orbit valida membros conhecidos, bloqueia autoenvio e exige
+  identidade utilizavel da faixa.
+- O projeto Vercel correto da API foi confirmado. A integracao Neon foi
+  iniciada e aguarda aceite de termos para provisionar a URL do banco.
+- Validacao atual da API: `npm run typecheck`, `npm test` e `git diff --check`.
+  A suite passou com `55` testes.

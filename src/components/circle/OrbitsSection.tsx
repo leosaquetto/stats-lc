@@ -8,6 +8,8 @@ import { getArtistListString } from '../../lib/artistUtils';
 import { orbitService, type Orbit, type OrbitBox, type OrbitSummary } from '../../services/orbitService';
 
 const emptySummary: OrbitSummary = { received: 0, sent: 0, sentListened: 0, unread: 0 };
+const LISTEN_CHECK_TTL_MS = 5 * 60 * 1000;
+const MAX_PROGRESSIVE_LISTEN_CHECKS = 3;
 
 const getTrackImage = (track: any) => (
   track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.image || track?.images?.[0]?.url || ''
@@ -90,19 +92,45 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
     if (!currentUserId) return;
     const controller = new AbortController();
     setStatus('loading');
-    Promise.all([
-      orbitService.summary(currentUserId, controller.signal),
-      orbitService.list(currentUserId, box, controller.signal),
-    ]).then(([nextSummary, nextItems]) => {
+
+    const load = async () => {
+      const nextSummary = await orbitService.summary(currentUserId, controller.signal);
       setSummary(nextSummary);
+
+      if (box === 'all') {
+        setStatus('ready');
+        return;
+      }
+
+      const nextItems = await orbitService.list(currentUserId, box, controller.signal);
       setItems(nextItems);
       setStatus(nextItems.length > 0 ? 'ready' : 'empty');
+
       if (box === 'received') {
         nextItems.filter(orbit => !orbit.seenAt).forEach(orbit => {
           orbitService.markSeen(orbit.id).catch(() => {});
         });
+        return;
       }
-    }).catch(() => {
+
+      const staleItems = nextItems
+        .filter((orbit) => !orbit.lastCheckedAt || Date.now() - Date.parse(orbit.lastCheckedAt) > LISTEN_CHECK_TTL_MS)
+        .slice(0, MAX_PROGRESSIVE_LISTEN_CHECKS);
+      if (staleItems.length === 0) return;
+
+      const checked = await Promise.allSettled(staleItems.map((orbit) => orbitService.checkListens(orbit.id)));
+      if (controller.signal.aborted) return;
+      const refreshedById = new Map(
+        checked
+          .filter((result): result is PromiseFulfilledResult<Orbit> => result.status === 'fulfilled')
+          .map((result) => [result.value.id, result.value])
+      );
+      if (refreshedById.size === 0) return;
+      setItems((current) => current.map((orbit) => refreshedById.get(orbit.id) || orbit));
+      orbitService.summary(currentUserId, controller.signal).then(setSummary).catch(() => {});
+    };
+
+    load().catch(() => {
       if (!controller.signal.aborted) setStatus('pending-api');
     });
     return () => controller.abort();

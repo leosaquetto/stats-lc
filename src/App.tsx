@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import HomeScreen, { preloadHomeDetailModals } from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
+import { motion } from 'motion/react';
 
 const loadStatsScreen = () => import('./screens/StatsScreen');
 const loadSettingsScreen = () => import('./screens/SettingsScreen');
@@ -176,17 +177,24 @@ function AppRoutes() {
   const location = useLocation();
 
   return (
-    <RouteErrorBoundary routeKey={location.pathname}>
+    <RouteErrorBoundary routeKey={`${location.pathname}${location.search}`}>
       <Suspense fallback={<RouteLoader />}>
-        <Routes>
-          <Route path="/" element={<HomeScreen />} />
-          <Route path="/highlights" element={<StatsScreen />} />
-          <Route path="/circle" element={<CircleScreen initialTab="ranking" />} />
-          <Route path="/ranking" element={<CircleScreen initialTab="ranking" />} />
-          <Route path="/alike" element={<CircleScreen initialTab="affinity" />} />
-          <Route path="/settings" element={<SettingsScreen />} />
-          <Route path="*" element={<HomeScreen />} />
-        </Routes>
+        <motion.div
+          key={`${location.pathname}${location.search}`}
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<HomeScreen />} />
+            <Route path="/highlights" element={<StatsScreen />} />
+            <Route path="/circle" element={<CircleScreen initialTab="now" />} />
+            <Route path="/ranking" element={<CircleScreen initialTab="arena" />} />
+            <Route path="/alike" element={<CircleScreen initialTab="affinity" />} />
+            <Route path="/settings" element={<SettingsScreen />} />
+            <Route path="*" element={<HomeScreen />} />
+          </Routes>
+        </motion.div>
       </Suspense>
     </RouteErrorBoundary>
   );

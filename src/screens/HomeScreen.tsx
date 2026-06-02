@@ -235,6 +235,21 @@ const getFirstName = (name?: string) => {
   return name.trim().split(/\s+/)[0] || name;
 };
 
+const useHomeSectionVisibility = (rootMargin = '180px') => {
+  const ref = useRef<HTMLElement | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { rootMargin });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [rootMargin]);
+
+  return [ref, isVisible] as const;
+};
+
 const HomeReplayFilter = ({
   activeTab,
   selectedSubValues,
@@ -248,7 +263,8 @@ const HomeReplayFilter = ({
 }) => {
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
-  const years = [2024, 2025, 2026];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: Math.max(1, currentYear - 2024 + 1) }, (_, index) => 2024 + index);
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
     { key: 'today', label: 'hoje' },
     { key: 'week', label: 'semana' },
@@ -363,6 +379,7 @@ const HomeOrbitalHighlights = ({
   onItemClick?: (item: any) => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
+  const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const groups: Array<{ key: HomeHighlightKind; title: string; icon: any; items: any[] }> = [
@@ -457,8 +474,8 @@ const HomeOrbitalHighlights = ({
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-[286px] w-[286px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
         <motion.div
           className="pointer-events-none absolute left-1/2 top-[48%] h-[214px] w-[214px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 58, repeat: Infinity, ease: 'linear' }}
+          animate={!shouldReduceMotion && isSectionVisible && isCentered ? { rotate: 360 } : {}}
+          transition={!shouldReduceMotion && isSectionVisible && isCentered ? { duration: 58, repeat: Infinity, ease: 'linear' } : {}}
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.04] blur-2xl" />
 
@@ -488,11 +505,11 @@ const HomeOrbitalHighlights = ({
             >
               <motion.div
                 className="relative h-full w-full"
-                animate={isCentered && !shouldReduceMotion ? {
+                animate={isCentered && isSectionVisible && !shouldReduceMotion ? {
                   y: [0, index % 2 === 0 ? -3 : 3, 0],
                   rotate: [0, index % 2 === 0 ? 0.45 : -0.45, 0],
                 } : {}}
-                transition={isCentered && !shouldReduceMotion ? {
+                transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
                   duration: 6.8 + index * 0.55,
                   repeat: Infinity,
                   ease: 'easeInOut',
@@ -534,8 +551,8 @@ const HomeOrbitalHighlights = ({
           transition={{ type: 'spring', stiffness: 180, damping: 22 }}
         >
           <motion.div
-            animate={isCentered && !shouldReduceMotion ? { y: [0, -5, 3, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-            transition={isCentered && !shouldReduceMotion ? { duration: 10.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, -5, 3, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+            transition={isCentered && isSectionVisible && !shouldReduceMotion ? { duration: 10.5, repeat: Infinity, ease: 'easeInOut' } : {}}
           >
             <div className={cn("relative overflow-hidden bg-black shadow-[0_24px_62px_rgba(0,0,0,0.58)]", primaryImageSize, primaryRadius)}>
               <SmartImage src={getReplayItemImage(primary)} className="absolute inset-0 h-full w-full object-cover" fallback={getReplayItemTitle(primary)} rounded="none" />
@@ -566,7 +583,7 @@ const HomeOrbitalHighlights = ({
   const ActiveIcon = activeGroup.icon;
 
   return (
-    <section className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <Sparkles className="h-5 w-5 text-orange-500" />
@@ -659,6 +676,7 @@ const HomeOrbitalHighlights = ({
 
 const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
   const shouldReduceMotion = useReducedMotion();
+  const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
@@ -721,7 +739,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
   ];
 
   return (
-    <section className="mt-5 px-4 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className="mt-5 px-4 sm:px-6 lg:px-8">
       <div className="mb-3 flex items-center gap-3">
         <Sparkles className="h-5 w-5 text-orange-500" />
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Perceptions</h2>
@@ -737,8 +755,8 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[226px] w-[226px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
         <motion.div
           className="pointer-events-none absolute left-1/2 top-[46%] h-[164px] w-[164px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 46, repeat: Infinity, ease: 'linear' }}
+          animate={!shouldReduceMotion && isSectionVisible ? { rotate: -360 } : {}}
+          transition={!shouldReduceMotion && isSectionVisible ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.035] blur-2xl" />
 
@@ -763,11 +781,11 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
             >
               <motion.div
                 className="relative h-full w-full"
-                animate={!shouldReduceMotion ? {
+                animate={!shouldReduceMotion && isSectionVisible ? {
                   y: [0, relative % 2 === 0 ? 2 : -2, 0],
                   rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
                 } : {}}
-                transition={!shouldReduceMotion ? {
+                transition={!shouldReduceMotion && isSectionVisible ? {
                   duration: 6.2 + relative * 0.45,
                   repeat: Infinity,
                   ease: 'easeInOut',
@@ -788,8 +806,8 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
           transition={{ type: 'spring', stiffness: 170, damping: 23 }}
         >
           <motion.div
-            animate={!shouldReduceMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-            transition={!shouldReduceMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+            transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
             className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
           >
             {activePerception.image ? <img src={activePerception.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}

@@ -7,11 +7,10 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, Swords, Share2 } from 'lucide-react';
+import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, ChevronDown, Loader2, Swords, Share2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
 import { GlobalStatsComparer } from '../components/stats/GlobalStatsComparer';
-import { MonthlyGroupLeaderboard } from '../components/home/HomeHighlights';
 import { GROUP_USERS, coreUtils } from '../services/statsCore';
 import { UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -143,6 +142,7 @@ export default function RankingScreen() {
   const [selectedUser, setSelectedUser] = useState<UserStats | null>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
+  const [showGlobalComparer, setShowGlobalComparer] = useState(false);
   const LEO_ID = "leo";
   const podiumRef = useRef<HTMLDivElement>(null);
   
@@ -327,7 +327,7 @@ export default function RankingScreen() {
 
   return (
     <div className="flex flex-col gap-6 pb-32 px-4">
-      <Suspense fallback={null}>
+      <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
         <AnimatePresence>
           {selectedUser && (
             <UserDetailModal 
@@ -640,19 +640,35 @@ export default function RankingScreen() {
       )}
 
       {groupStats && (
-        <div className="mt-6 flex flex-col gap-4">
-          <SectionHeader 
-            title="Arena Battle (Global)" 
-            icon={<Swords className="h-4 w-4 text-orange-500" />}
-            action={<Swords className="h-4 w-4 text-white/20" />} 
-          />
-          <GlobalStatsComparer members={members} />
-        </div>
-      )}
-
-      {groupStats && (
-        <div className="mt-4 flex flex-col gap-4">
-          <MonthlyGroupLeaderboard users={members} type="month" />
+        <div className="mt-3 flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={() => setShowGlobalComparer((current) => !current)}
+            className="flex items-center justify-between gap-3 rounded-[24px] border border-white/8 bg-white/[0.025] px-4 py-3 text-left transition-[background-color,transform] duration-200 active:scale-[0.985]"
+          >
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10">
+                <Swords className="h-4 w-4 text-orange-300" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-white/78">Arena Battle</span>
+                <span className="mt-0.5 block text-[11px] font-medium text-white/40">Comparar artistas e stats do grupo sob demanda</span>
+              </span>
+            </span>
+            <ChevronDown className={clsx("h-4 w-4 shrink-0 text-white/35 transition-transform duration-200", showGlobalComparer && "rotate-180")} />
+          </button>
+          <AnimatePresence initial={false}>
+            {showGlobalComparer && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18 }}
+              >
+                <GlobalStatsComparer members={members} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 

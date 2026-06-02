@@ -291,13 +291,13 @@ export const VinylRecord = ({
       </AnimatePresence>
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
-      <AnimatePresence initial={false} mode="popLayout">
+      <AnimatePresence initial={false} mode="sync">
       <motion.div
         key={displayAlbumImage || 'placeholder-disc'}
         className="absolute inset-0 z-10"
-        initial={canAnimate ? { x: 46, opacity: 0 } : false}
+        initial={canAnimate ? { x: 96, opacity: 0 } : false}
         animate={{ x: 0, opacity: 1 }}
-        exit={canAnimate ? { x: 46, opacity: 0 } : { opacity: 0 }}
+        exit={canAnimate ? { x: 96, opacity: 0 } : { opacity: 0 }}
         transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
       >
       <div
@@ -500,9 +500,9 @@ export const VinylRecord = ({
             <motion.div
               key={displayAlbumImage || 'placeholder'}
               className="w-full h-full absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 0, x: 16, scale: 1.01 }}
+              initial={{ opacity: 0, x: 24, scale: 1.01 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 16, scale: 0.99 }}
+              exit={{ opacity: 0, x: 24, scale: 0.99 }}
               transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
             >
               {displayAlbumImage ? (

@@ -78,6 +78,11 @@ export const orbitService = {
     await api.post(`/api/orbits/${encodeURIComponent(id)}/opened`);
   },
 
+  async checkListens(id: string): Promise<Orbit> {
+    const response = await api.post(`/api/orbits/${encodeURIComponent(id)}/check-listens`);
+    return response.data?.orbit || response.data;
+  },
+
   async dismiss(id: string): Promise<void> {
     await api.post(`/api/orbits/${encodeURIComponent(id)}/dismiss`);
   },

@@ -15,6 +15,7 @@ import {
   History,
   ListMusic,
   Loader2,
+  MoreHorizontal,
   Music2,
   Share2,
   Sparkles,
@@ -29,6 +30,7 @@ import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { getVisibleMembers } from '../../lib/memberSelectors';
 import { getMainArtistName } from '../../lib/artistUtils';
+import { FixedSizeList as List } from 'react-window';
 
 type EntityKind = 'album' | 'artist';
 type EntityTab = 'summary' | 'tracks' | 'circle' | 'history' | 'lyrics';
@@ -57,7 +59,8 @@ type TrackRow = {
   track: any;
 };
 
-const HISTORY_PAGE_SIZE = 80;
+const HISTORY_PAGE_SIZE = 30;
+const COMPACT_TRACK_ROW_HEIGHT = 68;
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -260,12 +263,16 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
   const [activeTab, setActiveTab] = useState<EntityTab>('summary');
   const [sortMode, setSortMode] = useState<SortMode>(kind === 'album' ? 'trackNumber' : 'plays');
   const [loading, setLoading] = useState(true);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [groupStatsLoaded, setGroupStatsLoaded] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [catalog, setCatalog] = useState<any[]>([]);
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [historyOffset, setHistoryOffset] = useState(0);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
   const [entityCount, setEntityCount] = useState(0);
+  const [entityDurationMs, setEntityDurationMs] = useState(0);
+  const [bestYearSummary, setBestYearSummary] = useState<[string, number] | null>(null);
   const [groupEntityStats, setGroupEntityStats] = useState<Record<string, number>>({});
   const [topYearRank, setTopYearRank] = useState<number | null>(null);
   const [topTotalRank, setTopTotalRank] = useState<number | null>(null);
@@ -276,8 +283,9 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
   const [lyricsStatus, setLyricsStatus] = useState('');
 
   const trackRows = useMemo(() => buildTrackRows(catalog, historyItems, sortMode), [catalog, historyItems, sortMode]);
-  const bestYear = useMemo(() => getBestYear(historyItems), [historyItems]);
-  const totalDurationMs = useMemo(() => historyItems.reduce((sum, item) => sum + getTrackDurationMs(item), 0), [historyItems]);
+  const bestYear = bestYearSummary || getBestYear(historyItems);
+  const loadedDurationMs = useMemo(() => historyItems.reduce((sum, item) => sum + getTrackDurationMs(item), 0), [historyItems]);
+  const totalDurationMs = entityDurationMs || loadedDurationMs;
   const firstPlay = useMemo(() => {
     const dated = historyItems.filter((item) => getStreamDate(item)).sort((a, b) => new Date(getStreamDate(a)).getTime() - new Date(getStreamDate(b)).getTime());
     return dated[0] || null;
@@ -318,11 +326,15 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 
     setActiveTab('summary');
     setLoading(true);
+    setCatalogLoaded(false);
+    setGroupStatsLoaded(false);
     setCatalog([]);
     setHistoryItems([]);
     setHistoryOffset(0);
     setHasMoreHistory(true);
     setEntityCount(0);
+    setEntityDurationMs(0);
+    setBestYearSummary(null);
     setGroupEntityStats({});
     setTopYearRank(null);
     setTopTotalRank(null);
@@ -332,14 +344,8 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
     setLyricsStatus('');
 
     const load = async () => {
-      const catalogPromise = kind === 'album'
-        ? statsService.fetchAlbumTracks(entityId, { signal: controller.signal })
-        : statsService.fetchArtistCatalog(entityId, 'top-tracks', { limit: 80, signal: controller.signal });
-
-      const [statsResult, groupResult, catalogResult, historyResult, topYearResult, topTotalResult] = await Promise.allSettled([
-        statsService.fetchEntityStats(user.id, kind, entityId),
-        statsService.fetchEntityGroupStats(kind, entityId),
-        catalogPromise,
+      const [statsResult, historyResult, topYearResult, topTotalResult] = await Promise.allSettled([
+        statsService.fetchEntityStatsSummary(user.id, kind, entityId),
         statsService.fetchEntityStreamsPage(user.id, kind, entityId, { limit: HISTORY_PAGE_SIZE, offset: 0, signal: controller.signal }),
         statsService.getTopItems(user.id, topType, { period: 'year', limit: 100 }),
         statsService.getTopItems(user.id, topType, { period: 'all', limit: 100 }),
@@ -347,9 +353,10 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 
       if (cancelled) return;
 
-      if (statsResult.status === 'fulfilled') setEntityCount(statsResult.value || 0);
-      if (groupResult.status === 'fulfilled') setGroupEntityStats(groupResult.value || {});
-      if (catalogResult.status === 'fulfilled') setCatalog(catalogResult.value || []);
+      if (statsResult.status === 'fulfilled') {
+        setEntityCount(statsResult.value.count || 0);
+        setEntityDurationMs(statsResult.value.durationMs || 0);
+      }
       if (historyResult.status === 'fulfilled') {
         setHistoryItems(historyResult.value.items || []);
         setHistoryOffset(historyResult.value.items.length);
@@ -375,6 +382,62 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
       controller.abort();
     };
   }, [entity, entityId, kind, topType, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !entityId) return;
+    let cancelled = false;
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: Math.max(1, currentYear - 2024 + 1) }, (_, index) => 2024 + index);
+
+    Promise.all(years.map(async (year) => {
+      const summary = await statsService.fetchEntityStatsSummary(user.id, kind, entityId, {
+        after: Date.UTC(year, 0, 1),
+        before: Date.UTC(year + 1, 0, 1) - 1,
+      });
+      return [String(year), summary.count] as [string, number];
+    })).then((summaries) => {
+      if (cancelled) return;
+      const strongest = summaries.filter(([, count]) => count > 0).sort((a, b) => b[1] - a[1])[0] || null;
+      setBestYearSummary(strongest);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entityId, kind, user?.id]);
+
+  useEffect(() => {
+    if (!entityId || activeTab !== 'tracks' || catalogLoaded) return;
+    const controller = new AbortController();
+    const request = kind === 'album'
+      ? statsService.fetchAlbumTracks(entityId, { signal: controller.signal })
+      : statsService.fetchArtistCatalog(entityId, 'top-tracks', { limit: 80, signal: controller.signal });
+
+    request
+      .then(setCatalog)
+      .finally(() => {
+        if (!controller.signal.aborted) setCatalogLoaded(true);
+      });
+
+    return () => controller.abort();
+  }, [activeTab, catalogLoaded, entityId, kind]);
+
+  useEffect(() => {
+    if (!entityId || groupStatsLoaded || (activeTab !== 'summary' && activeTab !== 'circle')) return;
+    let cancelled = false;
+    statsService.fetchEntityGroupStats(kind, entityId)
+      .then((nextStats) => {
+        if (!cancelled) setGroupEntityStats(nextStats || {});
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setGroupStatsLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, entityId, groupStatsLoaded, kind]);
 
   useEffect(() => {
     if (activeTab !== 'lyrics' || !selectedTrackName) return;
@@ -430,7 +493,6 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
     { id: 'tracks', label: kind === 'album' ? 'Faixas' : 'Musicas', icon: ListMusic },
     { id: 'circle', label: 'Circulo', icon: Users },
     { id: 'history', label: 'Historico', icon: History },
-    { id: 'lyrics', label: 'Letras', icon: BookOpen },
   ];
 
   return (
@@ -446,31 +508,32 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0.92 }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-        className="liquid-glass-modal relative flex h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[42px] border border-white/10 bg-black/70 shadow-2xl"
+        className="liquid-glass-modal relative flex h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[38px] border border-white/10 bg-black/70 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative shrink-0 overflow-hidden p-5 pb-3">
+        <div className="relative shrink-0 overflow-hidden p-4 pb-3">
           <div className="absolute inset-0 pointer-events-none opacity-60">
             {entityImage && <img src={entityImage} alt="" className="h-full w-full scale-110 object-cover blur-3xl opacity-25" />}
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/70 to-black" />
           </div>
 
-          <div className="relative z-10 flex items-start gap-4">
+          <div className="relative z-10 mx-auto mb-3 h-1 w-12 rounded-full bg-white/22" />
+          <div className="relative z-10 flex items-start gap-3 pr-7">
             <SmartImage
               src={entityImage}
-              className={cn("h-24 w-24 shrink-0 border border-white/10 shadow-2xl", kind === 'artist' ? 'rounded-[28px]' : 'rounded-[24px]')}
+              className={cn("h-20 w-20 shrink-0 border border-white/10 shadow-2xl", kind === 'artist' ? 'rounded-[24px]' : 'rounded-[20px]')}
               fallback={entityName}
-              rounded={kind === 'artist' ? '[28px]' : '[24px]'}
+              rounded={kind === 'artist' ? '[24px]' : '[20px]'}
             />
-            <div className="min-w-0 flex-1 pt-1">
-              <div className="mb-2 flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="mb-2 flex items-center gap-1.5 overflow-hidden">
                 <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">
                   {kind === 'album' ? 'Album stats' : 'Artist stats'}
                 </span>
                 {topYearRank && <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">Top {topYearRank} ano</span>}
                 {topTotalRank && <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">Top {topTotalRank} total</span>}
               </div>
-              <h2 className="truncate text-2xl font-black leading-none text-white font-display">{entityName}</h2>
+              <h2 className="truncate text-xl font-black leading-none text-white font-display">{entityName}</h2>
               <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{subtitle}</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <Metric label="plays" value={coreUtils.formatNumber(entityCount || historyItems.length)} />
@@ -480,7 +543,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
             </div>
             <button
               onClick={onClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/60 transition-colors hover:text-white"
+              className="absolute right-0 top-0 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white/60 transition-colors hover:text-white"
               aria-label="Fechar"
             >
               <X className="h-5 w-5" />
@@ -488,8 +551,8 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
           </div>
         </div>
 
-        <div className="shrink-0 overflow-x-auto px-4 pb-3">
-          <div className="flex gap-2">
+        <div className="shrink-0 px-4 pb-3">
+          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/[0.025] p-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -498,7 +561,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-all",
+                    "flex min-w-0 items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[7px] font-black uppercase tracking-[0.08em] transition-colors",
                     active ? "bg-orange-500 text-white shadow-lg shadow-orange-950/30" : "bg-white/[0.04] text-white/45 hover:bg-white/[0.08] hover:text-white/80"
                   )}
                 >
@@ -633,6 +696,14 @@ const SummaryContent = ({
 }) => {
   const leader = circleRows[0];
   const mostPlayedTrack = trackRows.slice().sort((a, b) => b.playCount - a.playCount)[0];
+  const insights = [
+    topYearRank ? `Top #${topYearRank} do ano` : null,
+    topTotalRank ? `Top #${topTotalRank} no total` : null,
+    bestYear ? `${bestYear[0]} foi o ano mais forte` : null,
+    mostPlayedTrack?.playCount > 0 ? `${mostPlayedTrack.name}: ${coreUtils.formatNumber(mostPlayedTrack.playCount)}x` : null,
+    firstPlay ? `Desde ${coreUtils.formatDateSP(getStreamDate(firstPlay))}` : null,
+    lastPlay ? `Ultimo play ${coreUtils.formatDateSP(getStreamDate(lastPlay))}` : null,
+  ].filter(Boolean).slice(0, 4) as string[];
 
   return (
     <div className="flex flex-col gap-3">
@@ -649,19 +720,20 @@ const SummaryContent = ({
         <InfoCard icon={Users} label="Circulo" value={leader ? `#1 ${leader.name}` : 'sem amigos ainda'} />
       </div>
 
-      <div className="rounded-[30px] border border-white/10 bg-white/[0.035] p-4">
+      <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-4">
         <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-orange-300">
           <Sparkles className="h-4 w-4" />
           Destaques
         </div>
-        <div className="flex flex-col gap-2 text-[12px] font-semibold text-white/70">
-          <p>{kind === 'album' ? 'Este album' : 'Este artista'} aparece com {coreUtils.formatNumber(entityCount)} reproducoes carregadas para o usuario.</p>
-          {topYearRank && <p>Entrou no Top 100 do ano na posicao #{topYearRank}.</p>}
-          {topTotalRank && <p>Tambem esta no Top 100 total na posicao #{topTotalRank}.</p>}
-          {bestYear && <p>O ano mais forte carregado foi {bestYear[0]}, com {coreUtils.formatNumber(bestYear[1])} plays.</p>}
-          {firstPlay && <p>Primeira reproducao carregada: {coreUtils.formatDateSP(getStreamDate(firstPlay))}.</p>}
-          {lastPlay && <p>Ultima reproducao carregada: {coreUtils.formatDateSP(getStreamDate(lastPlay))}.</p>}
-          {mostPlayedTrack?.playCount > 0 && <p>{kind === 'album' ? 'Faixa' : 'Musica'} mais tocada: {mostPlayedTrack.name} ({coreUtils.formatNumber(mostPlayedTrack.playCount)}x).</p>}
+        <p className="mb-3 text-[11px] font-semibold leading-relaxed text-white/58">
+          {kind === 'album' ? 'Album' : 'Artista'} com {coreUtils.formatNumber(entityCount)} reproducoes carregadas.
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {insights.map((insight) => (
+            <div key={insight} className="rounded-2xl border border-white/8 bg-black/20 px-3 py-2.5 text-[10px] font-bold leading-snug text-white/68">
+              {insight}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -681,54 +753,122 @@ const InfoCard = ({ icon: Icon, label, value }: { icon: React.ElementType; label
   </motion.div>
 );
 
+const CompactTrackRow = ({
+  row,
+  position,
+  sortMode,
+  onTrackClick,
+  onActions,
+  style,
+}: {
+  row: TrackRow;
+  position: number;
+  sortMode: SortMode;
+  onTrackClick?: (track: any) => void;
+  onActions: (track: any) => void;
+  style?: React.CSSProperties;
+}) => (
+  <div style={style} className="px-0.5 py-1">
+    <div className="flex h-full items-center gap-2.5 rounded-[20px] border border-white/8 bg-white/[0.025] px-2.5">
+      <span className="w-6 shrink-0 text-center text-[9px] font-black tabular-nums text-white/28">
+        {sortMode === 'trackNumber' && row.trackNumber ? row.trackNumber : position + 1}
+      </span>
+      <SmartImage src={row.image} className="h-10 w-10 shrink-0 rounded-xl" fallback={row.name} rounded="xl" />
+      <button onClick={() => onTrackClick?.(row.track)} className="min-w-0 flex-1 text-left">
+        <span className="block truncate text-[11px] font-black text-white">{row.name}</span>
+        <span className="mt-0.5 block truncate text-[9px] font-semibold text-white/38">{row.artistName}</span>
+      </button>
+      <div className="shrink-0 text-right">
+        <span className="block text-[11px] font-black text-orange-300">{coreUtils.formatNumber(row.playCount)}x</span>
+        {row.durationMs > 0 && <span className="block text-[7px] font-bold text-white/30">{coreUtils.formatDuration(row.durationMs)}</span>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onActions(row.track)}
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/[0.035] text-white/45"
+        aria-label={`Acoes para ${row.name}`}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+);
+
 const TrackRows = ({ rows, sortMode, onLyrics, onTrackClick }: { rows: TrackRow[]; sortMode: SortMode; onLyrics: (track: any) => void; onTrackClick?: (track: any) => void }) => {
+  const [actionTrack, setActionTrack] = useState<any | null>(null);
+
   if (rows.length === 0) {
     return <EmptyState icon={ListMusic} text="Nenhuma musica carregada para esta entidade ainda." />;
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      {rows.map((row, index) => (
-        <motion.div
-          key={`${row.id}-${index}`}
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '120px' }}
-          transition={{ delay: Math.min(index * 0.025, 0.18) }}
-          className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3"
+    <div className="flex flex-col gap-2">
+      {rows.length > 16 ? (
+        <List
+          height={Math.min(520, rows.length * COMPACT_TRACK_ROW_HEIGHT)}
+          itemCount={rows.length}
+          itemSize={COMPACT_TRACK_ROW_HEIGHT}
+          width="100%"
         >
-          <div className="flex items-center gap-3">
-            <span className="w-8 text-center text-[10px] font-black tabular-nums text-white/30">
-              {sortMode === 'trackNumber' && row.trackNumber ? row.trackNumber : index + 1}
-            </span>
-            <SmartImage src={row.image} className="h-12 w-12 shrink-0 rounded-2xl" fallback={row.name} rounded="2xl" />
-            <button onClick={() => onTrackClick?.(row.track)} className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[12px] font-black text-white">{row.name}</span>
-              <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/40">{row.artistName}</span>
-            </button>
-            <div className="text-right">
-              <span className="block text-[12px] font-black text-orange-300">{coreUtils.formatNumber(row.playCount)}x</span>
-              {row.durationMs > 0 && <span className="block text-[8px] font-bold text-white/35">{coreUtils.formatDuration(row.durationMs)}</span>}
-            </div>
-          </div>
-          <TrackActions track={row.track} onLyrics={() => onLyrics(row.track)} />
-        </motion.div>
+          {({ index, style }) => (
+            <CompactTrackRow
+              row={rows[index]}
+              position={index}
+              sortMode={sortMode}
+              onTrackClick={onTrackClick}
+              onActions={setActionTrack}
+              style={style}
+            />
+          )}
+        </List>
+      ) : rows.map((row, index) => (
+        <CompactTrackRow
+          key={`${row.id}-${index}`}
+          row={row}
+          position={index}
+          sortMode={sortMode}
+          onTrackClick={onTrackClick}
+          onActions={setActionTrack}
+        />
       ))}
+      <AnimatePresence>
+        {actionTrack && (
+          <TrackActionMenu
+            track={actionTrack}
+            onClose={() => setActionTrack(null)}
+            onLyrics={() => {
+              onLyrics(actionTrack);
+              setActionTrack(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
-const TrackActions = ({ track, onLyrics }: { track: any; onLyrics: () => void }) => {
+const TrackActionMenu = ({ track, onLyrics, onClose }: { track: any; onLyrics: () => void; onClose: () => void }) => {
   const links = buildTrackLinks(track);
-  const actionClass = "flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-widest text-white/55 transition-colors hover:bg-white/[0.08] hover:text-white";
+  const actionClass = "flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[8px] font-black uppercase tracking-widest text-white/60 transition-colors hover:bg-white/[0.08] hover:text-white";
 
   return (
-    <div className="mt-3 flex flex-wrap gap-2 pl-11">
-      {links.statsfm && <a className={actionClass} href={links.statsfm} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> stats.fm</a>}
-      <a className={actionClass} href={links.spotify} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> Spotify</a>
-      <a className={actionClass} href={links.appleMusic} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> Apple</a>
-      <button className={actionClass} onClick={onLyrics}><BookOpen className="h-3 w-3" /> Letra</button>
-    </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 8 }}
+      className="sticky bottom-2 z-20 mt-2 rounded-[22px] border border-white/10 bg-[#171717]/95 p-3 shadow-2xl backdrop-blur-xl"
+    >
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="truncate text-[10px] font-black text-white/80">{getTrackName(track)}</span>
+        <button type="button" onClick={onClose} aria-label="Fechar acoes" className="text-white/45"><X className="h-4 w-4" /></button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {links.statsfm && <a className={actionClass} href={links.statsfm} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> stats.fm</a>}
+        <a className={actionClass} href={links.spotify} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> Spotify</a>
+        <a className={actionClass} href={links.appleMusic} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3" /> Apple</a>
+        <button className={actionClass} onClick={onLyrics}><BookOpen className="h-3 w-3" /> Letra</button>
+      </div>
+    </motion.div>
   );
 };
 
@@ -759,6 +899,8 @@ const CircleContent = ({ rows, currentUserId }: { rows: any[]; currentUserId?: s
 };
 
 const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { items: any[]; loading: boolean; hasMore: boolean; onLoadMore: () => void; onLyrics: (track: any) => void }) => {
+  const [actionTrack, setActionTrack] = useState<any | null>(null);
+
   if (items.length === 0 && loading) {
     return <EmptyState icon={Loader2} text="Carregando historico..." spinning />;
   }
@@ -767,7 +909,7 @@ const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { ite
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-2">
       {items.map((item, index) => {
         const track = getTrack(item);
         const date = getStreamDate(item);
@@ -777,10 +919,10 @@ const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { ite
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '120px' }}
-            className="rounded-[24px] border border-white/10 bg-white/[0.025] p-3"
+            className="rounded-[20px] border border-white/8 bg-white/[0.025] p-2.5"
           >
-            <div className="flex items-center gap-3">
-              <SmartImage src={getTrackImage(item)} className="h-11 w-11 shrink-0 rounded-2xl" fallback={getTrackName(item)} rounded="2xl" />
+            <div className="flex items-center gap-2.5">
+              <SmartImage src={getTrackImage(item)} className="h-10 w-10 shrink-0 rounded-xl" fallback={getTrackName(item)} rounded="xl" />
               <div className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-black text-white">{getTrackName(item)}</span>
                 <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/40">{getTrackArtist(item)}</span>
@@ -789,11 +931,30 @@ const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { ite
                 <span className="block text-[10px] font-black text-white/65">{date ? coreUtils.formatDateSP(date) : 'sem data'}</span>
                 {date && <span className="block text-[8px] font-bold text-white/30">{coreUtils.formatTimeSP(date)}</span>}
               </div>
+              <button
+                type="button"
+                onClick={() => setActionTrack(track)}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/[0.035] text-white/45"
+                aria-label={`Acoes para ${getTrackName(item)}`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
             </div>
-            <TrackActions track={track} onLyrics={() => onLyrics(track)} />
           </motion.div>
         );
       })}
+      <AnimatePresence>
+        {actionTrack && (
+          <TrackActionMenu
+            track={actionTrack}
+            onClose={() => setActionTrack(null)}
+            onLyrics={() => {
+              onLyrics(actionTrack);
+              setActionTrack(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
       {hasMore && (
         <button
           onClick={onLoadMore}

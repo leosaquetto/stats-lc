@@ -30,7 +30,8 @@ import {
   Sparkles,
   Flame,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
@@ -42,11 +43,7 @@ import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { ShareButton } from '../components/shared/ShareButton';
-import { FixedSizeList as List } from 'react-window';
-import { AutoSizer } from 'react-virtualized-auto-sizer';
 import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
-
-const AutoSizerAny = AutoSizer as any;
 
 import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP, getHourSP, formatDateSP } from '../lib/time';
 import { getVisibleMembers } from '../lib/memberSelectors';
@@ -119,111 +116,6 @@ const ActivityAreaChart = lazy(async () => {
     ),
   };
 });
-
-interface VirtualRowProps {
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    items: any[];
-    activeType: 'artists' | 'tracks' | 'albums';
-    members: any[];
-    currentUserId: string;
-    onTrackClick?: (track: any) => void;
-  };
-}
-
-const VirtualRow = ({ index, style, data }: VirtualRowProps) => {
-  const item = data.items[index];
-  if (!item) return null;
-  const { activeType, members, currentUserId, onTrackClick } = data;
-  const rowRef = useRef<HTMLDivElement>(null);
-  
-  const displayArtistName = useMemo(() => {
-    if (item.primaryArtist) {
-      let name = typeof item.primaryArtist === 'string' ? item.primaryArtist : item.primaryArtist.name;
-      if (Array.isArray(item.secondaryArtists) && item.secondaryArtists.length > 0) {
-        const secondaryNames = item.secondaryArtists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ');
-        name += `, ${secondaryNames}`;
-      }
-      return name;
-    }
-    const trackArtist = item.track?.artist || item.artist;
-    if (trackArtist) {
-      return typeof trackArtist === 'string' ? trackArtist : trackArtist.name;
-    }
-    if (Array.isArray(item.track?.artists) && item.track.artists.length > 0) {
-      return item.track.artists.map((a: any) => typeof a === 'string' ? a : a.name).join(', ');
-    }
-    return item.artistName || item.albumName || '';
-  }, [item]);
-
-  const handleClick = () => {
-    if (onTrackClick) {
-      onTrackClick(item);
-    }
-  };
-
-  const name = item.name || item.track?.name || 'Unknown';
-
-  return (
-    <div style={{ ...style, paddingBottom: 10 }} key={item.id || index}>
-      <div 
-        ref={rowRef}
-        onClick={handleClick}
-        className="glass flex items-center justify-between rounded-[24px] p-3 border-white/5 hover:bg-white/[0.03] transition-all group/row h-full cursor-pointer active:scale-[0.98]"
-      >
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <span className="text-[10px] font-black text-white/30 w-5 text-center">{(index + 1).toString().padStart(2, '0')}</span>
-          <div className="h-12 w-12 shrink-0 rounded-[14px] bg-white/5 relative overflow-hidden shadow-lg">
-            <SmartImage 
-              src={item.image || item.album?.image || item.artist?.image} 
-              className="h-full w-full" 
-              fallback={name}
-              rounded={activeType === 'artists' ? "full" : "[14px]"}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-          </div>
-          <div className="flex flex-col min-w-0 pr-2">
-            <span className="font-bold text-[13px] text-white/90 truncate group-hover:text-orange-500 transition-colors uppercase tracking-tight">{name}</span>
-            <span className="text-[9px] text-white/50 uppercase font-black tracking-wider truncate flex items-center gap-1.5">
-              {activeType === 'artists' ? (
-                <>
-                  <UserCircle className="h-3 w-3 text-orange-500/80" />
-                  <span>Artista</span>
-                </>
-              ) : activeType === 'albums' ? (
-                <>
-                  <Disc className="h-3 w-3 text-orange-500/80" />
-                  <span>{displayArtistName || 'Álbum'}</span>
-                </>
-              ) : (
-                <>
-                  <Music2 className="h-3 w-3 text-orange-500/80" />
-                  <span>{displayArtistName || 'Faixa'}</span>
-                </>
-              )}
-              {activeType === 'tracks' && (item.playcount || item.streams) === 1 && (
-                <span className="text-[7px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-md border border-orange-500/40 font-black">INÉDITO</span>
-              )}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex flex-col items-end gap-0.5">
-             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{coreUtils.formatNumber(item.playcount || item.streams || 0)}</span>
-             <span className="text-[7px] font-black text-white/20 uppercase tracking-widest leading-none">STREAMS</span>
-          </div>
-          <ShareButton 
-            targetRef={rowRef} 
-            variant="minimal" 
-            title={`Top ${activeType}: ${name}`}
-            className="opacity-0 group-hover/row:opacity-100 transition-opacity"
-          />
-        </div>
-      </div>
-    </div>
-  );
-};
 
 interface TopRankingRowProps {
   item: any;
@@ -2119,33 +2011,22 @@ export default function StatsScreen() {
                 </div>
               ) : filteredTopItems.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
-                  <div className="h-[520px] w-full min-h-[350px]">
-                    <AutoSizerAny>
-                      {({ height, width }) => (
-                        <List
-                          height={height}
-                          itemCount={Math.min(filteredTopItems.length, visibleItemsCount)}
-                          itemSize={82}
-                          width={width}
-                          itemData={{
-                            items: filteredTopItems,
-                            activeType,
-                            members,
-                            currentUserId: CURRENT_USER_ID,
-                            onTrackClick: (clickedItem: any) => {
-                              setSelectedTrack({
-                                ...clickedItem,
-                                type: activeType === 'artists' ? 'artist' : activeType === 'albums' ? 'album' : 'track'
-                              });
-                            }
-                          }}
-                          className="no-scrollbar"
-                        >
-                          {VirtualRow}
-                        </List>
-                      )}
-                    </AutoSizerAny>
-                  </div>
+                  {filteredTopItems.slice(0, visibleItemsCount).map((item, index) => (
+                    <TopRankingRow
+                      key={item.id || `${activeType}-${index}`}
+                      item={item}
+                      index={index}
+                      activeType={activeType}
+                      members={members}
+                      currentUserId={CURRENT_USER_ID}
+                      onTrackClick={(clickedItem: any) => {
+                        setSelectedTrack({
+                          ...clickedItem,
+                          type: activeType === 'artists' ? 'artist' : activeType === 'albums' ? 'album' : 'track'
+                        });
+                      }}
+                    />
+                  ))}
 
                   {filteredTopItems.length > 15 && (
                     <div className="flex justify-center mt-2.5 mb-2">
@@ -2222,7 +2103,7 @@ export default function StatsScreen() {
       )}
 
       {/* MODALS PERSISTENCE LAYER */}
-      <Suspense fallback={null}>
+      <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
         <AnimatePresence>
           {battleOpponent && user && (
             <StatsBattleModal 

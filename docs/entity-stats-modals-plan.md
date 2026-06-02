@@ -95,6 +95,19 @@ externa como fallback indicado visualmente.
   LeoHeader, abas principais, historico/acoes de faixa e letra in-app com
   Genius/copiar/compartilhar.
 
+## Revisao Premium em 2026-06-02
+
+- Shell ficou mais compacto e proximo da linguagem visual do Bottom Bubble.
+- Navegacao principal ficou limitada a `Resumo`, `Musicas/Faixas`, `Circulo`
+  e `Historico`; letra abre contextualmente.
+- Destaques extensos viraram ate quatro insights curtos.
+- Lista de musicas virou linha compacta; links externos e letra ficam em menu
+  contextual por faixa.
+- Listas de musica longas usam `react-window`, ja presente no projeto.
+- Historico inicial caiu para `30` itens e continua paginado.
+- Catalogo completo so carrega ao abrir `Musicas/Faixas`; shell, resumo e
+  primeira pagina de historico nao esperam por ele.
+
 ## Validacao
 
 - `git diff --check`

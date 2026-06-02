@@ -5,14 +5,16 @@
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, HeartHandshake, Loader2, Swords, Trophy, Users } from 'lucide-react';
+import { AlertTriangle, HeartHandshake, Inbox, Loader2, Orbit, Radio, Swords, Trophy, Users } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { OrbitsSection } from '../components/circle/OrbitsSection';
 import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
+import { orbitService, type OrbitSummary } from '../services/orbitService';
 import { useStatsStore } from '../store/useStatsStore';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 
@@ -33,17 +35,22 @@ const AlikeScreen = lazy(loadAlikeScreen);
 const UserHistoryModal = lazy(loadUserHistoryModal);
 const TrackHistoryModal = lazy(loadTrackHistoryModal);
 
-type CircleTab = 'ranking' | 'duels' | 'affinity';
+export type CircleTab = 'now' | 'orbits' | 'arena' | 'duels' | 'affinity';
 
 interface CircleScreenProps {
   initialTab?: CircleTab;
 }
 
 const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
-  { id: 'ranking', label: 'Ranking', icon: Trophy },
+  { id: 'now', label: 'Agora', icon: Radio },
+  { id: 'orbits', label: 'Orbits', icon: Orbit },
+  { id: 'arena', label: 'Arena', icon: Trophy },
   { id: 'duels', label: 'Duelos', icon: Swords },
   { id: 'affinity', label: 'Afinidade', icon: HeartHandshake },
 ];
+
+const validTabs = new Set<CircleTab>(tabs.map((tab) => tab.id));
+const emptyOrbitSummary: OrbitSummary = { received: 0, sent: 0, sentListened: 0, unread: 0 };
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
@@ -51,6 +58,53 @@ const CircleTabLoader = ({ label }: { label: string }) => (
     <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
   </div>
 );
+
+const CircleModalLoader = () => (
+  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm">
+    <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#141414]/95 px-5 py-3">
+      <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
+      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/55">Abrindo detalhes</span>
+    </div>
+  </div>
+);
+
+function OrbitSummaryPreview({ currentUserId, onOpen }: { currentUserId?: string; onOpen: () => void }) {
+  const [summary, setSummary] = useState<OrbitSummary>(emptyOrbitSummary);
+  const [available, setAvailable] = useState(true);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    const controller = new AbortController();
+    orbitService.summary(currentUserId, controller.signal)
+      .then((nextSummary) => {
+        setSummary(nextSummary);
+        setAvailable(true);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAvailable(false);
+      });
+    return () => controller.abort();
+  }, [currentUserId]);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="mx-4 flex items-center gap-3 rounded-[26px] border border-white/8 bg-white/[0.025] p-4 text-left transition-[background-color,transform] duration-200 active:scale-[0.985]"
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10">
+        <Inbox className="h-5 w-5 text-orange-300" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/78">Orbits</p>
+        <p className="mt-1 text-xs font-medium text-white/42">
+          {available ? `${summary.received} recebidos · ${summary.unread} novos · ${summary.sentListened} ouvidos` : 'Conectando com a inbox do circulo'}
+        </p>
+      </div>
+      <span className="text-[9px] font-black uppercase tracking-[0.12em] text-orange-300">Abrir</span>
+    </button>
+  );
+}
 
 function DuelsSection() {
   const groupStats = useStatsStore(state => state.groupStats);
@@ -205,7 +259,7 @@ function DuelsSection() {
   );
 }
 
-function OrbitOverviewSection() {
+function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const isLoading = useStatsStore(state => state.isLoading);
@@ -216,7 +270,6 @@ function OrbitOverviewSection() {
   const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
   const arenaMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const [visibleHistory, setVisibleHistory] = useState(5);
-  const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
 
@@ -250,7 +303,7 @@ function OrbitOverviewSection() {
 
   return (
     <>
-      <Suspense fallback={null}>
+      <Suspense fallback={<CircleModalLoader />}>
         {viewingFullHistoryUser && (
           <UserHistoryModal
             user={viewingFullHistoryUser}
@@ -287,7 +340,7 @@ function OrbitOverviewSection() {
         </div>
       ) : null}
 
-      <OrbitsSection currentUserId={featuredUserId} members={arenaMembers} />
+      <OrbitSummaryPreview currentUserId={featuredUserId} onOpen={onOpenOrbits} />
 
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -354,7 +407,6 @@ function OrbitOverviewSection() {
           <button
             type="button"
             onClick={() => {
-              setTimelineExpanded(true);
               setVisibleHistory(recentTracks.length);
             }}
             className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
@@ -368,15 +420,38 @@ function OrbitOverviewSection() {
   );
 }
 
-export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenProps) {
-  const [activeTab, setActiveTab] = useState<CircleTab>(initialTab);
+function CircleOrbitsTab() {
+  const groupStats = useStatsStore(state => state.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
+  const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const members = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
+
+  return <OrbitsSection currentUserId={featuredUserId} members={members} />;
+}
+
+const getRequestedTab = (search: string, initialTab: CircleTab) => {
+  const requested = new URLSearchParams(search).get('tab') as CircleTab | null;
+  return requested && validTabs.has(requested) ? requested : initialTab;
+};
+
+export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<CircleTab>(() => getRequestedTab(location.search, initialTab));
+
+  useEffect(() => {
+    setActiveTab(getRequestedTab(location.search, initialTab));
+  }, [initialTab, location.search]);
+
+  const selectTab = (tab: CircleTab) => {
+    setActiveTab(tab);
+    navigate(`/circle?tab=${tab}`, { replace: true });
+  };
 
   return (
     <div className="flex flex-col gap-5">
-      <OrbitOverviewSection />
-
-      <div className="px-4">
-        <div className="flex gap-2 rounded-3xl bg-white/[0.03] p-1">
+      <div className="sticky top-[max(env(safe-area-inset-top),12px)] z-40 px-4">
+        <div className="grid grid-cols-5 gap-1 rounded-3xl border border-white/8 bg-black/70 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -385,9 +460,9 @@ export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenPro
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectTab(tab.id)}
                 className={clsx(
-                  "relative flex flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] transition-all",
+                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-colors duration-200",
                   isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
                 )}
               >
@@ -406,7 +481,18 @@ export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenPro
         </div>
       </div>
 
-      {activeTab === 'ranking' && (
+      <AnimatePresence mode="sync" initial={false}>
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col gap-5"
+        >
+      {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} />}
+      {activeTab === 'orbits' && <CircleOrbitsTab />}
+      {activeTab === 'arena' && (
         <Suspense fallback={<CircleTabLoader label="Carregando ranking" />}>
           <RankingScreen />
         </Suspense>
@@ -417,6 +503,8 @@ export default function CircleScreen({ initialTab = 'ranking' }: CircleScreenPro
         </Suspense>
       )}
       {activeTab === 'duels' && <DuelsSection />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
