@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AlertTriangle, HeartHandshake, Inbox, Loader2, Orbit, Radio, Swords, Trophy, Users } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowRight, Clock3, Flame, HeartHandshake, Headphones, Inbox, Loader2, Music2, Orbit, Radio, Send, Sparkles, Swords, Trophy, Users, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
@@ -52,6 +52,20 @@ const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
 const validTabs = new Set<CircleTab>(tabs.map((tab) => tab.id));
 const emptyOrbitSummary: OrbitSummary = { received: 0, sent: 0, sentListened: 0, unread: 0 };
 const defaultOrbitUserId = 'leo';
+
+const getFirstName = (name?: string) => (name || 'amigo').split(' ')[0];
+const getNowTimestamp = (user: any) => new Date(user?.nowPlaying?.timestamp || 0).getTime();
+const isLiveUser = (user: any) => user?.nowPlaying?.isNow === true && Date.now() - getNowTimestamp(user) < 10 * 60 * 1000;
+const getNowTrackName = (user: any) => user?.nowPlaying?.track?.name || 'Sem faixa recente';
+const getNowArtistName = (user: any) => {
+  const artists = user?.nowPlaying?.track?.artists;
+  const first = Array.isArray(artists) ? artists[0] : null;
+  return typeof first === 'string' ? first : first?.name || user?.nowPlaying?.track?.primaryArtistName || 'Artista';
+};
+const getNowTrackImage = (user: any) => {
+  const track = user?.nowPlaying?.track || {};
+  return track.image || track.albumImage || track.album?.image || track.album?.images?.[0]?.url || '';
+};
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
