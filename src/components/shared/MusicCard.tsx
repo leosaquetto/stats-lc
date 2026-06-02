@@ -62,22 +62,22 @@ export const MusicCard = React.memo(({
   const playUrl = spotifyLink || appleLink || (availability.hasSpotify ? `https://open.spotify.com/track/${track?.id}` : (availability.hasAppleMusic ? `https://music.apple.com/song/${track?.id}` : null));
 
   const [selectedAlbumForModal, setSelectedAlbumForModal] = useState<any | null>(null);
-  const [AlbumDetailModalComp, setAlbumDetailModalComp] = useState<any | null>(null);
+  const [AlbumStatsModalComp, setAlbumStatsModalComp] = useState<any | null>(null);
 
   const handleAlbumClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       // Lazy load to avoid circular dependency and improve performance
-      const { AlbumDetailModal } = await import('../modals/AlbumDetailModal');
-      setAlbumDetailModalComp(() => AlbumDetailModal);
+      const { UserAlbumStatsModal } = await import('../modals/EntityStatsModal');
+      setAlbumStatsModalComp(() => UserAlbumStatsModal);
       setSelectedAlbumForModal(track?.album || { 
-        name: track?.albumName || 'Álbum', 
+        name: track?.albumName || 'Album',
         id: track?.albumId,
-        image: track?.image || imageUrl,
+        image: track?.albumImage || track?.album?.image || track?.image || imageUrl,
         artistName: artistName
       });
     } catch (err) {
-      console.error("Failed to lazy load AlbumDetailModal", err);
+      console.error("Failed to lazy load UserAlbumStatsModal", err);
     }
   };
 
@@ -239,10 +239,10 @@ export const MusicCard = React.memo(({
       </motion.div>
 
       <AnimatePresence>
-        {selectedAlbumForModal && AlbumDetailModalComp && (
-          <AlbumDetailModalComp
+        {selectedAlbumForModal && AlbumStatsModalComp && (
+          <AlbumStatsModalComp
             user={{ id: userId, name: userName }}
-            album={selectedAlbumForModal}
+            entity={selectedAlbumForModal}
             onClose={() => setSelectedAlbumForModal(null)}
           />
         )}

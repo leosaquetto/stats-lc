@@ -55,6 +55,8 @@ const DailyActivityHeatmap = lazy(() => import('../components/stats/DailyActivit
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
 const TrackLeaderboardModal = lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
 const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
+const UserAlbumStatsModal = lazy(() => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserAlbumStatsModal })));
+const UserArtistStatsModal = lazy(() => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserArtistStatsModal })));
 const ReplaySection = lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
 
 const ActivityAreaChart = lazy(async () => {
@@ -2236,10 +2238,27 @@ export default function StatsScreen() {
             />
           )}
           {selectedTrack && (
-            <TrackLeaderboardModal 
-              track={selectedTrack} 
-              onClose={() => setSelectedTrack(null)} 
-            />
+            selectedTrack.type === 'album' ? (
+              <UserAlbumStatsModal
+                user={user}
+                entity={selectedTrack}
+                onClose={() => setSelectedTrack(null)}
+                onTrackClick={(track) => setSelectedTrack({ ...track, type: 'track' })}
+              />
+            ) : selectedTrack.type === 'artist' ? (
+              <UserArtistStatsModal
+                user={user}
+                entity={selectedTrack}
+                onClose={() => setSelectedTrack(null)}
+                onTrackClick={(track) => setSelectedTrack({ ...track, type: 'track' })}
+              />
+            ) : (
+              <TrackLeaderboardModal
+                track={selectedTrack}
+                onClose={() => setSelectedTrack(null)}
+                onArtistClick={(artist) => setSelectedTrack({ ...artist, type: 'artist' })}
+              />
+            )
           )}
         </AnimatePresence>
       </Suspense>

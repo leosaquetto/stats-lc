@@ -40,14 +40,17 @@ interface BaseModalProps {
 
 interface TopArtistsModalProps extends BaseModalProps {
   artists: Artist[];
+  onArtistClick?: (artist: Artist) => void;
 }
 
 interface TopSongsModalProps extends BaseModalProps {
   tracks: Track[];
+  onTrackClick?: (track: Track) => void;
 }
 
 interface TopAlbumsModalProps extends BaseModalProps {
   albums: Album[];
+  onAlbumClick?: (album: Album) => void;
 }
 
 const replayModalItemKey = (type: string, item: any, index: number) => {
@@ -112,16 +115,17 @@ const ReplayModalShell = ({
   </AnimatePresence>
 );
 
-export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClose, artists, period }) => {
+export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClose, artists, period, onArtistClick }) => {
   const limitedArtists = artists.slice(0, 20);
 
   return (
     <ReplayModalShell isOpen={isOpen} onClose={onClose} title="Artistas mais ouvidos" period={period}>
       <div className="space-y-1">
         {limitedArtists.map((artist, index) => (
-          <div
+          <button
             key={replayModalItemKey('artist', artist, index)}
-            className="grid min-h-[72px] grid-cols-[20px_64px_30px_1fr_20px] items-center gap-3"
+            onClick={() => onArtistClick?.({ ...artist, type: 'artist' } as Artist)}
+            className="grid min-h-[72px] w-full grid-cols-[20px_64px_30px_1fr_20px] items-center gap-3 text-left"
           >
             <Star className="h-5 w-5 fill-[#ff4056] text-[#ff4056]" />
             <SmartImage
@@ -138,23 +142,24 @@ export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClos
               </p>
             </div>
             <ChevronRight className="h-6 w-6 text-white/45" />
-          </div>
+          </button>
         ))}
       </div>
     </ReplayModalShell>
   );
 };
 
-export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, tracks, period }) => {
+export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, tracks, period, onTrackClick }) => {
   const limitedTracks = tracks.slice(0, 30);
 
   return (
     <ReplayModalShell isOpen={isOpen} onClose={onClose} title="Músicas mais ouvidas" period={period} showMore>
       <div>
         {limitedTracks.map((track, index) => (
-          <div
+          <button
             key={replayModalItemKey('track', track, index)}
-            className="grid min-h-[64px] grid-cols-[20px_52px_30px_1fr_28px] items-center gap-3 border-b border-white/10"
+            onClick={() => onTrackClick?.({ ...track, type: 'track' } as Track)}
+            className="grid min-h-[64px] w-full grid-cols-[20px_52px_30px_1fr_28px] items-center gap-3 border-b border-white/10 text-left"
           >
             <Star className="h-5 w-5 fill-[#ff4056] text-[#ff4056]" />
             <SmartImage
@@ -171,21 +176,25 @@ export const TopSongsModal: React.FC<TopSongsModalProps> = ({ isOpen, onClose, t
               </p>
             </div>
             <MoreHorizontal className="h-6 w-6 text-white/85" />
-          </div>
+          </button>
         ))}
       </div>
     </ReplayModalShell>
   );
 };
 
-export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose, albums, period }) => {
+export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose, albums, period, onAlbumClick }) => {
   const limitedAlbums = albums.slice(0, 15);
 
   return (
     <ReplayModalShell isOpen={isOpen} onClose={onClose} title="Álbuns mais ouvidos" period={period}>
       <div className="grid grid-cols-2 gap-x-5 gap-y-7">
         {limitedAlbums.map((album, index) => (
-          <div key={replayModalItemKey('album', album, index)} className="min-w-0">
+          <button
+            key={replayModalItemKey('album', album, index)}
+            onClick={() => onAlbumClick?.({ ...album, type: 'album', artistName: album.artist } as Album)}
+            className="min-w-0 text-left"
+          >
             <SmartImage
               src={album.image || ''}
               className="aspect-square w-full rounded-[12px] shadow-[0_18px_45px_rgba(0,0,0,0.45)]"
@@ -200,7 +209,7 @@ export const TopAlbumsModal: React.FC<TopAlbumsModalProps> = ({ isOpen, onClose,
                 {coreUtils.formatNumber(album.streams)} minutos
               </p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </ReplayModalShell>

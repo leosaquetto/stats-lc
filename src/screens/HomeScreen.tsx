@@ -29,19 +29,22 @@ import { VinylRecord } from '../components/home/VinylRecord';
 const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
 const loadTrackLeaderboardModule = () => import('../components/modals/TrackLeaderboardModal');
 const loadTrackLeaderboardModal = () => loadTrackLeaderboardModule().then(module => ({ default: module.TrackLeaderboardModal }));
-const loadAlbumDetailModal = () => import('../components/modals/AlbumDetailModal').then(module => ({ default: module.AlbumDetailModal }));
+const loadUserAlbumStatsModal = () => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserAlbumStatsModal }));
+const loadUserArtistStatsModal = () => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserArtistStatsModal }));
 const loadUserAlbumHistoryModal = () => import('../components/modals/UserAlbumHistoryModal').then(module => ({ default: module.UserAlbumHistoryModal }));
 
 export const preloadHomeDetailModals = () => Promise.allSettled([
   loadUserHistoryModal(),
   loadTrackLeaderboardModal(),
-  loadAlbumDetailModal(),
+  loadUserAlbumStatsModal(),
+  loadUserArtistStatsModal(),
   loadUserAlbumHistoryModal(),
 ]);
 
 const UserHistoryModal = React.lazy(loadUserHistoryModal);
 const TrackLeaderboardModal = React.lazy(loadTrackLeaderboardModal);
-const AlbumDetailModal = React.lazy(loadAlbumDetailModal);
+const UserAlbumStatsModal = React.lazy(loadUserAlbumStatsModal);
+const UserArtistStatsModal = React.lazy(loadUserArtistStatsModal);
 const UserAlbumHistoryModal = React.lazy(loadUserAlbumHistoryModal);
 
 function cn(...inputs: ClassValue[]) {
@@ -350,12 +353,14 @@ const HomeOrbitalHighlights = ({
   totalMinutes,
   artists,
   tracks,
-  albums
+  albums,
+  onItemClick
 }: {
   totalMinutes: number;
   artists: any[];
   tracks: any[];
   albums: any[];
+  onItemClick?: (item: any) => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
   const [activeIndex, setActiveIndex] = useState(0);
@@ -379,6 +384,12 @@ const HomeOrbitalHighlights = ({
     if (kind === 'tracks' || kind === 'albums') return getReplayItemArtist(item);
     return '';
   };
+  const buildDetailItem = (item: any, kind: HomeHighlightKind) => ({
+    ...item,
+    type: kind === 'artists' ? 'artist' : kind === 'albums' ? 'album' : 'track',
+    image: getReplayItemImage(item),
+    artistName: getReplayItemArtist(item),
+  });
 
   const goTo = useCallback((index: number) => {
     if (groups.length === 0) return;
@@ -456,7 +467,14 @@ const HomeOrbitalHighlights = ({
           return (
             <motion.div
               key={`${kind}-sat-${item.id || item.name || index}`}
-              className="absolute left-1/2 top-[47%] overflow-hidden rounded-[18px] bg-black shadow-[0_18px_38px_rgba(0,0,0,0.45)]"
+              onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
+              data-entity-stats-trigger={kind}
+              data-entity-stats-active={isCentered ? 'true' : undefined}
+              data-entity-stats-satellite={index + 2}
+              className={cn(
+                "absolute left-1/2 top-[47%] overflow-hidden rounded-[18px] bg-black shadow-[0_18px_38px_rgba(0,0,0,0.45)]",
+                onItemClick && isCentered && "cursor-pointer"
+              )}
               initial={{ opacity: 0, scale: 0.72, x: `calc(-50% + ${position.x}px)`, y: `calc(-50% + ${position.y + 12}px)` }}
               animate={{
                 opacity: position.opacity,
@@ -503,7 +521,14 @@ const HomeOrbitalHighlights = ({
 
         <motion.div
           key={`${kind}-primary-${primary.id || primary.name}`}
-          className="absolute left-1/2 top-[44%] z-30 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+          onClick={() => isCentered && onItemClick?.(buildDetailItem(primary, kind))}
+          data-entity-stats-trigger={kind}
+          data-entity-stats-active={isCentered ? 'true' : undefined}
+          data-entity-stats-primary="true"
+          className={cn(
+            "absolute left-1/2 top-[44%] z-30 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center",
+            onItemClick && isCentered && "cursor-pointer"
+          )}
           initial={{ opacity: 0, scale: 0.88, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 180, damping: 22 }}
@@ -1045,6 +1070,7 @@ export default function HomeScreen() {
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
+  const [selectedArtist, setSelectedArtist] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
   const [viewingAlbumHistoryUser, setViewingAlbumHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
@@ -1469,13 +1495,23 @@ export default function HomeScreen() {
   useEffect(() => {
     if (selectedAlbum) {
       trackEvent('modal_opened', { 
-        modalName: 'album_detail', 
+        modalName: 'user_album_stats',
         albumId: selectedAlbum.id,
         albumName: selectedAlbum.name,
         artistName: selectedAlbum.artistName
       });
     }
   }, [selectedAlbum]);
+
+  useEffect(() => {
+    if (selectedArtist) {
+      trackEvent('modal_opened', {
+        modalName: 'user_artist_stats',
+        artistId: selectedArtist.id,
+        artistName: selectedArtist.name || selectedArtist.artistName
+      });
+    }
+  }, [selectedArtist]);
 
   useEffect(() => {
     if (viewingFullHistoryUser) {
@@ -1775,6 +1811,19 @@ export default function HomeScreen() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }, [showToast]);
 
+  const handleOpenMusicDetail = useCallback((item: any) => {
+    if (!item) return;
+    if (item.type === 'album') {
+      setSelectedAlbum(item);
+      return;
+    }
+    if (item.type === 'artist') {
+      setSelectedArtist(item);
+      return;
+    }
+    setSelectedTrack({ ...item, type: item.type || 'track' });
+  }, []);
+
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
   const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
   const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
@@ -1815,14 +1864,24 @@ export default function HomeScreen() {
               {selectedTrack && (
                 <TrackLeaderboardModal 
                   track={selectedTrack} 
-                  onClose={() => setSelectedTrack(null)} 
+                  onClose={() => setSelectedTrack(null)}
+                  onArtistClick={(artist) => setSelectedArtist({ ...artist, type: 'artist' })}
                 />
               )}
               {selectedAlbum && (
-                 <AlbumDetailModal 
+                 <UserAlbumStatsModal
                    user={primaryUser}
-                   album={selectedAlbum}
+                   entity={selectedAlbum}
                    onClose={() => setSelectedAlbum(null)}
+                   onTrackClick={(track) => setSelectedTrack({ ...track, type: 'track' })}
+                 />
+              )}
+              {selectedArtist && (
+                 <UserArtistStatsModal
+                   user={primaryUser}
+                   entity={selectedArtist}
+                   onClose={() => setSelectedArtist(null)}
+                   onTrackClick={(track) => setSelectedTrack({ ...track, type: 'track' })}
                  />
               )}
               {viewingAlbumHistoryUser && (
@@ -1843,6 +1902,10 @@ export default function HomeScreen() {
                 streams: getReplayMinutes(a)
               }))}
               period={replayModalPeriod}
+              onArtistClick={(artist) => {
+                setOpenReplayModal(null);
+                setSelectedArtist({ ...artist, type: 'artist' });
+              }}
             />
             <TopSongsModal
               key="home-top-songs-modal"
@@ -1856,6 +1919,10 @@ export default function HomeScreen() {
                 streams: t.playedCount || t.streams || t.playcount || t.count || 0
               }))}
               period={replayModalPeriod}
+              onTrackClick={(track) => {
+                setOpenReplayModal(null);
+                setSelectedTrack({ ...track, type: 'track' });
+              }}
             />
             <TopAlbumsModal
               key="home-top-albums-modal"
@@ -1869,6 +1936,10 @@ export default function HomeScreen() {
                 streams: getReplayMinutes(a)
               }))}
               period={replayModalPeriod}
+              onAlbumClick={(album) => {
+                setOpenReplayModal(null);
+                setSelectedAlbum({ ...album, type: 'album', artistName: album.artist });
+              }}
             />
 
             {/* Explosão contextual de usuários */}
@@ -2094,7 +2165,7 @@ export default function HomeScreen() {
                 <LeoHeader
                   user={primaryUser}
                   streamsToday={primaryUser.streamsToday || 0}
-                  onTrackClick={(track) => setSelectedTrack(track)}
+                  onTrackClick={handleOpenMusicDetail}
                   isHighlighted={headerHighlight}
                 />
               </div>
@@ -2102,7 +2173,7 @@ export default function HomeScreen() {
               <div className={cn("px-4 sm:px-6 lg:px-8", friendActivityOffset)}>
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
-                  onTrackClick={(track) => setSelectedTrack(track)}
+                  onTrackClick={handleOpenMusicDetail}
                   onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
                   onViewAll={() => navigate('/circle')}
                 />
@@ -2151,6 +2222,7 @@ export default function HomeScreen() {
           artists={replayArtists}
           tracks={replayTracks}
           albums={replayAlbums}
+          onItemClick={handleOpenMusicDetail}
         />
       )}
 

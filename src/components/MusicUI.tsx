@@ -32,6 +32,7 @@ export * from './modals/UserHistoryModal';
 export * from './modals/TrackLeaderboardModal';
 export * from './modals/TrackHistoryModal';
 export * from './modals/UserAlbumHistoryModal';
+export * from './modals/EntityStatsModal';
 
 // Note: If you need MonthlyGroupLeaderboard or LiveGroupOverview, 
 // they are now in ./home/HomeHighlights

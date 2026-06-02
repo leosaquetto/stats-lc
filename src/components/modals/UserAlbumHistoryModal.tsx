@@ -17,7 +17,7 @@ import {
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage } from '../shared/CommonUI';
-import { AlbumDetailModal } from './AlbumDetailModal'; // Import existing album detail modal
+import { UserAlbumStatsModal } from './EntityStatsModal';
 
 interface UserAlbumHistoryModalProps {
   user: any;
@@ -239,9 +239,9 @@ export const UserAlbumHistoryModal = ({
       {/* Internal Album Detail Transition Layer */}
       <AnimatePresence>
         {selectedAlbum && (
-          <AlbumDetailModal 
+          <UserAlbumStatsModal
             user={user}
-            album={selectedAlbum}
+            entity={selectedAlbum}
             onClose={() => setSelectedAlbum(null)}
           />
         )}

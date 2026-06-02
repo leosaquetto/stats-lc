@@ -605,6 +605,88 @@ export const statsService = {
     }
   },
 
+  async fetchEntityStreamsPage(
+    userId: string,
+    type: 'track' | 'artist' | 'album',
+    id: string,
+    options: { limit?: number; offset?: number; after?: number; before?: number; signal?: AbortSignal } = {}
+  ): Promise<{ items: any[]; total?: number; offset: number; limit: number }> {
+    if (!id) return { items: [], offset: options.offset || 0, limit: options.limit || 50 };
+
+    try {
+      const userParam = coreUtils.getUserApiParam(userId);
+      const limit = options.limit || 50;
+      const offset = options.offset || 0;
+      const res = await fetchFromApi<any>('/api/entity-streams', {
+        user: userParam,
+        type,
+        id,
+        limit,
+        offset,
+        resolveAlbums: 1,
+        ...(options.after ? { after: options.after } : {}),
+        ...(options.before ? { before: options.before } : {}),
+      }, false, 1, true, { signal: options.signal });
+
+      return {
+        items: Array.isArray(res?.items) ? res.items.map(normalizeRecentStream) : [],
+        total: res?.total ?? res?.count,
+        offset,
+        limit,
+      };
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn(`[statsService] Entity streams page unavailable for ${type}:${id}`, e);
+      }
+      return { items: [], offset: options.offset || 0, limit: options.limit || 50 };
+    }
+  },
+
+  async fetchAlbumTracks(id: string, options: { signal?: AbortSignal } = {}): Promise<any[]> {
+    if (!id) return [];
+    try {
+      const res = await fetchFromApi<any>('/api/album-tracks', {
+        id,
+        resolveAlbums: 1,
+      }, false, 1, true, { signal: options.signal });
+
+      return Array.isArray(res?.items) ? res.items.map((item: any) => normalizeTrack(item?.track || item)).filter(Boolean) : [];
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn(`[statsService] Album tracks unavailable for ${id}`, e);
+      }
+      return [];
+    }
+  },
+
+  async fetchArtistCatalog(
+    id: string,
+    section: 'tracks' | 'top-tracks' | 'albums' | 'top-albums' | 'related',
+    options: { limit?: number; offset?: number; signal?: AbortSignal } = {}
+  ): Promise<any[]> {
+    if (!id) return [];
+    try {
+      const res = await fetchFromApi<any>('/api/artist-catalog', {
+        id,
+        section,
+        limit: options.limit || 50,
+        offset: options.offset || 0,
+        resolveAlbums: 1,
+      }, false, 1, true, { signal: options.signal });
+
+      const items = Array.isArray(res?.items) ? res.items : [];
+      if (section === 'tracks' || section === 'top-tracks') {
+        return items.map((item: any) => normalizeTrack(item?.track || item)).filter(Boolean);
+      }
+      return items;
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn(`[statsService] Artist catalog unavailable for ${section}:${id}`, e);
+      }
+      return [];
+    }
+  },
+
   /**
    * Busca dados live do grupo (apenas nowPlaying, etc)
    */
