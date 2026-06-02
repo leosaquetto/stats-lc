@@ -242,11 +242,25 @@ export default function App() {
     if (!initialBootSettled) return;
     const hash = window.location.hash || '#/';
     if (hash === '#/' || hash === '' || hash === '#') return;
+    let dismissed = false;
+    const dismissSplash = () => {
+      if (dismissed) return;
+      dismissed = true;
+      window.__STATS_LC_DISMISS_SPLASH__?.();
+    };
+    if (document.visibilityState === 'hidden') {
+      dismissSplash();
+      return;
+    }
+
+    const hiddenTabFallback = window.setTimeout(dismissSplash, 280);
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        window.__STATS_LC_DISMISS_SPLASH__?.();
+        window.clearTimeout(hiddenTabFallback);
+        dismissSplash();
       });
     });
+    return () => window.clearTimeout(hiddenTabFallback);
   }, [initialBootSettled]);
 
   useEffect(() => {

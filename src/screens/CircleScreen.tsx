@@ -51,6 +51,7 @@ const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
 
 const validTabs = new Set<CircleTab>(tabs.map((tab) => tab.id));
 const emptyOrbitSummary: OrbitSummary = { received: 0, sent: 0, sentListened: 0, unread: 0 };
+const defaultOrbitUserId = 'leo';
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
@@ -269,6 +270,7 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
   const historyCustomOrder = useStatsStore(state => state.historyCustomOrder);
   const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
   const arenaMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
+  const orbitUserId = featuredUserId || defaultOrbitUserId;
   const [visibleHistory, setVisibleHistory] = useState(5);
   const [selectedTrackHistory, setSelectedTrackHistory] = useState<any>(null);
   const [viewingFullHistoryUser, setViewingFullHistoryUser] = useState<any>(null);
@@ -340,7 +342,7 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
         </div>
       ) : null}
 
-      <OrbitSummaryPreview currentUserId={featuredUserId} onOpen={onOpenOrbits} />
+      <OrbitSummaryPreview currentUserId={orbitUserId} onOpen={onOpenOrbits} />
 
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -425,8 +427,9 @@ function CircleOrbitsTab() {
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const members = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
+  const currentUserId = featuredUserId || defaultOrbitUserId;
 
-  return <OrbitsSection currentUserId={featuredUserId} members={members} />;
+  return <OrbitsSection currentUserId={currentUserId} members={members} />;
 }
 
 const getRequestedTab = (search: string, initialTab: CircleTab) => {

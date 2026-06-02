@@ -48,6 +48,22 @@ export interface CreateOrbitInput {
 }
 
 const unwrapItems = (payload: any) => Array.isArray(payload?.items) ? payload.items : Array.isArray(payload) ? payload : [];
+const unwrapTracks = (payload: any) => unwrapItems(payload)
+  .map((row: any) => row?.item || row?.track || row)
+  .filter((track: any) => track?.id || track?.name);
+const normalizeSearchText = (value: unknown) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase();
+const getTrackSearchText = (track: any) => [
+  track?.name,
+  track?.primaryArtistName,
+  track?.albumName,
+  ...(track?.artists || []).map((artist: any) => artist?.name || artist),
+].map(normalizeSearchText).join(' ');
+const uniqueTracks = (tracks: any[]) => Array.from(new Map(
+  tracks.map((track) => [String(track?.id || track?.name), track])
+).values());
 
 export const orbitService = {
   async list(userId: string, box: OrbitBox = 'received', signal?: AbortSignal): Promise<Orbit[]> {
@@ -95,10 +111,25 @@ export const orbitService = {
     await api.post(`/api/orbits/${encodeURIComponent(id)}/delete-received`);
   },
 
-  async searchTracks(query: string, signal?: AbortSignal): Promise<any[]> {
+  async searchTracks(query: string, userId?: string, signal?: AbortSignal): Promise<any[]> {
     const response = await api.get('/api/search', { params: { q: query, type: 'track', limit: 8 }, signal });
-    return unwrapItems(response.data)
-      .map((row: any) => row?.item || row?.track || row)
-      .filter(Boolean);
+    const catalogMatches = unwrapTracks(response.data);
+    if (catalogMatches.length > 0 || !userId) return catalogMatches;
+
+    const needle = normalizeSearchText(query);
+    const recent = await api.get('/api/recent', { params: { user: userId, limit: 50, resolveAlbums: 1 }, signal })
+      .then((result) => unwrapTracks(result.data))
+      .catch(() => []);
+    const recentMatches = uniqueTracks(recent)
+      .filter((track) => getTrackSearchText(track).includes(needle))
+      .slice(0, 8);
+    if (recentMatches.length > 0) return recentMatches;
+
+    const top = await api.get('/api/top', { params: { user: userId, type: 'tracks', period: 'lifetime', limit: 100 }, signal })
+      .then((result) => unwrapTracks(result.data))
+      .catch(() => []);
+    return uniqueTracks(top)
+      .filter((track) => getTrackSearchText(track).includes(needle))
+      .slice(0, 8);
   },
 };

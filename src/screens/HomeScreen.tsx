@@ -1276,6 +1276,16 @@ export default function HomeScreen() {
       preloadSmartImages(urls),
       resolveArtworkColor(),
     ]).then(([, color]) => color);
+    if (document.visibilityState === 'hidden') {
+      visualPreparation.then((color) => {
+        if (!cancelled) setMiniHeaderResolvedColor(color || '');
+      });
+      setIsVisualWarmupReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, HOME_CRITICAL_WARMUP_TIMEOUT_MS));
     Promise.race([
       visualPreparation,
@@ -1454,15 +1464,30 @@ export default function HomeScreen() {
     }
 
     let cancelled = false;
+    let released = false;
+    const releaseHome = () => {
+      if (cancelled || released) return;
+      released = true;
+      hasReleasedHomeRef.current = true;
+      window.__STATS_LC_HOME_READY__ = true;
+      window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
+      setIsAppReady(true);
+      window.__STATS_LC_DISMISS_SPLASH__?.();
+    };
+    if (document.visibilityState === 'hidden') {
+      releaseHome();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    let hiddenTabFallback = 0;
     const timer = window.setTimeout(() => {
+      hiddenTabFallback = window.setTimeout(releaseHome, 280);
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          if (cancelled) return;
-          hasReleasedHomeRef.current = true;
-          window.__STATS_LC_HOME_READY__ = true;
-          window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
-          setIsAppReady(true);
-          window.__STATS_LC_DISMISS_SPLASH__?.();
+          window.clearTimeout(hiddenTabFallback);
+          releaseHome();
         });
       });
     }, 120);
@@ -1470,6 +1495,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      window.clearTimeout(hiddenTabFallback);
     };
   }, [groupStats, isVisualWarmupReady, primaryUser, recentPrepState]);
 

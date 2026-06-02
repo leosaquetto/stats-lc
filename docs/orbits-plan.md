@@ -94,3 +94,18 @@ interface Orbit {
   iniciada e aguarda aceite de termos para provisionar a URL do banco.
 - Validacao atual da API: `npm run typecheck`, `npm test` e `git diff --check`.
   A suite passou com `55` testes.
+- Neon `neon-cyan-queen` foi provisionado e conectado ao projeto
+  `stats-lc-api`; a API publicada responde `durable: true`.
+- Vercel ganhou rewrites explicitos para `/api/orbits/summary` e
+  `/api/orbits/:id/:action`, pois caminhos aninhados nao chegavam ao catch-all.
+- Smoke de producao criou, listou, atualizou e removeu um Orbit temporario dos
+  dois lados, confirmando exclusao independente.
+- Composer tenta `/api/search` primeiro e, quando o upstream volta vazio, usa
+  recentes resolvidos e Top Tracks do usuario como fallback manual.
+- Deep link fria em `/circle?tab=orbits` usa `leo` como identidade inicial
+  estavel ate a hidratacao do usuario canonico. Isso impede loading infinito
+  quando a Orbita abre antes da Home.
+- Inbox inicia lista e resumo em paralelo; a leitura vazia nao depende da
+  atualizacao secundaria dos contadores.
+- Smoke final publicado em `390x844`: bundle `index-BqIdfJHs.js`, inbox vazia
+  coerente e nenhum spinner restante.

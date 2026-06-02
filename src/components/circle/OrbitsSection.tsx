@@ -94,22 +94,29 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
     setStatus('loading');
 
     const load = async () => {
-      const nextSummary = await orbitService.summary(currentUserId, controller.signal);
-      setSummary(nextSummary);
+      const summaryRequest = orbitService.summary(currentUserId, controller.signal)
+        .then(setSummary)
+        .catch(() => {});
 
       if (box === 'all') {
         setStatus('ready');
+        await summaryRequest;
         return;
       }
 
       const nextItems = await orbitService.list(currentUserId, box, controller.signal);
       setItems(nextItems);
       setStatus(nextItems.length > 0 ? 'ready' : 'empty');
+      await summaryRequest;
 
       if (box === 'received') {
-        nextItems.filter(orbit => !orbit.seenAt).forEach(orbit => {
-          orbitService.markSeen(orbit.id).catch(() => {});
-        });
+        const unseenItems = nextItems.filter(orbit => !orbit.seenAt);
+        if (unseenItems.length > 0) {
+          Promise.allSettled(unseenItems.map(orbit => orbitService.markSeen(orbit.id)))
+            .then(() => orbitService.summary(currentUserId, controller.signal))
+            .then(setSummary)
+            .catch(() => {});
+        }
         return;
       }
 
@@ -142,11 +149,11 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
       return;
     }
     const controller = new AbortController();
-    orbitService.searchTracks(query.trim(), controller.signal)
+    orbitService.searchTracks(query.trim(), currentUserId, controller.signal)
       .then(setResults)
       .catch(() => setResults([]));
     return () => controller.abort();
-  }, [query]);
+  }, [currentUserId, query]);
 
   React.useEffect(() => {
     const handleComposeOrbit = (event: Event) => {
@@ -191,6 +198,9 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
     if (box === 'sent') await orbitService.deleteSent(orbit.id);
     else await orbitService.deleteReceived(orbit.id);
     setItems(prev => prev.filter(item => item.id !== orbit.id));
+    if (currentUserId) {
+      orbitService.summary(currentUserId).then(setSummary).catch(() => {});
+    }
   };
 
   return (

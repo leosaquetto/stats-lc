@@ -37,11 +37,11 @@ Capturado no navegador in-app em `http://localhost:3000/#/`, viewport
 | Fase | Objetivo | Status |
 | --- | --- | --- |
 | 0 | Baseline, checkpoint e estado dos repos | Concluido |
-| 1 | Backend Orbits rapido, validado e publicado | Em andamento: codigo pronto, Neon aguardando aceite |
-| 2 | Shell da Orbita, Timeline e Arena consolidados | Em validacao |
-| 3 | Home, transicoes, requests e vinil | Em validacao |
-| 4 | Modais pessoais de artista e album | Em validacao |
-| 5 | Lint, build, typecheck, QA movel e smoke producao | Pendente |
+| 1 | Backend Orbits rapido, validado e publicado | Concluido |
+| 2 | Shell da Orbita, Timeline e Arena consolidados | Concluido |
+| 3 | Home, transicoes, requests e vinil | Concluido |
+| 4 | Modais pessoais de artista e album | Concluido |
+| 5 | Lint, build, typecheck, QA movel e smoke producao | Concluido |
 
 ## Validacao Obrigatoria
 
@@ -101,3 +101,44 @@ Capturado no navegador in-app em `http://localhost:3000/#/`, viewport
   aplica somente a entrada curta da nova tela.
 - API publicada continua pendente do aceite de termos do Neon na Vercel; ate
   esse desbloqueio, `/api/orbits/summary` publicado ainda responde `404`.
+
+### 2026-06-02 - Producao Ativada E Smoke Final
+
+- Neon `neon-cyan-queen` foi provisionado no projeto correto `stats-lc-api`;
+  `DATABASE_URL` e `POSTGRES_URL` ficaram disponiveis em Production, Preview e
+  Development.
+- API publicada com CORS para `POST` e rewrites explicitos para
+  `/api/orbits/summary` e `/api/orbits/:id/:action`.
+- Smoke real criou um Orbit temporario, listou remetente e destinatario,
+  marcou visto, aberto, auditoria de plays e dispensado, validou exclusao
+  independente por lado e removeu o item dos dois lados.
+- UI de Orbits foi percorrida no navegador: inbox vazia, composer, escolha de
+  amigo, busca, selecao, envio, lista de enviados e exclusao.
+- Como `/api/search` upstream pode responder vazio para termos conhecidos, o
+  composer tenta catalogo primeiro e usa recentes resolvidos antes de consultar
+  Top Tracks. A sugestao recente apareceu em cerca de `2s`.
+- Resumo de Orbits e atualizado depois de marcar itens vistos ou excluir um
+  item, evitando contador antigo ate o proximo remount.
+- Modal de artista foi revalidado com a API publicada: Taylor Swift passou a
+  mostrar `2024 - 5.265 plays` como melhor ano, sem repetir o total historico.
+- A abertura fria de `/circle?tab=orbits` no dominio publicado revelou que a
+  inbox podia ficar em loading antes de existir `featuredUserId` persistido.
+  O shell agora usa `leo` como identidade inicial estavel ate o usuario
+  canonico assumir, sem depender da chegada assincrona dos membros.
+- Lista e resumo de Orbits passaram a iniciar em paralelo. A lista vazia nao
+  fica bloqueada pela atualizacao secundaria dos contadores.
+- A Home publicada revelou outra diferenca do navegador in-app: em aba
+  `hidden`, o browser suspende `requestAnimationFrame` e pode adiar o
+  aquecimento de imagens. A liberacao continua aguardando dados essenciais,
+  mas conclui o shell oculto imediatamente e mantem o preload em segundo plano;
+  em foreground, preserva o aquecimento visual antes de remover a splash.
+- Rotas internas tambem deixaram de depender exclusivamente do proximo paint
+  para dispensar a splash inline. Em aba `hidden`, usam dismiss imediato
+  depois do boot inicial; em foreground, preservam a transicao curta.
+- Frontend final publicado como `dpl_DGZa6wR2beU7rQTkLZX7WAsH4cg5`. Smoke no
+  host `https://appstatslc.leosaquetto.com` carregou o bundle
+  `index-BqIdfJHs.js`. A deep link fria da inbox mostrou
+  `Nenhum Orbit por aqui ainda.` sem spinner; a Home fria, mesmo em aba
+  `hidden`, removeu a splash em menos de `6.5s`, carregou `47` imagens sem
+  quebra e exibiu os dez recentes resolvidos. O smoke quente final da Home
+  carregou `59` imagens sem quebra.
