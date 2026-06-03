@@ -30,14 +30,14 @@ Validacoes principais:
 
 | Area | O que verificar | Status |
 | --- | --- | --- |
-| Home | Splash, LeoHeader, vinil, tonearm, faixa atual, progresso, replay, recentes, Stats Alike, Top 1 e modais | Parcial validado: Home sem imagens quebradas/console; modais album/artista abrem |
-| Stats | Filtros, graficos, heatmap, cards, rankings, listas e calculos por periodo | Parcial validado: grafico visivel e lista mobile sem vazio |
-| Circle/Ranking | Rankings, usuarios ocultos, imagens, listas e modais | Pendente |
-| Alike | Afinidade, ordenacao, imagens e estados vazios | Pendente |
-| Settings | Troca de destaque, persistencia, reset de boot e navegacao | Pendente |
-| Modais | Historico, faixa, album, artista, leaderboard, letras e acoes externas | Parcial: modais novos de album/artista implementados |
-| Imagens | `SmartImage`, `<img>`, src vazio, fallback enganoso, capas e avatares | Parcial validado: Home e modais novos sem imagens quebradas |
-| Performance | Console, long tasks, scroll, rerenders, requests duplicadas e animacoes | Pendente |
+| Home | Splash, LeoHeader, vinil, tonearm, faixa atual, progresso, replay, recentes, Stats Alike, Top 1 e modais | Validado em 430x932; Bottom Bubble abriu e preencheu |
+| Stats | Filtros, graficos, heatmap, cards, rankings, listas e calculos por periodo | Validado; limpeza de transicoes e affordance aplicada |
+| Circle/Ranking | Rankings, usuarios ocultos, imagens, listas e modais | Validado em 430x932; abas, aliases e filtros acionados |
+| Alike | Afinidade, ordenacao, imagens e estados vazios | Validado em 430x932; troca de amigo acionada |
+| Settings | Troca de destaque, persistencia, reset de boot e navegacao | Validado em 430x932; header, tabs, cards e fim da pagina corrigidos |
+| Modais | Historico, faixa, album, artista, leaderboard, letras e acoes externas | Bottom Bubble e modal de ranking de faixa validados; links destrutivos/externos nao acionados |
+| Imagens | `SmartImage`, `<img>`, src vazio, fallback enganoso, capas e avatares | Validado sem quebradas; foco atual em crop/truncamento visual |
+| Performance | Console, long tasks, scroll, rerenders, requests duplicadas e animacoes | Validado localmente com transicoes especificas em areas de toque/scroll |
 
 ## Criterio De Fechamento
 
@@ -119,3 +119,33 @@ Cada item so fecha quando:
 - Proximo polimento planejado: a navegacao horizontal de Settings esta
   funcional, mas no recorte 390x844 ainda aparece truncada a direita; vale
   melhorar a affordance visual do scroll lateral sem aumentar altura nem peso.
+- 2026-06-03: iniciada a varredura premium final autorizada em `430x932`.
+  O objetivo desta rodada e comparar tela por tela e funcao por funcao no
+  Browser in-app antes de finalizar.
+- Ajustes recebeu um header premium compartilhavel inspirado na Orbita, com
+  metricas compactas de perfil, ocultos e Arena, alem de navegacao sticky com
+  estado ativo e fade lateral para deixar claro que ha scroll horizontal.
+- Cards de usuario em Ajustes foram recalibrados para `430x932`: tres colunas
+  no mobile, proporcao menos estreita, crop central, indicador ativo interno e
+  menor risco de imagem parecer truncada.
+- Stats recebeu limpeza segura de transicoes em linhas, filtros, chips de
+  Replay, botoes de metrica/categoria, busca e voltar ao topo. Carrosseis
+  continuaram horizontais, mas com affordance visual quando necessario.
+- 2026-06-03 430x932: a primeira passada visual foi refeita com cache-buster
+  antes do hash route para garantir bundle novo. Home, Stats, Orbita Agora,
+  Orbits, Duelos, Arena, Afinidade, `/ranking`, `/alike` e Settings renderizaram
+  sem overflow horizontal real e sem imagens quebradas.
+- Ajustes: a nav interna passou a caber com os sete chips visiveis em `430x932`
+  (`Perfil`, `Privacidade`, `Home`, `Snaps`, `Alertas`, `Dados`, `Sistema`).
+  O active state de `Sistema` tambem foi corrigido para vencer quando o scroll
+  chega ao fim da pagina.
+- Interacoes validadas no Browser in-app: `Privacidade`, `Dados` e `Sistema`
+  em Settings; composer de Orbits em modo `Criar` sem enviar; filtros `Total`
+  e `Tempo de Audicao` na Arena; alias `/ranking`; troca de amigo no `/alike`;
+  filtros e categorias em Stats; Bottom Bubble pela Home; e modal de ranking de
+  faixa pela lista de Stats.
+- Ambiente local desta validacao: binarios nativos de `esbuild`, Rollup e
+  `fsevents` travavam no macOS 12.7.6 desta sessao. Para validar sem alterar
+  arquivos versionados, foi usado fallback temporario em `node_modules` com
+  `esbuild-wasm`, `@rollup/wasm-node` e stub local de `fsevents`. Depois disso,
+  `git diff --check`, `npm run lint` e `npm run build` passaram.

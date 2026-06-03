@@ -72,7 +72,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
         onClick={toggleMenu}
         disabled={status === 'capturing'}
         className={clsx(
-          "relative flex items-center justify-center transition-all p-2 rounded-xl border z-10",
+          "relative flex items-center justify-center p-2 rounded-xl border z-10 transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200",
           variant === 'ghost' && "bg-white/5 border-white/10 hover:bg-white/10 text-white/50 hover:text-white",
           variant === 'minimal' && "bg-transparent border-transparent text-white/30 hover:text-white",
           variant === 'glass' && "glass border-white/20 text-white shadow-xl",

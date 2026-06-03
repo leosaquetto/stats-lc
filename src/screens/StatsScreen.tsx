@@ -166,7 +166,7 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
       <div 
         ref={rowRef}
         onClick={handleClick}
-        className="glass flex items-center justify-between rounded-[24px] p-3.5 border-white/5 hover:bg-white/[0.03] transition-all group/row cursor-pointer active:scale-[0.99]"
+        className="glass flex items-center justify-between rounded-[24px] p-3.5 border-white/5 hover:bg-white/[0.03] transition-[background-color,border-color,transform] duration-200 group/row cursor-pointer active:scale-[0.99]"
       >
         <div className="flex items-center gap-4 min-w-0 flex-1">
           <span className="text-[10px] font-black text-white/30 w-5 text-center">{(index + 1).toString().padStart(2, '0')}</span>
@@ -1584,7 +1584,7 @@ export default function StatsScreen() {
                 setStatsPeriod(f);
               }}
               className={clsx(
-                "filter-pill relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-2 py-3 text-center text-[10.5px] font-black uppercase tracking-[0.14em] transition-all",
+                "filter-pill relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-2 py-3 text-center text-[10.5px] font-black uppercase tracking-[0.14em] transition-[background-color,color,filter,transform] duration-200",
                 activeFilter === f
                   ? "bg-white/[0.055] text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.25)]"
                   : "text-white/45 hover:bg-white/[0.035] hover:text-white/75"
@@ -1720,7 +1720,7 @@ export default function StatsScreen() {
 
           {(activePeriodArtists.length > 0 || activePeriodTracks.length > 0 || activePeriodAlbums.length > 0 || replaySourceItems.artists.length > 0 || replaySourceItems.tracks.length > 0 || replaySourceItems.albums.length > 0) && (
             <Suspense fallback={<div className="glass-aura h-48 rounded-[32px] animate-pulse" />}>
-              <div className="mb-2 flex items-center gap-2 overflow-x-auto px-4 no-scrollbar" data-home-horizontal-scroll="true">
+              <div className="mb-2 flex items-center gap-2 overflow-x-auto px-4 no-scrollbar scroll-fade-h" data-home-horizontal-scroll="true">
                 {members.map((member) => {
                   const isSelected = member.id === replayOwnerId;
                   return (
@@ -1729,7 +1729,7 @@ export default function StatsScreen() {
                       type="button"
                       onClick={() => setReplayOwnerId(member.id)}
                       className={clsx(
-                        "glass-aura flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-all active:scale-95",
+                        "glass-aura flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-[background-color,border-color,color,opacity,transform] duration-200 active:scale-95",
                         isSelected ? "text-orange-300 ring-1 ring-orange-500/25" : "text-white/42 opacity-72"
                       )}
                       title={`Ver Replay de ${member.name}`}
@@ -1816,7 +1816,7 @@ export default function StatsScreen() {
                       trackEvent('stats_chart_metric_changed', { metric: btn.metric });
                     }}
                     className={clsx(
-                      "flex-1 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] rounded-lg transition-all text-center cursor-pointer",
+                      "flex-1 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] rounded-lg transition-[background-color,color,box-shadow,transform] duration-200 text-center cursor-pointer",
                       chartMetric === btn.metric
                         ? "bg-gradient-to-b from-orange-500 to-orange-600 text-black shadow-[0_0_12px_rgba(249,115,22,0.3),inset_0_1px_0_rgba(255,255,255,0.2)]"
                         : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
@@ -1866,7 +1866,7 @@ export default function StatsScreen() {
                   }
 
                   return (
-                    <div className={clsx("h-full w-full transition-all duration-300", isChartLoading && "opacity-35 pointer-events-none")}>
+                    <div className={clsx("h-full w-full transition-opacity duration-200", isChartLoading && "opacity-35 pointer-events-none")}>
                       <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
                         <ActivityAreaChart data={chartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
                       </Suspense>
@@ -1935,7 +1935,7 @@ export default function StatsScreen() {
                   trackEvent('stats_category_changed', { category: t });
                 }}
                 className={clsx(
-                  "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border transition-all cursor-pointer",
+                  "flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border transition-[background-color,border-color,color,box-shadow,transform] duration-200 cursor-pointer",
                   activeType === t 
                     ? "bg-orange-500/10 border-orange-500/20 text-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.1)]" 
                     : "bg-white/[0.02] border-white/5 text-white/40 hover:text-white/60 hover:bg-white/[0.05]"
@@ -1959,7 +1959,7 @@ export default function StatsScreen() {
                 }
               }}
               placeholder={activeType === 'artists' ? "Buscar por nome do artista..." : activeType === 'tracks' ? "Buscar por música ou artista..." : "Buscar por álbum ou artista..."}
-              className="w-full bg-white/[0.02] border border-white/5 hover:border-white/10 focus:border-orange-500/30 rounded-2xl py-2.5 pl-10 pr-10 text-xs font-semibold text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-orange-500/20 shadow-inner transition-all duration-300"
+              className="w-full bg-white/[0.02] border border-white/5 hover:border-white/10 focus:border-orange-500/30 rounded-2xl py-2.5 pl-10 pr-10 text-xs font-semibold text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-orange-500/20 shadow-inner transition-[background-color,border-color,box-shadow,color] duration-200"
             />
             <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30">
               <Search className="h-4 w-4" />
@@ -1970,7 +1970,7 @@ export default function StatsScreen() {
                   setSearchQuery("");
                   trackEvent('ranking_search_cleared');
                 }}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/90 hover:bg-white/10 active:scale-95 transition-all"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40 hover:text-white/90 hover:bg-white/10 active:scale-95 transition-[background-color,border-color,color,transform] duration-200"
               >
                 <X className="h-2.5 w-2.5" />
               </button>
@@ -2037,7 +2037,7 @@ export default function StatsScreen() {
                             setVisibleItemsCount(prev => prev + 15);
                             trackEvent('ranking_load_more_clicked', { currentCount: visibleItemsCount });
                           }}
-                          className="px-6 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 rounded-2xl text-[10px] text-white/70 hover:text-white font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg"
+                          className="px-6 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 rounded-2xl text-[10px] text-white/70 hover:text-white font-black uppercase tracking-widest transition-[background-color,border-color,color,box-shadow,transform] duration-200 cursor-pointer shadow-lg"
                         >
                           Carregar Mais ({filteredTopItems.length - visibleItemsCount} restantes)
                         </button>
@@ -2048,7 +2048,7 @@ export default function StatsScreen() {
                             setVisibleItemsCount(15);
                             window.scrollTo({ top: document.getElementById('search-bar-ranking')?.offsetTop || 300, behavior: 'smooth' });
                           }}
-                          className="px-6 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 rounded-2xl text-[10px] text-white/70 hover:text-white font-black uppercase tracking-widest transition-all cursor-pointer shadow-lg"
+                          className="px-6 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/5 rounded-2xl text-[10px] text-white/70 hover:text-white font-black uppercase tracking-widest transition-[background-color,border-color,color,box-shadow,transform] duration-200 cursor-pointer shadow-lg"
                         >
                           Recolher Lista
                         </button>
@@ -2155,7 +2155,7 @@ export default function StatsScreen() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={scrollToTop}
-            className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-5 z-40 h-11 w-11 rounded-full border bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 border-white/[0.12] text-white shadow-[0_0_20px_rgba(249,115,22,0.3),0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center transition-all duration-300 cursor-pointer select-none overflow-hidden backdrop-blur-xl"
+            className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-5 z-40 h-11 w-11 rounded-full border bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 border-white/[0.12] text-white shadow-[0_0_20px_rgba(249,115,22,0.3),0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center transition-[background-color,border-color,box-shadow,opacity,transform] duration-200 cursor-pointer select-none overflow-hidden backdrop-blur-xl"
             id="scroll-to-top-btn"
             title="Voltar ao topo"
           >

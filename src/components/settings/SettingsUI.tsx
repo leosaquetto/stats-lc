@@ -187,26 +187,26 @@ export function MemberCard({
       type="button"
       onClick={onClick}
       className={clsx(
-        'glass group relative flex aspect-[0.72] min-h-[132px] flex-col justify-end overflow-hidden rounded-3xl p-2 text-center transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]',
-        active ? 'ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.1)]' : 'hover:bg-white/[0.04]'
+        'glass group relative flex aspect-[0.86] min-h-[118px] flex-col justify-end overflow-hidden rounded-[26px] p-2 text-center transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]',
+        active ? 'ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.14)]' : 'hover:bg-white/[0.04]'
       )}
       style={{ border: 0 }}
     >
       <SmartImage
         src={coreUtils.getUserAvatar(user.id, user.avatar)}
-        className="absolute inset-0 h-full w-full scale-105 object-cover opacity-78 transition-transform duration-500 group-hover:scale-110"
+        className="absolute inset-0 h-full w-full object-cover object-center opacity-82 transition-transform duration-500 group-hover:scale-[1.04]"
         fallback=""
         rounded="none"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-      <div className="absolute inset-0 bg-black/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/32 to-black/5" />
+      <div className="absolute inset-0 bg-black/5" />
       {active && (
-        <div className="absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 shadow-lg">
-          <div className="h-2 w-2 rounded-full bg-white" />
+        <div className="absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/25 bg-orange-500 shadow-[0_8px_20px_rgba(255,95,0,0.32)]">
+          <Check className="h-3.5 w-3.5 text-white" />
         </div>
       )}
-      <div className="relative z-10 flex min-h-[38px] w-full items-end justify-center px-1 pb-1">
-        <span className={clsx('w-full whitespace-normal break-words text-[10px] font-black leading-[1.12]', active ? 'text-orange-400' : 'text-white/88')}>
+      <div className="relative z-10 flex min-h-[34px] w-full items-end justify-center px-1 pb-1">
+        <span className={clsx('w-full truncate text-[10.5px] font-black leading-[1.12]', active ? 'text-orange-300' : 'text-white/90')}>
           {firstName}
         </span>
       </div>

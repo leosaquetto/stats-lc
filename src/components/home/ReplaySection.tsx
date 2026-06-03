@@ -200,7 +200,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <button
             type="button"
             onClick={onShareReplay}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-all active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 active:scale-95"
             title="Compartilhar Replay"
             aria-label="Compartilhar Replay"
           >

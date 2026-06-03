@@ -24,6 +24,7 @@ import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { notificationService } from '../services/notificationService';
 import { SnapshotHistoryModal } from '../components/shared/SnapshotHistoryModal';
+import { PremiumScreenHeader } from '../components/shared/PremiumScreenShell';
 import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
 import type { UserStats } from '../types/stats';
 import {
@@ -52,6 +53,8 @@ const NAV_ITEMS = [
   { id: 'sync', label: 'Dados' },
   { id: 'system', label: 'Sistema' },
 ] as const;
+
+type SettingsSectionId = typeof NAV_ITEMS[number]['id'];
 
 const getFirstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || name || '';
 const sectionDivider = <div className="h-px w-full bg-white/5" />;
@@ -106,11 +109,59 @@ export default function SettingsScreen() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isResettingApp, setIsResettingApp] = useState(false);
   const [arenaNameDraft, setArenaNameDraft] = useState(arenaName || '');
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('profile');
   const arenaNameSaveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const manualSectionUntilRef = useRef(0);
+  const featuredMember = useMemo(
+    () => members.find(member => member.id === featuredUserId) || members[0],
+    [featuredUserId, members]
+  );
 
   useEffect(() => {
     setArenaNameDraft(arenaName || '');
   }, [arenaName]);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    const nodes = NAV_ITEMS
+      .map(item => document.getElementById(item.id))
+      .filter((node): node is HTMLElement => Boolean(node));
+
+    if (nodes.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      entries => {
+        if (Date.now() < manualSectionUntilRef.current) return;
+
+        const isAtPageEnd =
+          window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 12;
+        if (isAtPageEnd) {
+          setActiveSection('system');
+          return;
+        }
+
+        const visibleEntry = entries
+          .filter(entry => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+        if (visibleEntry?.target?.id) {
+          setActiveSection(visibleEntry.target.id as SettingsSectionId);
+        }
+      },
+      { rootMargin: '-22% 0px -62% 0px', threshold: [0, 0.2, 0.45, 0.7] }
+    );
+
+    nodes.forEach(node => observer.observe(node));
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (id: SettingsSectionId) => {
+    manualSectionUntilRef.current = Date.now() + 1500;
+    setActiveSection(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => setActiveSection(id), 900);
+  };
 
   const showToast = (title: string, message: string, type: ToastItem['type'] = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
@@ -241,38 +292,50 @@ export default function SettingsScreen() {
 
   return (
     <div className="flex flex-col gap-5 px-4 pb-32">
-      <header className="px-1">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-orange-500" />
-              <span className="text-[10px] font-black uppercase tracking-[0.28em] text-white/30">Preferências</span>
-            </div>
-            <h1 className="mt-1 text-4xl font-black tracking-tight text-white">Ajustes</h1>
-            <p className="mt-2 max-w-xl text-[12px] font-medium leading-relaxed text-white/40">
-              Configure perfil em destaque, privacidade, Home, alertas e dados deste dispositivo.
-            </p>
+      <PremiumScreenHeader
+        eyebrow="Preferências"
+        title="Ajustes"
+        description="Controle perfil em destaque, privacidade, alertas e dados locais com a mesma densidade visual da Órbita."
+        icon={<Settings className="h-5 w-5" />}
+      >
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+            <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Perfil</span>
+            <span className="mt-1 block truncate text-[12px] font-black text-white/90">{getFirstName(featuredMember?.name) || 'Leo'}</span>
           </div>
-          <div className="glass flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white/40">
-            <Settings className="h-5 w-5" />
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+            <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Ocultos</span>
+            <span className="mt-1 block text-[12px] font-black text-white/90">{hiddenUsers.length}</span>
+          </div>
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+            <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Arena</span>
+            <span className="mt-1 block truncate text-[12px] font-black text-white/90">{arenaName || 'Arena'}</span>
           </div>
         </div>
-      </header>
+      </PremiumScreenHeader>
 
-      <nav className="no-scrollbar scrolling-touch sticky top-2 z-30 -mx-1 overflow-x-auto px-1 py-2">
-        <div className="flex w-max gap-2 rounded-2xl border border-white/5 bg-black/45 p-1 backdrop-blur-xl">
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/45 transition-colors hover:bg-white/5 hover:text-white"
-            >
-              {item.label}
-            </button>
-          ))}
+      <nav className="sticky top-[max(env(safe-area-inset-top),12px)] z-30 -mx-1 px-1 py-2">
+        <div className="relative overflow-hidden rounded-[26px] border border-white/8 bg-black/68 shadow-[0_14px_34px_rgba(0,0,0,0.26)] backdrop-blur-xl">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/85 to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/85 to-transparent" />
+          <div className="no-scrollbar scrolling-touch flex min-w-full gap-0.5 overflow-x-auto p-1.5 scroll-fade-h">
+            {NAV_ITEMS.map(item => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => scrollToSection(item.id)}
+                aria-current={activeSection === item.id ? 'page' : undefined}
+                className={clsx(
+                  'relative z-20 min-w-0 flex-1 rounded-2xl px-1.5 py-2 text-[7.5px] font-black uppercase tracking-[0.07em] transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]',
+                  activeSection === item.id
+                    ? 'bg-orange-500/16 text-orange-300 shadow-[inset_0_0_0_1px_rgba(255,95,0,0.18)]'
+                    : 'text-white/42 hover:bg-white/[0.045] hover:text-white/72'
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </nav>
 
@@ -285,7 +348,7 @@ export default function SettingsScreen() {
           action={<Users className="h-4 w-4" />}
         >
           <SettingsPanel>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5 lg:grid-cols-7">
               {alphabeticalMembers.map(user => (
                 <MemberCard
                   key={user.id}
