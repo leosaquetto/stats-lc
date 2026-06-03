@@ -86,3 +86,36 @@ Cada item so fecha quando:
   ranking sem cancelamento; `AlikeScreen` animava barras por `width`; e
   `RankingScreen`/`SettingsScreen` tinham varios `transition-all` em areas de
   toque e scroll.
+- `Ranking/Arena`: carregamentos de ranking agora ignoram respostas antigas e
+  cancelamentos esperados antes de atualizar estado; controles principais,
+  chips de periodo, seletor de metrica e botao de batalha deixaram de usar
+  `transition-all`.
+- `Alike`: manteve o calculo de afinidade e o fallback local, mas removeu
+  animacao por largura nas barras comparativas, usando `scaleX` com origem
+  fixa; cards de amigos receberam `aria-pressed` e transicoes especificas.
+- `Settings`: preservados troca de usuario em destaque, usuarios ocultos,
+  preferencias, notificacoes e reset local; controles de toque e componentes
+  compartilhados agora usam transicoes especificas em vez de animar todas as
+  propriedades.
+- Browser 390x844 em 2026-06-03 15:10 BRT, usando o build estatico local:
+  Home, Arena, `/ranking`, Afinidade, `/alike` e Settings renderizaram sem
+  overflow horizontal, sem imagens quebradas e sem erro relevante de console.
+  Filtros de Ranking e troca de amigo em Alike foram acionados com sucesso.
+- A matriz visual encontrou dois bugs de rota/navegacao: `/#/stats` caia na
+  Home porque o app so tinha rota `/highlights`, e a navegacao interna de
+  Settings usava `href="#privacy"`, o que quebrava o `HashRouter` e retornava
+  para a Home.
+- Correcoes aplicadas: `/stats` virou alias de `StatsScreen`; a navegacao
+  sticky de Settings deixou de alterar o hash da rota e passou a usar botoes
+  com `scrollIntoView` para as secoes internas.
+- Validacao de codigo apos as correcoes: `git diff --check` passou,
+  `NODE_DISABLE_COMPILE_CACHE=1 node node_modules/typescript/lib/_tsc.js
+  --noEmit` passou e `npm run build` passou em 36.28s.
+- Browser 390x844 em 2026-06-03 15:35 BRT, usando o build atualizado:
+  `/#/stats` abriu a tela Stats correta, com filtros reais e sem cair na Home;
+  `/ranking` permitiu alternar filtro `Total`; `/alike` permitiu trocar amigo
+  comparado; e Settings manteve `/#/settings` ao tocar em `Privacidade`,
+  rolando para a secao interna sem quebrar o `HashRouter`.
+- Proximo polimento planejado: a navegacao horizontal de Settings esta
+  funcional, mas no recorte 390x844 ainda aparece truncada a direita; vale
+  melhorar a affordance visual do scroll lateral sem aumentar altura nem peso.

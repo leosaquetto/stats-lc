@@ -262,13 +262,16 @@ export default function SettingsScreen() {
       <nav className="no-scrollbar scrolling-touch sticky top-2 z-30 -mx-1 overflow-x-auto px-1 py-2">
         <div className="flex w-max gap-2 rounded-2xl border border-white/5 bg-black/45 p-1 backdrop-blur-xl">
           {NAV_ITEMS.map(item => (
-            <a
+            <button
               key={item.id}
-              href={`#${item.id}`}
+              type="button"
+              onClick={() => {
+                document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
               className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/45 transition-colors hover:bg-white/5 hover:text-white"
             >
               {item.label}
-            </a>
+            </button>
           ))}
         </div>
       </nav>

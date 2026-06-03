@@ -104,6 +104,9 @@ function compareRowsToIntersection(rows: any[] = []) {
   });
 }
 
+const LEFT_BAR_ORIGIN = { transformOrigin: 'left center' } as const;
+const RIGHT_BAR_ORIGIN = { transformOrigin: 'right center' } as const;
+
 export default function AlikeScreen() {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -387,7 +390,7 @@ const CompareBar = ({ label, userVal, friendVal, isTime = false }: { label: stri
           <motion.div 
             initial={{ scaleX: 0 }}
             animate={{ scaleX: uPct / 100 }}
-            style={{ transformOrigin: 'left center' }}
+            style={LEFT_BAR_ORIGIN}
             className={cn("h-full w-full", userVal >= friendVal ? "bg-orange-500" : "bg-white/20")}
           />
         </div>
@@ -396,7 +399,7 @@ const CompareBar = ({ label, userVal, friendVal, isTime = false }: { label: stri
           <motion.div 
             initial={{ scaleX: 0 }}
             animate={{ scaleX: fPct / 100 }}
-            style={{ transformOrigin: 'right center' }}
+            style={RIGHT_BAR_ORIGIN}
             className={cn("h-full w-full", friendVal >= userVal ? "bg-blue-500" : "bg-white/20")}
           />
         </div>

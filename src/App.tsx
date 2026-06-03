@@ -187,6 +187,7 @@ function AppRoutes() {
         >
           <Routes location={location}>
             <Route path="/" element={<HomeScreen />} />
+            <Route path="/stats" element={<StatsScreen />} />
             <Route path="/highlights" element={<StatsScreen />} />
             <Route path="/circle" element={<CircleScreen initialTab="now" />} />
             <Route path="/ranking" element={<CircleScreen initialTab="arena" />} />
