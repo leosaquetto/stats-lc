@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Activity, AlertTriangle, ArrowRight, Clock3, Flame, HeartHandshake, Headphones, Inbox, Loader2, Music2, Orbit, Radio, Send, Sparkles, Swords, Trophy, Users, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Clock3, Flame, HeartHandshake, Headphones, Inbox, Loader2, Orbit, Radio, Send, Swords, Trophy, Users, Zap } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
@@ -66,6 +66,8 @@ const getNowTrackImage = (user: any) => {
   const track = user?.nowPlaying?.track || {};
   return track.image || track.albumImage || track.album?.image || track.album?.images?.[0]?.url || '';
 };
+const getStreamsToday = (user: any) => Number(user?.streamsToday || user?.stats?.today?.streams || 0);
+const getStreamsWeek = (user: any) => Number(user?.streamsWeek || user?.stats?.week?.streams || 0);
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
@@ -105,19 +107,192 @@ function OrbitSummaryPreview({ currentUserId, onOpen }: { currentUserId?: string
     <button
       type="button"
       onClick={onOpen}
-      className="mx-4 flex items-center gap-3 rounded-[26px] border border-white/8 bg-white/[0.025] p-4 text-left transition-[background-color,transform] duration-200 active:scale-[0.985]"
+      className="group mx-4 overflow-hidden rounded-[30px] border border-orange-500/15 bg-[radial-gradient(circle_at_12%_18%,rgba(249,115,22,0.16),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 text-left shadow-[0_18px_50px_rgba(0,0,0,0.22)] transition-[background-color,transform,border-color] duration-200 active:scale-[0.985]"
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10">
-        <Inbox className="h-5 w-5 text-orange-300" />
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-500/25 bg-orange-500/[0.12]">
+          <Inbox className="h-5 w-5 text-orange-300" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-200/85">Inbox social</p>
+          <p className="mt-1 text-xs font-semibold leading-relaxed text-white/48">
+            {available ? `${summary.received} recebidos · ${summary.unread} novos · ${summary.sentListened} viraram plays` : 'Conectando com a inbox do circulo'}
+          </p>
+        </div>
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-orange-200 transition-transform duration-200 group-active:translate-x-0.5">
+          <ArrowRight className="h-4 w-4" />
+        </div>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/78">Orbits</p>
-        <p className="mt-1 text-xs font-medium text-white/42">
-          {available ? `${summary.received} recebidos · ${summary.unread} novos · ${summary.sentListened} ouvidos` : 'Conectando com a inbox do circulo'}
-        </p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        {[
+          { label: 'Recebidos', value: summary.received, icon: Inbox },
+          { label: 'Enviados', value: summary.sent, icon: Send },
+          { label: 'Ouvidos', value: summary.sentListened, icon: Headphones },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-2xl border border-white/6 bg-black/20 px-3 py-2.5">
+              <Icon className="mb-1.5 h-3.5 w-3.5 text-orange-300/75" />
+              <p className="text-lg font-black leading-none text-white/92">{item.value}</p>
+              <p className="mt-1 text-[7px] font-black uppercase tracking-[0.13em] text-white/32">{item.label}</p>
+            </div>
+          );
+        })}
       </div>
-      <span className="text-[9px] font-black uppercase tracking-[0.12em] text-orange-300">Abrir</span>
     </button>
+  );
+}
+
+function CircleCockpitHero({ members, featuredUserId, onOpenOrbits }: { members: any[]; featuredUserId?: string; onOpenOrbits: () => void }) {
+  const liveMembers = useMemo(() => members.filter(isLiveUser), [members]);
+  const recentMembers = useMemo(() => [...members]
+    .filter((member) => member?.nowPlaying?.track)
+    .sort((a, b) => getNowTimestamp(b) - getNowTimestamp(a))
+    .slice(0, 5), [members]);
+  const totalToday = useMemo(() => members.reduce((sum, member) => sum + getStreamsToday(member), 0), [members]);
+  const weeklyLeader = useMemo(() => [...members].sort((a, b) => getStreamsWeek(b) - getStreamsWeek(a))[0], [members]);
+  const featuredUser = useMemo(
+    () => members.find((member) => member.id === featuredUserId || member.key === featuredUserId) || members[0],
+    [featuredUserId, members]
+  );
+  const spotlightUser = liveMembers[0] || recentMembers[0] || featuredUser || weeklyLeader;
+  const spotlightImage = getNowTrackImage(spotlightUser) || coreUtils.getUserAvatar(spotlightUser?.id || 'leo', spotlightUser?.avatar);
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+      className="mx-4 overflow-hidden rounded-[34px] border border-white/8 bg-[radial-gradient(circle_at_18%_12%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_86%_8%,rgba(255,255,255,0.12),transparent_24%),linear-gradient(145deg,rgba(255,255,255,0.06),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)]"
+    >
+      <div className="flex items-start gap-4">
+        <div className="relative h-20 w-20 shrink-0">
+          <div className="absolute inset-0 rounded-[28px] bg-orange-500/20 blur-2xl" />
+          <SmartImage
+            src={spotlightImage}
+            className="relative h-20 w-20 rounded-[28px] border border-white/10"
+            fallback={spotlightUser?.name || 'Orbita'}
+            rounded="[28px]"
+          />
+          <div className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-2xl border border-orange-300/25 bg-[#18110d] text-orange-300">
+            <Orbit className="h-4 w-4" />
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-orange-500/25 bg-orange-500/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-orange-200">Órbita</span>
+            <span className="rounded-full border border-white/8 bg-white/[0.035] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/40">
+              {liveMembers.length} ao vivo
+            </span>
+          </div>
+          <h1 className="mt-3 text-2xl font-black leading-none tracking-[-0.04em] text-white">Pulso do círculo</h1>
+          <p className="mt-2 line-clamp-2 text-xs font-semibold leading-relaxed text-white/48">
+            {spotlightUser?.nowPlaying?.track
+              ? `${getFirstName(spotlightUser.name)} está em ${getNowTrackName(spotlightUser)} · ${getNowArtistName(spotlightUser)}`
+              : 'Arena Live, Orbits e timeline em uma entrada rápida para o que está acontecendo agora.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-5 grid grid-cols-3 gap-2">
+        {[
+          { label: 'Hoje', value: coreUtils.formatNumber(totalToday), icon: Zap },
+          { label: 'Live', value: `${liveMembers.length}/${members.length || 0}`, icon: Radio },
+          { label: 'Líder semana', value: getFirstName(weeklyLeader?.name), icon: Flame },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="min-w-0 rounded-[22px] border border-white/7 bg-black/[0.22] px-3 py-3">
+              <Icon className="mb-2 h-4 w-4 text-orange-300/75" />
+              <p className="truncate text-base font-black leading-none text-white/92">{item.value}</p>
+              <p className="mt-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/30">{item.label}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex items-center gap-2 overflow-hidden rounded-[24px] border border-white/6 bg-black/20 p-2">
+        <div className="flex -space-x-2">
+          {recentMembers.slice(0, 4).map((member) => (
+            <SmartImage
+              key={member.id}
+              src={coreUtils.getUserAvatar(member.id, member.avatar)}
+              className="h-8 w-8 rounded-full border border-[#161616]"
+              fallback={member.name}
+              rounded="full"
+            />
+          ))}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-black text-white/80">
+            {recentMembers[0] ? getNowTrackName(recentMembers[0]) : 'Timeline pronta para atualizar'}
+          </p>
+          <p className="truncate text-[9px] font-bold uppercase tracking-[0.12em] text-white/32">
+            {recentMembers[0] ? `${getFirstName(recentMembers[0].name)} · ${getNowArtistName(recentMembers[0])}` : 'Sem faixa recente carregada'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenOrbits}
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-orange-500 px-3 py-2 text-[8px] font-black uppercase tracking-[0.14em] text-white transition-[transform,opacity] duration-200 active:scale-[0.96]"
+        >
+          Orbits
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </motion.section>
+  );
+}
+
+function CircleNowRail({ members }: { members: any[] }) {
+  const visibleMembers = useMemo(() => [...members]
+    .filter((member) => member?.nowPlaying?.track)
+    .sort((a, b) => {
+      const liveDelta = Number(isLiveUser(b)) - Number(isLiveUser(a));
+      if (liveDelta !== 0) return liveDelta;
+      return getNowTimestamp(b) - getNowTimestamp(a);
+    })
+    .slice(0, 8), [members]);
+
+  if (visibleMembers.length === 0) return null;
+
+  return (
+    <section className="mx-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between px-1">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/72">Agora no radar</p>
+          <p className="mt-1 text-xs font-semibold text-white/38">Faixas recentes com entrada rápida para o histórico.</p>
+        </div>
+        <Clock3 className="h-4 w-4 text-orange-300/70" />
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {visibleMembers.map((member) => {
+          const live = isLiveUser(member);
+          return (
+            <article
+              key={member.id}
+              className="flex w-[210px] shrink-0 items-center gap-3 rounded-[24px] border border-white/7 bg-white/[0.028] p-3 text-left"
+            >
+              <SmartImage
+                src={getNowTrackImage(member)}
+                className="h-12 w-12 rounded-[18px] border border-white/8"
+                fallback={getNowTrackName(member)}
+                rounded="[18px]"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className={clsx("h-1.5 w-1.5 rounded-full", live ? "bg-orange-400 shadow-[0_0_12px_rgba(251,146,60,0.85)]" : "bg-white/25")} />
+                  <span className="truncate text-[9px] font-black uppercase tracking-[0.13em] text-white/35">{getFirstName(member.name)}</span>
+                </span>
+                <span className="mt-1 block truncate text-xs font-black text-white/86">{getNowTrackName(member)}</span>
+                <span className="mt-0.5 block truncate text-[10px] font-semibold text-white/38">{getNowArtistName(member)}</span>
+              </span>
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -212,10 +387,21 @@ function DuelsSection() {
 
   return (
     <section className="mx-4 flex flex-col gap-4 pb-28">
-      <div className="px-1">
-        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/80">Duelos da Semana</h2>
-        <p className="mt-1 text-xs font-medium leading-relaxed text-white/42">
-          Confrontos montados a partir do ranking semanal atual.
+      <div className="overflow-hidden rounded-[32px] border border-white/8 bg-[radial-gradient(circle_at_14%_16%,rgba(249,115,22,0.16),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+            <Swords className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-200/80">Duelos da Semana</p>
+            <h2 className="mt-1 text-xl font-black leading-none tracking-[-0.04em] text-white">placar vivo</h2>
+          </div>
+          <div className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/40">
+            {duels.length} cards
+          </div>
+        </div>
+        <p className="mt-4 text-xs font-semibold leading-relaxed text-white/45">
+          Confrontos compactos montados pelo ranking semanal atual, prontos para comparar sem virar uma rolagem gigante.
         </p>
       </div>
 
@@ -228,8 +414,8 @@ function DuelsSection() {
             key={`${duel.leader.id}-${duel.challenger.id}`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.06 }}
-            className="rounded-[28px] border border-white/5 bg-white/[0.025] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.22)]"
+            transition={{ delay: index * 0.045, duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-[30px] border border-white/7 bg-white/[0.026] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.18)]"
           >
             <div className="flex items-center justify-between gap-4">
               {[duel.leader, duel.challenger].map((user, userIndex) => (
@@ -252,11 +438,17 @@ function DuelsSection() {
 
             <div className="my-4 flex items-center gap-2">
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.07]">
-                <div className="h-full rounded-full bg-orange-500" style={{ width: `${leaderShare}%` }} />
+                <div
+                  className="h-full origin-left rounded-full bg-orange-500"
+                  style={{ transform: `scaleX(${leaderShare / 100})` }}
+                />
               </div>
               <span className="text-[9px] font-black text-orange-400">VS</span>
               <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/[0.07]">
-                <div className="ml-auto h-full rounded-full bg-white/35" style={{ width: `${100 - leaderShare}%` }} />
+                <div
+                  className="ml-auto h-full origin-right rounded-full bg-white/35"
+                  style={{ transform: `scaleX(${(100 - leaderShare) / 100})` }}
+                />
               </div>
             </div>
 
@@ -336,6 +528,12 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
         )}
       </Suspense>
 
+      <CircleCockpitHero
+        members={members}
+        featuredUserId={featuredUserId}
+        onOpenOrbits={onOpenOrbits}
+      />
+
       {groupStats ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -355,6 +553,8 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
           <LiveGroupOverviewSkeleton />
         </div>
       ) : null}
+
+      <CircleNowRail members={recentTracks} />
 
       <OrbitSummaryPreview currentUserId={orbitUserId} onOpen={onOpenOrbits} />
 
@@ -425,7 +625,7 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
             onClick={() => {
               setVisibleHistory(recentTracks.length);
             }}
-            className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 group"
+            className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-[color,transform,border-color] duration-200 flex items-center justify-center gap-2.5 group"
           >
             <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
             <span>Expandir todos</span>
@@ -466,9 +666,10 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="relative flex flex-col gap-5 overflow-x-clip">
+      <div className="pointer-events-none absolute -top-28 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/[0.055] blur-3xl" />
       <div className="sticky top-[max(env(safe-area-inset-top),12px)] z-40 px-4">
-        <div className="grid grid-cols-5 gap-1 rounded-3xl border border-white/8 bg-black/70 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <div className="grid grid-cols-5 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -478,8 +679,9 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
                 key={tab.id}
                 type="button"
                 onClick={() => selectTab(tab.id)}
+                aria-current={isActive ? 'page' : undefined}
                 className={clsx(
-                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-colors duration-200",
+                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-[color,transform] duration-200 active:scale-[0.96]",
                   isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
                 )}
               >

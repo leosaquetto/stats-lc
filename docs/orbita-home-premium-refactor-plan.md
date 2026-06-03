@@ -142,3 +142,32 @@ Capturado no navegador in-app em `http://localhost:3000/#/`, viewport
   `hidden`, removeu a splash em menos de `6.5s`, carregou `47` imagens sem
   quebra e exibiu os dez recentes resolvidos. O smoke quente final da Home
   carregou `59` imagens sem quebra.
+
+### 2026-06-03 - Polimento Premium Da Secao Orbita
+
+- `/circle` ganhou cockpit compacto no topo da aba `Agora`, com imagem quente,
+  contagem live, total do dia, lider semanal, preview do que o circulo esta
+  ouvindo e CTA direto para Orbits.
+- Arena Live foi preservada como palco principal; o novo cockpit entra antes
+  dela e a timeline continua abaixo, sem montar abas inativas.
+- A barra de abas recebeu `aria-current`, fundo mais denso e transicoes curtas
+  em `color`, `opacity` e `transform`.
+- Orbits foi redesenhado como inbox musical: hero com metricas, abas compactas,
+  chips de destinatario, busca de musica, preview da faixa selecionada e cards
+  com capa, pessoa, plataforma, status, mensagem, contagem de plays e exclusao
+  discreta.
+- O lookup de membros em Orbits aceita `id` ou `key`, evitando cair em nome
+  cru quando a origem do membro varia.
+- Duelos manteve a fonte de ranking semanal, mas ganhou hero e cards mais
+  densos; a barra comparativa passou a usar `transform: scaleX(...)` em vez de
+  alterar largura.
+- Nenhum endpoint, cache pesado, persistencia, LeoHeader, vinil ou contrato de
+  props foi alterado nesta fase.
+- Validacao concluida nesta fase: `npm run lint`, `npm run build`,
+  `git diff --check` e browser in-app em `390x844` nas abas `Agora`, `Orbits`,
+  `Duelos`, `Arena` e `Afinidade`.
+- Browser local iniciou via `npm run dev -- --host 0.0.0.0`; a porta
+  `127.0.0.1:3000` estava sem servidor antes disso.
+- QA visual: `Agora`, inbox de Orbits, composer `Criar`, `Duelos`, Arena e
+  Afinidade abriram sem tela vazia, sem overflow horizontal e sem imagens
+  quebradas. Console sem erros capturados durante o percurso.
