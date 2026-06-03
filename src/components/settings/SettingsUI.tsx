@@ -76,7 +76,7 @@ export function ToggleSwitch({
       disabled={disabled}
       onClick={onClick}
       className={clsx(
-        'relative shrink-0 rounded-full transition-all duration-300',
+        'relative shrink-0 rounded-full transition-colors duration-300',
         width,
         height,
         checked ? 'bg-orange-500' : 'bg-white/10',
@@ -140,7 +140,7 @@ export function MemberTile({
       type="button"
       onClick={onClick}
       className={clsx(
-        'flex min-h-[58px] w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition-all active:scale-[0.98]',
+        'flex min-h-[58px] w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]',
         active
           ? 'border-orange-500/45 bg-orange-500/10 text-orange-300'
           : 'border-white/6 bg-white/[0.035] text-white/78 hover:bg-white/[0.06]',
@@ -187,7 +187,7 @@ export function MemberCard({
       type="button"
       onClick={onClick}
       className={clsx(
-        'glass group relative flex aspect-[0.72] min-h-[132px] flex-col justify-end overflow-hidden rounded-3xl p-2 text-center transition-all active:scale-[0.98]',
+        'glass group relative flex aspect-[0.72] min-h-[132px] flex-col justify-end overflow-hidden rounded-3xl p-2 text-center transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]',
         active ? 'ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.1)]' : 'hover:bg-white/[0.04]'
       )}
       style={{ border: 0 }}
@@ -232,7 +232,7 @@ export function MemberVisibilityChip({
       type="button"
       onClick={onClick}
       className={clsx(
-        'flex min-h-[52px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-all active:scale-[0.98]',
+        'flex min-h-[52px] w-full items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]',
         hidden ? 'border-red-500/20 bg-red-500/10 text-red-300' : 'border-white/5 bg-white/5 text-white/44 hover:bg-white/[0.07]',
         featured && !hidden && 'border-orange-500/22 bg-orange-500/8 text-orange-300/80'
       )}

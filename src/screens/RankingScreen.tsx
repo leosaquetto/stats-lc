@@ -21,6 +21,8 @@ import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
 const UserDetailModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.UserDetailModal })));
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
 
+const isCanceledRequest = (error: any) => error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
+
 const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index, trend }: any) => {
   const cardRef = useRef<HTMLDivElement>(null);
   
@@ -44,7 +46,7 @@ const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index,
       }}
       onClick={onClick}
       className={clsx(
-        "relative flex items-center justify-between rounded-[28px] p-5 transition-all active:scale-[0.98] cursor-pointer group/card",
+        "relative flex items-center justify-between rounded-[28px] p-5 transition-[background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.98] cursor-pointer group/card",
         isLeo ? "glass premium-gradient border-orange-500/20 shadow-orange-500/5 shadow-2xl" : "bg-white/[0.02] border border-white/[0.05]"
       )}
     >
@@ -52,7 +54,7 @@ const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index,
         <div className="relative">
           <div 
             className={clsx(
-              "ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-all duration-500",
+              "ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-[background-color,border-color,color,transform] duration-500",
               trend > 0 
                 ? "bg-green-500/10 border-green-400/40 text-green-400 glow-up" 
                 : trend < 0
@@ -156,34 +158,46 @@ export default function RankingScreen() {
   const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
   
   useEffect(() => {
+    let cancelled = false;
     async function loadWeeklyRankings() {
       try {
         const data = await statsService.getRankings('weeks');
+        if (cancelled) return;
         setWeeklyRankings(data);
-      } catch (e) {
+      } catch (e: any) {
+        if (cancelled || isCanceledRequest(e)) return;
         console.error("Failed to load weekly rankings", e);
       }
     }
     loadWeeklyRankings();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadRankings() {
       setIsLocalLoading(true);
       setErrorLocal(null);
       try {
         const data = await statsService.getRankings(activeRange);
+        if (cancelled) return;
         setRankingsData(data);
         // Increment version to trigger re-layout animations
         setSortVersion(v => v + 1);
-      } catch (e) {
+      } catch (e: any) {
+        if (cancelled || isCanceledRequest(e)) return;
         console.error("Failed to load rankings", e);
         setErrorLocal("Não foi possível carregar o ranking. Tente novamente mais tarde.");
       } finally {
-        setIsLocalLoading(false);
+        if (!cancelled) setIsLocalLoading(false);
       }
     }
     loadRankings();
+    return () => {
+      cancelled = true;
+    };
   }, [activeRange, refreshNonce]);
 
   // Trigger flip animation when sorting type changes
@@ -358,7 +372,7 @@ export default function RankingScreen() {
           <button 
                 onClick={() => setShowUserSelector(!showUserSelector)} 
                 className={clsx(
-                  "h-10 w-10 glass rounded-2xl flex items-center justify-center transition-all",
+                  "h-10 w-10 glass rounded-2xl flex items-center justify-center transition-[background-color,border-color,transform] duration-200 active:scale-[0.96]",
                   showUserSelector && "bg-white/20 border-white/20"
                 )}
               >
@@ -394,7 +408,7 @@ export default function RankingScreen() {
                           // setShowUserSelector(false);
                         }}
                         className={clsx(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all",
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]",
                           effectiveFeaturedUserId === u.id
                             ? "bg-white/10 border border-white/10"
                             : "hover:bg-white/5"
@@ -433,8 +447,9 @@ export default function RankingScreen() {
           <button
             key={r.id}
             onClick={() => setActiveRange(r.id)}
+            aria-current={activeRange === r.id ? 'page' : undefined}
             className={clsx(
-              "px-5 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all duration-300 shrink-0",
+              "px-5 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-[background-color,color,box-shadow,transform] duration-200 shrink-0 active:scale-[0.96]",
               activeRange === r.id 
                 ? "bg-white text-black shadow-lg shadow-white/10" 
                 : "text-white/30 hover:text-white/60"
@@ -449,8 +464,9 @@ export default function RankingScreen() {
       <div className="flex gap-2 p-1 bg-white/[0.03] rounded-3xl self-start">
         <button
           onClick={() => setRankingType('streams')}
+          aria-pressed={rankingType === 'streams'}
           className={clsx(
-            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all duration-300",
+            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
             rankingType === 'streams' 
               ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
               : "text-white/30 hover:text-white/60"
@@ -460,8 +476,9 @@ export default function RankingScreen() {
         </button>
         <button
           onClick={() => setRankingType('duration')}
+          aria-pressed={rankingType === 'duration'}
           className={clsx(
-            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-all duration-300",
+            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
             rankingType === 'duration' 
               ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
               : "text-white/30 hover:text-white/60"
@@ -518,7 +535,7 @@ export default function RankingScreen() {
           
           <button
             onClick={() => setBattleOpponent(rival)}
-            className="shrink-0 px-5 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-all cursor-pointer"
+            className="shrink-0 px-5 py-3 rounded-2xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-orange-500/20 transition-[background-color,box-shadow,transform] duration-200 cursor-pointer"
           >
             Ver batalha →
           </button>

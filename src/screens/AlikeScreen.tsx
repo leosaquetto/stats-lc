@@ -249,10 +249,11 @@ export default function AlikeScreen() {
             <motion.button
               key={aff.friend.id}
               onClick={() => setSelectedFriendId(aff.friend.id)}
+              aria-pressed={selectedFriendId === aff.friend.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className={cn(
-                "glass-card p-4 rounded-3xl border-white/5 transition-all text-left flex flex-col gap-3 relative overflow-hidden group",
+                "glass-card p-4 rounded-3xl border-white/5 transition-[background-color,border-color,transform] duration-200 text-left flex flex-col gap-3 relative overflow-hidden group",
                 selectedFriendId === aff.friend.id ? "bg-white/[0.08] border-orange-500/30" : "hover:bg-white/[0.04]"
               )}
             >
@@ -384,17 +385,19 @@ const CompareBar = ({ label, userVal, friendVal, isTime = false }: { label: stri
         </div>
         <div className="flex-1 h-3 bg-white/[0.02] rounded-full flex overflow-hidden">
           <motion.div 
-            initial={{ width: 0 }} 
-            animate={{ width: `${uPct}%` }} 
-            className={cn("h-full", userVal >= friendVal ? "bg-orange-500" : "bg-white/20")}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: uPct / 100 }}
+            style={{ transformOrigin: 'left center' }}
+            className={cn("h-full w-full", userVal >= friendVal ? "bg-orange-500" : "bg-white/20")}
           />
         </div>
         <div className="w-[1px] h-4 bg-white/10" />
         <div className="flex-1 h-3 bg-white/[0.02] rounded-full flex justify-end overflow-hidden">
           <motion.div 
-            initial={{ width: 0 }} 
-            animate={{ width: `${fPct}%` }} 
-            className={cn("h-full", friendVal >= userVal ? "bg-blue-500" : "bg-white/20")}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: fPct / 100 }}
+            style={{ transformOrigin: 'right center' }}
+            className={cn("h-full w-full", friendVal >= userVal ? "bg-blue-500" : "bg-white/20")}
           />
         </div>
         <div className="w-[40px] text-left">

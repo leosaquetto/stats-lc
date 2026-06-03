@@ -79,3 +79,10 @@ Cada item so fecha quando:
 - A transicao de rota desmonta a tela anterior imediatamente. O
   `AnimatePresence` externo foi removido porque movimentos descendentes da
   Home podiam segurar a tela antiga depois da mudanca de URL.
+- 2026-06-03: iniciada a fase pos-Orbita Premium para fechar pendencias de
+  `Ranking/Arena`, `Alike`, `Settings` e performance transversal sem reabrir
+  LeoHeader, vinil, backend, cache pesado ou contrato de Orbits.
+- Baseline de codigo desta fase: `RankingScreen` ainda tinha requests de
+  ranking sem cancelamento; `AlikeScreen` animava barras por `width`; e
+  `RankingScreen`/`SettingsScreen` tinham varios `transition-all` em areas de
+  toque e scroll.

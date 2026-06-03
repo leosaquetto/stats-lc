@@ -317,7 +317,7 @@ export default function SettingsScreen() {
                   setHiddenUsers([]);
                   showToast('Privacidade Atualizada', 'Todos os membros voltaram a aparecer.', 'success');
                 }}
-                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/55 transition-all active:scale-95 disabled:opacity-25"
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/55 transition-[background-color,border-color,color,transform,opacity] duration-200 active:scale-95 disabled:opacity-25"
               >
                 Mostrar todos
               </button>
@@ -377,7 +377,7 @@ export default function SettingsScreen() {
                     showToast('Ordem da Home', `${option.title} selecionada.`, 'success');
                   }}
                   className={clsx(
-                    'min-h-[64px] rounded-2xl border p-3 text-left transition-all active:scale-[0.98]',
+                    'min-h-[64px] rounded-2xl border p-3 text-left transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]',
                     historyOrder === option.id
                       ? 'border-orange-500/40 bg-orange-500/10 text-orange-300'
                       : 'border-white/6 bg-white/[0.035] text-white/64 hover:bg-white/[0.06]'
@@ -438,7 +438,7 @@ export default function SettingsScreen() {
                 }}
                 maxLength={50}
                 placeholder="Nome da sua Arena"
-                className="h-11 rounded-2xl border border-white/10 bg-black/25 px-4 text-sm font-bold text-white outline-none transition-all placeholder:text-white/22 focus:border-orange-500/60"
+                className="h-11 rounded-2xl border border-white/10 bg-black/25 px-4 text-sm font-bold text-white outline-none transition-[background-color,border-color,color] duration-200 placeholder:text-white/22 focus:border-orange-500/60"
               />
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[9px] font-bold uppercase tracking-widest text-white/25">{arenaNameDraft.length}/50</span>
@@ -447,7 +447,7 @@ export default function SettingsScreen() {
                   type="button"
                   onClick={handleSaveArenaName}
                   disabled={arenaNameDraft.trim() === (arenaName || '').trim()}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/60 transition-all active:scale-95 disabled:opacity-30"
+                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/60 transition-[background-color,border-color,color,transform,opacity] duration-200 active:scale-95 disabled:opacity-30"
                 >
                   Salvar
                 </button>
@@ -462,7 +462,7 @@ export default function SettingsScreen() {
                 <button
                   type="button"
                   onClick={() => setIsHistoryOpen(true)}
-                  className="flex h-10 items-center gap-2 rounded-2xl bg-orange-500 px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-orange-500/15 transition-all active:scale-95"
+                  className="flex h-10 items-center gap-2 rounded-2xl bg-orange-500 px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-orange-500/15 transition-[background-color,box-shadow,transform] duration-200 active:scale-95"
                 >
                   Abrir
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -525,7 +525,7 @@ export default function SettingsScreen() {
                   notificationService.sendTestNotification();
                   showToast('Sinal Enviado', 'Notificação de teste disparada.', 'success');
                 }}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/5 bg-white/[0.04] text-[11px] font-black uppercase tracking-[0.12em] text-white/70 transition-all active:scale-[0.98]"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/5 bg-white/[0.04] text-[11px] font-black uppercase tracking-[0.12em] text-white/70 transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]"
               >
                 <BellRing className="h-4 w-4" />
                 Testar notificação
@@ -554,7 +554,7 @@ export default function SettingsScreen() {
                   showToast('Erro de Sincronia', error?.message || 'Falha ao sincronizar dados completos.', 'error');
                 }
               }}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_10px_25px_rgba(249,115,22,0.15)] transition-all active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_10px_25px_rgba(249,115,22,0.15)] transition-[background-color,box-shadow,transform,opacity] duration-200 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
             >
               {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
               {isRefreshing ? 'Atualizando...' : 'Atualizar banco completo'}
@@ -585,7 +585,7 @@ export default function SettingsScreen() {
               type="button"
               onClick={handleResetApp}
               disabled={isResettingApp}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-[11px] font-black uppercase tracking-[0.12em] text-orange-400 transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-[11px] font-black uppercase tracking-[0.12em] text-orange-400 transition-[background-color,border-color,color,transform,opacity] duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
               {isResettingApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
               {isResettingApp ? 'Limpando...' : 'Limpar e reiniciar'}
