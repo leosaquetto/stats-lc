@@ -485,6 +485,7 @@ export const StatsAlike = React.memo(() => {
             let x = 0;
             let y = 0;
             let opacity = 0.4;
+            let blur = "blur(4px)";
             let rotateY = 0;
 
             if (position === 0) { // Front
@@ -493,6 +494,7 @@ export const StatsAlike = React.memo(() => {
               x = 0;
               y = 0;
               opacity = 1;
+              blur = "blur(0px)";
               rotateY = 0;
             } else if (position === 1) { // Right Back
               zIndex = 10;
@@ -500,6 +502,7 @@ export const StatsAlike = React.memo(() => {
               x = 132;
               y = -22;
               opacity = 0.4;
+              blur = "blur(2px)";
               rotateY = -15;
             } else { // Left Back
               zIndex = 10;
@@ -507,6 +510,7 @@ export const StatsAlike = React.memo(() => {
               x = -132;
               y = -22;
               opacity = 0.4;
+              blur = "blur(2px)";
               rotateY = 15;
             }
 
@@ -519,9 +523,10 @@ export const StatsAlike = React.memo(() => {
                   zIndex, 
                   scale, 
                   opacity,
+                  filter: blur,
                   rotateY,
                 }}
-                transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ type: "spring", stiffness: 150, damping: 24 }}
                 className="absolute top-1/2 left-1/2 w-[332px]"
                 onClick={() => position !== 0 && setActiveIndex(idx)}
               >
@@ -576,7 +581,7 @@ const AlikeOrbitalItem = ({
   if (isEmpty) {
     return (
       <div className={cn(
-        "flex flex-col items-center gap-3 transition-[opacity,transform] duration-500",
+        "flex flex-col items-center gap-3 transition-all duration-500",
         isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
       )}>
         <motion.div 
@@ -601,7 +606,7 @@ const AlikeOrbitalItem = ({
 
   return (
     <div className={cn(
-        "flex flex-col items-center gap-3 transition-[opacity,transform] duration-500",
+        "flex flex-col items-center gap-3 transition-all duration-500",
       isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
     )}>
       {/* Label Badge */}
@@ -616,7 +621,7 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[30px] p-8 shadow-2xl transition-[background-color,border-color,opacity,transform] duration-700 backdrop-blur-xl",
+        "relative rounded-[30px] p-8 shadow-2xl transition-all duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-3">
@@ -644,7 +649,7 @@ const AlikeOrbitalItem = ({
             <SmartImage 
               src={item.image} 
               className={cn(
-                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-[border-color,opacity,transform] duration-700",
+                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all duration-700",
                 type === 'artist' ? 'rounded-full' : 'rounded-2xl',
                 isCentered && "group-hover:scale-110",
                 isCentered && (Math.abs(userPosition - friendPosition) >= 15 ? "group-hover:border-red-500/50" : "group-hover:border-orange-500/50")
@@ -687,7 +692,7 @@ const AlikeOrbitalItem = ({
       </div>
 
       {/* Detail info */}
-      <AnimatePresence mode="sync">
+      <AnimatePresence mode="wait">
         {isCentered && (
           <motion.div 
             initial={{ opacity: 0, y: 10 }}

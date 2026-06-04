@@ -90,6 +90,11 @@ Regras importantes:
 - Evite animar `height`, `width`, blur pesado ou sombras pesadas em areas de alta frequencia.
 - Imagens e rankings ja aquecidos devem ser reutilizados; nao reprocessar avatares/capas toda vez que um modal ou card monta.
 
+### Comportamentos Protegidos Da Home
+
+- `Seus Destaques` deve preservar o palco orbital fluido atual: cards absolutos em orbit mode, item principal em destaque, satelites/cartoes alternando profundidade com `transform`, `opacity`, `filter: blur(...)` e `z-index`; nao converter para lista, grid estatico ou cards empilhados sem duas confirmacoes explicitas do usuario.
+- `Top 1 do Circulo` e `Stats Alike` da Home sao exemplos de animacao desejada no app. Preservar aneis, camadas frente/fundo, blur de profundidade, badges e troca suave por `transform`. Nao remover, achatar, trocar por fallback simples, nem "otimizar" esse comportamento para algo menos orbital sem o usuario confirmar duas vezes.
+
 ## LeoHeader E Vinil
 
 - Vinil nao deve ser movido ou redesenhado sem pedido claro.
