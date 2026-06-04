@@ -23,27 +23,17 @@ const StatsBattleModal = lazy(() => import('../components/modals/UserModals').th
 
 const isCanceledRequest = (error: any) => error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED';
 
-const RankingCard = ({ user, i, rankingType, sortVersion, isLeo, onClick, index, trend }: any) => {
+const RankingCard = ({ user, i, rankingType, isLeo, onClick, trend }: any) => {
   const cardRef = useRef<HTMLDivElement>(null);
   
   return (
     <motion.div
-      layout
       ref={cardRef}
       key={user.id}
-      initial={{ opacity: 0, rotateY: 90, scale: 0.9 }}
-      animate={{ 
-        opacity: 1, 
-        rotateY: 0, 
-        scale: 1,
-        rotateX: sortVersion % 2 === 0 ? 0.01 : -0.01 
-      }}
-      exit={{ opacity: 0, rotateY: -90, scale: 0.9 }}
-      transition={{ 
-        layout: { duration: 0.6, type: 'spring', bounce: 0.4 },
-        rotateY: { duration: 0.5, delay: i * 0.04, type: 'spring' },
-        opacity: { duration: 0.3 }
-      }}
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+      transition={{ duration: 0.2, delay: Math.min(i, 4) * 0.025, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
       className={clsx(
         "relative flex items-center justify-between rounded-[28px] p-5 transition-[background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.98] cursor-pointer group/card",
@@ -148,7 +138,6 @@ export default function RankingScreen() {
   const LEO_ID = "leo";
   const podiumRef = useRef<HTMLDivElement>(null);
   
-  const [sortVersion, setSortVersion] = useState(0);
   const prevRankings = useRef<Record<string, number>>({});
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const featuredUser = useMemo(
@@ -184,8 +173,6 @@ export default function RankingScreen() {
         const data = await statsService.getRankings(activeRange);
         if (cancelled) return;
         setRankingsData(data);
-        // Increment version to trigger re-layout animations
-        setSortVersion(v => v + 1);
       } catch (e: any) {
         if (cancelled || isCanceledRequest(e)) return;
         console.error("Failed to load rankings", e);
@@ -200,11 +187,6 @@ export default function RankingScreen() {
     };
   }, [activeRange, refreshNonce]);
 
-  // Trigger flip animation when sorting type changes
-  useEffect(() => {
-    setSortVersion(v => v + 1);
-  }, [rankingType]);
-  
   // Prioriza os dados do ranking específico se disponível
   const displayUsers = useMemo(() => members.map(user => {
     const stats: any = rankingsData[user.id] || {};
@@ -564,14 +546,13 @@ export default function RankingScreen() {
         <>
           {sortedUsers.length > 0 && (
             <motion.div
-              key={`leader-${activeRange}-${sortVersion}`}
+              key={`leader-${activeRange}-${rankingType}`}
               ref={podiumRef}
-              initial={{ opacity: 0, rotateY: -180, scale: 0.8 }}
-              animate={{ opacity: 1, rotateY: 0, scale: 1 }}
-              transition={{ duration: 0.8, type: 'spring', bounce: 0.3 }}
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
               onClick={() => setSelectedUser(sortedUsers[0])}
               className="relative overflow-hidden rounded-[40px] bg-[#0A0A0A] border border-white/5 p-8 flex flex-col items-center text-center active:scale-[0.98] transition-transform cursor-pointer group/podium"
-              style={{ perspective: '1000px' }}
             >
               <div 
                 className="absolute -top-10 -left-10 h-32 w-32 blur-[60px] opacity-20" 
@@ -629,10 +610,7 @@ export default function RankingScreen() {
             action={<TrendingUp className="h-4 w-4 text-white/20" />}
           />
 
-          <motion.section 
-            layout
-            className="flex flex-col gap-4 [perspective:1200px]"
-          >
+          <motion.section className="flex flex-col gap-4">
             {sortedUsers.map((user, i) => {
               const isLeo = user.id === LEO_ID;
               const prevRank = prevRankings.current[user.id];
@@ -643,9 +621,7 @@ export default function RankingScreen() {
                   key={user.id}
                   user={user}
                   i={i}
-                  index={i}
                   rankingType={rankingType}
-                  sortVersion={sortVersion}
                   isLeo={isLeo}
                   trend={trend}
                   onClick={() => setSelectedUser(user)}

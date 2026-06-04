@@ -124,7 +124,7 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
                     )}
                   />
                   <div className={cn(
-                    "relative rounded-2xl overflow-hidden w-[64px] h-32 transition-all shadow-lg",
+                    "relative rounded-2xl overflow-hidden w-[64px] h-32 transition-[box-shadow,opacity,transform] duration-200 shadow-lg",
                     featuredUserId === u.id && "ring-2 ring-orange-500/70"
                   )}>
                     <SmartImage

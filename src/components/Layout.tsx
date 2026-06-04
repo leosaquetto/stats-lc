@@ -7,7 +7,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, animate as animateMotion, useMotionValue } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
@@ -20,7 +20,7 @@ import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
-  { label: 'Stats', icon: AudioLines, path: '/highlights', activePaths: ['/highlights'] },
+  { label: 'Stats', icon: AudioLines, path: '/stats', activePaths: ['/stats', '/highlights'] },
   { label: 'Órbita', icon: Orbit, path: '/circle', activePaths: ['/circle', '/ranking', '/alike'] },
   { label: 'Ajustes', icon: SlidersHorizontal, path: '/settings', activePaths: ['/settings'] },
 ];
@@ -100,7 +100,7 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
             <motion.div
               className="pointer-events-none absolute bottom-2 left-2 top-2 w-[calc((100%_-_1rem)/4)] rounded-[9999px] bg-white/[0.04]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
-              transition={{ type: "spring", bounce: 0.12, duration: 0.38 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             />
             {NAV_ITEMS.map((item, index) => {
               const isActive = index === activeNavIndex;
@@ -121,7 +121,7 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                     <div className="relative flex h-7 w-7 items-center justify-center">
                       <Icon
                         className={clsx(
-                          "transition-all duration-300 ease-out",
+                          "transition-[color,filter,opacity,transform] duration-200 ease-out",
                           isActive
                             ? "h-[25px] w-[25px] text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.35)]"
                             : "h-[24px] w-[24px] text-white/45 hover:text-white/75"
@@ -131,7 +131,7 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                     </div>
 
                     <span className={clsx(
-                      "text-[9px] font-bold tracking-[0.12em] transition-all duration-300 leading-none mt-0.5",
+                      "text-[9px] font-bold tracking-[0.12em] transition-[color,opacity,transform] duration-200 leading-none mt-0.5",
                       isActive
                         ? "text-orange-500 font-extrabold"
                         : "text-white/40 font-medium"
@@ -319,13 +319,16 @@ const cleanLyricsForDisplay = (lyrics?: string | null) => {
   if (!lyrics) return '';
 
   const sectionPattern =
-    /^(?:intro|outro|verse|chorus|hook|bridge|pre[-\s]?chorus|post[-\s]?chorus|refrain|interlude|instrumental|solo|spoken|skit|part|section|refr[aã]o|verso|ponte|coro)(?:\s+\d+)?(?:\s*:.*)?$/i;
+    /^(?:intro|outro|verse|chorus|hook|bridge|pre[-\s]?chorus|post[-\s]?chorus|refrain|interlude|instrumental|solo|spoken|skit|part|section|refr[aã]o|verso|ponte|coro|estribillo|pre[-\s]?estribillo|puente|estrofa)(?:\s+\d+)?(?:\s*:.*)?$/i;
   const isSectionMarker = (line: string) => {
     if (!line) return false;
     const bracketMatch = line.match(/^\[([^\]]+)\]$/);
     const label = (bracketMatch?.[1] || line).trim();
     return sectionPattern.test(label);
   };
+  const isBracketAnnotation = (line: string) => /^\[[^\]]+\]$/.test(line);
+  const isHeaderAnnotation = (line: string) =>
+    /^(?:letra\s+de|lyrics?\s+for|lyrics?\s+of|paroles\s+de|letra\s*:)/i.test(line);
 
   const lines = lyrics
     .replace(/\r/g, '')
@@ -343,12 +346,15 @@ const cleanLyricsForDisplay = (lyrics?: string | null) => {
       .replace(/\u200b/g, '')
       .replace(/\s+/g, ' ')
       .trim();
-    const isBracketLine = isSectionMarker(line);
+    const isBracketLine = isBracketAnnotation(line);
+    const isSectionLine = isSectionMarker(line);
 
     if (isBracketLine) {
-      if (hasStarted) pendingSectionBreak = true;
+      if (hasStarted && isSectionLine) pendingSectionBreak = true;
       continue;
     }
+
+    if (isHeaderAnnotation(line)) continue;
 
     if (!line) {
       if (hasStarted && !previousBlank) {
@@ -877,6 +883,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [panelHydration, setPanelHydration] = React.useState<BottomTrackStatsHydrationState>(emptyBottomTrackStatsHydration);
   const [playbackIndex, setPlaybackIndex] = React.useState(0);
   const modalPointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const lyricsPointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const historySwipeX = useMotionValue(0);
+  const historySwipeTokenRef = React.useRef(0);
   const ignoreBackdropClickUntilRef = React.useRef(0);
   const panelDataKeyRef = React.useRef('');
   const panelRequestKeyRef = React.useRef('');
@@ -895,6 +904,31 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }
     return playbackHistory[Math.min(playbackIndex - 1, playbackHistory.length - 1)] || null;
   }, [liveTrack, playbackHistory, playbackIndex, user?.nowPlaying?.durationMs, user?.nowPlaying?.platform, user?.nowPlaying?.timestamp]);
+  const animateHistorySwipe = React.useCallback((direction: 'older' | 'newer') => {
+    const nextIndex = direction === 'older'
+      ? Math.min(playbackIndex + 1, playbackHistory.length)
+      : Math.max(playbackIndex - 1, 0);
+
+    if (nextIndex === playbackIndex) {
+      animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+      return;
+    }
+
+    const exitX = direction === 'older' ? 390 : -390;
+    const token = historySwipeTokenRef.current + 1;
+    historySwipeTokenRef.current = token;
+    animateMotion(historySwipeX, exitX, {
+      duration: 0.16,
+      ease: [0.4, 0, 1, 1],
+      onComplete: () => {
+        if (historySwipeTokenRef.current !== token) return;
+        setPlaybackIndex(nextIndex);
+        setPanel('stats');
+        historySwipeX.set(direction === 'older' ? -72 : 72);
+        animateMotion(historySwipeX, 0, { duration: 0.24, ease: [0.16, 1, 0.3, 1] });
+      },
+    });
+  }, [historySwipeX, playbackHistory.length, playbackIndex]);
   const track = activePlayback?.track;
   const trackId = String(track?.id || track?.track?.id || '');
   const artistId = getMainArtistId(track);
@@ -908,6 +942,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
   const dominantColor = user?.nowPlaying?.dominantColor || track?.dominantColor || '#ff5f00';
   const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(getAlbumReleaseDate(track)), [track]);
+  const isBubbleLive = user?.nowPlaying?.isNow === true && playbackIndex === 0;
   const isAppleMusicUser = user?.platform?.primary === 'appleMusic' || user?.platform === 'appleMusic' || user?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
@@ -947,7 +982,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   React.useEffect(() => {
     setPlaybackIndex(0);
-  }, [liveTrack?.id, liveTrack?.name, user?.id]);
+    historySwipeTokenRef.current += 1;
+    historySwipeX.set(0);
+  }, [historySwipeX, liveTrack?.id, liveTrack?.name, user?.id]);
 
   React.useEffect(() => {
     lyricsRequestKeyRef.current = `${trackId}:${activePlayback?.timestamp || ''}`;
@@ -987,6 +1024,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       window.clearTimeout(idleId);
     };
   }, [activePlayback?.timestamp, artistName, isOpen, track?.name, trackId]);
+
+  React.useEffect(() => {
+    if (!track?.name || isOpen) return;
+    const timer = window.setTimeout(() => {
+      loadLyricsMatch(track.name, artistName).catch(() => undefined);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [artistName, isOpen, track?.name, trackId]);
 
   React.useEffect(() => {
     if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
@@ -1255,17 +1300,30 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     <>
       <motion.button
         type="button"
-        onPointerDown={handleOpenStats}
         onClick={handleOpenStats}
         className="pointer-events-auto relative mb-[calc(env(safe-area-inset-bottom)+12px)] flex h-[68px] w-[68px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.22] shadow-[0_12px_40px_-12px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
-        whileTap={{ scale: 0.94 }}
+        whileTap={{ scale: 0.9 }}
         aria-label="Abrir stats da música"
       >
         <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-[5px] rounded-full border border-orange-400/28"
+          animate={isBubbleLive ? { scale: [1, 1.08, 1], opacity: [0.55, 0.95, 0.55] } : { scale: 1, opacity: 0.24 }}
+          transition={isBubbleLive ? { duration: 2.2, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.22 }}
+        />
+        <motion.span
+          aria-hidden="true"
+          key={`${trackId || trackTitle}-bubble-ring`}
+          className="pointer-events-none absolute inset-[10px] rounded-full bg-orange-500/10 blur-md"
+          initial={{ opacity: 0, scale: 0.75 }}
+          animate={{ opacity: isBubbleLive ? 0.5 : 0.12, scale: 1 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+        />
         {artistImage ? (
-          <SmartImage src={artistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+          <SmartImage src={artistImage} className="relative z-10 h-[50px] w-[50px] object-cover shadow-[0_8px_24px_rgba(0,0,0,0.35)]" rounded="full" fallback="" />
         ) : (
-          <Music2 className="h-8 w-8 text-white/72" />
+          <Music2 className="relative z-10 h-7 w-7 text-white/72" />
         )}
       </motion.button>
 
@@ -1298,37 +1356,59 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               dragConstraints={{ top: 0, bottom: 0 }}
               dragElastic={0.18}
               onDragEnd={(_, info) => {
-                if (info.offset.y < -58) {
+                if (panel === 'lyrics' && (info.offset.y > 58 || info.velocity.y > 420)) {
+                  setIsOpen(false);
+                  setPanel('stats');
+                  setSelectedTrackLink(null);
+                } else if (info.offset.y < -58) {
                   if (lyricsText) {
                     setPanel('lyrics');
                   } else {
                     handleLyrics();
                   }
-                } else if (info.offset.y > 58) {
+                } else if (info.offset.y > 118 || info.velocity.y > 580) {
+                  setIsOpen(false);
                   setPanel('stats');
+                  setSelectedTrackLink(null);
+                } else if (info.offset.y > 58) {
+                  if (panel === 'lyrics') setPanel('stats');
                 }
               }}
               onPointerDown={(event) => {
-                if (selectedTrackLink) return;
+                if (selectedTrackLink || panel !== 'stats') return;
                 modalPointerStartRef.current = { x: event.clientX, y: event.clientY };
+              }}
+              onPointerMove={(event) => {
+                const start = modalPointerStartRef.current;
+                if (!start || selectedTrackLink || panel !== 'stats') return;
+                const deltaX = event.clientX - start.x;
+                const deltaY = event.clientY - start.y;
+                if (Math.abs(deltaX) < 5 || Math.abs(deltaX) < Math.abs(deltaY) * 1.08) return;
+                const atBoundary = (deltaX > 0 && playbackIndex >= playbackHistory.length)
+                  || (deltaX < 0 && playbackIndex <= 0);
+                historySwipeX.set(Math.max(-118, Math.min(118, deltaX * (atBoundary ? 0.22 : 0.72))));
               }}
               onPointerUp={(event) => {
                 const start = modalPointerStartRef.current;
                 modalPointerStartRef.current = null;
-                if (!start || selectedTrackLink) return;
+                if (!start || selectedTrackLink || panel !== 'stats') return;
                 const deltaX = event.clientX - start.x;
                 const deltaY = event.clientY - start.y;
-                if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.1) return;
+                if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.1) {
+                  animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+                  return;
+                }
                 if (deltaX > 0 && playbackIndex < playbackHistory.length) {
-                  setPlaybackIndex((index) => Math.min(index + 1, playbackHistory.length));
-                  setPanel('stats');
+                  animateHistorySwipe('older');
                 } else if (deltaX < 0 && playbackIndex > 0) {
-                  setPlaybackIndex((index) => Math.max(index - 1, 0));
-                  setPanel('stats');
+                  animateHistorySwipe('newer');
+                } else {
+                  animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
                 }
               }}
               onPointerCancel={() => {
                 modalPointerStartRef.current = null;
+                animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
               }}
               onClick={(event) => event.stopPropagation()}
               className="bottom-track-stats-modal glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-hidden rounded-[34px] border-0 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y [contain:layout_paint]"
@@ -1336,6 +1416,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             >
               <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 h-1 w-10 -translate-x-1/2 rounded-full bg-white/22" aria-hidden="true" />
 
+              <motion.div className="will-change-transform" style={{ x: historySwipeX }}>
               <div className="flex items-center gap-4 pt-2">
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[20px] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
                   {artwork ? (
@@ -1354,9 +1435,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                 </div>
                 <div className="min-w-0 pt-1">
-                  <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
-                    {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? `Histórico - ${playbackIndex}` : 'Stats da música'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
+                      {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? `Histórico - ${playbackIndex}` : 'Stats da música'}
+                    </span>
+                    {panel === 'lyrics' && (
+                      <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-yellow-100/70">
+                        Genius
+                      </span>
+                    )}
+                  </div>
                   <div className="mt-1 flex items-start gap-1.5">
                     <ModalScrollingTrackTitle title={parsedTrackTitle.displayTitle || trackTitle} wide={parsedTrackTitle.badges.length <= 1} />
                     {parsedTrackTitle.badges.length > 1 && <TrackTitleBadges badges={parsedTrackTitle.badges} />}
@@ -1742,23 +1830,51 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.14, ease: 'easeOut' }}
-                className="mt-5"
+                drag="y"
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={0.16}
+                onDragEnd={(_, info) => {
+                  if (info.offset.y > 84 || info.velocity.y > 520) {
+                    setIsOpen(false);
+                    setPanel('stats');
+                    setSelectedTrackLink(null);
+                  }
+                }}
+                onPointerDown={(event) => {
+                  lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY };
+                }}
+                onPointerUp={(event) => {
+                  const start = lyricsPointerStartRef.current;
+                  lyricsPointerStartRef.current = null;
+                  if (!start) return;
+                  const deltaX = event.clientX - start.x;
+                  const deltaY = event.clientY - start.y;
+                  if (deltaY > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
+                    setIsOpen(false);
+                    setPanel('stats');
+                    setSelectedTrackLink(null);
+                  }
+                }}
+                onPointerCancel={() => {
+                  lyricsPointerStartRef.current = null;
+                }}
+                className="mt-5 touch-pan-y"
               >
                 {lyricsLoading ? (
-                  <div className="flex h-[34vh] items-center justify-center">
+                  <div className="flex h-[clamp(280px,48dvh,520px)] items-center justify-center">
                     <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
                   </div>
                 ) : cleanedLyricsText ? (
-                  <div className="max-h-[34vh] overflow-y-auto pr-2 text-[17px] font-black leading-[1.36] text-white/92 sm:text-[18px]">
+                  <div className="min-h-[min(30dvh,280px)] max-h-[clamp(280px,48dvh,520px)] overflow-y-auto pr-2 text-[17px] font-black leading-[1.36] text-white/92 sm:text-[18px]">
                     <div className="whitespace-pre-line">{cleanedLyricsText}</div>
                   </div>
                 ) : lyricsMatch?.hasLyrics === false ? (
-                  <div className="flex h-[34vh] flex-col items-center justify-center gap-3 px-5 text-center text-white/52">
+                  <div className="flex h-[clamp(280px,48dvh,520px)] flex-col items-center justify-center gap-3 px-5 text-center text-white/52">
                     <FileText className="h-7 w-7 text-orange-300/70" />
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">letra indisponível</span>
                   </div>
                 ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
-                  <div className="flex h-[34vh] flex-col items-center justify-center gap-4 px-5 text-center">
+                  <div className="flex h-[clamp(280px,48dvh,520px)] flex-col items-center justify-center gap-4 px-5 text-center">
                     <FileText className="h-8 w-8 text-orange-300" />
                     <div>
                       <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
@@ -1779,7 +1895,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <button
                     type="button"
                     onClick={handleLyrics}
-                    className="flex h-[34vh] w-full flex-col items-center justify-center gap-3 text-white/52"
+                    className="flex h-[clamp(280px,48dvh,520px)] w-full flex-col items-center justify-center gap-3 text-white/52"
                   >
                     <FileText className="h-7 w-7 text-orange-300" />
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
@@ -1808,9 +1924,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-40 grayscale invert" />
                   )}
                 </div>
+                <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
+                  arraste para baixo para fechar
+                </p>
               </motion.div>
               )}
               </AnimatePresence>
+              </motion.div>
             </motion.section>
           </motion.div>
         )}
@@ -1963,17 +2083,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         "flex-1 w-full pt-[max(env(safe-area-inset-top),40px)] pb-[calc(env(safe-area-inset-bottom)+100px)]",
         shouldGateHome && "pointer-events-none opacity-0"
       )}>
-        <motion.div
-          initial={false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            duration: 0.16,
-            ease: [0.16, 1, 0.3, 1]
-          }}
-          className="w-full h-full"
-        >
-          {children}
-        </motion.div>
+        <AnimatePresence mode="sync" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="h-full w-full"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Tab Bar (Floating Bottom Nav) */}
@@ -2092,14 +2213,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                           
                           {/* Status Indicator (Equalizer) - overlay on bottom right (ONLY WHEN EXPANDED) */}
                           {shouldShowExpanded && user.nowPlaying?.isNow && (
-                            <div className="absolute -bottom-1 -right-1 flex items-center justify-center transition-all duration-300 z-10 scale-[0.6]">
+                            <div className="absolute -bottom-1 -right-1 z-10 flex scale-[0.6] items-center justify-center transition-[opacity,transform] duration-300">
                               <EqualizerIcon />
                             </div>
                           )}
                         </motion.div>
 
                         {/* Music info */}
-                        <AnimatePresence mode="popLayout" initial={false}>
+                        <AnimatePresence initial={false}>
                           {shouldShowExpanded && (
                             <motion.div
                               initial={{ opacity: 0, x: -5 }}

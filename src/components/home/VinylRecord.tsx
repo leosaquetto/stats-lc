@@ -291,14 +291,10 @@ export const VinylRecord = ({
       </AnimatePresence>
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
-      <AnimatePresence initial={false} mode="sync">
       <motion.div
-        key={displayAlbumImage || 'placeholder-disc'}
         className="absolute inset-0 z-10"
-        initial={canAnimate ? { x: 96, opacity: 0 } : false}
         animate={{ x: 0, opacity: 1 }}
-        exit={canAnimate ? { x: 96, opacity: 0 } : { opacity: 0 }}
-        transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
       >
       <div
         ref={discRef}
@@ -496,14 +492,14 @@ export const VinylRecord = ({
 
         {/* ── CAPA DO ÁLBUM ──────────────────────────────────────── */}
         <div className="absolute inset-[24%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={displayAlbumImage || 'placeholder'}
               className="w-full h-full absolute inset-0 flex items-center justify-center"
-              initial={{ opacity: 0, x: 24, scale: 1.01 }}
+              initial={canAnimate ? { opacity: 0, x: 32, scale: 1.01 } : false}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 24, scale: 0.99 }}
-              transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+              exit={canAnimate ? { opacity: 0, x: -18, scale: 0.995 } : { opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             >
               {displayAlbumImage ? (
                 <div className="w-full h-full relative">
@@ -557,7 +553,6 @@ export const VinylRecord = ({
 
       </div>
       </motion.div>
-      </AnimatePresence>
       </>
 
       {!hideTonearm && <VinylTonearm isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}

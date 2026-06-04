@@ -527,7 +527,7 @@ export const LiveTrackProgress = memo(({
       : `${formatDateSP(dateObj)} ÀS ${timeStr}`;
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="sync">
       {(!isNowPlaying || (isNowPlaying && !durationMs && !minPlayTime)) ? (
         !isNowPlaying ? (
           <motion.div
@@ -1291,14 +1291,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   }, [groupStats, hiddenUsers, liveNowPlayingByUserId]);
 
   const containerVariants = {
-    initial: { opacity: 0, scale: 1.02, filter: 'blur(4px)' },
+    initial: { opacity: 0, scale: 1.015, y: 8 },
     animate: {
-      opacity: 1, scale: 1, filter: 'blur(0px)',
-      transition: { staggerChildren: 0.1, delayChildren: 0.05 }
+      opacity: 1, scale: 1, y: 0,
+      transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] as const, staggerChildren: 0.055, delayChildren: 0.03 }
     },
     exit: {
-      opacity: 0, scale: 0.96, filter: 'blur(4px)',
-      transition: { duration: 0.3, staggerChildren: 0.08, staggerDirection: -1 }
+      opacity: 0, scale: 0.985, y: -5,
+      transition: { duration: 0.16, staggerChildren: 0.035, staggerDirection: -1 }
     }
   };
 
@@ -1306,7 +1306,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     initial: shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 15, scale: 0.95 },
     animate: shouldReduceMotion ? { opacity: 1 } : {
       opacity: 1, y: 0, scale: 1,
-      transition: { type: "spring" as const, stiffness: 400, damping: 25 }
+      transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] as const }
     },
     exit: shouldReduceMotion ? { opacity: 0 } : {
       opacity: 0, y: -10, scale: 0.95,
@@ -1328,7 +1328,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute -inset-x-8 -top-[calc(6rem+env(safe-area-inset-top,0px))] bottom-[-128px] overflow-hidden transition-all duration-500 pointer-events-none",
+          "absolute -inset-x-8 -top-[calc(6rem+env(safe-area-inset-top,0px))] bottom-[-128px] overflow-hidden transition-[box-shadow,opacity,transform] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
@@ -1425,7 +1425,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         )}
         <div className="relative z-30 px-0 sm:px-2 pt-0 pb-3 sm:pb-4 overflow-visible">
 
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync">
             <motion.div
               key={user.id}
               variants={containerVariants}
@@ -1468,7 +1468,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     />
                   )}
                     <div className={cn(
-                      "relative rounded-full overflow-hidden border-2 transition-all duration-500",
+                      "relative rounded-full overflow-hidden border-2 transition-[width,height,border-color,box-shadow,opacity,transform] duration-500",
                       isActuallyLive
                         ? "w-[70px] h-[70px] sm:w-[86px] sm:h-[86px] border-white/80 shadow-[0_0_16px_rgba(255,255,255,0.45)]"
                         : "w-16 h-16 sm:w-[72px] sm:h-[72px] border-white/20"
@@ -1498,7 +1498,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 
                   {/* Streams hoje */}
                   <div
-                    className="leo-soft-badge -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full px-2 transition-all duration-500"
+                    className="leo-soft-badge -ml-1 flex h-6 max-w-[min(62vw,220px)] items-center gap-1 rounded-full px-2 transition-[color,background-color,border-color,opacity,transform] duration-500"
                   >
                     <TrendingUp className={cn(
                       "h-2.5 w-2.5 shrink-0 transition-colors duration-500",
@@ -1773,7 +1773,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               ) : (
                 <motion.div
                   variants={itemVariants}
-                  className="py-16 sm:py-20 rounded-[32px] sm:rounded-[48px] flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-black/10 backdrop-blur-xl group transition-all relative overflow-hidden"
+                  className="py-16 sm:py-20 rounded-[32px] sm:rounded-[48px] flex flex-col items-center justify-center border-2 border-dashed border-white/10 bg-black/10 backdrop-blur-xl group transition-[background-color,border-color,opacity,transform] relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_0%,transparent_70%)] animate-pulse" />
                   <motion.div
@@ -1781,7 +1781,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                     className="relative mb-4 sm:mb-6"
                   >
-                    <StatsLCLogo size={34} className="opacity-55 grayscale transition-all duration-700 group-hover:opacity-95 group-hover:grayscale-0 sm:scale-110" />
+                    <StatsLCLogo size={34} className="opacity-55 grayscale transition-[filter,opacity,transform] duration-700 group-hover:opacity-95 group-hover:grayscale-0 sm:scale-110" />
                     <div className="absolute inset-[-10px] bg-orange-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </motion.div>
                   <span className="text-[11px] sm:text-[13px] font-black uppercase tracking-[0.4em] sm:tracking-[0.5em] text-white/40 drop-shadow-lg">Sinal de Fã</span>

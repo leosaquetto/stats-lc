@@ -262,6 +262,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 
   const [activeTab, setActiveTab] = useState<EntityTab>('summary');
   const [sortMode, setSortMode] = useState<SortMode>(kind === 'album' ? 'trackNumber' : 'plays');
+  const [rankSheetOpen, setRankSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [groupStatsLoaded, setGroupStatsLoaded] = useState(false);
@@ -526,14 +527,23 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
               rounded={kind === 'artist' ? '[24px]' : '[20px]'}
             />
             <div className="min-w-0 flex-1">
-              <div className="mb-2 flex items-center gap-1.5 overflow-hidden">
+              <div className="mb-2 flex flex-wrap items-center gap-1.5 overflow-hidden">
                 <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">
                   {kind === 'album' ? 'Album stats' : 'Artist stats'}
                 </span>
-                {topYearRank && <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">Top {topYearRank} ano</span>}
-                {topTotalRank && <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">Top {topTotalRank} total</span>}
+                {(topYearRank || topTotalRank) && (
+                  <button
+                    type="button"
+                    onClick={() => setRankSheetOpen(true)}
+                    className="rounded-full border border-orange-500/25 bg-orange-500/[0.12] px-2 py-1 text-[8px] font-black uppercase tracking-widest text-orange-100/85 transition-[background-color,transform] active:scale-95"
+                  >
+                    {topYearRank ? `#${topYearRank} ano` : ''}
+                    {topYearRank && topTotalRank ? ' · ' : ''}
+                    {topTotalRank ? `#${topTotalRank} total` : ''}
+                  </button>
+                )}
               </div>
-              <h2 className="truncate text-xl font-black leading-none text-white font-display">{entityName}</h2>
+              <h2 className="line-clamp-2 text-xl font-black leading-[0.98] text-white font-display">{entityName}</h2>
               <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{subtitle}</p>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <Metric label="plays" value={coreUtils.formatNumber(entityCount || historyItems.length)} />
@@ -574,7 +584,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] custom-scrollbar">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync" initial={false}>
             {activeTab === 'summary' && (
               <TabPanel key="summary">
                 <SummaryContent
@@ -645,6 +655,50 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
             )}
           </AnimatePresence>
         </div>
+
+        <AnimatePresence>
+          {rankSheetOpen && (
+            <motion.div
+              className="absolute inset-0 z-40 flex items-end bg-black/28 p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setRankSheetOpen(false)}
+            >
+              <motion.div
+                initial={{ y: 18, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 14, opacity: 0 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(event) => event.stopPropagation()}
+                className="w-full rounded-[28px] border border-white/10 bg-[#141414]/95 p-4 shadow-2xl backdrop-blur-2xl"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-300">Ranking pessoal</p>
+                    <p className="mt-1 line-clamp-1 text-xs font-black text-white/84">{entityName}</p>
+                  </div>
+                  <button type="button" onClick={() => setRankSheetOpen(false)} className="rounded-full p-2 text-white/45 transition-colors hover:text-white" aria-label="Fechar ranking">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-[22px] border border-orange-500/18 bg-orange-500/[0.08] px-4 py-4">
+                    <span className="text-[8px] font-black uppercase tracking-[0.16em] text-orange-200/70">Top do ano</span>
+                    <span className="mt-2 block text-2xl font-black leading-none text-white">{topYearRank ? `#${topYearRank}` : 'fora'}</span>
+                  </div>
+                  <div className="rounded-[22px] border border-white/8 bg-white/[0.045] px-4 py-4">
+                    <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/42">Top total</span>
+                    <span className="mt-2 block text-2xl font-black leading-none text-white">{topTotalRank ? `#${topTotalRank}` : 'fora'}</span>
+                  </div>
+                </div>
+                <p className="mt-3 text-[10px] font-semibold leading-relaxed text-white/42">
+                  Rankings calculados contra seu Top 100 pessoal para {kind === 'album' ? 'albuns' : 'artistas'}.
+                </p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   );

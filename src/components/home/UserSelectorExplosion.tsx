@@ -166,7 +166,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
                 animate={{ y: [0, -3, 0] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay }}
               >
-                <div className="relative z-10 h-14 w-14 overflow-hidden rounded-full bg-stone-900 shadow-[0_12px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10 transition-all group-hover:ring-orange-500/50">
+                <div className="relative z-10 h-14 w-14 overflow-hidden rounded-full bg-stone-900 shadow-[0_12px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10 transition-[box-shadow,opacity,transform] duration-200 group-hover:ring-orange-500/50">
                   <SmartImage
                     src={coreUtils.getUserAvatar(member.id, member.avatar)}
                     className="h-full w-full object-cover"

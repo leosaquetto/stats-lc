@@ -383,11 +383,12 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
   </div>
 );
 
-export const AnimatedNumber = ({ value }: { value: number }) => {
+export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?: number }) => {
   const [numberRef, isVisible] = useElementVisibility<HTMLSpanElement>('120px');
   const prefersReducedMotion = usePrefersReducedMotion();
-  const [displayValue, setDisplayValue] = useState(value);
-  const prevValueRef = useRef(value);
+  const initialValue = startFrom == null ? value : startFrom;
+  const [displayValue, setDisplayValue] = useState(initialValue);
+  const prevValueRef = useRef(initialValue);
   const requestRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef<number | undefined>(undefined);
 

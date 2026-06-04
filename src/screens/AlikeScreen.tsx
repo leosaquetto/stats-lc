@@ -7,7 +7,7 @@ import { TopItem, UserStats } from '../types/stats';
 import { HeartHandshake, Users, Sparkles, UserCircle2, Clock, PlayCircle, Flame } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getVisibleMembers } from '../lib/memberSelectors';
+import { getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { statsService } from '../services/statsService';
 
 function cn(...inputs: any[]) {
@@ -107,11 +107,28 @@ function compareRowsToIntersection(rows: any[] = []) {
 const LEFT_BAR_ORIGIN = { transformOrigin: 'left center' } as const;
 const RIGHT_BAR_ORIGIN = { transformOrigin: 'right center' } as const;
 
+const getListeningTrack = (entry: any) => entry?.track || entry;
+const getListeningTimestamp = (entry: any) => {
+  const value = entry?.timestamp || entry?.playedAt || entry?.endTime || entry?.date;
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+const getListeningArtistName = (track: any) => {
+  const firstArtist = Array.isArray(track?.artists) ? track.artists[0] : null;
+  return track?.artist?.name ||
+    track?.primaryArtist?.name ||
+    track?.primaryArtistName ||
+    track?.artistName ||
+    (typeof firstArtist === 'string' ? firstArtist : firstArtist?.name) ||
+    '';
+};
+
 export default function AlikeScreen() {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
-  const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
+  const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
   const featuredUser = useMemo(
     () => members.find(m => m.id === featuredUserId) || members[0] || null,
     [members, featuredUserId]
@@ -125,6 +142,138 @@ export default function AlikeScreen() {
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [compareData, setCompareData] = useState<any>(null);
   const [compareStatus, setCompareStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [historicalSimultaneousItems, setHistoricalSimultaneousItems] = useState<any[]>([]);
+  const [simultaneousStatus, setSimultaneousStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const simultaneousUserIds = useMemo(
+    () => members.map((member) => member.id).filter(Boolean).sort().join(','),
+    [members]
+  );
+  const localSimultaneousListening = useMemo(() => {
+    const rows: Array<{
+      a: any;
+      b: any;
+      matchType: 'track' | 'artist';
+      title: string;
+      detail: string;
+      gapMinutes: number;
+    }> = [];
+    const events = members.flatMap((member) => {
+      const candidates = [
+        member?.nowPlaying,
+        ...(Array.isArray(member?.recent) ? member.recent.slice(0, 12) : []),
+      ];
+      const seen = new Set<string>();
+
+      return candidates.flatMap((candidate: any) => {
+        const track = getListeningTrack(candidate);
+        const trackName = track?.name || candidate?.trackName || '';
+        const artistName = getListeningArtistName(track) || candidate?.artistName || '';
+        const time = getListeningTimestamp(candidate);
+        const trackKey = coreUtils.normalizeText(trackName);
+        const artistKey = coreUtils.normalizeText(artistName);
+        const key = `${member?.id}:${trackKey}:${time}`;
+        if (!member?.id || !trackKey || !time || seen.has(key)) return [];
+        seen.add(key);
+        return [{ member, trackName, artistName, trackKey, artistKey, time }];
+      });
+    });
+    const emitted = new Set<string>();
+
+    for (let i = 0; i < events.length; i += 1) {
+      for (let j = i + 1; j < events.length; j += 1) {
+        if (events[i].member.id === events[j].member.id) continue;
+        const gapMinutes = Math.round(Math.abs(events[i].time - events[j].time) / 60000);
+        if (gapMinutes > 10) continue;
+
+        const sameTrack = events[i].trackKey === events[j].trackKey;
+        const sameArtist = !!events[i].artistKey && events[i].artistKey === events[j].artistKey;
+        if (!sameTrack && !sameArtist) continue;
+
+        const matchType = sameTrack ? 'track' : 'artist';
+        const usersKey = [events[i].member.id, events[j].member.id].sort().join(':');
+        const matchKey = sameTrack ? events[i].trackKey : events[i].artistKey;
+        const uniqueKey = `${usersKey}:${matchType}:${matchKey}`;
+        if (emitted.has(uniqueKey)) continue;
+        emitted.add(uniqueKey);
+
+        rows.push({
+          a: events[i].member,
+          b: events[j].member,
+          matchType,
+          title: sameTrack ? events[i].trackName : events[i].artistName,
+          detail: sameTrack
+            ? events[i].artistName || 'mesma faixa'
+            : `${events[i].trackName} + ${events[j].trackName}`,
+          gapMinutes,
+        });
+      }
+    }
+
+    return rows
+      .sort((a, b) => Number(a.matchType === 'artist') - Number(b.matchType === 'artist') || a.gapMinutes - b.gapMinutes)
+      .slice(0, 4);
+  }, [members]);
+
+  useEffect(() => {
+    const users = simultaneousUserIds.split(',').filter(Boolean);
+    if (users.length < 2) {
+      setHistoricalSimultaneousItems([]);
+      setSimultaneousStatus('idle');
+      return;
+    }
+
+    const controller = new AbortController();
+    setSimultaneousStatus('loading');
+    statsService.getSimultaneousListening({
+      users,
+      after: Date.now() - 7 * 24 * 60 * 60 * 1000,
+      gapMinutes: 10,
+      limit: 12,
+      perUserLimit: 1000,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        setHistoricalSimultaneousItems(Array.isArray(data?.items) ? data.items : []);
+        setSimultaneousStatus('ready');
+      })
+      .catch((error: any) => {
+        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+        setHistoricalSimultaneousItems([]);
+        setSimultaneousStatus('error');
+      });
+
+    return () => controller.abort();
+  }, [simultaneousUserIds]);
+
+  const historicalSimultaneousListening = useMemo(() => {
+    const findMember = (reference: any) => members.find((member: any) =>
+      member.id === reference?.id ||
+      member.id === reference?.key ||
+      member.key === reference?.key ||
+      coreUtils.getUserApiParam(member.id) === reference?.key
+    );
+
+    return historicalSimultaneousItems.flatMap((item: any) => {
+      const left = findMember(item?.users?.[0]);
+      const right = findMember(item?.users?.[1]);
+      if (!left || !right) return [];
+      const matchType = item?.matchType === 'artist' ? 'artist' : 'track';
+      return [{
+        a: left,
+        b: right,
+        matchType,
+        title: matchType === 'track' ? item?.track?.name : item?.artist?.name,
+        detail: matchType === 'track'
+          ? item?.track?.artistName || 'mesma faixa'
+          : (item?.tracks || []).map((track: any) => track?.name).filter(Boolean).join(' + '),
+        gapMinutes: Number(item?.gapMinutes || 0),
+      }];
+    });
+  }, [historicalSimultaneousItems, members]);
+
+  const simultaneousListening = historicalSimultaneousListening.length > 0
+    ? historicalSimultaneousListening.slice(0, 4)
+    : localSimultaneousListening;
 
   const friendAffinities = useMemo(() => {
     if (!featuredUser) return [];
@@ -281,6 +430,57 @@ export default function AlikeScreen() {
         </div>
       </div>
 
+      <div className="glass-card rounded-[32px] border-white/5 bg-white/[0.026] p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">Sintonia simultânea</p>
+            <p className="mt-1 text-xs font-semibold leading-relaxed text-white/42">Reproduções do círculo com até 10 minutos de diferença.</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="rounded-full border border-orange-500/18 bg-orange-500/10 px-2 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200/70">
+              {historicalSimultaneousListening.length > 0 ? '7 dias' : simultaneousStatus === 'loading' ? 'buscando' : 'live'}
+            </span>
+            <Clock className="h-5 w-5 text-orange-300/80" />
+          </div>
+        </div>
+        <div className="mt-4 flex flex-col gap-2">
+          {simultaneousListening.length > 0 ? simultaneousListening.map((row, index) => (
+            <div key={`${row.a.id}-${row.b.id}-${index}`} className="flex items-center gap-3 rounded-[22px] border border-white/6 bg-black/20 px-3 py-3">
+              <div className="flex -space-x-2">
+                {[row.a, row.b].map((member) => (
+                  <SmartImage
+                    key={member.id}
+                    src={coreUtils.getUserAvatar(member.id, member.avatar)}
+                    fallback={member.name}
+                    rounded="full"
+                    className="h-9 w-9 border border-black"
+                  />
+                ))}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="rounded-full border border-orange-500/18 bg-orange-500/10 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-[0.12em] text-orange-200/75">
+                    {row.matchType === 'track' ? 'faixa' : 'artista'}
+                  </span>
+                  <span className="block min-w-0 truncate text-xs font-black text-white/86">{row.title}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-[9px] font-bold uppercase tracking-[0.12em] text-white/36">
+                  {row.detail} · {row.gapMinutes <= 1 ? 'quase juntos' : `${row.gapMinutes} min`}
+                </span>
+              </div>
+            </div>
+          )) : (
+            <div className="rounded-[22px] border border-white/7 bg-white/[0.035] px-4 py-4 text-center text-[10px] font-bold leading-relaxed text-white/48 backdrop-blur-xl">
+              {simultaneousStatus === 'loading'
+                ? 'Buscando coincidências no histórico recente do círculo.'
+                : simultaneousStatus === 'error'
+                  ? 'A busca histórica não respondeu; nenhuma coincidência apareceu também no live/recentes carregados.'
+                  : 'Nenhuma faixa ou artista em comum apareceu no intervalo de 10 minutos.'}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Versus Section */}
       {selectedFriend && compareStats && (
         <motion.div 
@@ -353,12 +553,6 @@ export default function AlikeScreen() {
                 <CommonList title="Músicas Top 50" items={compareStats.intersection.tracks} type="faixa" />
                 <CommonList title="Álbuns Top 50" items={compareStats.intersection.albums} type="álbum" />
                 
-                {compareStats.intersection.artists.length === 0 && compareStats.intersection.tracks.length === 0 && compareStats.intersection.albums.length === 0 && (
-                  <div className="py-8 text-center flex flex-col items-center gap-2 opacity-40">
-                     <HeartHandshake className="h-6 w-6" />
-                     <span className="text-xs uppercase tracking-widest font-bold">Nenhum Top em comum</span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -412,8 +606,6 @@ const CompareBar = ({ label, userVal, friendVal, isTime = false }: { label: stri
 };
 
 const CommonList = ({ title, items, type }: { title: string, items: any[], type: string }) => {
-  if (items.length === 0) return null;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -421,6 +613,11 @@ const CommonList = ({ title, items, type }: { title: string, items: any[], type:
         <span className="text-[9px] font-black uppercase tracking-widest text-white/30">{title}</span>
         <div className="flex-1 h-[1px] bg-white/5" />
       </div>
+      {items.length === 0 ? (
+        <div className="rounded-[22px] border border-white/7 bg-white/[0.04] px-4 py-4 text-center text-[10px] font-bold leading-relaxed text-white/48 backdrop-blur-xl">
+          Sem match no Top 50 de {type}s neste recorte.
+        </div>
+      ) : (
       <div className="flex flex-col gap-2">
         {items.slice(0, 5).map((match, idx) => {
            const uItem = match.item;
@@ -444,6 +641,7 @@ const CommonList = ({ title, items, type }: { title: string, items: any[], type:
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

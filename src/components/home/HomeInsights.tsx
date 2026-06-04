@@ -483,6 +483,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             const insight = insights[index];
             if (!insight) return null;
             const isPrimary = offset === 0;
+            const shouldFloat = !shouldReduceMotion && isInsightsVisible;
             return (
               <motion.button
                 type="button"
@@ -491,13 +492,13 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   insight.onClick?.();
                 }}
                 initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={shouldReduceMotion ? { opacity: 1, y: 0, x: 0, rotate: 0 } : {
+                animate={!shouldFloat ? { opacity: 1, y: 0, x: 0, rotate: 0 } : {
                   opacity: 1,
                   y: isPrimary ? [0, -7, 0] : [0, 6, 0],
                   x: isPrimary ? [0, 5, 0] : [0, -5, 0],
                   rotate: isPrimary ? [0, -1.3, 0] : [0, 1.3, 0],
                 }}
-                transition={shouldReduceMotion ? { duration: 0.2 } : { duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                transition={!shouldFloat ? { duration: 0.2 } : { duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
                 className={`absolute w-[164px] text-left ${isPrimary ? "left-0 top-5" : "right-0 bottom-2"}`}
               >
                 {renderInsightCard(insight)}

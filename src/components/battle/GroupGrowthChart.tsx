@@ -1,12 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   AreaChart, 
   Area, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer
+  Tooltip
 } from 'recharts';
 import { coreUtils } from '../../services/statsCore';
 
@@ -15,6 +14,9 @@ interface GroupGrowthChartProps {
 }
 
 export const GroupGrowthChart: React.FC<GroupGrowthChartProps> = ({ data: customData }) => {
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
   const data = useMemo(() => {
     if (customData) return customData;
 
@@ -41,6 +43,35 @@ export const GroupGrowthChart: React.FC<GroupGrowthChartProps> = ({ data: custom
     return result;
   }, [customData]);
 
+  useEffect(() => {
+    const node = chartRef.current;
+    if (!node) return undefined;
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+      if (width > 0 && height > 0) {
+        setSize((current) => (
+          current.width === width && current.height === height
+            ? current
+            : { width, height }
+        ));
+      }
+    };
+
+    updateSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateSize);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
   return (
     <div className="w-full h-64 mt-4 glass-card p-4 border-white/5 relative overflow-hidden bg-black/20">
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1">
@@ -48,8 +79,9 @@ export const GroupGrowthChart: React.FC<GroupGrowthChartProps> = ({ data: custom
          <span className="text-[8px] text-white/30 uppercase font-bold tracking-tighter">Streams Totais do Grupo (30D)</span>
       </div>
 
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 40, right: 0, left: -20, bottom: 0 }}>
+      <div ref={chartRef} className="h-full w-full min-h-[224px] min-w-0">
+        {size.width > 1 && size.height > 1 ? (
+        <AreaChart width={size.width} height={size.height} data={data} margin={{ top: 40, right: 0, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="colorStreams" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
@@ -90,7 +122,10 @@ export const GroupGrowthChart: React.FC<GroupGrowthChartProps> = ({ data: custom
             animationDuration={2000}
           />
         </AreaChart>
-      </ResponsiveContainer>
+        ) : (
+          <div className="h-full w-full" />
+        )}
+      </div>
     </div>
   );
 };

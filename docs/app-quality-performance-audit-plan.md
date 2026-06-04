@@ -149,3 +149,34 @@ Cada item so fecha quando:
   arquivos versionados, foi usado fallback temporario em `node_modules` com
   `esbuild-wasm`, `@rollup/wasm-node` e stub local de `fsevents`. Depois disso,
   `git diff --check`, `npm run lint` e `npm run build` passaram.
+- 2026-06-03: iniciada a execucao do plano Premium 430 para Home, Stats,
+  Orbita, Ajustes, Bottom Bubble, letras, modais de artista/album e possiveis
+  ajustes de API apenas quando os dados reais exigirem. Checkpoint dedicado:
+  `docs/premium-430-ui-refactor-progress.md`.
+- 2026-06-03 430x932, Premium 430 executado: Home ganhou recentes no padrao de
+  timeline, Atividade do Circulo e vinil reduziram remounts pesados, Bottom
+  Bubble ganhou anel menor/prewarm/limpeza de letras e handlers extras de
+  fechamento, Stats normalizou artistas no Replay e fallback de charts,
+  Orbita ganhou Radar/Arena orbital com Duelos incorporados, Afinidade ganhou
+  sintonia simultanea local e modais de artista/album ganharam submodal de
+  ranking pessoal para badges Top Ano/Total.
+- Validacao Browser in-app `430x932`: `/`, `/stats`, `/circle`,
+  `/circle?tab=orbits`, `/circle?tab=arena`, `/ranking`,
+  `/circle?tab=duels`, `/circle?tab=affinity`, `/alike` e `/settings`
+  renderizaram sem imagens quebradas, sem overflow horizontal real e sem logs
+  relevantes; `plays/min` do Replay foi acionado, Bottom Bubble/letras abriram
+  e a letra apareceu sem secoes entre colchetes.
+- 2026-06-04: retomada a continuacao integral depois de interrupcao. Checks
+  tecnicos passaram novamente no frontend (`git diff --check`, `npm run lint`,
+  `npm run build`) e no `stats-lc-api` (`npm run check`, 57 testes). Antes da
+  prova visual final, logs esperados de fallback da Stats foram rebaixados para
+  `console.debug` e transicoes genericas remanescentes nos seletores de usuario
+  da Home foram convertidas para propriedades especificas.
+- 2026-06-04 validacao final: Browser in-app `430x932` confirmou Home, Stats,
+  Orbita, Orbits, Arena, Duelos, Afinidade, `/ranking`, `/alike` e Ajustes sem
+  overflow horizontal, sem imagens visiveis quebradas, sem secoes-chave vazias
+  e sem `warn/error` novo apos estabilizacao. Foram testados: Bottom Bubble,
+  letra, filtros Stats, Replay `plays/min`, grafico temporal, modal de artista,
+  composer de Orbits sem envio, filtros/Batalha da Arena, troca de amigo no
+  Alike e chips seguros de Ajustes. Acoes destrutivas de Ajustes nao foram
+  executadas.

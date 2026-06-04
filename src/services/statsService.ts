@@ -496,6 +496,16 @@ export type ComparePeriodQuery = {
   signal?: AbortSignal;
 };
 
+export type SimultaneousListeningQuery = {
+  users: string[];
+  after?: number;
+  before?: number;
+  gapMinutes?: number;
+  limit?: number;
+  perUserLimit?: number;
+  signal?: AbortSignal;
+};
+
 let groupRequestInFlight: Promise<GroupStats> | null = null;
 let liveRequestInFlight: Promise<GroupStats> | null = null;
 
@@ -1034,6 +1044,22 @@ export const statsService = {
       ...(query.commonMode ? { commonMode: query.commonMode } : {}),
       ...(query.minSharedBy ? { minSharedBy: query.minSharedBy } : {}),
     }, !!query.force, 1, true, { signal: query.signal });
+  },
+
+  async getSimultaneousListening(query: SimultaneousListeningQuery): Promise<any> {
+    const users = query.users.map((userId) => coreUtils.getUserApiParam(userId)).filter(Boolean);
+    if (users.length < 2) {
+      return { ok: false, items: [], coverage: { source: 'insufficient_users', partial: false } };
+    }
+
+    return fetchFromApi<any>('/api/simultaneous', {
+      users: users.join(','),
+      ...(query.after ? { after: query.after } : {}),
+      ...(query.before ? { before: query.before } : {}),
+      gapMinutes: query.gapMinutes || 10,
+      limit: query.limit || 12,
+      perUserLimit: query.perUserLimit || 1000,
+    }, false, 1, true, { signal: query.signal });
   },
 
   /**

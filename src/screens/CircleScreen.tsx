@@ -64,7 +64,7 @@ const getNowArtistName = (user: any) => {
 };
 const getNowTrackImage = (user: any) => {
   const track = user?.nowPlaying?.track || {};
-  return track.image || track.albumImage || track.album?.image || track.album?.images?.[0]?.url || '';
+  return track.albumImage || track.album?.image || track.album?.images?.[0]?.url || track.image || track.images?.[0]?.url || '';
 };
 const getStreamsToday = (user: any) => Number(user?.streamsToday || user?.stats?.today?.streams || 0);
 const getStreamsWeek = (user: any) => Number(user?.streamsWeek || user?.stats?.week?.streams || 0);
@@ -114,7 +114,7 @@ function OrbitSummaryPreview({ currentUserId, onOpen }: { currentUserId?: string
           <Inbox className="h-5 w-5 text-orange-300" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-200/85">Inbox social</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-200/85">Caixa de Orbits</p>
           <p className="mt-1 text-xs font-semibold leading-relaxed text-white/48">
             {available ? `${summary.received} recebidos · ${summary.unread} novos · ${summary.sentListened} viraram plays` : 'Conectando com a inbox do circulo'}
           </p>
@@ -186,11 +186,11 @@ function CircleCockpitHero({ members, featuredUserId, onOpenOrbits }: { members:
               {liveMembers.length} ao vivo
             </span>
           </div>
-          <h1 className="mt-3 text-2xl font-black leading-none tracking-[-0.04em] text-white">Pulso do círculo</h1>
+          <h1 className="mt-3 text-2xl font-black leading-none tracking-[-0.04em] text-white">Radar do círculo</h1>
           <p className="mt-2 line-clamp-2 text-xs font-semibold leading-relaxed text-white/48">
             {spotlightUser?.nowPlaying?.track
               ? `${getFirstName(spotlightUser.name)} está em ${getNowTrackName(spotlightUser)} · ${getNowArtistName(spotlightUser)}`
-              : 'Arena Live, Orbits e timeline em uma entrada rápida para o que está acontecendo agora.'}
+              : 'Sistema Live, Orbits e timeline em uma entrada rápida para o que está acontecendo agora.'}
           </p>
         </div>
       </div>
@@ -427,7 +427,7 @@ function DuelsSection() {
                     rounded="full"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white/90">{user.name}</p>
+                    <p className="line-clamp-2 text-sm font-black leading-tight text-white/90">{user.name}</p>
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/32">
                       {coreUtils.formatNumber(user.displayCount)} streams
                     </p>
@@ -572,8 +572,8 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
           [1, 2, 3, 4, 5].map(i => (
             <motion.div
               key={`orbit-hist-skeleton-${i}`}
-              initial={{ opacity: 0, y: 15, filter: "blur(4px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col"
             >
@@ -593,18 +593,14 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
             </motion.div>
           ))
         ) : (
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence initial={false}>
             {recentTracks.slice(0, visibleHistory).map((user, idx) => (
               <motion.div
-                layout
                 key={user.id || `orbit-hist-${idx}`}
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{
-                  opacity: { duration: 0.2 },
-                  layout: { type: "spring", stiffness: 350, damping: 35 }
-                }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               >
                 <FriendHistoryCard
                   user={user}
@@ -644,6 +640,36 @@ function CircleOrbitsTab() {
   const currentUserId = featuredUserId || defaultOrbitUserId;
 
   return <OrbitsSection currentUserId={currentUserId} members={members} />;
+}
+
+function CircleArenaTab() {
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="mx-4 overflow-hidden rounded-[34px] border border-orange-500/15 bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(255,255,255,0.1),transparent_26%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+            <Trophy className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-200/80">Arena orbital</p>
+            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">ranking, batalha e duelos</h1>
+          </div>
+          <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-orange-200">
+            Live
+          </span>
+        </div>
+        <p className="mt-4 text-xs font-semibold leading-relaxed text-white/48">
+          O placar principal abre primeiro; duelos ficam como painel complementar da Arena sem duplicar a rota.
+        </p>
+      </section>
+
+      <Suspense fallback={<CircleTabLoader label="Carregando ranking da arena" />}>
+        <RankingScreen />
+      </Suspense>
+
+      <DuelsSection />
+    </div>
+  );
 }
 
 const getRequestedTab = (search: string, initialTab: CircleTab) => {
@@ -687,9 +713,10 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
               >
                 {isActive && (
                   <motion.span
-                    layoutId="circle-active-tab"
                     className="absolute inset-0 rounded-2xl border border-orange-500/20 bg-orange-500/10"
-                    transition={{ type: "spring", bounce: 0.15, duration: 0.45 }}
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                   />
                 )}
                 <Icon className="relative h-3.5 w-3.5" />
@@ -711,11 +738,7 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
         >
       {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} />}
       {activeTab === 'orbits' && <CircleOrbitsTab />}
-      {activeTab === 'arena' && (
-        <Suspense fallback={<CircleTabLoader label="Carregando ranking" />}>
-          <RankingScreen />
-        </Suspense>
-      )}
+      {activeTab === 'arena' && <CircleArenaTab />}
       {activeTab === 'affinity' && (
         <Suspense fallback={<CircleTabLoader label="Carregando afinidade" />}>
           <AlikeScreen />

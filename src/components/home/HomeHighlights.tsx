@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { getVisibleMembers } from '../../lib/memberSelectors';
@@ -61,9 +61,9 @@ const getOrbitAvatarRadius = (size: 'large' | 'normal' | 'small') => {
 };
 
 const getOrbitCenterClearance = (size: 'large' | 'normal' | 'small') => {
-  if (size === 'large') return 34;
-  if (size === 'normal') return 30;
-  return 27;
+  if (size === 'large') return 38;
+  if (size === 'normal') return 34;
+  return 31;
 };
 
 const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
@@ -97,6 +97,8 @@ const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const shouldReduceMotion = useReducedMotion();
   const stageRef = React.useRef<HTMLDivElement | null>(null);
+  const isStageVisible = useInView(stageRef, { amount: 0.1, margin: '160px 0px' });
+  const canAnimateStage = !shouldReduceMotion && isStageVisible;
   const [arenaSeed] = React.useState(() => getArenaSeed(users) ^ Date.now());
 
   const totalStreams = React.useMemo(() =>
@@ -126,9 +128,9 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
 
       for (let attempt = 0; attempt < 36; attempt += 1) {
         const angle = seededOrbitUnit(arenaSeed + index * 13, attempt) * Math.PI * 2;
-        const radius = index === 0 ? 32 : 31 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 22;
-        const left = Math.max(12, Math.min(88, 50 + Math.cos(angle) * radius));
-        const top = Math.max(12, Math.min(88, 50 + Math.sin(angle) * radius * 0.76));
+        const radius = index === 0 ? 38 : 37 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 18;
+        const left = Math.max(14, Math.min(86, 50 + Math.cos(angle) * radius));
+        const top = Math.max(18, Math.min(86, 50 + Math.sin(angle) * radius * 0.76));
         const centerDistance = Math.sqrt(
           Math.pow(left - 50, 2) + Math.pow((top - 50) / 0.76, 2)
         );
@@ -189,12 +191,12 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 }}
                 transition={{
                   duration: 2,
-                  repeat: shouldReduceMotion ? 0 : Infinity,
+                  repeat: canAnimateStage ? Infinity : 0,
                   ease: "easeInOut"
                 }}
                 className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.8)]"
               />
-              <span className="text-[12px] font-black uppercase tracking-[0.38em] text-white/58">Arena Live</span>
+              <span className="text-[12px] font-black uppercase tracking-[0.38em] text-white/58">Sistema Live</span>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.045] px-4 py-2">
               <span className="text-[9px] font-black uppercase tracking-[0.24em] text-white/45">Hoje</span>
@@ -202,7 +204,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           </div>
 
           {/* Orbital Stage */}
-            <motion.div ref={stageRef} className="relative flex min-h-[330px] flex-1 items-center justify-center" layout>
+          <motion.div ref={stageRef} className="relative flex min-h-[330px] flex-1 items-center justify-center">
             {/* Orbital Rings */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Inner ring */}
@@ -224,22 +226,22 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
               </svg>
               {/* Light dots on rings */}
               <motion.div
-                animate={shouldReduceMotion ? {} : { opacity: [0.3, 0.8, 0.3], scale: [0.9, 1.2, 0.9] }}
-                transition={{ duration: 3, repeat: shouldReduceMotion ? 0 : Infinity, ease: "easeInOut" }}
+                animate={canAnimateStage ? { opacity: [0.3, 0.8, 0.3], scale: [0.9, 1.2, 0.9] } : { opacity: 0.45, scale: 1 }}
+                transition={{ duration: 3, repeat: canAnimateStage ? Infinity : 0, ease: "easeInOut" }}
                 className="absolute h-[268px] w-[268px]"
               >
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-500/60 blur-[1px]" />
               </motion.div>
               <motion.div
-                animate={shouldReduceMotion ? {} : { opacity: [0.4, 0.9, 0.4], scale: [1, 1.3, 1] }}
-                transition={{ duration: 4, repeat: shouldReduceMotion ? 0 : Infinity, ease: "easeInOut", delay: 1.5 }}
+                animate={canAnimateStage ? { opacity: [0.4, 0.9, 0.4], scale: [1, 1.3, 1] } : { opacity: 0.5, scale: 1 }}
+                transition={{ duration: 4, repeat: canAnimateStage ? Infinity : 0, ease: "easeInOut", delay: 1.5 }}
                 className="absolute h-[338px] w-[338px]"
               >
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-green-500/50 blur-[1px]" />
               </motion.div>
               <motion.div
-                animate={shouldReduceMotion ? {} : { rotate: 360 }}
-                transition={{ duration: 34, repeat: shouldReduceMotion ? 0 : Infinity, ease: "linear" }}
+                animate={canAnimateStage ? { rotate: 360 } : { rotate: 0 }}
+                transition={{ duration: 34, repeat: canAnimateStage ? Infinity : 0, ease: "linear" }}
                 className="absolute h-[304px] w-[304px]"
               >
                 <div className="absolute left-[14%] top-[12%] h-2 w-2 rounded-full border border-white/16 bg-white/[0.08] shadow-[0_0_14px_rgba(255,255,255,0.2)]" />
@@ -248,7 +250,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
             </div>
 
             {/* Center Stats */}
-            <div className="relative z-20 flex flex-col items-center gap-1">
+            <div className="relative z-50 flex flex-col items-center gap-1 rounded-full bg-black/12 px-5 py-4 backdrop-blur-[1px]">
               <motion.span
                 key={totalStreams}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -263,7 +265,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
             </div>
 
             {/* Orbiting Participants */}
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence initial={false}>
               {displayParticipants.map((user, i) => {
                 const position = orbitalPositions[i];
                 const isLeader = i === 0;
@@ -273,13 +275,12 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 return (
                   <motion.div
                     key={user.id}
-                    layout
                     drag
                     dragConstraints={stageRef}
                     dragMomentum={!shouldReduceMotion}
                     dragElastic={0.18}
                     dragTransition={{ power: 0.18, timeConstant: 280, bounceStiffness: 220, bounceDamping: 24 }}
-                    whileDrag={{ scale: 1.06, zIndex: 30 }}
+                    whileDrag={{ scale: 1.06, zIndex: 40 }}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
                       opacity: hasZeroStreams ? 0.5 : 1,
@@ -297,14 +298,15 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       top: `${position.top}%`,
                       transform: 'translate(-50%, -50%)',
                       touchAction: 'none',
+                      zIndex: isLeader ? 32 : 24,
                     }}
                   >
                     <motion.div
                       className="relative"
-                      animate={shouldReduceMotion ? {} : { y: [0, -3, 0] }}
+                      animate={canAnimateStage ? { y: [0, -3, 0] } : { y: 0 }}
                       transition={{
                         duration: 5 + i * 0.5,
-                        repeat: shouldReduceMotion ? 0 : Infinity,
+                        repeat: canAnimateStage ? Infinity : 0,
                         ease: "easeInOut",
                         delay: i * 0.3
                       }}
@@ -329,8 +331,8 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       {/* Badge */}
                       <div
                         className={cn(
-                          "absolute -bottom-1.5 -right-1.5 z-20 flex h-[24px] min-w-[24px] items-center justify-center rounded-full border-2 border-[#050505] px-1.5 shadow-lg",
-                          isLeader ? "bg-orange-500" : "bg-orange-600"
+                          "absolute -bottom-1.5 -right-1.5 z-20 flex h-[24px] min-w-[24px] items-center justify-center rounded-full border border-orange-100/10 bg-[#ff5f00]/68 px-1.5 text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.28),0_7px_14px_rgba(0,0,0,0.32)] backdrop-blur-md",
+                          isLeader && "ring-2 ring-orange-500/20"
                         )}
                       >
                         <span className="text-[9px] font-black tabular-nums leading-none text-white">
@@ -443,14 +445,10 @@ export const MonthlyGroupLeaderboard = React.memo(({ users, type = 'month' }: { 
           const isFeatured = user.id === featuredUserId;
           return (
             <motion.div 
-              layout
               key={user.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ 
-                delay: i * 0.05,
-                layout: { type: "spring", stiffness: 350, damping: 35 }
-              }}
+              transition={{ delay: i * 0.05 }}
               className={cn(
                 "glass-card min-w-[140px] p-6 flex flex-col items-center gap-4 border-white/5",
                 isFeatured ? "border-orange-500/20 bg-orange-500/10 shadow-[0_15px_35px_rgba(255,159,10,0.1)]" : "bg-white/[0.02]"
@@ -554,7 +552,7 @@ export const FriendsLiveCarousel = React.memo(() => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.1 }}
               onClick={() => handleFriendClick(friend)}
-              className="glass-card min-w-[180px] max-w-[220px] p-4 flex items-center gap-3 relative overflow-hidden transition-all border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] active:scale-95"
+              className="glass-card min-w-[180px] max-w-[220px] p-4 flex items-center gap-3 relative overflow-hidden transition-[background-color,border-color,transform,opacity] border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] active:scale-95"
             >
               <div className="relative shrink-0">
                 <motion.div
@@ -726,7 +724,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             key={p}
             onClick={() => setPeriod(p)}
             className={cn(
-              "px-2 py-0.5 rounded text-[7.5px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+              "px-2 py-0.5 rounded text-[7.5px] font-black uppercase tracking-widest transition-[background-color,color,box-shadow,transform] whitespace-nowrap",
               period === p ? "bg-white text-[#050505] shadow-md shadow-white/5" : "text-white/40 hover:text-white/90 cursor-pointer"
             )}
           >
@@ -742,7 +740,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Artistas</span>
           </div>
           <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence initial={false}>
               {tops.artists.map((artist, idx) => (
                 <motion.div 
                   key={topItemKey('artist', artist, idx)}
@@ -780,7 +778,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Faixas</span>
           </div>
           <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence initial={false}>
               {tops.tracks.map((track, idx) => (
                 <motion.div 
                   key={topItemKey('track', track, idx)}
@@ -818,7 +816,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <span className="text-[7.5px] font-black uppercase tracking-[0.2em] text-white">Top Álbuns</span>
           </div>
           <div data-home-horizontal-scroll="true" className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-1 scroll-fade-h scrolling-touch -mx-4 px-4">
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence initial={false}>
               {tops.albums.map((album, idx) => (
                 <motion.div 
                   key={topItemKey('album', album, idx)}
@@ -853,7 +851,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         onClick={() => navigate('/highlights')}
-        className="w-full mt-1.5 flex items-center justify-between py-2 px-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl shadow-md border border-white/10 relative overflow-hidden transition-all text-[9px] font-black uppercase tracking-widest active:scale-95"
+        className="relative mt-1.5 flex w-full items-center justify-between overflow-hidden rounded-xl border border-white/10 bg-orange-600 px-3.5 py-2 text-[9px] font-black uppercase tracking-widest text-white shadow-md transition-[background-color,border-color,box-shadow,transform] hover:bg-orange-500 active:scale-95"
       >
         <span>Explorar destaques</span>
         <ArrowRight className="h-3 w-3" />

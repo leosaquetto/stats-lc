@@ -500,7 +500,7 @@ const HomeOrbitalHighlights = ({
                 y: `calc(-50% + ${position.y}px)`,
                 rotate: position.rotate,
               }}
-              transition={{ type: 'spring', stiffness: 165, damping: 24, delay: 0.06 + index * 0.04 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: 0.04 + index * 0.025 }}
               style={{ width: position.width, height: position.height }}
             >
               <motion.div
@@ -548,7 +548,7 @@ const HomeOrbitalHighlights = ({
           )}
           initial={{ opacity: 0, scale: 0.88, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 180, damping: 22 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div
             animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, -5, 3, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
@@ -636,13 +636,12 @@ const HomeOrbitalHighlights = ({
               const y = isCentered ? 0 : -22;
               const scale = isCentered ? 1 : 0.7;
               const opacity = isCentered ? 1 : 0.28;
-              const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
               return (
                 <motion.div
                   key={`highlight-orbit-${group.key}`}
                   className="absolute inset-0"
-                  animate={{ x, y, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
-                  transition={{ type: 'spring', stiffness: 160, damping: 24 }}
+                  animate={{ x, y, scale, opacity, zIndex: isCentered ? 30 : 8 }}
+                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                   onClick={() => !isCentered && goTo(index)}
                   aria-hidden={!isCentered}
                 >
@@ -661,7 +660,7 @@ const HomeOrbitalHighlights = ({
                 type="button"
                 onClick={() => goTo(index)}
                 className={cn(
-                  "h-1.5 rounded-full transition-all",
+                  "h-1.5 rounded-full transition-[width,background-color]",
                   index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
                 )}
                 aria-label={`Abrir ${group.title}`}
@@ -776,7 +775,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
                 x: `calc(-50% + ${position.x}px)`,
                 y: `calc(-50% + ${position.y}px)`,
               }}
-              transition={{ type: 'spring', stiffness: 160, damping: 24, delay: 0.04 * relative }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: 0.025 * relative }}
               style={{ width: position.size, height: position.size }}
             >
               <motion.div
@@ -791,7 +790,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
                   ease: 'easeInOut',
                 } : {}}
               >
-                {item.image ? <img src={item.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
+                {item.image ? <SmartImage src={item.image} className="h-full w-full object-cover" rounded="none" fallback={item.title} /> : null}
                 <div className="absolute inset-0 bg-black/20" />
               </motion.div>
             </motion.div>
@@ -803,14 +802,14 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
           className="absolute left-1/2 top-[50%] z-30 grid w-[82%] -translate-x-1/2 -translate-y-1/2 grid-cols-[78px_minmax(0,1fr)] gap-4"
           initial={{ opacity: 0, scale: 0.92, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 170, damping: 23 }}
+          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
         >
           <motion.div
             animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
             transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
             className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
           >
-            {activePerception.image ? <img src={activePerception.image} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : null}
+            {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
             <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
               <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
@@ -830,7 +829,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
                 type="button"
                 onClick={() => goTo(index)}
                 className={cn(
-                  "h-1.5 rounded-full transition-all",
+                  "h-1.5 rounded-full transition-[width,background-color]",
                   index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
                 )}
                 aria-label={`Abrir ${item.title}`}
@@ -843,7 +842,15 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
   );
 };
 
-const HomeRecentPlays = ({ recent, onViewMore }: { recent: any[]; onViewMore?: () => void }) => {
+const HomeRecentPlays = ({
+  recent,
+  onViewMore,
+  onTrackClick
+}: {
+  recent: any[];
+  onViewMore?: () => void;
+  onTrackClick?: (track: any) => void;
+}) => {
   const list = recent.slice(0, 10);
   return (
     <section className="px-4 sm:px-6 lg:px-8">
@@ -856,41 +863,62 @@ const HomeRecentPlays = ({ recent, onViewMore }: { recent: any[]; onViewMore?: (
           <button
             type="button"
             onClick={onViewMore}
-            className="shrink-0 rounded-full bg-white/[0.045] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition-colors hover:bg-white/[0.08] hover:text-white/80"
+            className="shrink-0 rounded-full bg-white/[0.045] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition-[background-color,color] hover:bg-white/[0.08] hover:text-white/80"
           >
             ver mais
           </button>
         )}
       </div>
-      <div className="glass-aura flex flex-col gap-2 rounded-[32px] p-3">
+      <div className="glass-aura relative overflow-hidden rounded-[32px] p-3">
+        <div className="pointer-events-none absolute left-[34px] top-5 bottom-5 w-px bg-gradient-to-b from-orange-500/0 via-orange-500/28 to-orange-500/0" />
         {list.length === 0 && (
           <div className="flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 text-center">
             <Clock3 className="h-5 w-5 text-white/18" />
             <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/32">Nenhuma reprodução recente confirmada</span>
           </div>
         )}
+        <div className="flex flex-col gap-2">
         {list.map((item, index) => {
           const track = item.track || item;
           const artist = Array.isArray(track.artists)
             ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).filter(Boolean).join(', ')
             : track.artist?.name || item.artistName || '';
           const playedAt = item.playedAt || item.timestamp || item.endTime || item.date;
+          const image = track.image || track.albumImage || track.album?.image;
           return (
-            <div key={`${track.id || track.name}-${index}`} className="flex items-center gap-3 rounded-[24px] bg-white/[0.035] px-3 py-2.5">
-              <SmartImage src={track.image || track.albumImage || track.album?.image} className="h-11 w-11 object-cover" fallback={track.name || 'play'} rounded="2xl" />
-              <div className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black text-white">{track.name || 'Sem título'}</span>
-                <span className="block truncate text-xs font-semibold text-white/45">{artist}</span>
+            <button
+              key={`${track.id || track.name}-${playedAt || index}`}
+              type="button"
+              onClick={() => onTrackClick?.({ ...track, type: 'track', artistName: artist, playedAt })}
+              className="group relative grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded-[24px] bg-white/[0.035] px-3 py-2.5 text-left transition-[background-color,transform] active:scale-[0.99] hover:bg-white/[0.055]"
+            >
+              <div className="relative">
+                <span className="absolute -left-[17px] top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-300/70 bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.45)]" />
+                <SmartImage src={image} className="h-12 w-12 object-cover shadow-[0_12px_26px_rgba(0,0,0,0.32)]" fallback={track.name || 'play'} rounded="2xl" />
               </div>
-              <span className="shrink-0 text-[9px] font-black uppercase tracking-[0.12em] text-white/34">{playedAt ? coreUtils.formatRelativeTimeSP(playedAt) : 'agora'}</span>
-            </div>
+              <div className="min-w-0">
+                <span className="block truncate text-[13px] font-black leading-tight text-white">{track.name || 'Sem título'}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-semibold text-white/46">{artist || 'Artista'}</span>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <span className="rounded-full border border-white/10 bg-black/24 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-white/42">
+                  {playedAt ? coreUtils.formatRelativeTimeSP(playedAt) : 'agora'}
+                </span>
+                {index === 0 && (
+                  <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200">
+                    Recente
+                  </span>
+                )}
+              </div>
+            </button>
           );
         })}
+        </div>
         {list.length > 0 && (
           <button
             type="button"
             onClick={onViewMore}
-            className="mt-1 w-full rounded-[22px] border border-orange-500/15 bg-orange-500/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200/82 transition-colors hover:bg-orange-500/[0.13] hover:text-orange-100"
+            className="mt-3 w-full rounded-[22px] border border-orange-500/15 bg-orange-500/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200/82 transition-[background-color,color,border-color] hover:bg-orange-500/[0.13] hover:text-orange-100"
           >
             Ver todo histórico
           </button>
@@ -1126,8 +1154,9 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
-  const hasReleasedHomeRef = useRef(hasBootReadySession());
-  const shouldSkipHomeEntryMotion = hasReleasedHomeRef.current || hasBootReadySession();
+  const wasHomeReadyAtMountRef = useRef(hasBootReadySession());
+  const hasReleasedHomeRef = useRef(wasHomeReadyAtMountRef.current);
+  const shouldSkipHomeEntryMotion = wasHomeReadyAtMountRef.current;
 
   useEffect(() => {
     if (!hasReleasedHomeRef.current) return;
@@ -2020,7 +2049,7 @@ export default function HomeScreen() {
       )}
 
       <div
-        className="flex flex-col gap-3 pt-24 pb-[calc(11rem+env(safe-area-inset-bottom,0px))]"
+        className="flex flex-col gap-3 pt-24 pb-6"
       >
 
       {/* Custom Background Sync Bar */}
@@ -2105,7 +2134,7 @@ export default function HomeScreen() {
       </AnimatePresence>
 
       {/* Primary Highlight: Dynamic User */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         {!isAppReady && !error ? (
           <div key="home-boot-placeholder" className="min-h-[72vh]" aria-busy="true" />
         ) : error ? (
@@ -2166,7 +2195,7 @@ export default function HomeScreen() {
                  <button 
                    onClick={() => fetchGroup(false)}
                    disabled={isLoading || isRefreshing}
-                   className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black uppercase tracking-[0.15em] shadow-[0_10px_25px_rgba(234,88,12,0.3)] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-wait"
+                   className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black uppercase tracking-[0.15em] shadow-[0_10px_25px_rgba(234,88,12,0.3)] active:scale-95 transition-[background-color,opacity,transform] disabled:opacity-50 disabled:cursor-wait"
                  >
                    {isLoading || isRefreshing ? (
                      <Loader2 className="h-4 w-4 animate-spin" />
@@ -2178,7 +2207,7 @@ export default function HomeScreen() {
                  
                  <button 
                    onClick={() => window.location.reload()}
-                   className="w-full px-6 py-3.5 glass hover:bg-white/10 text-white/70 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-all active:scale-95"
+                   className="w-full px-6 py-3.5 glass hover:bg-white/10 text-white/70 hover:text-white rounded-2xl text-[10px] font-black uppercase tracking-widest border border-white/10 transition-[background-color,border-color,color,transform] active:scale-95"
                  >
                    <span className="truncate">Reiniciar App</span>
                  </button>
@@ -2326,7 +2355,11 @@ export default function HomeScreen() {
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <HomeRecentPlays recent={resolvedRecentPlays} onViewMore={() => setViewingFullHistoryUser(primaryUser)} />
+          <HomeRecentPlays
+            recent={resolvedRecentPlays}
+            onViewMore={() => setViewingFullHistoryUser(primaryUser)}
+            onTrackClick={handleOpenMusicDetail}
+          />
         </motion.div>
       )}
 

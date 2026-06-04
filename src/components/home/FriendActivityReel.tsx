@@ -1,6 +1,6 @@
 
-import React, { useMemo } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import React, { useMemo, useRef } from 'react';
+import { motion, useInView, useReducedMotion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { SmartImage, MusicPlatformBadge } from '../shared/CommonUI';
 import { clsx } from 'clsx';
@@ -15,21 +15,21 @@ interface FriendActivityReelProps {
   excludeUserId?: string;
 }
 
-const EqualizerIcon = () => (
+const EqualizerIcon = ({ active }: { active: boolean }) => (
   <div className="flex items-center gap-[1px] h-1.5">
     <motion.div
-      animate={{ scaleY: [0.2, 1, 0.5, 1, 0.2] }}
-      transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+      animate={active ? { scaleY: [0.2, 1, 0.5, 1, 0.2] } : { scaleY: 0.45 }}
+      transition={active ? { duration: 0.8, repeat: Infinity, ease: "linear" } : { duration: 0.16 }}
       className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
     <motion.div
-      animate={{ scaleY: [0.5, 0.2, 1, 0.2, 0.5] }}
-      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      animate={active ? { scaleY: [0.5, 0.2, 1, 0.2, 0.5] } : { scaleY: 0.75 }}
+      transition={active ? { duration: 1, repeat: Infinity, ease: "linear" } : { duration: 0.16 }}
       className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
     <motion.div
-      animate={{ scaleY: [1, 0.5, 0.2, 0.5, 1] }}
-      transition={{ duration: 0.9, repeat: Infinity, ease: "linear" }}
+      animate={active ? { scaleY: [1, 0.5, 0.2, 0.5, 1] } : { scaleY: 0.3 }}
+      transition={active ? { duration: 0.9, repeat: Infinity, ease: "linear" } : { duration: 0.16 }}
       className="h-full w-[1.2px] origin-bottom rounded-full bg-orange-500 will-change-transform"
     />
   </div>
@@ -41,6 +41,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   onViewAll,
   excludeUserId
 }) => {
+  const reelRef = useRef<HTMLDivElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
+  const isReelVisible = useInView(reelRef, { amount: 0.12, margin: '160px 0px' });
+  const shouldAnimate = isReelVisible && !shouldReduceMotion;
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
@@ -68,7 +72,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   if (topFriends.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-4 my-6">
+    <div ref={reelRef} className="flex flex-col gap-4 my-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
@@ -81,23 +85,14 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <motion.div
+      <div
         data-home-horizontal-scroll="true"
-        layout
         className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]"
       >
-          <AnimatePresence mode="popLayout" initial={false}>
           {topFriends.map((friend, idx) => {
             const isPlaying = friend.nowPlaying?.isNow;
             const track = friend.nowPlaying?.track;
             const trackImage = track?.image || undefined;
-            const livePlayback = friend.nowPlaying as any;
-            const trackVisualKey = [
-              friend.id,
-              track?.id || track?.name || 'silence',
-              livePlayback?.playbackKey || livePlayback?.streamId || livePlayback?.timestamp || '',
-            ].join(':');
-            const artworkVisualKey = `${friend.id}:${trackImage || 'no-artwork'}`;
             const artistName = track?.artists?.[0] 
               ? (typeof track.artists[0] === 'string' ? track.artists[0] : track.artists[0].name)
               : "Artista";
@@ -106,11 +101,9 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             return (
               <motion.div
                 key={friend.id}
-                layout
                 initial={{ opacity: 0, scale: 0.92, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.92, y: 8 }}
-                transition={{ type: 'spring', stiffness: 210, damping: 26 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: idx * 0.035 }}
                 className="flex-shrink-0 w-[144px] group cursor-pointer transform-gpu"
                 style={{ contentVisibility: idx > 2 ? 'auto' : 'visible', containIntrinsicSize: '144px 180px' }}
                 onClick={() => onFriendClick(friend)}
@@ -122,27 +115,20 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                   )}
 
 	                  <div className={clsx(
-	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-all duration-300 shadow-lg",
+	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-[border-color,box-shadow,opacity,transform] duration-300 shadow-lg",
 	                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
 	                  )}>
 	                    <div className="absolute inset-0 z-0">
-	                      <AnimatePresence initial={false} mode="popLayout">
-	                        <motion.div
-	                          key={artworkVisualKey}
+	                        <div
 	                          className="absolute inset-0"
-	                          initial={{ opacity: 0, scale: 1.035 }}
-	                          animate={{ opacity: 1, scale: 1 }}
-	                          exit={{ opacity: 0, scale: 0.985 }}
-	                          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
 	                        >
 	                          <SmartImage
 	                            src={trackImage}
-	                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-40 group-hover:opacity-60"
+	                            className="h-full w-full object-cover opacity-45 transition-[opacity,transform] duration-500 group-hover:scale-[1.06] group-hover:opacity-60"
 	                            rounded="none"
 	                            fallback=""
 	                          />
-	                        </motion.div>
-	                      </AnimatePresence>
+	                        </div>
 	                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
 	                    </div>
 
@@ -150,14 +136,14 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                      <div className="flex items-center gap-2">
 	                        <div className="relative">
 	                          <div className={clsx(
-	                            "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-all duration-300",
+	                            "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-[border-color,box-shadow,opacity,transform] duration-300",
 	                            isPlaying ? "border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "border-white/10"
 	                          )}>
 	                            <SmartImage src={userAvatar} className="h-full w-full object-cover rounded-full" rounded="full" fallback="" />
 	                          </div>
 	                          {isPlaying && (
 	                            <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 flex items-center justify-center border border-white/10">
-	                              <EqualizerIcon />
+	                              <EqualizerIcon active={shouldAnimate} />
 	                            </div>
 	                          )}
 	                        </div>
@@ -171,14 +157,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                        </div>
 	                      </div>
 
-	                      <AnimatePresence initial={false} mode="popLayout">
 	                        <motion.div
-	                          key={trackVisualKey}
 	                          className="flex flex-col gap-1"
-	                          initial={{ opacity: 0, y: 8 }}
 	                          animate={{ opacity: 1, y: 0 }}
-	                          exit={{ opacity: 0, y: -6 }}
-	                          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+	                          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
 	                        >
 	                          <div
 	                            className="flex flex-col min-w-0"
@@ -198,27 +180,20 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                          <div className="flex items-center gap-2 mt-0.5">
 	                            <MusicPlatformBadge platform={friend.platform} variant="minimal" />
 	                            {isPlaying && (
-	                              <motion.div
-	                                animate={{
-	                                  backgroundColor: ["rgba(255,255,255,0.05)", "rgba(249,115,22,0.1)", "rgba(255,255,255,0.05)"]
-	                                }}
-	                                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-	                                className="px-1.5 py-0.5 rounded-full border border-orange-500/20 flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.05)]"
-	                              >
+	                              <div className="px-1.5 py-0.5 rounded-full border border-orange-500/20 bg-orange-500/[0.055] flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.05)]">
 	                                <div className="relative flex h-1 w-1">
 	                                  <motion.span
-	                                    animate={{ scale: [1, 1.8, 1], opacity: [1, 0.4, 1] }}
-	                                    transition={{ duration: 2, repeat: Infinity }}
+	                                    animate={shouldAnimate ? { scale: [1, 1.8, 1], opacity: [1, 0.4, 1] } : { scale: 1, opacity: 0.65 }}
+	                                    transition={shouldAnimate ? { duration: 2, repeat: Infinity } : { duration: 0.16 }}
 	                                    className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"
 	                                  />
 	                                  <span className="relative inline-flex rounded-full h-1 w-1 bg-orange-500" />
 	                                </div>
 	                                <span className="text-[6px] font-black text-white uppercase tracking-widest">Live</span>
-	                              </motion.div>
+	                              </div>
 	                            )}
 	                          </div>
 	                        </motion.div>
-	                      </AnimatePresence>
 	                    </div>
 
 	                    <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.04] to-transparent pointer-events-none" />
@@ -227,7 +202,6 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	              </motion.div>
             );
           })}
-          </AnimatePresence>
         {/* View All Card */}
         <motion.div
           className="flex-shrink-0 w-[70px] h-full flex flex-col items-center justify-center gap-2.5 cursor-pointer group pr-4"
@@ -235,17 +209,17 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           whileTap={{ scale: 0.95 }}
           onClick={() => onViewAll?.()}
         >
-          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center group-hover:bg-white/10 group-hover:border-orange-500/50 transition-all">
+          <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center transition-[background-color,border-color,transform] group-hover:bg-white/10 group-hover:border-orange-500/50">
             <motion.div
-              animate={{ x: [0, 3, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              animate={shouldAnimate ? { x: [0, 3, 0] } : { x: 0 }}
+              transition={shouldAnimate ? { duration: 2, repeat: Infinity } : { duration: 0.16 }}
             >
               <Play className="h-3.5 w-3.5 text-white/40 group-hover:text-orange-500 fill-transparent group-hover:fill-orange-500/20" />
             </motion.div>
           </div>
           <span className="text-[7.5px] font-black text-white/30 uppercase tracking-[0.2em] text-center leading-tight"> Ver<br/>Todos</span>
         </motion.div>
-      </motion.div>
+      </div>
     </div>
   );
 };

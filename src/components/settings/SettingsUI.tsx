@@ -194,7 +194,7 @@ export function MemberCard({
     >
       <SmartImage
         src={coreUtils.getUserAvatar(user.id, user.avatar)}
-        className="absolute inset-0 h-full w-full object-cover object-center opacity-82 transition-transform duration-500 group-hover:scale-[1.04]"
+        className="absolute inset-0 h-full w-full object-cover [object-position:center_28%] opacity-82 transition-transform duration-500 group-hover:scale-[1.04]"
         fallback=""
         rounded="none"
       />

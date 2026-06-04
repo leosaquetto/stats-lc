@@ -11,7 +11,7 @@ import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ChevronLeft, ChevronRight, Crown, Disc, Mic2, Music } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Disc, Mic2, Music } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -183,7 +183,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                         type="button"
                         onClick={() => goToIndex(index)}
                         className={cn(
-                          "relative h-10 w-10 overflow-hidden rounded-full border transition-all active:scale-90",
+                          "relative h-10 w-10 overflow-hidden rounded-full border transition-[border-color,box-shadow,opacity,transform] active:scale-90",
                           isActive ? "border-orange-500 ring-2 ring-orange-500/30" : "border-white/10 opacity-65 hover:opacity-100"
                         )}
                         aria-label={`Abrir Top 1 de ${member.name}`}
@@ -240,13 +240,12 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             const y = isCentered ? -2 : -22;
             const scale = isCentered ? 1 : 0.68;
             const opacity = isCentered ? 1 : 0.32;
-            const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
 
             return (
               <motion.div
                 key={member.id}
-                animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
-                transition={{ type: 'spring', stiffness: 160, damping: 24 }}
+                animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, zIndex: isCentered ? 30 : 8 }}
+                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute left-1/2 top-[48%] w-[292px]"
                 onClick={() => !isCentered && goToIndex(index)}
               >
@@ -277,10 +276,6 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
                       {member.name.split(/\s+/)[0] || member.name}
                     </span>
-                    <div className="flex items-center gap-1.5 rounded-full border border-orange-500/55 bg-black/55 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.22)] backdrop-blur-xl">
-                      <Crown className="h-3 w-3 text-orange-500" />
-                      <span className="text-[10px] font-black uppercase leading-none tracking-[0.1em] text-orange-400">TOP 1</span>
-                    </div>
                   </div>
                 </motion.div>
               </motion.div>

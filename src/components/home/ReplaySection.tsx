@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronDown, ChevronRight, Share2 } from 'lucide-react';
-import { SmartImage } from '../shared/CommonUI';
+import { AnimatedNumber, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -33,6 +33,7 @@ interface Artist {
   name: string;
   image?: string;
   streams: number;
+  minutes?: number;
 }
 
 interface Track {
@@ -41,6 +42,7 @@ interface Track {
   artist: string;
   image?: string;
   streams: number;
+  minutes?: number;
   url?: string;
   spotifyUrl?: string;
   appleMusicUrl?: string;
@@ -58,6 +60,7 @@ interface Album {
   artist: string;
   image?: string;
   streams: number;
+  minutes?: number;
 }
 
 interface ReplaySectionProps {
@@ -90,16 +93,7 @@ const ReplayTrackImage = ({ src, fallback }: { src?: string; fallback: string })
     );
   }
 
-  return (
-    <img
-      src={src}
-      alt=""
-      className="h-full w-full object-cover"
-      loading="lazy"
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
-  );
+  return <SmartImage src={src} className="h-full w-full object-cover" rounded="none" fallback={fallback} />;
 };
 
 export const ReplaySection: React.FC<ReplaySectionProps> = ({
@@ -123,14 +117,19 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
   const filterLabel = useMemo(() => getReplayFilterLabel(activeTab, selectedSubValues), [activeTab, selectedSubValues]);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [renderFullTrackList, setRenderFullTrackList] = useState(false);
+  const [metricMode, setMetricMode] = useState<'plays' | 'minutes'>('plays');
 
-  const limitedArtists = useMemo(() => topArtists.slice(0, 10), [topArtists]);
-  const limitedTracks = useMemo(() => topTracks.slice(0, 12), [topTracks]);
+  const sortForMetric = <T extends { streams: number; minutes?: number }>(items: T[]) => {
+    if (metricMode !== 'minutes' || !items.some((item) => Number(item.minutes) > 0)) return items;
+    return [...items].sort((a, b) => Number(b.minutes || 0) - Number(a.minutes || 0));
+  };
+  const limitedArtists = useMemo(() => sortForMetric(topArtists).slice(0, 10), [metricMode, topArtists]);
+  const limitedTracks = useMemo(() => sortForMetric(topTracks).slice(0, 12), [metricMode, topTracks]);
   const visibleTracks = useMemo(
     () => (renderFullTrackList ? limitedTracks : limitedTracks.slice(0, INITIAL_TRACK_ROWS)),
     [limitedTracks, renderFullTrackList]
   );
-  const limitedAlbums = useMemo(() => topAlbums.slice(0, 10), [topAlbums]);
+  const limitedAlbums = useMemo(() => sortForMetric(topAlbums).slice(0, 10), [metricMode, topAlbums]);
 
   const hasData = totalMinutesCount > 0 || topArtists.length > 0 || topTracks.length > 0 || topAlbums.length > 0;
 
@@ -150,7 +149,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
     const idleId = scheduleIdle(() => setRenderFullTrackList(true), { timeout: 900 });
     return () => cancelIdle(idleId);
-  }, [activeTab, selectedSubValues, limitedTracks.length]);
+  }, [activeTab, metricMode, selectedSubValues, limitedTracks.length]);
 
   const selectTab = (tab: ReplayFilterPeriod) => {
     onActiveTabChange(tab);
@@ -165,6 +164,13 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
     { key: 'year', label: 'ano' },
     { key: 'all', label: 'tudo' }
   ];
+  const replayMetricText = (item: { streams: number; minutes?: number }) => {
+    if (metricMode === 'minutes') {
+      const minutes = Math.round(Number(item.minutes || 0));
+      return minutes > 0 ? `${coreUtils.formatNumber(minutes)} min` : 'tempo indisponível';
+    }
+    return `${coreUtils.formatNumber(item.streams)} reproduções`;
+  };
 
   return (
     <div
@@ -197,15 +203,36 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", filtersOpen && "rotate-180")} />
             </span>
           </button>
-          <button
-            type="button"
-            onClick={onShareReplay}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 active:scale-95"
-            title="Compartilhar Replay"
-            aria-label="Compartilhar Replay"
-          >
-            <Share2 className="h-[18px] w-[18px]" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex rounded-full border border-white/10 bg-white/[0.045] p-1">
+              {[
+                { key: 'plays' as const, label: 'plays' },
+                { key: 'minutes' as const, label: 'min' },
+              ].map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  onClick={() => setMetricMode(option.key)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] transition-[background-color,color,transform]",
+                    metricMode === option.key ? "bg-orange-500 text-black" : "text-white/42"
+                  )}
+                  aria-pressed={metricMode === option.key}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={onShareReplay}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.08] text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)] transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200 active:scale-95"
+              title="Compartilhar Replay"
+              aria-label="Compartilhar Replay"
+            >
+              <Share2 className="h-[18px] w-[18px]" />
+            </button>
+          </div>
         </div>
 
         {filtersOpen && (
@@ -214,7 +241,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             data-home-horizontal-scroll="true"
-            className="glass-aura ml-4 flex w-[calc(100%-1rem)] items-center gap-2 overflow-x-auto rounded-[28px] p-1.5 hide-scrollbar scroll-pl-4"
+            className="glass-aura ml-4 flex w-[calc(100%_-_1rem)] items-center gap-2 overflow-x-auto rounded-[28px] p-1.5 hide-scrollbar scroll-pl-4"
           >
             {periodTabs.map((tab) => (
               <button
@@ -314,26 +341,12 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       {hasData && <div className={cn("ml-4 max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
         <p className="text-[24px] font-black leading-[1.08] tracking-[-0.035em] text-white/46">
           <span>{ownerFirstName === 'Você' ? 'Você ouviu ' : `${ownerFirstName} ouviu `}</span>
-          <motion.span
+          <span
             key={totalMinutesCount}
             className="text-white inline-block relative"
           >
-            {coreUtils.formatNumber(totalMinutesCount).split('').map((char, index) => (
-              <motion.span
-                key={`${totalMinutesCount}-${index}`}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{
-                  duration: 0.4,
-                  delay: index * 0.05,
-                  ease: [0.16, 1, 0.3, 1]
-                }}
-                className="inline-block"
-              >
-                {char}
-              </motion.span>
-            ))}
-          </motion.span>
+            <AnimatedNumber value={totalMinutesCount} startFrom={totalMinutesCount > 0 ? 1 : 0} />
+          </span>
           <motion.span
             key={`minutos-${totalMinutesCount}`}
             initial={{ opacity: 0, scale: 0.8, rotateX: -90 }}
@@ -407,7 +420,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         {artist.name}
                       </p>
                       <p className="text-[14px] font-medium text-white/78">
-                        {coreUtils.formatNumber(artist.streams)} minutos
+                        {replayMetricText(artist)}
                       </p>
                     </div>
                   </div>
@@ -456,7 +469,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                         <div className="flex-1 min-w-0">
                           <p className="truncate text-[13px] font-semibold leading-tight text-white">{track.name}</p>
                           <p className="truncate text-[12px] leading-tight text-white/48">
-                            {track.artist} · {coreUtils.formatNumber(track.streams)} reproduções
+                            {track.artist} · {replayMetricText(track)}
                           </p>
                         </div>
 
@@ -514,7 +527,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                     <p className="text-[14px] font-black text-white">{index + 1}</p>
                     <p className="truncate text-[15px] font-black leading-tight text-white">{album.name}</p>
                     <p className="truncate text-[13px] leading-tight text-white/52">{album.artist}</p>
-                    <p className="text-[13px] leading-tight text-white/52">{coreUtils.formatNumber(album.streams)} minutos</p>
+                    <p className="text-[13px] leading-tight text-white/52">{replayMetricText(album)}</p>
                   </div>
                 </div>
               </motion.div>

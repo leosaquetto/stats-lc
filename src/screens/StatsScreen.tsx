@@ -58,7 +58,6 @@ const ReplaySection = lazy(() => import('../components/home/ReplaySection').then
 
 const ActivityAreaChart = lazy(async () => {
   const {
-    ResponsiveContainer,
     AreaChart,
     Area,
     XAxis,
@@ -68,54 +67,103 @@ const ActivityAreaChart = lazy(async () => {
   } = await import('recharts');
 
   return {
-    default: ({ data, chartMetric, accentColor }: { data: any[]; chartMetric: 'streams' | 'hours'; accentColor: string }) => (
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
-          <defs>
-            <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={accentColor} stopOpacity={0.25}/>
-              <stop offset="95%" stopColor={accentColor} stopOpacity={0.01}/>
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
-          <XAxis dataKey="displayLabel" axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} minTickGap={20} />
-          <YAxis
-            axisLine={false}
-            tickLine={false}
-            tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
-            tickFormatter={(value) => chartMetric === 'hours' ? String(value) : coreUtils.formatNumber(Number(value))}
-          />
-          <Tooltip
-            content={({ active, payload, label }) => {
-              if (active && payload && payload.length) {
-                const val = payload[0].value;
-                const displayLabel = label || payload[0].payload.displayLabel;
-                const isHours = chartMetric === 'hours';
-                return (
-                  <div className="glass-card p-3 border border-orange-500/10 bg-black/95 backdrop-blur-xl flex flex-col gap-1.5 shadow-2xl rounded-2xl">
-                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none">{displayLabel}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
-                      <span className="text-sm font-black text-white">
-                        {isHours ? `${Number(val).toFixed(2)}` : coreUtils.formatNumber(Number(val))}{' '}
-                        <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
-                          {isHours ? 'HORAS' : 'STREAMS'}
-                        </span>
+    default: ({ data, chartMetric, accentColor, width, height }: { data: any[]; chartMetric: 'streams' | 'hours'; accentColor: string; width: number; height: number }) => (
+      <AreaChart width={width} height={height} data={data} margin={{ top: 15, right: 15, left: -20, bottom: 5 }}>
+        <defs>
+          <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={accentColor} stopOpacity={0.25}/>
+            <stop offset="95%" stopColor={accentColor} stopOpacity={0.01}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.03)" />
+        <XAxis dataKey="displayLabel" axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }} minTickGap={20} />
+        <YAxis
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 9 }}
+          tickFormatter={(value) => chartMetric === 'hours' ? String(value) : coreUtils.formatNumber(Number(value))}
+        />
+        <Tooltip
+          content={({ active, payload, label }) => {
+            if (active && payload && payload.length) {
+              const val = payload[0].value;
+              const displayLabel = label || payload[0].payload.displayLabel;
+              const isHours = chartMetric === 'hours';
+              return (
+                <div className="glass-card p-3 border border-orange-500/10 bg-black/95 backdrop-blur-xl flex flex-col gap-1.5 shadow-2xl rounded-2xl">
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none">{displayLabel}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accentColor }} />
+                    <span className="text-sm font-black text-white">
+                      {isHours ? `${Number(val).toFixed(2)}` : coreUtils.formatNumber(Number(val))}{' '}
+                      <span className="text-[9px] text-white/50 font-medium uppercase tracking-wider">
+                        {isHours ? 'HORAS' : 'STREAMS'}
                       </span>
-                    </div>
+                    </span>
                   </div>
-                );
-              }
-              return null;
-            }}
-            cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }}
-          />
-          <Area type="monotone" dataKey={chartMetric} stroke={accentColor} strokeWidth={3} fill="url(#colorMetric)" dot={{ r: 2, strokeWidth: 1, fill: '#050505', stroke: accentColor }} activeDot={{ r: 6, stroke: accentColor, strokeWidth: 2, fill: '#050505' }} animationDuration={1500} />
-        </AreaChart>
-      </ResponsiveContainer>
+                </div>
+              );
+            }
+            return null;
+          }}
+          cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }}
+        />
+        <Area type="monotone" dataKey={chartMetric} stroke={accentColor} strokeWidth={3} fill="url(#colorMetric)" dot={{ r: 2, strokeWidth: 1, fill: '#050505', stroke: accentColor }} activeDot={{ r: 6, stroke: accentColor, strokeWidth: 2, fill: '#050505' }} animationDuration={1500} />
+      </AreaChart>
     ),
   };
 });
+
+const MeasuredActivityAreaChart = ({ data, chartMetric, accentColor }: { data: any[]; chartMetric: 'streams' | 'hours'; accentColor: string }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return undefined;
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+      if (width > 0 && height > 0) {
+        setSize((current) => (
+          current.width === width && current.height === height
+            ? current
+            : { width, height }
+        ));
+      }
+    };
+
+    updateSize();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateSize);
+      observer.observe(node);
+      return () => observer.disconnect();
+    }
+
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  const width = Math.max(size.width, 1);
+  const height = Math.max(size.height, 1);
+
+  return (
+    <div ref={containerRef} className="h-full w-full min-h-[224px] min-w-0">
+      {size.width > 1 && size.height > 1 ? (
+        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
+          <ActivityAreaChart data={data} chartMetric={chartMetric} accentColor={accentColor} width={width} height={height} />
+        </Suspense>
+      ) : (
+        <div className="h-full w-full flex items-center justify-center">
+          <RefreshCcw className="h-5 w-5 text-white/10 animate-spin" />
+        </div>
+      )}
+    </div>
+  );
+};
 
 interface TopRankingRowProps {
   item: any;
@@ -126,10 +174,43 @@ interface TopRankingRowProps {
   onTrackClick?: (track: any) => void;
 }
 
+const getStatsItemArtistName = (item: any) => {
+  const candidates = [
+    item?.primaryArtist,
+    item?.primaryArtistName,
+    item?.albumArtist,
+    item?.albumArtistName,
+    item?.artist,
+    item?.artistName,
+    Array.isArray(item?.artists) ? item.artists[0] : undefined,
+    item?.album?.artist,
+    item?.album?.artistName,
+    item?.album?.primaryArtist,
+    item?.album?.primaryArtistName,
+    item?.track?.primaryArtist,
+    item?.track?.primaryArtistName,
+    item?.track?.artist,
+    item?.track?.artistName,
+    Array.isArray(item?.track?.artists) ? item.track.artists[0] : undefined,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    if (candidate && typeof candidate === 'object') {
+      const name = candidate.name || candidate.artistName || candidate.displayName;
+      if (typeof name === 'string' && name.trim()) return name;
+    }
+  }
+
+  return '';
+};
+
 const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrackClick }: TopRankingRowProps) => {
   const rowRef = useRef<HTMLDivElement>(null);
   
   const displayArtistName = useMemo(() => {
+    const normalized = getStatsItemArtistName(item);
+    if (normalized) return normalized;
     if (item.primaryArtist) {
       let name = typeof item.primaryArtist === 'string' ? item.primaryArtist : item.primaryArtist.name;
       if (Array.isArray(item.secondaryArtists) && item.secondaryArtists.length > 0) {
@@ -155,48 +236,58 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
   };
 
   const name = item.name || item.track?.name || 'Unknown';
+  const playCount = item.playcount || item.streams || item.count || 0;
+  const albumImage = item.image || item.album?.image || item.albumImage || item.track?.album?.image || item.track?.image;
+  const artistImage = item.artist?.image || item.primaryArtist?.image || item.track?.artist?.image || item.track?.artists?.[0]?.image || albumImage;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.35), ease: "easeOut" }}
-      className="mb-1"
+      className="mb-1.5"
     >
       <div 
         ref={rowRef}
         onClick={handleClick}
-        className="glass flex items-center justify-between rounded-[24px] p-3.5 border-white/5 hover:bg-white/[0.03] transition-[background-color,border-color,transform] duration-200 group/row cursor-pointer active:scale-[0.99]"
+        className="glass flex items-center justify-between rounded-[22px] border-white/5 px-3 py-2.5 transition-[background-color,border-color,transform] duration-200 group/row cursor-pointer active:scale-[0.99] hover:bg-white/[0.035]"
       >
-        <div className="flex items-center gap-4 min-w-0 flex-1">
-          <span className="text-[10px] font-black text-white/30 w-5 text-center">{(index + 1).toString().padStart(2, '0')}</span>
-          <div className="h-12 w-12 shrink-0 rounded-[14px] bg-white/5 relative overflow-hidden shadow-lg">
-            <SmartImage 
-              src={item.image || item.album?.image || item.artist?.image} 
-              className="h-full w-full" 
-              fallback={name}
-              rounded={activeType === 'artists' ? "full" : "[14px]"}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="w-6 shrink-0 text-center text-[11px] font-black tabular-nums text-white/30">{(index + 1).toString().padStart(2, '0')}</span>
+          <div className="relative h-12 w-12 shrink-0">
+            {activeType === 'artists' ? (
+              <SmartImage
+                src={albumImage || artistImage}
+                className="h-12 w-12 rounded-full object-cover shadow-[0_10px_24px_rgba(0,0,0,0.34)]"
+                fallback={name}
+                rounded="full"
+              />
+            ) : (
+              <>
+                <SmartImage
+                  src={artistImage}
+                  className="absolute left-0 top-1 h-9 w-9 rounded-full object-cover opacity-80 shadow-[0_8px_18px_rgba(0,0,0,0.32)]"
+                  fallback={displayArtistName || name}
+                  rounded="full"
+                />
+                <SmartImage
+                  src={albumImage}
+                  className="absolute bottom-0 right-0 h-10 w-10 rounded-full border-2 border-black object-cover shadow-[0_10px_24px_rgba(0,0,0,0.42)]"
+                  fallback={name}
+                  rounded="full"
+                />
+              </>
+            )}
           </div>
-          <div className="flex flex-col min-w-0 pr-2">
-            <span className="font-bold text-[13px] text-white/90 truncate group-hover:text-orange-500 transition-colors uppercase tracking-tight">{name}</span>
-            <span className="text-[9px] text-white/50 uppercase font-black tracking-wider truncate flex items-center gap-1.5">
+          <div className="flex min-w-0 flex-col pr-2">
+            <span className="truncate text-[13px] font-black leading-tight tracking-tight text-white/90 transition-colors group-hover/row:text-orange-300">{name}</span>
+            <span className="mt-1 flex items-center gap-1.5 truncate text-[8px] font-black uppercase tracking-[0.14em] text-white/34">
               {activeType === 'artists' ? (
-                <>
-                  <UserCircle className="h-3 w-3 text-orange-500/80" />
-                  <span>Artista</span>
-                </>
+                <>{coreUtils.formatNumber(playCount)} plays carregados</>
               ) : activeType === 'albums' ? (
-                <>
-                  <Disc className="h-3 w-3 text-orange-500/80" />
-                  <span>{displayArtistName || 'Álbum'}</span>
-                </>
+                <>álbum no seu ranking</>
               ) : (
-                <>
-                  <Music2 className="h-3 w-3 text-orange-500/80" />
-                  <span>{displayArtistName || 'Faixa'}</span>
-                </>
+                <>faixa no seu ranking</>
               )}
               {activeType === 'tracks' && (item.playcount || item.streams) === 1 && (
                 <span className="text-[7px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-md border border-orange-500/40 font-black">INÉDITO</span>
@@ -204,16 +295,16 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex flex-col items-end gap-0.5">
-             <span className="text-[10px] font-black text-orange-500 tracking-tight leading-none">{coreUtils.formatNumber(item.playcount || item.streams || 0)}</span>
-             <span className="text-[7px] font-black text-white/20 uppercase tracking-widest leading-none">STREAMS</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex min-w-[48px] flex-col items-center rounded-full border border-orange-500/24 bg-orange-500/[0.11] px-2.5 py-1.5">
+             <span className="text-[11px] font-black leading-none tracking-tight text-orange-200">{coreUtils.formatNumber(playCount)}</span>
+             <span className="mt-1 text-[6px] font-black uppercase tracking-[0.12em] text-orange-200/52">plays</span>
           </div>
           <ShareButton 
             targetRef={rowRef} 
             variant="minimal" 
             title={`Top ${activeType}: ${name}`}
-            className="opacity-0 group-hover/row:opacity-100 transition-opacity"
+            className="opacity-40 transition-opacity group-hover/row:opacity-100"
           />
         </div>
       </div>
@@ -248,6 +339,39 @@ const getStatsDurationMsValue = (source: any) => {
 
   const minutes = source?.totalMinutes ?? source?.minutes ?? source?.playedMinutes;
   if (Number.isFinite(minutes) && minutes > 0) return Number(minutes) * 60000;
+
+  return 0;
+};
+
+const getReplayItemMinutes = (source: any, type: ItemType) => {
+  const directMinutes = source?.totalMinutes ?? source?.playedMinutes ?? source?.minutes ?? source?.stats?.minutes;
+  if (Number.isFinite(directMinutes) && Number(directMinutes) > 0) return Number(directMinutes);
+
+  const aggregateDurationMs =
+    source?.totalDurationMs ??
+    source?.playedMs ??
+    source?.totalPlayedMs ??
+    source?.playedDurationMs ??
+    source?.stats?.durationMs ??
+    source?.d;
+  if (Number.isFinite(aggregateDurationMs) && Number(aggregateDurationMs) > 0) {
+    return Number(aggregateDurationMs) / 60000;
+  }
+
+  if (type === 'tracks') {
+    const count = getStatsCountValue(source);
+    const perPlayDurationMs =
+      source?.track?.durationMs ??
+      source?.durationMs ??
+      source?.album?.trackDurationMs;
+    if (Number.isFinite(perPlayDurationMs) && Number(perPlayDurationMs) > 0 && count > 0) {
+      return (Number(perPlayDurationMs) * count) / 60000;
+    }
+  }
+
+  if (Number.isFinite(source?.durationMs) && Number(source.durationMs) > 0) {
+    return Number(source.durationMs) / 60000;
+  }
 
   return 0;
 };
@@ -678,14 +802,19 @@ export default function StatsScreen() {
 
       // Check if API dates is empty and we need to use history fallback
       if (datesData?.empty && fullUserData?.history?.length > 0) {
-        console.warn('⚠️ API /stats-dates returned empty. Using fullUserData.history as primary source.');
+        console.debug('[StatsScreen] API /stats-dates returned empty. Using fullUserData.history as primary source.');
       }
       console.groupEnd();
     }
 
     // Helper: filter fullUserData.history by active period
     const getFilteredHistory = () => {
-      if (!fullUserData?.history || !Array.isArray(fullUserData.history)) return [];
+      const sourceHistory = Array.isArray(historyData) && historyData.length > 0
+        ? historyData
+        : Array.isArray(fullUserData?.history)
+          ? fullUserData.history
+          : [];
+      if (sourceHistory.length === 0) return [];
 
       const now = Date.now();
       let afterTimestamp = 0;
@@ -702,7 +831,7 @@ export default function StatsScreen() {
         afterTimestamp = 0; // Total
       }
 
-      return fullUserData.history.filter((item: any) => {
+      return sourceHistory.filter((item: any) => {
         const dateVal = item.date || item.t || item.timestamp || item.ts || item.playedAt || item.played_at;
         if (!dateVal) return false;
 
@@ -1132,7 +1261,7 @@ export default function StatsScreen() {
 
       // Check if API dates is empty and we need to use history fallback
       if (datesData?.empty && fullUserData?.history?.length > 0) {
-        console.warn('⚠️ API /stats-dates returned empty. Using fullUserData.history for hourly distribution.');
+        console.debug('[StatsScreen] API /stats-dates returned empty. Using fullUserData.history for hourly distribution.');
       }
       console.groupEnd();
     }
@@ -1162,7 +1291,9 @@ export default function StatsScreen() {
     }
 
     // Primary source: fullUserData.history (complete history, not filtered by period)
-    const fullHistory = fullUserData?.history || fullUserData?.streams || fullUserData?.recent || fullUserData?.scrobbles || [];
+    const fullHistory = (Array.isArray(historyData) && historyData.length > 0)
+      ? historyData
+      : fullUserData?.history || fullUserData?.streams || fullUserData?.recent || fullUserData?.scrobbles || [];
 
     const sourceData = (fullHistory && Array.isArray(fullHistory) && fullHistory.length > 0)
       ? fullHistory
@@ -1187,7 +1318,7 @@ export default function StatsScreen() {
             ? (item.streams || item.count || item.c || item.plays || item.playcount || item.scrobbles || 0)
             : 1; // Raw history: each item = 1 stream
 
-          const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 1000 : 0) || 0;
+          const dur = item.durationMs || item.playedMs || (item.duration ? item.duration * 60000 : 0) || 0;
 
           hourlyMap[hour].streams += Number(streamCount);
           hourlyMap[hour].duration += Number(dur);
@@ -1246,6 +1377,11 @@ export default function StatsScreen() {
   const chartDisplayData = useMemo(() => {
     return dailyEvolutionData;
   }, [dailyEvolutionData]);
+  const chartCoverage = datesData?.coverage;
+  const isChartCoveragePartial = chartCoverage?.partial === true;
+  const chartCoverageLabel = isChartCoveragePartial
+    ? `${coreUtils.formatNumber(chartCoverage?.aggregatedCount || 0)} de ${coreUtils.formatNumber(chartCoverage?.totalCount || 0)}`
+    : '';
 
   const { uniqueArtists, uniqueTracks, uniqueAlbums } = useMemo(() => {
     const cardContainer = cardinalityData?.stats || cardinalityData;
@@ -1749,21 +1885,24 @@ export default function StatsScreen() {
                   id: a.id || a.name,
                   name: a.name,
                   image: a.image || a.artist?.image,
-                  streams: a.playcount || a.streams || a.count || 0
+                  streams: a.playcount || a.streams || a.count || 0,
+                  minutes: getReplayItemMinutes(a, 'artists')
                 }))}
                 topTracks={replaySourceItems.tracks.slice(0, 30).map((t: any) => ({
                   id: t.id || t.name,
                   name: t.name || t.track?.name,
-                  artist: t.artist?.name || t.artistName || t.track?.artist?.name || '',
+                  artist: getStatsItemArtistName(t) || 'Artista',
                   image: t.image || t.album?.image || t.albumImage,
-                  streams: t.playcount || t.streams || t.count || 0
+                  streams: t.playcount || t.streams || t.count || 0,
+                  minutes: getReplayItemMinutes(t, 'tracks')
                 }))}
                 topAlbums={replaySourceItems.albums.slice(0, 15).map((a: any) => ({
                   id: a.id || a.name,
                   name: a.name,
                   artist: a.artist?.name || a.artistName || '',
                   image: a.image || a.album?.image,
-                  streams: a.playcount || a.streams || a.count || 0
+                  streams: a.playcount || a.streams || a.count || 0,
+                  minutes: getReplayItemMinutes(a, 'albums')
                 }))}
                 totalMinutesCount={Math.max(0, Math.round((replayDurationMs || 0) / 60000))}
                 activeTab={statsReplayTab}
@@ -1797,8 +1936,18 @@ export default function StatsScreen() {
                   <TrendingUp className="h-4 w-4 text-orange-500" />
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Evolução de Atividade</span>
                 </div>
-                <div className="bg-orange-500/10 border border-orange-500/30 py-1 px-2.5 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.15)]">
-                  {activeFilter}
+                <div className="flex items-center gap-1.5">
+                  {isChartCoveragePartial && (
+                    <div
+                      className="rounded-full border border-white/10 bg-white/[0.055] px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-white/42"
+                      title={`Cobertura parcial: ${chartCoverageLabel} reproduções agregadas`}
+                    >
+                      amostra
+                    </div>
+                  )}
+                  <div className="bg-orange-500/10 border border-orange-500/30 py-1 px-2.5 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.15)]">
+                    {activeFilter}
+                  </div>
                 </div>
               </div>
 
@@ -1867,9 +2016,7 @@ export default function StatsScreen() {
 
                   return (
                     <div className={clsx("h-full w-full transition-opacity duration-200", isChartLoading && "opacity-35 pointer-events-none")}>
-                      <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
-                        <ActivityAreaChart data={chartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
-                      </Suspense>
+                      <MeasuredActivityAreaChart data={chartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
                     </div>
                   );
                 })()}
@@ -1906,6 +2053,11 @@ export default function StatsScreen() {
 	
 	                return (
                   <div className={clsx(isChartLoading && "opacity-40 pointer-events-none")}>
+                    {isChartCoveragePartial && (
+                      <p className="mb-2 px-2 text-[8px] font-black uppercase tracking-[0.12em] text-white/28">
+                        Distribuição baseada em amostra de {chartCoverageLabel} reproduções
+                      </p>
+                    )}
                     <Suspense fallback={<div className="glass-card p-6 border-white/5 h-36 animate-pulse" />}>
                       <DailyActivityHeatmap
                         data={hourlyDistributionData}
@@ -1977,7 +2129,7 @@ export default function StatsScreen() {
             )}
           </div>
           
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={`ranking-list-${activeType}`}
               initial={{ opacity: 0, y: 15 }}
@@ -2147,7 +2299,6 @@ export default function StatsScreen() {
       <AnimatePresence>
         {showScrollTop && (
           <motion.button
-            layout
             key="scroll-top-btn"
             initial={{ opacity: 0, scale: 0.8, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
