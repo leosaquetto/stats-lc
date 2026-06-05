@@ -180,3 +180,8 @@ Cada item so fecha quando:
   composer de Orbits sem envio, filtros/Batalha da Arena, troca de amigo no
   Alike e chips seguros de Ajustes. Acoes destrutivas de Ajustes nao foram
   executadas.
+- 2026-06-05: sessao dedicada ao Bottom Bubble/menu inferior e modal de stats
+  da musica em `405x700`. O handoff tecnico foi registrado em
+  `docs/bottom-bubble-modal-session-2026-06-05.md`: modal permanece montado,
+  abre por `opacity`/`transform`, nao usa `body position: fixed`, reserva slots
+  para bubble/Genius e mantem a ultima imagem valida para evitar flicker.

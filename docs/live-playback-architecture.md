@@ -38,3 +38,12 @@ O app deve preferir `nowPlaying.dominantColor` ou `track.dominantColor`. O cálc
 ## Por Que Isso Importa
 
 Separar dados frios e quentes reduz re-render em cascata. A troca de música deve acordar LeoHeader, vinil, progresso, mini stats e atividade ao vivo, mas não deve fazer seções frias pensarem tudo de novo.
+
+## Nota De UI - Bottom Bubble e Flicker
+
+O Bottom Bubble e avatares da Home nao devem remontar ou piscar quando apenas o
+payload quente muda. Se a URL efetiva da imagem nao mudou, preserve a ultima
+imagem valida enquanto qualquer nova `src` carrega. A animacao da bubble tambem
+deve depender de live playback real: sem reproducao ao vivo, ela fica estatica;
+com live playback, pode usar apenas `opacity`/`transform` e cor dominante ja
+disponivel no payload/cache.
