@@ -277,9 +277,9 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
                       {member.name.split(/\s+/)[0] || member.name}
                     </span>
-                    <div className="flex items-center gap-1.5 rounded-full border border-orange-500/55 bg-black/55 px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.22)] backdrop-blur-xl">
-                      <Crown className="h-3 w-3 text-orange-500" />
-                      <span className="text-[10px] font-black uppercase leading-none tracking-[0.1em] text-orange-400">TOP 1</span>
+                    <div className="flex items-center gap-1.5 rounded-full border border-orange-500/35 bg-orange-500/[0.13] px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.2)] backdrop-blur-xl">
+                      <Crown className="h-3 w-3 text-orange-300" />
+                      <span className="text-[10px] font-black uppercase leading-none tracking-[0.12em] text-orange-100">TOP 1</span>
                     </div>
                   </div>
                 </motion.div>

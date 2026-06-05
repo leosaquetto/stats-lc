@@ -35,7 +35,7 @@ const AlikeScreen = lazy(loadAlikeScreen);
 const UserHistoryModal = lazy(loadUserHistoryModal);
 const TrackHistoryModal = lazy(loadTrackHistoryModal);
 
-export type CircleTab = 'now' | 'orbits' | 'arena' | 'duels' | 'affinity';
+export type CircleTab = 'now' | 'orbits' | 'arena' | 'affinity';
 
 interface CircleScreenProps {
   initialTab?: CircleTab;
@@ -45,7 +45,6 @@ const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
   { id: 'now', label: 'Agora', icon: Radio },
   { id: 'orbits', label: 'Orbits', icon: Orbit },
   { id: 'arena', label: 'Arena', icon: Trophy },
-  { id: 'duels', label: 'Duelos', icon: Swords },
   { id: 'affinity', label: 'Afinidade', icon: HeartHandshake },
 ];
 
@@ -68,6 +67,243 @@ const getNowTrackImage = (user: any) => {
 };
 const getStreamsToday = (user: any) => Number(user?.streamsToday || user?.stats?.today?.streams || 0);
 const getStreamsWeek = (user: any) => Number(user?.streamsWeek || user?.stats?.week?.streams || 0);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const getMemberHistoryItems = (member: any) => {
+  if (Array.isArray(member?.recent)) return member.recent;
+  if (Array.isArray(member?.history)) return member.history;
+  return [];
+};
+
+const getHistoryItemTime = (item: any) => {
+  const value = item?.playedAt || item?.timestamp || item?.endTime || item?.date || item?.createdAt;
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+};
+
+const getLocalDayKey = (time: number) => {
+  const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+};
+
+const getDailyStreak = (member: any) => {
+  const dayKeys = new Set(
+    getMemberHistoryItems(member)
+      .map((item: any) => getHistoryItemTime(item))
+      .filter((time: number) => time > 0)
+      .map(getLocalDayKey)
+  );
+  if (member?.nowPlaying?.timestamp) {
+    const nowKey = getLocalDayKey(new Date(member.nowPlaying.timestamp).getTime());
+    if (nowKey) dayKeys.add(nowKey);
+  }
+
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (let index = 0; index < 31; index += 1) {
+    const key = getLocalDayKey(today.getTime() - index * DAY_MS);
+    if (!dayKeys.has(key)) break;
+    streak += 1;
+  }
+  return streak;
+};
+
+const formatCompactDuration = (ms: number) => {
+  if (!Number.isFinite(ms) || ms <= 0) return 'agora';
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} h`;
+  return `${Math.round(hours / 24)} d`;
+};
+
+const formatDayCount = (count: number) => `${count || 0} ${count === 1 ? 'dia' : 'dias'}`;
+
+const getSimultaneousItemTime = (item: any) => {
+  const candidates = [
+    item?.playedAt,
+    item?.matchedAt,
+    item?.timestamp,
+    item?.lastPlayedAt,
+    item?.tracks?.[0]?.playedAt,
+    item?.users?.[0]?.playedAt,
+    item?.users?.[0]?.timestamp,
+  ];
+  for (const value of candidates) {
+    const time = value ? new Date(value).getTime() : 0;
+    if (Number.isFinite(time) && time > 0) return time;
+  }
+  return 0;
+};
+
+const getSimultaneousTitle = (item: any) => {
+  if (!item) return 'Sem encontro recente';
+  if (item.matchType === 'track') return item.track?.name || item.tracks?.[0]?.name || 'Faixa simultânea';
+  return item.artist?.name || item.artists?.[0]?.name || 'Artista simultâneo';
+};
+
+const getSimultaneousUsersLabel = (item: any) => {
+  const users = Array.isArray(item?.users) ? item.users : [];
+  return users
+    .map((entry: any) => getFirstName(entry?.user?.name || entry?.name))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' + ') || 'Círculo';
+};
+
+function useSimultaneousPulse(members: any[]) {
+  const userKey = useMemo(() => members.map((member) => member.id).filter(Boolean).sort().join(','), [members]);
+  const [items, setItems] = useState<any[]>([]);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+
+  useEffect(() => {
+    const userIds = userKey.split(',').filter(Boolean);
+    if (userIds.length < 2) {
+      setItems([]);
+      setStatus('ready');
+      return;
+    }
+
+    const controller = new AbortController();
+    setStatus('loading');
+    statsService.getSimultaneousListening({
+      users: userIds,
+      after: Date.now() - 90 * DAY_MS,
+      before: Date.now(),
+      gapMinutes: 10,
+      limit: 10,
+      perUserLimit: 1400,
+      signal: controller.signal,
+    })
+      .then((response) => {
+        const nextItems = Array.isArray(response?.items) ? response.items : [];
+        setItems([...nextItems].sort((a, b) => getSimultaneousItemTime(b) - getSimultaneousItemTime(a)));
+        setStatus('ready');
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setItems([]);
+          setStatus('error');
+        }
+      });
+
+    return () => controller.abort();
+  }, [userKey]);
+
+  return { items, status };
+}
+
+function CirclePulseInsights({ members, featuredUserId }: { members: any[]; featuredUserId?: string }) {
+  const { items: simultaneousItems, status } = useSimultaneousPulse(members);
+  const featuredUser = useMemo(
+    () => members.find((member) => member.id === featuredUserId || member.key === featuredUserId) || members[0],
+    [featuredUserId, members]
+  );
+  const lastSimultaneous = simultaneousItems[0];
+  const slowestMember = useMemo(() => [...members]
+    .filter((member) => getNowTimestamp(member) > 0)
+    .sort((a, b) => getNowTimestamp(a) - getNowTimestamp(b))[0], [members]);
+  const peakHour = useMemo(() => {
+    const counts = new Map<number, number>();
+    members.forEach((member) => {
+      getMemberHistoryItems(member).forEach((item: any) => {
+        const time = getHistoryItemTime(item);
+        if (!time) return;
+        const hour = new Date(time).getHours();
+        counts.set(hour, (counts.get(hour) || 0) + 1);
+      });
+    });
+    const best = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return best ? `${String(best[0]).padStart(2, '0')}h` : 'sem base';
+  }, [members]);
+  const risingMember = useMemo(() => [...members]
+    .sort((a, b) => {
+      const scoreA = getStreamsToday(a) / Math.max(getStreamsWeek(a), 1);
+      const scoreB = getStreamsToday(b) / Math.max(getStreamsWeek(b), 1);
+      return scoreB - scoreA;
+    })[0], [members]);
+  const friendStreakLeader = useMemo(() => [...members]
+    .filter((member) => member.id !== featuredUser?.id)
+    .map((member) => ({ member, streak: getDailyStreak(member) }))
+    .sort((a, b) => b.streak - a.streak)[0], [featuredUser?.id, members]);
+  const featuredStreak = getDailyStreak(featuredUser);
+
+  const insightCards = [
+    {
+      label: 'Última sincronia',
+      value: lastSimultaneous
+        ? `${getSimultaneousUsersLabel(lastSimultaneous)}`
+        : status === 'loading'
+          ? 'buscando'
+          : 'sem par 10 min',
+      detail: lastSimultaneous
+        ? `${getSimultaneousTitle(lastSimultaneous)} · ${formatCompactDuration(Date.now() - getSimultaneousItemTime(lastSimultaneous))}`
+        : 'faixa/artista na janela de 10 min',
+      icon: HeartHandshake,
+    },
+    {
+      label: 'Maior silêncio',
+      value: slowestMember ? getFirstName(slowestMember.name) : 'sem base',
+      detail: slowestMember ? `${formatCompactDuration(Date.now() - getNowTimestamp(slowestMember))} sem trocar a faixa` : 'timeline ainda fria',
+      icon: Clock3,
+    },
+    {
+      label: 'Streak principal',
+      value: featuredUser ? getFirstName(featuredUser.name) : 'sem user',
+      detail: `${formatDayCount(featuredStreak || 0)} seguidos`,
+      icon: Flame,
+    },
+    {
+      label: 'Streak amigos',
+      value: friendStreakLeader?.member ? getFirstName(friendStreakLeader.member.name) : 'sem base',
+      detail: `${formatDayCount(friendStreakLeader?.streak || 0)} seguidos`,
+      icon: Users,
+    },
+    {
+      label: 'Janela de pico',
+      value: peakHour,
+      detail: 'maior concentração recente',
+      icon: Radio,
+    },
+    {
+      label: 'Astro em ascensão',
+      value: risingMember ? getFirstName(risingMember.name) : 'sem base',
+      detail: `${coreUtils.formatNumber(getStreamsToday(risingMember))} streams hoje`,
+      icon: Zap,
+    },
+  ];
+
+  return (
+    <section className="mx-4 overflow-hidden rounded-[30px] border border-white/7 bg-[linear-gradient(145deg,rgba(255,255,255,0.048),rgba(255,255,255,0.015))] p-3.5 shadow-[0_18px_48px_rgba(0,0,0,0.22)]">
+      <div className="mb-3 flex items-center justify-between gap-3 px-1">
+        <div className="min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-200/80">Pulso da sessão</p>
+          <h2 className="mt-1 text-lg font-black leading-none tracking-[-0.03em] text-white">insights agora</h2>
+        </div>
+        <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-orange-100/80">
+          10 min
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {insightCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div key={card.label} className="min-w-0 rounded-[22px] border border-white/6 bg-black/[0.18] px-3 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Icon className="h-3.5 w-3.5 shrink-0 text-orange-300/80" />
+                <span className="truncate text-[6px] font-black uppercase tracking-[0.12em] text-white/28">{card.label}</span>
+              </div>
+              <p className="truncate text-sm font-black leading-none text-white/90">{card.value}</p>
+              <p className="mt-1.5 line-clamp-2 text-[9px] font-semibold leading-snug text-white/38">{card.detail}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
@@ -190,7 +426,7 @@ function CircleCockpitHero({ members, featuredUserId, onOpenOrbits }: { members:
           <p className="mt-2 line-clamp-2 text-xs font-semibold leading-relaxed text-white/48">
             {spotlightUser?.nowPlaying?.track
               ? `${getFirstName(spotlightUser.name)} está em ${getNowTrackName(spotlightUser)} · ${getNowArtistName(spotlightUser)}`
-              : 'Sistema Live, Orbits e timeline em uma entrada rápida para o que está acontecendo agora.'}
+              : 'Pulso Orbital, Orbits e timeline em uma entrada rápida para o que está acontecendo agora.'}
           </p>
         </div>
       </div>
@@ -556,6 +792,8 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
 
       <CircleNowRail members={recentTracks} />
 
+      <CirclePulseInsights members={recentTracks} featuredUserId={featuredUserId} />
+
       <OrbitSummaryPreview currentUserId={orbitUserId} onOpen={onOpenOrbits} />
 
       <motion.div
@@ -672,9 +910,90 @@ function CircleArenaTab() {
   );
 }
 
+function CircleAffinityTab() {
+  const groupStats = useStatsStore(state => state.groupStats);
+  const hiddenUsers = useStatsStore(state => state.hiddenUsers);
+  const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
+  const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId), [groupStats, hiddenUsers, liveNowPlayingByUserId]);
+  const { items, status } = useSimultaneousPulse(members);
+  const trackMatches = useMemo(() => items.filter((item) => item.matchType === 'track'), [items]);
+  const artistMatches = useMemo(() => items.filter((item) => item.matchType === 'artist'), [items]);
+  const featuredMatches = [...trackMatches.slice(0, 2), ...artistMatches.slice(0, 2)].slice(0, 4);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="mx-4 overflow-hidden rounded-[34px] border border-orange-500/15 bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
+            <HeartHandshake className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-200/80">Afinidade orbital</p>
+            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">faixa e artista no mesmo pulso</h1>
+          </div>
+          <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-orange-200">
+            10 min
+          </span>
+        </div>
+        <p className="mt-4 text-xs font-semibold leading-relaxed text-white/48">
+          Encontros simultâneos do círculo por faixa exata e artista, usando a janela de 10 minutos da API já existente.
+        </p>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-[22px] border border-white/6 bg-black/20 px-3 py-3">
+            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">faixas</p>
+            <p className="mt-1 text-2xl font-black leading-none text-white">{trackMatches.length}</p>
+          </div>
+          <div className="rounded-[22px] border border-white/6 bg-black/20 px-3 py-3">
+            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">artistas</p>
+            <p className="mt-1 text-2xl font-black leading-none text-white">{artistMatches.length}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-4 flex flex-col gap-2">
+        {status === 'loading' && featuredMatches.length === 0 ? (
+          <div className="flex min-h-[118px] items-center justify-center rounded-[28px] border border-white/5 bg-white/[0.02]">
+            <Loader2 className="h-5 w-5 animate-spin text-orange-400/80" />
+          </div>
+        ) : featuredMatches.length > 0 ? (
+          featuredMatches.map((item) => (
+            <article key={`${item.matchType}-${getSimultaneousItemTime(item)}-${getSimultaneousTitle(item)}`} className="flex items-center gap-3 rounded-[26px] border border-white/7 bg-white/[0.028] p-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/18 bg-orange-500/10 text-orange-200">
+                {item.matchType === 'track' ? <Headphones className="h-5 w-5" /> : <HeartHandshake className="h-5 w-5" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-orange-200/70">
+                  {item.matchType === 'track' ? 'Faixa simultânea' : 'Artista simultâneo'}
+                </p>
+                <h2 className="mt-1 truncate text-sm font-black leading-tight text-white/90">{getSimultaneousTitle(item)}</h2>
+                <p className="mt-0.5 truncate text-[10px] font-semibold text-white/38">
+                  {getSimultaneousUsersLabel(item)} · {formatCompactDuration(Date.now() - getSimultaneousItemTime(item))}
+                </p>
+              </div>
+            </article>
+          ))
+        ) : (
+          <div className="flex min-h-[118px] flex-col items-center justify-center gap-2 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
+            <HeartHandshake className="h-6 w-6 text-orange-300/70" />
+            <p className="text-xs font-semibold leading-relaxed text-white/45">
+              Nenhum encontro de faixa ou artista apareceu na janela recente de 10 minutos.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <Suspense fallback={<CircleTabLoader label="Carregando afinidade" />}>
+        <AlikeScreen />
+      </Suspense>
+    </div>
+  );
+}
+
 const getRequestedTab = (search: string, initialTab: CircleTab) => {
-  const requested = new URLSearchParams(search).get('tab') as CircleTab | null;
-  return requested && validTabs.has(requested) ? requested : initialTab;
+  const requested = new URLSearchParams(search).get('tab');
+  if (requested === 'duels') return 'arena';
+  return requested && validTabs.has(requested as CircleTab) ? requested as CircleTab : initialTab;
 };
 
 export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) {
@@ -695,7 +1014,7 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
     <div className="relative flex flex-col gap-5 overflow-x-clip">
       <div className="pointer-events-none absolute -top-28 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/[0.055] blur-3xl" />
       <div className="sticky top-[max(env(safe-area-inset-top),12px)] z-40 px-4">
-        <div className="grid grid-cols-5 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <div className="grid grid-cols-4 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -739,12 +1058,7 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
       {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} />}
       {activeTab === 'orbits' && <CircleOrbitsTab />}
       {activeTab === 'arena' && <CircleArenaTab />}
-      {activeTab === 'affinity' && (
-        <Suspense fallback={<CircleTabLoader label="Carregando afinidade" />}>
-          <AlikeScreen />
-        </Suspense>
-      )}
-      {activeTab === 'duels' && <DuelsSection />}
+      {activeTab === 'affinity' && <CircleAffinityTab />}
         </motion.div>
       </AnimatePresence>
     </div>

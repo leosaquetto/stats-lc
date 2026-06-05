@@ -339,7 +339,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {hasData && <div className={cn("ml-4 max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
-        <p className="text-[24px] font-black leading-[1.08] tracking-[-0.035em] text-white/46">
+        <p className="text-[23px] font-black leading-[1.1] tracking-[-0.03em] text-white/46">
           <span>{ownerFirstName === 'Você' ? 'Você ouviu ' : `${ownerFirstName} ouviu `}</span>
           <span
             key={totalMinutesCount}
@@ -347,6 +347,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           >
             <AnimatedNumber value={totalMinutesCount} startFrom={totalMinutesCount > 0 ? 1 : 0} />
           </span>
+          {' '}
           <motion.span
             key={`minutos-${totalMinutesCount}`}
             initial={{ opacity: 0, scale: 0.8, rotateX: -90 }}

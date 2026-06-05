@@ -61,9 +61,9 @@ const getOrbitAvatarRadius = (size: 'large' | 'normal' | 'small') => {
 };
 
 const getOrbitCenterClearance = (size: 'large' | 'normal' | 'small') => {
-  if (size === 'large') return 38;
-  if (size === 'normal') return 34;
-  return 31;
+  if (size === 'large') return 43;
+  if (size === 'normal') return 39;
+  return 36;
 };
 
 const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
@@ -128,9 +128,9 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
 
       for (let attempt = 0; attempt < 36; attempt += 1) {
         const angle = seededOrbitUnit(arenaSeed + index * 13, attempt) * Math.PI * 2;
-        const radius = index === 0 ? 38 : 37 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 18;
-        const left = Math.max(14, Math.min(86, 50 + Math.cos(angle) * radius));
-        const top = Math.max(18, Math.min(86, 50 + Math.sin(angle) * radius * 0.76));
+        const radius = index === 0 ? 44 : 42 + seededOrbitUnit(arenaSeed + index * 29, attempt + 9) * 16;
+        const left = Math.max(12, Math.min(88, 50 + Math.cos(angle) * radius));
+        const top = Math.max(16, Math.min(88, 50 + Math.sin(angle) * radius * 0.78));
         const centerDistance = Math.sqrt(
           Math.pow(left - 50, 2) + Math.pow((top - 50) / 0.76, 2)
         );
@@ -196,7 +196,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 }}
                 className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.8)]"
               />
-              <span className="text-[12px] font-black uppercase tracking-[0.38em] text-white/58">Sistema Live</span>
+              <span className="text-[12px] font-black uppercase tracking-[0.34em] text-white/58">Pulso Orbital</span>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.045] px-4 py-2">
               <span className="text-[9px] font-black uppercase tracking-[0.24em] text-white/45">Hoje</span>
@@ -250,7 +250,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
             </div>
 
             {/* Center Stats */}
-            <div className="relative z-50 flex flex-col items-center gap-1 rounded-full bg-black/12 px-5 py-4 backdrop-blur-[1px]">
+            <div className="pointer-events-none relative z-[60] flex flex-col items-center gap-1 rounded-full bg-black/18 px-5 py-4 backdrop-blur-[1px]">
               <motion.span
                 key={totalStreams}
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -275,12 +275,6 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 return (
                   <motion.div
                     key={user.id}
-                    drag
-                    dragConstraints={stageRef}
-                    dragMomentum={!shouldReduceMotion}
-                    dragElastic={0.18}
-                    dragTransition={{ power: 0.18, timeConstant: 280, bounceStiffness: 220, bounceDamping: 24 }}
-                    whileDrag={{ scale: 1.06, zIndex: 40 }}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={{
                       opacity: hasZeroStreams ? 0.5 : 1,
@@ -297,8 +291,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       left: `${position.left}%`,
                       top: `${position.top}%`,
                       transform: 'translate(-50%, -50%)',
-                      touchAction: 'none',
-                      zIndex: isLeader ? 32 : 24,
+                      zIndex: isLeader ? 34 : 24,
                     }}
                   >
                     <motion.div
@@ -313,7 +306,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                     >
                       <div
                         className={cn(
-                          "rounded-full overflow-hidden border-2 shadow-2xl transition-[transform,border-color,opacity] cursor-grab active:cursor-grabbing",
+                          "rounded-full overflow-hidden border-2 shadow-2xl transition-[transform,border-color,opacity]",
                           isLeader
                             ? "h-[76px] w-[76px] border-orange-500/70 ring-4 ring-orange-500/20 shadow-orange-500/30"
                             : position.size === 'small'

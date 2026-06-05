@@ -1535,7 +1535,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                           />
                           <TrackTitleBadges badges={parsedTrackTitle.badges} />
                         </div>
-                        <div className="text-[22px] sm:text-[28px] font-medium text-white/68 line-clamp-1 block pb-0.5 pointer-events-auto select-none w-[62vw] max-w-[300px] leading-[1.04]">
+                        <div className="block w-[62vw] max-w-[300px] overflow-hidden pb-0.5 text-[22px] font-medium leading-[1.04] text-white/68 pointer-events-auto select-none line-clamp-2 [text-wrap:balance] sm:text-[28px]">
                           {displayArtists.map((artist, idx) => {
                             const isLast = idx === displayArtists.length - 1;
                             const separator = idx === 0 ? '' : isLast ? '\u00a0&\u00a0' : ',\u00a0';

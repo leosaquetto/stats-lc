@@ -291,7 +291,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <div className="flex flex-col gap-5 px-4 pb-32">
+    <div className="flex flex-col gap-4 px-4 pb-32">
       <PremiumScreenHeader
         eyebrow="Preferências"
         title="Ajustes"
@@ -339,7 +339,7 @@ export default function SettingsScreen() {
         </div>
       </nav>
 
-      <main className="flex flex-col gap-8">
+      <main className="flex flex-col gap-6">
         <SettingsGroup
           id="profile"
           eyebrow="Perfil"
@@ -348,7 +348,7 @@ export default function SettingsScreen() {
           action={<Users className="h-4 w-4" />}
         >
           <SettingsPanel>
-            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-5 lg:grid-cols-7">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
               {alphabeticalMembers.map(user => (
                 <MemberCard
                   key={user.id}

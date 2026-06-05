@@ -593,9 +593,9 @@ const AlikeOrbitalItem = ({
           </span>
         </motion.div>
 
-        <div className="relative rounded-[30px] bg-white/[0.035] p-7 shadow-2xl flex flex-col items-center justify-center min-h-[178px] px-8 text-center backdrop-blur-xl">
+        <div className="glass-aura relative flex min-h-[178px] flex-col items-center justify-center rounded-[30px] px-8 py-7 text-center shadow-2xl">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
-           <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match</span>
+           <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match Top 50</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
         </div>
       </div>

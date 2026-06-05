@@ -956,6 +956,18 @@ const HomeEmptyState = ({ onRetry }: { onRetry: () => void }) => (
 );
 
 const getStartOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+const headerTodayStreamsCache = new Map<string, { value: number; expiresAt: number }>();
+const getHeaderTodayStreamsValue = (source: any) => {
+  const direct = Number(source?.streams ?? source?.count ?? source?.c ?? source?.totalStreams ?? source?.plays ?? source?.scrobbles);
+  if (Number.isFinite(direct)) return direct;
+  if (Array.isArray(source?.items)) {
+    return source.items.reduce((sum: number, item: any) => {
+      const count = Number(item?.streams ?? item?.count ?? item?.c ?? item?.plays ?? item?.scrobbles ?? 1);
+      return sum + (Number.isFinite(count) ? count : 0);
+    }, 0);
+  }
+  return null;
+};
 const REPLAY_MONTHS_LONG = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
@@ -1128,6 +1140,7 @@ export default function HomeScreen() {
   const [refreshProgress, setRefreshProgress] = useState(100);
   const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
+  const [headerTodayStreams, setHeaderTodayStreams] = useState<number | null>(null);
   const [isAppReady, setIsAppReady] = useState(() => hasBootReadySession());
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
@@ -1200,6 +1213,44 @@ export default function HomeScreen() {
     );
   }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id || '';
+  const displayedHeaderStreamsToday = headerTodayStreams ?? primaryUser?.streamsToday ?? 0;
+
+  useEffect(() => {
+    if (!primaryUser?.id) {
+      setHeaderTodayStreams(null);
+      return;
+    }
+
+    const dayStart = getStartOfDay(new Date());
+    const cacheKey = `${primaryUser.id}:${dayStart}`;
+    const cached = headerTodayStreamsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      setHeaderTodayStreams(cached.value);
+      return;
+    }
+
+    let cancelled = false;
+    setHeaderTodayStreams(null);
+    const timer = window.setTimeout(() => {
+      statsService.fetchTimeRangeStats(primaryUser.id, dayStart)
+        .then((response) => {
+          if (cancelled) return;
+          const value = getHeaderTodayStreamsValue(response);
+          if (value === null) return;
+          headerTodayStreamsCache.set(cacheKey, {
+            value,
+            expiresAt: Date.now() + 60 * 1000,
+          });
+          setHeaderTodayStreams(value);
+        })
+        .catch(() => undefined);
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [primaryUser?.id, primaryUser?.streamsToday]);
 
   // Mini header mirrors the now playing vinyl once the hero scrolls away.
   const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
@@ -2237,7 +2288,7 @@ export default function HomeScreen() {
               >
                 <LeoHeader
                   user={primaryUser}
-                  streamsToday={primaryUser.streamsToday || 0}
+                  streamsToday={displayedHeaderStreamsToday}
                   onTrackClick={handleOpenMusicDetail}
                   isHighlighted={headerHighlight}
                 />

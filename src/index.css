@@ -455,3 +455,11 @@
   transform: translate3d(0, 0, 0);
   will-change: transform;
 }
+
+body[data-bottom-track-modal-open="true"] .vinyl-record-idle,
+body[data-bottom-track-modal-open="true"] .vinyl-record-aura,
+body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-primary,
+body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-secondary,
+body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
+  animation-play-state: paused;
+}

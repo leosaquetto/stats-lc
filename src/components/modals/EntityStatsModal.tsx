@@ -509,22 +509,22 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0.92 }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-        className="liquid-glass-modal relative flex h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[38px] border border-white/10 bg-black/70 shadow-2xl"
+        className="liquid-glass-modal relative flex h-[86dvh] max-h-[610px] w-full max-w-2xl flex-col overflow-hidden rounded-t-[34px] border border-white/10 bg-black/70 shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative shrink-0 overflow-hidden p-4 pb-3">
+        <div className="relative shrink-0 overflow-hidden p-3.5 pb-3">
           <div className="absolute inset-0 pointer-events-none opacity-60">
             {entityImage && <img src={entityImage} alt="" className="h-full w-full scale-110 object-cover blur-3xl opacity-25" />}
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/70 to-black" />
           </div>
 
-          <div className="relative z-10 mx-auto mb-3 h-1 w-12 rounded-full bg-white/22" />
+          <div className="relative z-10 mx-auto mb-2.5 h-1 w-12 rounded-full bg-white/22" />
           <div className="relative z-10 flex items-start gap-3 pr-7">
             <SmartImage
               src={entityImage}
-              className={cn("h-20 w-20 shrink-0 border border-white/10 shadow-2xl", kind === 'artist' ? 'rounded-[24px]' : 'rounded-[20px]')}
+              className={cn("h-[72px] w-[72px] shrink-0 border border-white/10 shadow-2xl", kind === 'artist' ? 'rounded-[22px]' : 'rounded-[18px]')}
               fallback={entityName}
-              rounded={kind === 'artist' ? '[24px]' : '[20px]'}
+              rounded={kind === 'artist' ? '[22px]' : '[18px]'}
             />
             <div className="min-w-0 flex-1">
               <div className="mb-2 flex flex-wrap items-center gap-1.5 overflow-hidden">
@@ -535,7 +535,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   <button
                     type="button"
                     onClick={() => setRankSheetOpen(true)}
-                    className="rounded-full border border-orange-500/25 bg-orange-500/[0.12] px-2 py-1 text-[8px] font-black uppercase tracking-widest text-orange-100/85 transition-[background-color,transform] active:scale-95"
+                    className="rounded-full border border-orange-500/28 bg-orange-500/[0.14] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-orange-100/88 transition-[background-color,transform] active:scale-95"
                   >
                     {topYearRank ? `#${topYearRank} ano` : ''}
                     {topYearRank && topTotalRank ? ' · ' : ''}
@@ -543,9 +543,9 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   </button>
                 )}
               </div>
-              <h2 className="line-clamp-2 text-xl font-black leading-[0.98] text-white font-display">{entityName}</h2>
+              <h2 className="line-clamp-2 text-[19px] font-black leading-[0.98] text-white font-display">{entityName}</h2>
               <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{subtitle}</p>
-              <div className="mt-3 grid grid-cols-3 gap-2">
+              <div className="mt-2.5 grid grid-cols-3 gap-1.5">
                 <Metric label="plays" value={coreUtils.formatNumber(entityCount || historyItems.length)} />
                 <Metric label="tempo" value={totalDurationMs ? coreUtils.formatDuration(totalDurationMs) : 'carregando'} />
                 <Metric label="melhor ano" value={bestYear ? `${bestYear[0]} (${coreUtils.formatNumber(bestYear[1])})` : 'em analise'} />

@@ -257,7 +257,7 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
           <div className="relative h-12 w-12 shrink-0">
             {activeType === 'artists' ? (
               <SmartImage
-                src={albumImage || artistImage}
+                src={artistImage || albumImage}
                 className="h-12 w-12 rounded-full object-cover shadow-[0_10px_24px_rgba(0,0,0,0.34)]"
                 fallback={name}
                 rounded="full"
@@ -283,7 +283,7 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
             <span className="truncate text-[13px] font-black leading-tight tracking-tight text-white/90 transition-colors group-hover/row:text-orange-300">{name}</span>
             <span className="mt-1 flex items-center gap-1.5 truncate text-[8px] font-black uppercase tracking-[0.14em] text-white/34">
               {activeType === 'artists' ? (
-                <>{coreUtils.formatNumber(playCount)} plays carregados</>
+                <>artista em #{index + 1}</>
               ) : activeType === 'albums' ? (
                 <>álbum no seu ranking</>
               ) : (

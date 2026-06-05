@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
-import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, Radio, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 
@@ -174,23 +174,6 @@ const getMonthLeaderInsight = (member: any): string => {
   return `lidera o mês com ${coreUtils.formatNumber(streams)} plays`;
 };
 
-const getLiveInsight = (member: any): string => {
-  if (!member) return 'ativo neste momento';
-
-  const track = member.nowPlaying?.track?.name;
-  const artist = member.nowPlaying?.track?.artist?.name;
-
-  if (track && artist) {
-    return `ouvindo ${track} por ${artist}`;
-  }
-
-  if (track) {
-    return `ouvindo agora: ${track}`;
-  }
-
-  return 'ativo neste momento';
-};
-
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
   const shouldReduceMotion = useReducedMotion();
   const [insightsRef, isInsightsVisible] = useInsightsVisibility();
@@ -261,7 +244,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const insights = React.useMemo(() => {
     const sortedToday = [...activeMembers].sort((a, b) => (b.streamsToday || 0) - (a.streamsToday || 0));
     const topMonth = [...activeMembers].sort((a, b) => (b.streamsMonth || 0) - (a.streamsMonth || 0))[0];
-    const liveUser = activeMembers.find(m => m.nowPlaying?.isNow);
     const albumUser = [...activeMembers].sort((a, b) => ((b.topItems?.albums?.[0]?.playcount || b.topItems?.albums?.[0]?.streams || 0) - (a.topItems?.albums?.[0]?.playcount || a.topItems?.albums?.[0]?.streams || 0)))[0];
     const lateUser = [...activeMembers].sort((a, b) => new Date(b.nowPlaying?.timestamp || 0).getTime() - new Date(a.nowPlaying?.timestamp || 0).getTime())[0];
     const runnerUp = sortedToday[1];
@@ -298,17 +280,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         users: [topMonth],
         onClick: () => onFriendClick(topMonth),
         type: 'month'
-      },
-      liveUser && {
-        key: 'live',
-        tone: 'green',
-        icon: <Radio className="h-2.5 w-2.5 text-green-300" />,
-        title: 'No Ar Agora',
-        primary: firstName(liveUser.name),
-        secondary: getLiveInsight(liveUser),
-        users: [liveUser],
-        onClick: () => onFriendClick(liveUser),
-        type: 'live'
       },
       albumUser && albumUser.topItems?.albums?.[0] && {
         key: 'album',
@@ -381,7 +352,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     const isRivalry = insight.type === 'rivalry';
     const isMatch = insight.type === 'match';
     const isAlbum = insight.type === 'album';
-    const isLive = insight.type === 'live';
 
     return (
       <div className="relative flex h-full min-h-[138px] flex-col overflow-visible px-0 py-0 text-left">
@@ -410,7 +380,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             ) : insight.users[0] ? (
               <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-orange-500/55 bg-black shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
                 <SmartImage src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
-                {isLive && <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 shadow-[0_0_14px_rgba(34,197,94,0.75)]" />}
               </div>
             ) : null}
           </div>
@@ -478,11 +447,16 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         </motion.div>
 
         <div className="relative z-10 h-full">
-          {Array.from({ length: Math.min(2, insights.length) }, (_, offset) => {
+          {Array.from({ length: Math.min(3, insights.length) }, (_, offset) => {
             const index = (activeInsightIndex + offset) % insights.length;
             const insight = insights[index];
             if (!insight) return null;
             const isPrimary = offset === 0;
+            const positionClass = offset === 0
+              ? "left-0 top-5 w-[164px]"
+              : offset === 1
+                ? "right-0 bottom-2 w-[164px]"
+                : "left-[92px] top-[86px] w-[148px]";
             const shouldFloat = !shouldReduceMotion && isInsightsVisible;
             return (
               <motion.button
@@ -491,15 +465,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                 onClick={() => {
                   insight.onClick?.();
                 }}
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={!shouldFloat ? { opacity: 1, y: 0, x: 0, rotate: 0 } : {
-                  opacity: 1,
-                  y: isPrimary ? [0, -7, 0] : [0, 6, 0],
-                  x: isPrimary ? [0, 5, 0] : [0, -5, 0],
-                  rotate: isPrimary ? [0, -1.3, 0] : [0, 1.3, 0],
+                initial={false}
+                animate={!shouldFloat ? { y: 0, x: 0, rotate: 0 } : {
+                  y: isPrimary ? [0, -7, 0] : offset === 1 ? [0, 6, 0] : [0, -4, 0],
+                  x: isPrimary ? [0, 5, 0] : offset === 1 ? [0, -5, 0] : [0, 3, 0],
+                  rotate: isPrimary ? [0, -1.3, 0] : offset === 1 ? [0, 1.3, 0] : [0, 0.9, 0],
                 }}
                 transition={!shouldFloat ? { duration: 0.2 } : { duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                className={`absolute w-[164px] text-left ${isPrimary ? "left-0 top-5" : "right-0 bottom-2"}`}
+                className={`absolute text-left ${positionClass}`}
               >
                 {renderInsightCard(insight)}
               </motion.button>

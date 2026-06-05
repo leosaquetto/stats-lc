@@ -22,7 +22,7 @@ export function SettingsGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-24 flex flex-col gap-3">
+    <section id={id} className="scroll-mt-24 flex flex-col gap-2.5">
       <div className="flex items-end justify-between gap-3 px-1">
         <div className="min-w-0">
           <span className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-400/70">
@@ -30,7 +30,7 @@ export function SettingsGroup({
           </span>
           <h2 className="mt-1 text-lg font-black tracking-tight text-white">{title}</h2>
           {description && (
-            <p className="mt-1 max-w-xl text-[11px] font-medium leading-relaxed text-white/38">
+            <p className="mt-1 max-w-xl text-[10.5px] font-medium leading-relaxed text-white/38">
               {description}
             </p>
           )}
@@ -44,7 +44,7 @@ export function SettingsGroup({
 
 export function SettingsPanel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={clsx('glass-card rounded-[28px] p-4 sm:p-5', className)}>
+    <div className={clsx('glass-card rounded-[26px] p-3.5 sm:p-4', className)}>
       {children}
     </div>
   );
@@ -187,7 +187,7 @@ export function MemberCard({
       type="button"
       onClick={onClick}
       className={clsx(
-        'glass group relative flex aspect-[0.86] min-h-[118px] flex-col justify-end overflow-hidden rounded-[26px] p-2 text-center transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]',
+        'glass group relative flex aspect-[0.86] min-h-[104px] flex-col justify-end overflow-hidden rounded-[24px] p-2 text-center transition-[background-color,box-shadow,transform] duration-200 active:scale-[0.98]',
         active ? 'ring-1 ring-orange-500/70 shadow-[0_10px_30px_rgba(255,159,10,0.14)]' : 'hover:bg-white/[0.04]'
       )}
       style={{ border: 0 }}
