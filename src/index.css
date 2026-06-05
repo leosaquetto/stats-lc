@@ -163,16 +163,26 @@
   border-color: transparent !important;
 }
 
+.bottom-track-stats-modal {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.085), rgba(255,255,255,0.024)),
+    rgba(10, 8, 8, 0.82) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(138%) !important;
+  backdrop-filter: blur(16px) saturate(138%) !important;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
 .bottom-track-stats-modal .leo-glass-badge {
   box-shadow: none !important;
 }
 
 .bottom-track-stats-surface {
-  background: rgba(7, 9, 12, 0.21);
+  background: rgba(7, 9, 12, 0.54);
   border: 0;
   box-shadow: none;
-  -webkit-backdrop-filter: blur(22px) saturate(125%);
-  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .stats-lc-skeleton-shimmer {

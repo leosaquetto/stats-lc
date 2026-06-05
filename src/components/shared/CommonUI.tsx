@@ -185,9 +185,21 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
   };
 
   const shouldShowFallback = !hasDisplayableSrc && showFallback;
+  const previousDisplaySrc = lastGoodSrcRef.current;
+  const shouldKeepPreviousImage = loading && !!previousDisplaySrc && previousDisplaySrc !== displaySrc;
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
+      {shouldKeepPreviousImage && (
+        <img
+          src={previousDisplaySrc}
+          className={cn("absolute inset-0 h-full w-full object-cover", `rounded-${rounded}`)}
+          referrerPolicy="no-referrer"
+          loading="eager"
+          alt=""
+          aria-hidden="true"
+        />
+      )}
       {loading && (
         <div className="absolute inset-0 bg-white/[0.02] overflow-hidden">
           <motion.div

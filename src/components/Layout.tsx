@@ -911,6 +911,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const getHistoryCache = useStatsStore(state => state.getHistoryCache);
   const setHistoryCache = useStatsStore(state => state.setHistoryCache);
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isModalVisible, setIsModalVisible] = React.useState(false);
   const [lyricsMatch, setLyricsMatch] = React.useState<LyricsMatch | null>(null);
   const [lyricsText, setLyricsText] = React.useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = React.useState(false);
@@ -932,6 +933,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const panelDataKeyRef = React.useRef('');
   const panelRequestKeyRef = React.useRef('');
   const lyricsRequestKeyRef = React.useRef('');
+  const modalOpenTokenRef = React.useRef(0);
 
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const ownRecentCandidates = React.useMemo(() => {
@@ -1035,11 +1037,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const dominantColor = user?.nowPlaying?.dominantColor || track?.dominantColor || '#ff5f00';
   const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(getAlbumReleaseDate(track)), [track]);
   const isBubbleLive = user?.nowPlaying?.isNow === true && playbackIndex === 0;
-  const shouldAnimateBubble = isBubbleLive && !isOpen;
+  const shouldAnimateBubble = isBubbleLive && !isModalVisible;
   const bubbleAccentColor = dominantColor || '#ff5f00';
   const isAppleMusicUser = user?.platform?.primary === 'appleMusic' || user?.platform === 'appleMusic' || user?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
+  const shouldReserveGeniusLink = !!track?.name && lyricsMatch?.hasLyrics !== false;
   const currentLyricsRequestKey = React.useMemo(() => {
     if (!track?.name) return '';
     return `${trackId || 'track'}:${getLyricsCacheKey(track.name, artistName)}:${activePlayback?.timestamp || ''}`;
@@ -1171,7 +1174,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
     const timer = window.setTimeout(() => {
       fetchTrackStatsForAll(trackId).catch(() => undefined);
-    }, 360);
+    }, 760);
     return () => window.clearTimeout(timer);
   }, [fetchTrackStatsForAll, hasHydratedTrackRanking, isOpen, members.length, trackId]);
 
@@ -1188,17 +1191,29 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
     const cached = readExpiringCache(bottomTrackStatsCache, panelCacheKey);
     if (cached) {
-      setPanelData(cached.data);
-      setPanelHydration(cached.hydration);
-      panelDataKeyRef.current = panelCacheKey;
-      return;
-    } else if (!isOpen) {
+      if (!isOpen) {
+        setPanelData(cached.data);
+        setPanelHydration(cached.hydration);
+        panelDataKeyRef.current = panelCacheKey;
+        return;
+      }
+      const cachedTimer = window.setTimeout(() => {
+        window.requestAnimationFrame(() => {
+          React.startTransition(() => {
+            setPanelData(cached.data);
+            setPanelHydration(cached.hydration);
+            panelDataKeyRef.current = panelCacheKey;
+          });
+        });
+      }, 240);
+      return () => window.clearTimeout(cachedTimer);
+    }
+
+    if (!isOpen) {
       setPanelData(createInitialBottomTrackStatsPanelData(knownUserTrackCount));
       setPanelHydration(emptyBottomTrackStatsHydration);
       return;
     }
-
-    if (!isOpen) return;
 
     let cancelled = false;
     const requestKey = `${panelCacheKey}:${activePlayback?.timestamp || ''}`;
@@ -1218,11 +1233,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           mode: 'fast',
         }).then((snapshot) => {
           if (cancelled || panelRequestKeyRef.current !== requestKey) return;
-          setPanelData(snapshot.data);
-          setPanelHydration(snapshot.hydration);
+          React.startTransition(() => {
+            setPanelData(snapshot.data);
+            setPanelHydration(snapshot.hydration);
+          });
         }).catch(() => undefined);
       });
-    }, 40);
+    }, 280);
 
     const fullTimer = window.setTimeout(() => {
       loadBottomTrackStatsPanelData({
@@ -1236,11 +1253,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         mode: 'full',
       }).then((snapshot) => {
         if (cancelled || panelRequestKeyRef.current !== requestKey) return;
-        setPanelData(snapshot.data);
-        setPanelHydration(snapshot.hydration);
-        panelDataKeyRef.current = panelCacheKey;
+        React.startTransition(() => {
+          setPanelData(snapshot.data);
+          setPanelHydration(snapshot.hydration);
+          panelDataKeyRef.current = panelCacheKey;
+        });
       });
-    }, 420);
+    }, 680);
 
     return () => {
       cancelled = true;
@@ -1248,6 +1267,48 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       window.clearTimeout(fullTimer);
     };
   }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, trackArtistsSignature, trackId, user?.id]);
+
+  React.useEffect(() => {
+    if (isOpen || !user?.id || !trackId || !members.length) return;
+    if (readExpiringCache(bottomTrackStatsCache, panelCacheKey)) return;
+
+    let cancelled = false;
+    let idleId: number | null = null;
+    const runPrefetch = () => {
+      if (cancelled) return;
+      loadBottomTrackStatsPanelData({
+        user,
+        trackId,
+        albumId,
+        trackArtists,
+        members,
+        currentTimestamp: activePlayback?.timestamp,
+        knownTrackCount: knownUserTrackCount,
+        mode: 'full',
+      }).catch(() => undefined);
+    };
+
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (idleWindow.requestIdleCallback) {
+        idleId = idleWindow.requestIdleCallback(runPrefetch, { timeout: 1800 });
+        return;
+      }
+      window.requestAnimationFrame(() => window.setTimeout(runPrefetch, 0));
+    }, 1400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (idleId !== null) {
+        idleWindow.cancelIdleCallback?.(idleId);
+      }
+    };
+  }, [activePlayback?.timestamp, albumId, isOpen, knownUserTrackCount, membersSignature, panelCacheKey, trackArtistsSignature, trackId, user?.id]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -1326,21 +1387,53 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     if (element) scheduleLyricsScrollMask();
   }, [scheduleLyricsScrollMask]);
 
+  const closeStatsModal = React.useCallback(() => {
+    const closeToken = modalOpenTokenRef.current + 1;
+    modalOpenTokenRef.current = closeToken;
+    setIsModalVisible(false);
+    setIsOpen(false);
+    setSelectedTrackLink(null);
+    setRecentPickerOpen(false);
+    window.setTimeout(() => {
+      if (modalOpenTokenRef.current !== closeToken) return;
+      setPanel('stats');
+    }, 240);
+  }, []);
+
   const handleOpenStats = React.useCallback(() => {
+    const openToken = modalOpenTokenRef.current + 1;
+    modalOpenTokenRef.current = openToken;
     ignoreBackdropClickUntilRef.current = window.performance.now() + 260;
-    const cached = readExpiringCache(bottomTrackStatsCache, panelCacheKey);
-    if (cached) {
-      setPanelData(cached.data);
-      setPanelHydration(cached.hydration);
-      panelDataKeyRef.current = panelCacheKey;
-    } else {
+    if (panelDataKeyRef.current !== panelCacheKey) {
       setPanelData(createInitialBottomTrackStatsPanelData(knownUserTrackCount));
       setPanelHydration(emptyBottomTrackStatsHydration);
     }
     setPanel('stats');
     setRecentPickerOpen(false);
+    setIsModalVisible(true);
     setIsOpen(true);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (modalOpenTokenRef.current !== openToken) return;
+        const cached = readExpiringCache(bottomTrackStatsCache, panelCacheKey);
+        if (!cached) return;
+        React.startTransition(() => {
+          setPanelData(cached.data);
+          setPanelHydration(cached.hydration);
+          panelDataKeyRef.current = panelCacheKey;
+        });
+      });
+    });
   }, [knownUserTrackCount, panelCacheKey]);
+
+  const handleBubblePress = React.useCallback(() => {
+    if (isOpen || isModalVisible) {
+      closeStatsModal();
+      return;
+    }
+    handleOpenStats();
+  }, [closeStatsModal, handleOpenStats, isModalVisible, isOpen]);
 
   const copyTrackLink = async (url: string) => {
     try {
@@ -1466,132 +1559,113 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [handleLyrics, handleOpenStats]);
 
   React.useEffect(() => {
-    if (!isOpen || typeof document === 'undefined') return;
-
-    const scrollY = window.scrollY;
-    const { body, documentElement } = document;
-    const previousBodyStyles = {
-      left: body.style.left,
-      overflow: body.style.overflow,
-      position: body.style.position,
-      right: body.style.right,
-      top: body.style.top,
-      width: body.style.width,
-    };
-    const previousRootStyles = {
-      overflow: documentElement.style.overflow,
-      overscrollBehavior: documentElement.style.overscrollBehavior,
-    };
+    if (typeof document === 'undefined') return;
+    const { body } = document;
     const previousModalOpenAttr = body.dataset.bottomTrackModalOpen;
-
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-    body.dataset.bottomTrackModalOpen = 'true';
-    documentElement.style.overflow = 'hidden';
-    documentElement.style.overscrollBehavior = 'none';
+    if (isModalVisible) body.dataset.bottomTrackModalOpen = 'true';
+    else delete body.dataset.bottomTrackModalOpen;
 
     return () => {
-      Object.assign(body.style, previousBodyStyles);
-      Object.assign(documentElement.style, previousRootStyles);
       if (previousModalOpenAttr === undefined) {
         delete body.dataset.bottomTrackModalOpen;
       } else {
         body.dataset.bottomTrackModalOpen = previousModalOpenAttr;
       }
-      window.scrollTo(0, scrollY);
     };
-  }, [isOpen]);
+  }, [isModalVisible]);
 
   if (!track && !user) return null;
 
   return (
     <>
-      <motion.button
-        type="button"
-        onClick={handleOpenStats}
-        className="pointer-events-auto relative mb-[calc(env(safe-area-inset-bottom)+10px)] flex h-[60px] w-[60px] shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
-        whileTap={{ scale: 0.9 }}
-        aria-label="Abrir stats da música"
-      >
-        <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-        {shouldAnimateBubble ? (
-          <>
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-[2px] rounded-full opacity-90"
-              style={{
-                background: `conic-gradient(from 0deg, transparent 0deg, ${bubbleAccentColor} 54deg, rgba(255,255,255,0.78) 72deg, transparent 112deg, transparent 196deg, ${bubbleAccentColor} 246deg, transparent 292deg)`,
-              }}
-              animate={{ rotate: 360 }}
-              transition={{ duration: 5.4, repeat: Infinity, ease: 'linear' }}
-            />
-            <motion.span
-              aria-hidden="true"
-              key={`${trackId || trackTitle}-bubble-glow`}
-              className="pointer-events-none absolute inset-[7px] rounded-full blur-md"
-              style={{ background: `color-mix(in srgb, ${bubbleAccentColor} 28%, transparent)` }}
-              animate={{ opacity: [0.22, 0.58, 0.26], scale: [0.92, 1.08, 0.96] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-            />
+      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[60px] w-[60px] shrink-0" aria-hidden={false}>
+        <motion.button
+          type="button"
+          onClick={handleBubblePress}
+          className={clsx(
+            "pointer-events-auto z-[1001] flex h-[60px] w-[60px] touch-manipulation items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
+            "absolute inset-0"
+          )}
+          whileTap={{ scale: 0.9 }}
+          aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
+        >
+          <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {shouldAnimateBubble ? (
+            <>
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-[1px] rounded-full"
+                style={{
+                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 38%, transparent) 0%, transparent 68%)`,
+                  boxShadow: `0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 46%, transparent), 0 0 18px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
+                }}
+                animate={{ opacity: [0.34, 0.78, 0.38], scale: [0.92, 1.08, 0.96] }}
+                transition={{ duration: 2.45, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.span
+                aria-hidden="true"
+                key={`${trackId || trackTitle}-bubble-glow`}
+                className="pointer-events-none absolute inset-[5px] rounded-full"
+                style={{
+                  border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 60%, rgba(255,255,255,0.24))`,
+                }}
+                animate={{ opacity: [0.45, 0.88, 0.5], scale: [1, 1.035, 1] }}
+                transition={{ duration: 2.45, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </>
+          ) : (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-2.5 left-1/2 z-20 flex h-3 -translate-x-1/2 items-end gap-[2px]"
+              className="pointer-events-none absolute inset-[4px] rounded-full border border-white/16"
+            />
+          )}
+          {artistImage ? (
+            <motion.div
+              className="relative z-10 h-[44px] w-[44px] overflow-hidden rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+              animate={shouldAnimateBubble ? { scale: [1, 1.065, 1] } : { scale: 1 }}
+              transition={shouldAnimateBubble ? { duration: 2.45, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
             >
-              {[0, 1, 2].map((bar) => (
-                <motion.span
-                  key={bar}
-                  className="block w-[2px] rounded-full"
-                  style={{ backgroundColor: bubbleAccentColor }}
-                  animate={{ height: ['4px', bar === 1 ? '12px' : '9px', '5px'] }}
-                  transition={{ duration: 0.7 + bar * 0.12, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
-                />
-              ))}
-            </span>
-          </>
-        ) : (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-[4px] rounded-full border border-white/16"
-          />
-        )}
-        {artistImage ? (
-          <SmartImage src={artistImage} className="relative z-10 h-[44px] w-[44px] object-cover shadow-[0_8px_24px_rgba(0,0,0,0.35)]" rounded="full" fallback="" />
-        ) : (
-          <Music2 className="relative z-10 h-7 w-7 text-white/72" />
-        )}
-      </motion.button>
+              <SmartImage src={artistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+            </motion.div>
+          ) : (
+            <motion.div
+              className="relative z-10 flex h-[44px] w-[44px] items-center justify-center rounded-full"
+              animate={shouldAnimateBubble ? { scale: [1, 1.065, 1] } : { scale: 1 }}
+              transition={shouldAnimateBubble ? { duration: 2.45, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
+            >
+              <Music2 className="h-7 w-7 text-white/72" />
+            </motion.div>
+          )}
+        </motion.button>
+      </div>
 
       {typeof document !== 'undefined' && createPortal(
-      <AnimatePresence>
-        {isOpen && (
           <motion.div
-            className="fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+100px)] z-[999] flex pointer-events-auto items-end justify-center px-3 pb-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className={clsx(
+              "fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+100px)] z-[999] flex items-end justify-center px-3 pb-2 transition-opacity duration-200 ease-out",
+              isModalVisible ? "pointer-events-auto" : "pointer-events-none"
+            )}
+            aria-hidden={!isModalVisible}
+            initial={false}
+            style={{ opacity: isModalVisible ? 1 : 0, willChange: 'opacity', visibility: 'visible' }}
           >
             <button
               type="button"
-              className="absolute inset-0 pointer-events-auto touch-none cursor-default bg-black/[0.08]"
+              className={clsx(
+                "absolute inset-0 touch-none cursor-default bg-black/[0.32]",
+                isModalVisible ? "pointer-events-auto" : "pointer-events-none"
+              )}
               aria-label="Fechar stats da música"
+              tabIndex={isModalVisible ? 0 : -1}
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
-                setIsOpen(false);
-                setPanel('stats');
-                setSelectedTrackLink(null);
-                setRecentPickerOpen(false);
+                closeStatsModal();
               }}
             />
             <motion.section
-              initial={{ y: 24, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 34, opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              initial={false}
               onPointerDownCapture={(event) => {
+                if (!isModalVisible) return;
                 if (selectedTrackLink) return;
                 const target = event.target as HTMLElement;
                 if (target.closest('button,a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
@@ -1602,6 +1676,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 }
               }}
               onPointerMoveCapture={(event) => {
+                if (!isModalVisible) return;
                 const start = modalPointerStartRef.current;
                 if (!start || selectedTrackLink || panel !== 'stats') return;
                 const deltaX = event.clientX - start.x;
@@ -1612,6 +1687,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 historySwipeX.set(Math.max(-118, Math.min(118, deltaX * (atBoundary ? 0.22 : 0.72))));
               }}
               onPointerUpCapture={(event) => {
+                if (!isModalVisible) return;
                 if (panel === 'lyrics') {
                   const start = lyricsPointerStartRef.current;
                   lyricsPointerStartRef.current = null;
@@ -1621,10 +1697,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   if (deltaY > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
                     setPanel('stats');
                   } else if (deltaY < -58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    setIsOpen(false);
-                    setPanel('stats');
-                    setSelectedTrackLink(null);
-                    setRecentPickerOpen(false);
+                    closeStatsModal();
                   }
                   return;
                 }
@@ -1642,10 +1715,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       handleLyrics();
                     }
                   } else if (deltaY > 118) {
-                    setIsOpen(false);
-                    setPanel('stats');
-                    setSelectedTrackLink(null);
-                    setRecentPickerOpen(false);
+                    closeStatsModal();
                   }
                   return;
                 }
@@ -1670,10 +1740,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               onClick={(event) => event.stopPropagation()}
               className={clsx(
-                "bottom-track-stats-modal glass-aura pointer-events-auto relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y [contain:layout]",
+                "bottom-track-stats-modal glass-aura relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y transition-[opacity,transform,height] duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] [contain:layout]",
+                isModalVisible ? "pointer-events-auto" : "pointer-events-none",
                 panel === 'lyrics' ? "h-[min(78dvh,560px)]" : "h-[min(66dvh,462px)]"
               )}
-              style={{ willChange: 'transform, opacity' }}
+              style={{
+                opacity: isModalVisible ? 1 : 0,
+                transform: isModalVisible ? 'translate3d(0,0,0) scale(1)' : 'translate3d(0,32px,0) scale(0.972)',
+                willChange: 'transform, opacity',
+              }}
             >
               {playbackHistory.length > 0 && panel === 'stats' && (
                 <motion.div
@@ -2072,12 +2147,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </span>
                   </button>
                 )}
-                {(trackLinks.length > 0 || lyricsMatch?.match?.url) && (
+                {(trackLinks.length > 0 || shouldReserveGeniusLink) && (
                   <div className="flex shrink-0 items-center gap-1.5">
                     {trackLinks.map((link) => (
                       <TrackLinkIconButton key={link.label} link={link} onChoose={chooseTrackLink} />
                     ))}
-                    {lyricsMatch?.match?.url && (
+                    {lyricsMatch?.match?.url ? (
                       <TrackLinkIconButton
                         link={{
                           kind: 'genius',
@@ -2087,7 +2162,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         }}
                         onChoose={chooseTrackLink}
                       />
-                    )}
+                    ) : shouldReserveGeniusLink ? (
+                      <span className="h-10 w-10 shrink-0 rounded-full bg-white/[0.035] opacity-0" aria-hidden="true" />
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -2206,9 +2283,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   if (deltaY > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
                     setPanel('stats');
                   } else if (deltaY < -58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    setIsOpen(false);
-                    setPanel('stats');
-                    setSelectedTrackLink(null);
+                    closeStatsModal();
                   }
                 }}
                 onPointerCancel={() => {
@@ -2295,9 +2370,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </AnimatePresence>
               </motion.div>
             </motion.section>
-          </motion.div>
-        )}
-      </AnimatePresence>,
+          </motion.div>,
       document.body
       )}
     </>
