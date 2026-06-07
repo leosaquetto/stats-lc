@@ -67,7 +67,7 @@ const getOrbitCenterClearance = (size: 'large' | 'normal' | 'small') => {
 };
 
 const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
-  const [displayValue, setDisplayValue] = React.useState(0);
+  const numberRef = React.useRef<HTMLSpanElement | null>(null);
   const previousValueRef = React.useRef(0);
 
   React.useEffect(() => {
@@ -78,7 +78,8 @@ const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
     const renderFrame = (now: number) => {
       const progress = Math.min((now - startedAt) / 700, 1);
       const eased = 1 - Math.pow(1 - progress, 4);
-      setDisplayValue(Math.round(startValue + (value - startValue) * eased));
+      const displayValue = Math.round(startValue + (value - startValue) * eased);
+      if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(displayValue);
 
       if (progress < 1) {
         frame = window.requestAnimationFrame(renderFrame);
@@ -91,7 +92,7 @@ const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
     return () => window.cancelAnimationFrame(frame);
   }, [value]);
 
-  return <>{coreUtils.formatNumber(displayValue)}</>;
+  return <span ref={numberRef}>{coreUtils.formatNumber(previousValueRef.current)}</span>;
 });
 
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {

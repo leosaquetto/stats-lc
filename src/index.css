@@ -50,6 +50,11 @@
   z-index: -1;
 }
 
+.content-auto-safe {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 520px;
+}
+
 .stable-bottom-bar {
   isolation: isolate;
   contain: layout paint style;

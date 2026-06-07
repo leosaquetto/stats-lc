@@ -16,8 +16,19 @@ App local: `http://localhost:3000/`.
 ```bash
 npm run lint
 npm run build
+npm run build:report
 git diff --check
 ```
+
+## iOS com Capacitor
+
+```bash
+npm run cap:sync
+npm run cap:open:ios
+```
+
+O shell iOS usa o mesmo build Vite em `dist/`. O projeto nativo fica em `ios/`;
+para compilar ou abrir o simulador e necessario ter o Xcode completo selecionado.
 
 ## Documentos
 

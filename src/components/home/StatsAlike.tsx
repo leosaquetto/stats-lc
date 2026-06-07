@@ -143,7 +143,7 @@ export const StatsAlike = React.memo(() => {
 
   // Prefetch topItems for all members to enable Stats Alike matching
   useEffect(() => {
-    if (!missingTopMemberIds.length) return;
+    if (!isOrbitVisible || !missingTopMemberIds.length) return;
 
     let cancelled = false;
 
@@ -182,7 +182,7 @@ export const StatsAlike = React.memo(() => {
     return () => {
       cancelled = true;
     };
-  }, [missingTopMemberIdsKey, prefetchUserTops]);
+  }, [isOrbitVisible, missingTopMemberIdsKey, prefetchUserTops]);
 
   const alikeConnections = useMemo(() => {
     if (!featuredUser || !members.length) return [];

@@ -7,24 +7,29 @@ import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import HomeScreen, { preloadHomeDetailModals } from './screens/HomeScreen';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
 import { motion } from 'motion/react';
+import {
+  loadCircleScreen,
+  loadHomeScreen,
+  loadSettingsScreen,
+  loadStatsScreen,
+} from './lib/routePreloads';
 
-const loadStatsScreen = () => import('./screens/StatsScreen');
-const loadSettingsScreen = () => import('./screens/SettingsScreen');
-const loadCircleScreen = () => import('./screens/CircleScreen');
-
+const HomeScreen = lazy(loadHomeScreen);
 const StatsScreen = lazy(loadStatsScreen);
 const SettingsScreen = lazy(loadSettingsScreen);
 const CircleScreen = lazy(loadCircleScreen);
-const preloadSecondaryRoutes = () => Promise.allSettled([
-  loadStatsScreen(),
-  loadCircleScreen().then(module => module.preloadCircleSections()),
-  loadSettingsScreen(),
-  preloadHomeDetailModals(),
-]);
+
+const preloadSecondaryRoutes = async (isCancelled: () => boolean) => {
+  const loaders = [loadStatsScreen, loadCircleScreen, loadSettingsScreen];
+  for (const load of loaders) {
+    if (isCancelled() || document.visibilityState !== 'visible') return;
+    await load().catch(() => undefined);
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 350));
+  }
+};
 
 const CHUNK_RELOAD_KEY = 'stats-lc-chunk-reload-attempted';
 
@@ -205,7 +210,6 @@ export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
   const setOffline = useStatsStore(s => s.setOffline);
-  const pushNotificationsEnabled = useStatsStore(s => s.pushNotificationsEnabled);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
   const [initialBootSettled, setInitialBootSettled] = useState(false);
 
@@ -230,7 +234,6 @@ export default function App() {
     };
 
     fetchStats().then(settleSplash).catch(settleSplash);
-    preloadSecondaryRoutes().catch(() => undefined);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -238,6 +241,52 @@ export default function App() {
       window.removeEventListener('storage', handleStorage);
     };
   }, [fetchStats, setOffline]);
+
+  useEffect(() => {
+    if (!initialBootSettled) return;
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    if (connection?.saveData || connection?.effectiveType === '2g') return;
+
+    let cancelled = false;
+    let timer = 0;
+    let idleId: number | null = null;
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    const run = () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      preloadSecondaryRoutes(() => cancelled).catch(() => undefined);
+    };
+    const schedule = () => {
+      if (cancelled || timer || idleId !== null) return;
+      timer = window.setTimeout(() => {
+        timer = 0;
+        if (idleWindow.requestIdleCallback) {
+          idleId = idleWindow.requestIdleCallback(run, { timeout: 5000 });
+        } else {
+          run();
+        }
+      }, 2200);
+    };
+    const handleHomeReady = (event: Event) => {
+      if ((event as CustomEvent<{ ready?: boolean }>).detail?.ready === true) schedule();
+    };
+
+    if (window.__STATS_LC_HOME_READY__ === true) schedule();
+    else window.addEventListener('stats-lc-home-ready', handleHomeReady);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('stats-lc-home-ready', handleHomeReady);
+      window.clearTimeout(timer);
+      if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
+    };
+  }, [initialBootSettled]);
 
   useEffect(() => {
     if (!initialBootSettled) return;
@@ -269,7 +318,7 @@ export default function App() {
     const intervalTime = safePollingFrequency * 1000;
 
     const interval = setInterval(() => {
-      if (document.visibilityState === 'visible' || pushNotificationsEnabled) {
+      if (document.visibilityState === 'visible') {
         fetchGroupLive();
       }
     }, intervalTime);
@@ -285,7 +334,27 @@ export default function App() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchGroupLive, pushNotificationsEnabled, pollingFrequency]);
+  }, [fetchGroupLive, pollingFrequency]);
+
+  useEffect(() => {
+    let cleanup = () => {};
+    let cancelled = false;
+
+    import('./lib/nativeLifecycle')
+      .then(({ setupNativeLifecycle }) => setupNativeLifecycle(() => {
+        fetchGroupLive(false, { bypassThrottle: true });
+      }))
+      .then((removeListeners) => {
+        if (cancelled) removeListeners();
+        else cleanup = removeListeners;
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [fetchGroupLive]);
 
   return (
     <ErrorBoundary>

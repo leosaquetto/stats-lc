@@ -30,7 +30,7 @@ Represents **catalog availability** for the track.
 
 `statsfmFetch(path, { force })` remains the only upstream entrypoint and keeps the same public success/error shape consumed by the handlers.
 
-- Responses are cached in memory per normalized `path`.
+- Responses are cached in memory per normalized `path`; the default cold-data fresh window is 3 minutes, with a 15-minute stale fallback window.
 - Temporal `streams/stats` and `streams/dates` queries with `after`/`before` are internally decomposed into monthly blocks in the Sao Paulo timezone, then recomposed before reaching the handlers.
 - Monthly blocks use differentiated fresh TTLs:
   - current month: 5 minutes
@@ -44,6 +44,9 @@ Represents **catalog availability** for the track.
 - Cardinality lookups use the raw upstream `streams/stats` response for the requested range and are not reconstructed from monthly blocks.
 - Cache/debug metadata is intentionally kept out of normal endpoint payloads and is exposed only via `/api/health` and optional debug surfaces.
 - Live now-playing calls may opt into an internal `cacheProfile: "live"` with a shorter fresh/stale window. This is still handled inside `statsfmFetch` and does not change normal endpoint payloads.
+- `/api/group-live` has an internal 1.9-second endpoint deadline and may return partial members with `live_deadline_exceeded` warnings instead of blocking the full poll.
+- Optional dominant-color work is intentionally outside the `/api/group-live` and `/api/group` critical paths. Clients keep existing/local colors while richer endpoints refresh them.
+- Successful API responses expose `X-Request-Id` and `Server-Timing`; structured runtime logs include only request ID, method, route, status, and duration.
 
 ## Public Endpoint Reference
 
@@ -67,7 +70,7 @@ All endpoints are `GET` handlers. `user` accepts configured aliases from `lib/us
 | `/api/stats-cardinality` | `user=<user>`, `after=<epoch ms>`, optional `before=<epoch ms>`, `force=1` | Listening totals plus unique entity counts. | `streams`, `durationMs`, `minutes`, `hours`, and `cardinality.{artists,tracks,albums}`. Uses raw upstream stats for the requested range instead of reconstructing cardinality from monthly blocks. |
 | `/api/stats-dates` | `user=<user>`, `after=<epoch ms>`, optional `before=<epoch ms>`, `force=1` | Time distribution buckets for charts. | Stable zero-filled `hours`, `months`, `weekDays`, and `monthDays` maps. When upstream `/streams/dates` is unavailable, derives buckets from up to 12,000 raw streams and exposes truthful `coverage.{totalCount,aggregatedCount,partial}` metadata. |
 | `/api/simultaneous` | optional `users=<csv>`, `after=<epoch ms>`, `before=<epoch ms>`, `gapMinutes=10`, `limit=12`, `perUserLimit=1000` | Compact historical same-track/same-artist matches between group members. | Returns user pair, timestamps, gap, match type, compact track/artist metadata, and truthful per-user coverage. |
-| `/api/top` | `user=<user>`, optional `type=artists|tracks|albums` default `tracks`, `period=today|week|month|all` default `week`, `after=<epoch ms>`, `limit` default `20`, `force=1` | Normalized top artists/tracks/albums. | `items` normalized by `type`; explicit `after` overrides the period-derived range. |
+| `/api/top` | `user=<user>`, optional `type=artists|tracks|albums` default `tracks`, `period=today|week|month|year|current_year|7days|all|lifetime` default `week`, `after=<epoch ms>`, `limit` default `20`, `force=1` | Normalized top artists/tracks/albums. | `items` normalized by `type`; explicit `after` overrides the period-derived range. An upstream empty-range `400` is normalized to `200` with empty `items` and `warnings: ["upstream_empty_range"]`. |
 | `/api/user-streams` | `user=<user>`, optional `limit`, `offset`, `after`, `before`, `force=1` | Stream history page data. | Normalized stream `items` for `/users/:id/streams`. |
 | `/api/user-friends` | `user=<user>`, optional `force=1` | Friends page data. | Normalized friend `items` plus best-effort `count`; count lookup failure is isolated under `errors.count`. |
 

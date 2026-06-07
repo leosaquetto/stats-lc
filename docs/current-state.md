@@ -34,6 +34,21 @@ Regras ativas continuam em `AGENTS.md`; contrato de API continua em
   atividade ao vivo, mas nao invalidar secoes frias da Home.
 - Capa/cor dominante devem vir prontas da API quando possivel. O canvas local
   em `src/lib/colorUtils.ts` fica como fallback raro.
+- Polling live nao atualiza a idade do snapshot frio nem regrava `groupStats`
+  quando apenas a reproducao mudou.
+- Preloads de rotas secundarias so iniciam em idle depois da Home pronta; tops
+  do circulo e Stats Alike adiam fanout ate suas secoes se aproximarem da tela.
+
+## Performance e iOS
+
+- O bundle inicial e Home sao chunks separados. `npm run build:report` aplica
+  os orcamentos de 160 kB gzip para a entrada e 500 kB gzip para todo o JS.
+- `window.__STATS_LC_PERFORMANCE__` expoe amostras leves de Home pronta,
+  navegacao, long tasks e long animation frames para validacao.
+- Vercel Speed Insights usa amostragem de 20%.
+- O shell Capacitor fica em `ios/`, usa `com.leosaquetto.statslc`, scheme
+  `statslc://`, safe areas existentes e pausa/retoma o polling pelo ciclo de
+  vida nativo. Use `npm run cap:sync` antes de abrir no Xcode.
 
 ## Home, LeoHeader e Vinil
 

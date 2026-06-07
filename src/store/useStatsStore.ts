@@ -310,6 +310,16 @@ const getLiveRenderSignature = (user: any) => {
   ].join('|');
 };
 
+const getColdIdentitySignature = (user: any) => [
+  user?.id || '',
+  user?.key || '',
+  user?.name || '',
+  user?.avatar || '',
+  user?.platform?.primary || '',
+  user?.platform?.confidence || '',
+  user?.platform?.source || '',
+].join('|');
+
 const didLivePlaybackChange = (previous: any, next: any) => {
   const previousNowPlaying = previous?.nowPlaying || {};
   const nextNowPlaying = next?.nowPlaying || {};
@@ -1236,10 +1246,10 @@ export const useStatsStore = create<StatsState>()(
 
         set({ isLiveFetching: true, lastLiveFetchTime: now });
 
-        // Safety timeout: 35s
+        // The live endpoint has its own short deadline; this only releases a stuck client request.
         const safetyTimer = setTimeout(() => {
           set({ isLiveFetching: false });
-        }, 35000);
+        }, 8000);
 
         try {
           const liveData = await statsService.getGroupLiveData(force);
@@ -1251,6 +1261,7 @@ export const useStatsStore = create<StatsState>()(
             const newMembers = [...newGroupStats.members];
             const nextLiveNowPlayingByUserId = { ...get().liveNowPlayingByUserId };
             let hasLiveRenderChanges = false;
+            let hasColdGroupChanges = false;
             const changedLiveUsers: any[] = [];
 
             liveData.members?.forEach((liveUser) => {
@@ -1279,6 +1290,8 @@ export const useStatsStore = create<StatsState>()(
 
                 const changedForRender =
                   getLiveRenderSignature(existingUserWithLive) !== getLiveRenderSignature(mergedUserWithLive);
+                const coldIdentityChanged =
+                  getColdIdentitySignature(existingUser) !== getColdIdentitySignature(mergedUser);
 
                 if (!changedForRender) return;
 
@@ -1286,11 +1299,14 @@ export const useStatsStore = create<StatsState>()(
                 changedLiveUsers.push(mergedUserWithLive);
                 if (incomingNowPlaying) nextLiveNowPlayingByUserId[liveUser.id] = incomingNowPlaying;
                 else delete nextLiveNowPlayingByUserId[liveUser.id];
-                newUsers[liveUser.id] = mergedUser;
+                if (coldIdentityChanged) {
+                  hasColdGroupChanges = true;
+                  newUsers[liveUser.id] = mergedUser;
 
-                const memberIndex = newMembers.findIndex(m => m.id === liveUser.id);
-                if (memberIndex !== -1) {
-                  newMembers[memberIndex] = mergedUser;
+                  const memberIndex = newMembers.findIndex(m => m.id === liveUser.id);
+                  if (memberIndex !== -1) {
+                    newMembers[memberIndex] = mergedUser;
+                  }
                 }
 
                 if (didLivePlaybackChange(existingUserWithLive, mergedUserWithLive)) {
@@ -1303,6 +1319,7 @@ export const useStatsStore = create<StatsState>()(
                 const normalizedLive = statsService.normalizeMember?.(liveUser);
                 if (normalizedLive) {
                   hasLiveRenderChanges = true;
+                  hasColdGroupChanges = true;
                   changedLiveUsers.push(normalizedLive);
                   if (normalizedLive.nowPlaying) nextLiveNowPlayingByUserId[normalizedLive.id] = normalizedLive.nowPlaying;
                   const coldLive = stripNowPlayingFromGroupStats({
@@ -1320,17 +1337,23 @@ export const useStatsStore = create<StatsState>()(
               return;
             }
 
-            newGroupStats.users = newUsers;
-            newGroupStats.members = newMembers;
-            const canonicalGroupStats = stripNowPlayingFromGroupStats(canonicalizeGroupStats(newGroupStats) || newGroupStats) || newGroupStats;
-            canonicalGroupStats.lastUpdated = liveData.lastUpdated;
-
             const persistNow = Date.now();
-            set({
-              groupStats: canonicalGroupStats,
-              liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
-              lastFetchTime: { ...get().lastFetchTime, group: persistNow }
-            });
+            let canonicalGroupStats = currentGroupStats;
+            if (hasColdGroupChanges) {
+              newGroupStats.users = newUsers;
+              newGroupStats.members = newMembers;
+              canonicalGroupStats =
+                stripNowPlayingFromGroupStats(canonicalizeGroupStats(newGroupStats) || newGroupStats) || newGroupStats;
+            }
+
+            set(hasColdGroupChanges
+              ? {
+                  groupStats: canonicalGroupStats,
+                  liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
+                }
+              : {
+                  liveNowPlayingByUserId: nextLiveNowPlayingByUserId,
+                });
 
             prepareLiveVisuals(changedLiveUsers).then(() => {
               const enrichedLiveNowPlaying = changedLiveUsers.reduce<LiveNowPlayingByUserId>((acc, changedUser) => {
@@ -1356,7 +1379,6 @@ export const useStatsStore = create<StatsState>()(
                 users: Object.fromEntries(liveMembersForCache.map((member) => [member.id, member])),
                 members: liveMembersForCache,
               });
-              mmkv.set('groupStats_timestamp', persistNow);
             }
           }
         } catch (e) {
@@ -1434,73 +1456,7 @@ export const useStatsStore = create<StatsState>()(
       },
 
       getUserById: (id: string) => {
-        const state = get();
-        const lastFetch = state.lastFetchTime.group;
-        const now = Date.now();
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
-        
-        if (!state.isOffline && (!lastFetch || now - lastFetch > CACHE_TTL)) {
-          setTimeout(() => {
-            // Re-verificar após o timeout para evitar chamadas de corrida duplicadas
-            const currentState = get();
-            const currentLastFetch = currentState.lastFetchTime.group;
-            if (currentState.isOffline || (currentLastFetch && Date.now() - currentLastFetch < CACHE_TTL)) {
-              return;
-            }
-
-            // throttling imediato marcando o fetch em andamento
-            set(prev => ({
-              lastFetchTime: {
-                ...prev.lastFetchTime,
-                group: Date.now()
-              }
-            }));
-
-            // Dispara a consulta silenciosa em background
-            statsService.getGroupData(false)
-              .then(data => {
-                if (data) {
-                  const canonicalData = canonicalizeGroupStats(data) || data;
-                  set({
-                    groupStats: stripNowPlayingFromGroupStats(canonicalData),
-                    liveNowPlayingByUserId: {
-                      ...get().liveNowPlayingByUserId,
-                      ...extractLiveNowPlayingByUserId(canonicalData),
-                    },
-                    isOffline: false,
-                    error: null,
-                    lastFetchTime: { ...get().lastFetchTime, group: Date.now() }
-                  });
-                  
-                  // Trigger push notifications check
-                  if (data.members) {
-                    notificationService.checkAndNotify(data.members, {
-                      pushNotificationsEnabled: get().pushNotificationsEnabled,
-                      notifyOnNewStreams: get().notifyOnNewStreams,
-                      notifyOnGroupHighlights: get().notifyOnGroupHighlights,
-                      notifyOnArenaBattle: get().notifyOnArenaBattle,
-                      arenaName: get().arenaName,
-                      pollingFrequency: get().pollingFrequency,
-                    });
-                  }
-                }
-              })
-              .catch(err => {
-                if ((import.meta as any).env?.DEV) console.warn("[getUserById background sync failed]", err);
-                const isNetworkError = !navigator.onLine || 
-                  err.message?.includes('Network Error') || 
-                  err.message?.includes('timeout') || 
-                  err.code === 'ECONNABORTED' ||
-                  err.message?.includes('network');
-                  
-                if (isNetworkError) {
-                  set({ isOffline: true });
-                }
-              });
-          }, 0);
-        }
-
-        return state.groupStats?.users[id];
+        return get().groupStats?.users[id];
       },
 
       getLiveUserById: (id: string) => {

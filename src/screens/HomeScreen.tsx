@@ -1117,7 +1117,6 @@ export default function HomeScreen() {
   const isOffline = useStatsStore(state => state.isOffline);
   const error = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
-  const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const getHistoryCache = useStatsStore(state => state.getHistoryCache);
   const setHistoryCache = useStatsStore(state => state.setHistoryCache);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -1152,9 +1151,6 @@ export default function HomeScreen() {
     tracks: [],
     albums: []
   });
-  const [, setCircleTopState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [circleTopPeriodTops, setCircleTopPeriodTops] = useState<Record<string, { artists: any[]; tracks: any[]; albums: any[] }>>({});
-  const [, setAlikePrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [recentPrepState, setRecentPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
@@ -1751,64 +1747,6 @@ export default function HomeScreen() {
   }, [primaryUser?.id, replayPeriodKey]);
 
   useEffect(() => {
-    if (!groupStats || members.length === 0) {
-      setCircleTopPeriodTops({});
-      setCircleTopState(groupStats ? 'ready' : 'idle');
-      return;
-    }
-
-    let cancelled = false;
-    const bootMembers = members;
-    setCircleTopState('loading');
-
-    Promise.allSettled(bootMembers.map(async (member) => {
-      const [artists, tracks, albums] = await Promise.all([
-        statsService.getTopItems(member.id, 'artists', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.artists?.slice(0, 1) || []),
-        statsService.getTopItems(member.id, 'tracks', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.tracks?.slice(0, 1) || []),
-        statsService.getTopItems(member.id, 'albums', { ...replayPeriodQuery, limit: 1 }).catch(() => member.topItems?.albums?.slice(0, 1) || [])
-      ]);
-      return { id: member.id, tops: { artists, tracks, albums } };
-    })).then((results) => {
-      if (cancelled) return;
-      const next: Record<string, { artists: any[]; tracks: any[]; albums: any[] }> = {};
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') next[result.value.id] = result.value.tops;
-      });
-      setCircleTopPeriodTops(next);
-      setCircleTopState('ready');
-    }).catch(() => {
-      if (!cancelled) setCircleTopState('error');
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [membersSignature, replayPeriodKey]);
-
-  useEffect(() => {
-    if (!groupStats || members.length === 0) {
-      setAlikePrepState(groupStats ? 'ready' : 'idle');
-      return;
-    }
-
-    let cancelled = false;
-    const bootMembers = members;
-    setAlikePrepState('loading');
-
-    Promise.allSettled(bootMembers.map((member) => prefetchUserTops(member.id)))
-      .then(() => {
-        if (!cancelled) setAlikePrepState('ready');
-      })
-      .catch(() => {
-        if (!cancelled) setAlikePrepState('error');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [membersSignature, prefetchUserTops]);
-
-  useEffect(() => {
     let cancelled = false;
 
     if (!primaryUser?.id) {
@@ -2351,11 +2289,13 @@ export default function HomeScreen() {
       )}
 
       {isAppReady && primaryUser && (
-        <HomePerceptions
-          tracks={replayTracks}
-          artists={replayArtists}
-          recent={resolvedRecentPlays}
-        />
+        <div className="content-auto-safe">
+          <HomePerceptions
+            tracks={replayTracks}
+            artists={replayArtists}
+            recent={resolvedRecentPlays}
+          />
+        </div>
       )}
 
       {isAppReady && (
@@ -2370,7 +2310,6 @@ export default function HomeScreen() {
           periodQuery={replayPeriodQuery}
           activeTab={replayActiveTab}
           selectedSubValues={replaySelectedSubValues}
-          preparedPeriodTops={circleTopPeriodTops}
         />
       </motion.div>
       )}
@@ -2381,7 +2320,7 @@ export default function HomeScreen() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-100px" }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        className="content-auto-safe px-4 sm:px-6 lg:px-8"
       >
         <HomeInsights onFriendClick={(friend) => setViewingFullHistoryUser(friend)} />
       </motion.div>
@@ -2405,6 +2344,7 @@ export default function HomeScreen() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="content-auto-safe"
         >
           <HomeRecentPlays
             recent={resolvedRecentPlays}

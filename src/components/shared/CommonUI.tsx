@@ -399,7 +399,8 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
   const [numberRef, isVisible] = useElementVisibility<HTMLSpanElement>('120px');
   const prefersReducedMotion = usePrefersReducedMotion();
   const initialValue = startFrom == null ? value : startFrom;
-  const [displayValue, setDisplayValue] = useState(initialValue);
+  const initialValueRef = useRef(initialValue);
+  const displayValueRef = useRef(initialValue);
   const prevValueRef = useRef(initialValue);
   const requestRef = useRef<number | undefined>(undefined);
   const startTimeRef = useRef<number | undefined>(undefined);
@@ -411,7 +412,8 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
       prevValueRef.current = value;
-      setDisplayValue(value);
+      displayValueRef.current = value;
+      if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(value);
       return;
     }
     
@@ -427,8 +429,8 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
       // Quartic out easing for smoother finish
       const easeProgress = 1 - Math.pow(1 - progress, 4);
       const current = Math.floor(startValue + (endValue - startValue) * easeProgress);
-      
-      setDisplayValue(current);
+      displayValueRef.current = current;
+      if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(current);
 
       if (progress < 1) {
         requestRef.current = requestAnimationFrame(animate);
@@ -443,9 +445,9 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
     };
-  }, [value, isVisible, prefersReducedMotion]);
+  }, [value, isVisible, prefersReducedMotion, numberRef]);
 
-  return <span ref={numberRef}>{coreUtils.formatNumber(displayValue)}</span>;
+  return <span ref={numberRef}>{coreUtils.formatNumber(initialValueRef.current)}</span>;
 };
 
 export const MusicPlatformBadge = memo(({ userId, platform, track, className, showLabel = false, variant = "default" }: { userId?: string, platform?: any, track?: any, className?: string, showLabel?: boolean, variant?: "default" | "minimal" }) => {

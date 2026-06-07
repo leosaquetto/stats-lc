@@ -17,6 +17,7 @@ import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../li
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
 import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
+import { preloadRouteModule } from '../lib/routePreloads';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -28,19 +29,7 @@ const NAV_ITEMS = [
 const preloadRouteModules = (path: string) => {
   const schedule = (window as any).requestIdleCallback || window.setTimeout;
   schedule(() => {
-    if (path === '/stats') {
-      import('../screens/StatsScreen').catch(() => undefined);
-    } else if (path === '/circle') {
-      import('../screens/CircleScreen')
-        .then((module) => module.preloadCircleSections?.())
-        .catch(() => undefined);
-    } else if (path === '/settings') {
-      import('../screens/SettingsScreen').catch(() => undefined);
-    } else if (path === '/') {
-      import('../screens/HomeScreen')
-        .then((module) => module.preloadHomeDetailModals?.())
-        .catch(() => undefined);
-    }
+    preloadRouteModule(path).catch(() => undefined);
   });
 };
 
@@ -1327,48 +1316,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       window.clearTimeout(fullTimer);
     };
   }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, trackArtistsSignature, trackId, user?.id]);
-
-  React.useEffect(() => {
-    if (isOpen || !user?.id || !trackId || !members.length) return;
-    if (readExpiringCache(bottomTrackStatsCache, panelCacheKey)) return;
-
-    let cancelled = false;
-    let idleId: number | null = null;
-    const runPrefetch = () => {
-      if (cancelled) return;
-      loadBottomTrackStatsPanelData({
-        user,
-        trackId,
-        albumId,
-        trackArtists,
-        members,
-        currentTimestamp: activePlayback?.timestamp,
-        knownTrackCount: knownUserTrackCount,
-        mode: 'full',
-      }).catch(() => undefined);
-    };
-
-    const idleWindow = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-    const timer = window.setTimeout(() => {
-      if (cancelled) return;
-      if (idleWindow.requestIdleCallback) {
-        idleId = idleWindow.requestIdleCallback(runPrefetch, { timeout: 1800 });
-        return;
-      }
-      window.requestAnimationFrame(() => window.setTimeout(runPrefetch, 0));
-    }, 1400);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-      if (idleId !== null) {
-        idleWindow.cancelIdleCallback?.(idleId);
-      }
-    };
-  }, [activePlayback?.timestamp, albumId, isOpen, knownUserTrackCount, membersSignature, panelCacheKey, trackArtistsSignature, trackId, user?.id]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];

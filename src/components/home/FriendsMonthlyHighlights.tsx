@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useInView } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { statsService, type ReplayPeriodQuery } from '../../services/statsService';
 import { getReplayFilterLabel, type ReplayFilterPeriod, type ReplaySelectedSubValues } from './replayUtils';
@@ -28,6 +28,8 @@ export const FriendsMonthlyHighlights = React.memo(({
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const [periodTops, setPeriodTops] = useState<Record<string, { artists: TopItem[]; tracks: TopItem[]; albums: TopItem[] }>>({});
+  const sectionRef = React.useRef<HTMLDivElement | null>(null);
+  const isNearViewport = useInView(sectionRef, { amount: 0.01, margin: '600px 0px', once: true });
 
   const isWaitingForGroup = !groupStats;
   const visibleMembers = React.useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
@@ -46,7 +48,7 @@ export const FriendsMonthlyHighlights = React.memo(({
       setPeriodTops(preparedPeriodTops);
       return;
     }
-    if (!stablePeriodQuery || visibleMembers.length === 0) return;
+    if (!isNearViewport || !stablePeriodQuery || visibleMembers.length === 0) return;
     let cancelled = false;
     Promise.allSettled(visibleMembers.map(async (member) => {
       const [artists, tracks, albums] = await Promise.all([
@@ -66,7 +68,7 @@ export const FriendsMonthlyHighlights = React.memo(({
     return () => {
       cancelled = true;
     };
-  }, [stablePeriodQuery, visibleMembers, preparedPeriodTops]);
+  }, [isNearViewport, stablePeriodQuery, visibleMembers, preparedPeriodTops]);
 
   const sortedFriends = React.useMemo(() => [...visibleMembers].sort((a, b) => {
     if (a.id === featuredUserId) return -1;
@@ -91,7 +93,7 @@ export const FriendsMonthlyHighlights = React.memo(({
 
   if (isWaitingForGroup) {
     return (
-      <div className="flex flex-col gap-3 mb-3 mt-1">
+      <div ref={sectionRef} className="flex flex-col gap-3 mb-3 mt-1">
         <SectionHeader title="TOP 1 DO CÍRCULO" />
         <motion.div
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -126,7 +128,7 @@ export const FriendsMonthlyHighlights = React.memo(({
   if (visibleMembers.length === 0) return null;
 
   return (
-    <div className="mb-3 mt-1">
+    <div ref={sectionRef} className="mb-3 mt-1">
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         whileInView={{ opacity: 1, scale: 1 }}
