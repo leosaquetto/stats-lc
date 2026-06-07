@@ -23,6 +23,6 @@ git diff --check
 
 - `AGENTS.md`: guia ativo para agentes e manutencao.
 - `api-contract.md`: contrato consumido pelo frontend.
-- `docs/live-playback-architecture.md`: arquitetura de live playback.
-- `docs/backlog.md`: follow-ups tecnicos.
-- `docs/history.md`: resumo historico consolidado.
+- `docs/current-state.md`: estado atual das features, arquitetura quente/fria e decisoes recentes.
+- `docs/backlog.md`: follow-ups tecnicos vivos.
+- `docs/history.md`: resumo historico consolidado e checkpoints arquivados.

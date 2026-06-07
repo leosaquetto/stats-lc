@@ -462,6 +462,21 @@ const entryTimestampMs = (value: any) => {
   return Number.isFinite(time) ? time : 0;
 };
 
+const formatPlaybackTimeLabel = (value: any) => {
+  const time = entryTimestampMs(value);
+  if (!time) return 'Recente';
+
+  const date = new Date(time);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const timeLabel = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  if (dateStart === todayStart) return timeLabel;
+  if (dateStart === todayStart - 24 * 60 * 60 * 1000) return `ontem, ${timeLabel}`;
+  return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}, ${timeLabel}`;
+};
+
 const getPlaybackHistoryEntries = (user: any) => {
   const source = Array.isArray(user?.recent)
     ? user.recent
@@ -504,6 +519,8 @@ type BottomTrackStatsPanelSnapshot = {
   data: BottomTrackStatsPanelData;
   hydration: BottomTrackStatsHydrationState;
 };
+
+type BottomTrackDragStart = { x: number; y: number; fromScroll?: boolean };
 
 const emptyBottomTrackStatsPanelData: BottomTrackStatsPanelData = {
   entityStats: { artist: 0, track: 0, album: 0 },
@@ -924,8 +941,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [playbackIndex, setPlaybackIndex] = React.useState(0);
   const [recentPickerOpen, setRecentPickerOpen] = React.useState(false);
   const [resolvedOwnRecent, setResolvedOwnRecent] = React.useState<any[]>([]);
-  const modalPointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const lyricsPointerStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const modalPointerStartRef = React.useRef<BottomTrackDragStart | null>(null);
+  const lyricsPointerStartRef = React.useRef<BottomTrackDragStart | null>(null);
   const lyricsScrollRef = React.useRef<HTMLDivElement | null>(null);
   const historySwipeX = useMotionValue(0);
   const historySwipeTokenRef = React.useRef(0);
@@ -958,17 +975,61 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       .slice(0, 12);
   }, [ownRecentCandidates, user]);
   const liveTrack = user?.nowPlaying?.track;
+  const getPlaybackMatchKey = React.useCallback((playback: { track?: any; timestamp?: any } | null | undefined) => {
+    const playbackTrack = playback?.track;
+    const trackKey = String(playbackTrack?.id || playbackTrack?.track?.id || playbackTrack?.name || '')
+      .trim()
+      .toLowerCase();
+    if (!trackKey) return '';
+    const timestamp = entryTimestampMs(playback?.timestamp);
+    return timestamp > 0 ? `${trackKey}:${timestamp}` : trackKey;
+  }, []);
+  const isSamePlayback = React.useCallback((left: { track?: any; timestamp?: any } | null | undefined, right: { track?: any; timestamp?: any } | null | undefined) => {
+    const leftKey = getPlaybackMatchKey(left);
+    const rightKey = getPlaybackMatchKey(right);
+    if (!leftKey || !rightKey) return false;
+    if (leftKey === rightKey) return true;
+
+    const leftTrack = String(left?.track?.id || left?.track?.track?.id || left?.track?.name || '').trim().toLowerCase();
+    const rightTrack = String(right?.track?.id || right?.track?.track?.id || right?.track?.name || '').trim().toLowerCase();
+    const leftTime = entryTimestampMs(left?.timestamp);
+    const rightTime = entryTimestampMs(right?.timestamp);
+    if (!leftTrack || leftTrack !== rightTrack) return false;
+    if (leftTime > 0 && rightTime > 0) return Math.abs(leftTime - rightTime) <= 1000;
+    return true;
+  }, [getPlaybackMatchKey]);
+  const livePlayback = React.useMemo(() => {
+    if (!liveTrack) return null;
+    return {
+      track: liveTrack,
+      timestamp: user?.nowPlaying?.timestamp,
+      platform: user?.nowPlaying?.platform,
+      durationMs: user?.nowPlaying?.durationMs || liveTrack?.durationMs,
+    };
+  }, [liveTrack, user?.nowPlaying?.durationMs, user?.nowPlaying?.platform, user?.nowPlaying?.timestamp]);
+  const visiblePlaybackHistory = React.useMemo(() => {
+    return playbackHistory
+      .map((entry, index) => ({ entry, index: index + 1 }))
+      .filter(({ entry, index }) => index !== 1 || !livePlayback || !isSamePlayback(livePlayback, entry));
+  }, [isSamePlayback, livePlayback, playbackHistory]);
+  const visiblePlaybackIndexes = React.useMemo(() => [0, ...visiblePlaybackHistory.map(item => item.index)], [visiblePlaybackHistory]);
+  const getAdjacentPlaybackIndex = React.useCallback((direction: 'older' | 'newer') => {
+    if (direction === 'older') {
+      return visiblePlaybackIndexes.find(index => index > playbackIndex) ?? playbackIndex;
+    }
+
+    const reversed = [...visiblePlaybackIndexes].reverse();
+    return reversed.find(index => index < playbackIndex) ?? playbackIndex;
+  }, [playbackIndex, visiblePlaybackIndexes]);
+  const olderPlaybackIndex = getAdjacentPlaybackIndex('older');
+  const newerPlaybackIndex = getAdjacentPlaybackIndex('newer');
   const activePlayback = React.useMemo(() => {
     if (playbackIndex <= 0 || playbackHistory.length === 0) {
-      return {
-        track: liveTrack,
-        timestamp: user?.nowPlaying?.timestamp,
-        platform: user?.nowPlaying?.platform,
-        durationMs: user?.nowPlaying?.durationMs || liveTrack?.durationMs,
-      };
+      return livePlayback;
     }
     return playbackHistory[Math.min(playbackIndex - 1, playbackHistory.length - 1)] || null;
-  }, [liveTrack, playbackHistory, playbackIndex, user?.nowPlaying?.durationMs, user?.nowPlaying?.platform, user?.nowPlaying?.timestamp]);
+  }, [livePlayback, playbackHistory, playbackIndex]);
+  const activePlaybackLabel = playbackIndex > 0 ? formatPlaybackTimeLabel(activePlayback?.timestamp) : '';
   const recentPickerItems = React.useMemo(() => {
     const current = liveTrack
       ? [{
@@ -980,49 +1041,52 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         timestamp: user?.nowPlaying?.timestamp,
       }]
       : [];
-    const history = playbackHistory.map((entry, index) => ({
-      index: index + 1,
-      label: `#${index + 1}`,
+    const history = visiblePlaybackHistory.map(({ entry, index }) => ({
+      index,
+      label: formatPlaybackTimeLabel(entry.timestamp),
       title: entry.track?.name || 'Música',
       artist: getTrackArtistName(entry.track),
       image: getTrackArtwork(entry.track),
       timestamp: entry.timestamp,
     }));
     return [...current, ...history];
-  }, [liveTrack, playbackHistory, user?.nowPlaying?.isNow, user?.nowPlaying?.timestamp]);
+  }, [liveTrack, user?.nowPlaying?.isNow, user?.nowPlaying?.timestamp, visiblePlaybackHistory]);
   const selectPlaybackChoice = React.useCallback((index: number) => {
+    if (index === playbackIndex) {
+      setRecentPickerOpen(false);
+      animateMotion(historySwipeX, 0, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
+      return;
+    }
     setPlaybackIndex(index);
     setPanel('stats');
     setRecentPickerOpen(false);
     historySwipeTokenRef.current += 1;
-    historySwipeX.set(index > playbackIndex ? 54 : -54);
-    animateMotion(historySwipeX, 0, { duration: 0.22, ease: [0.16, 1, 0.3, 1] });
+    historySwipeX.set(index > playbackIndex ? 52 : -52);
+    animateMotion(historySwipeX, 0, { duration: 0.2, ease: [0.16, 1, 0.3, 1] });
   }, [historySwipeX, playbackIndex]);
   const animateHistorySwipe = React.useCallback((direction: 'older' | 'newer') => {
-    const nextIndex = direction === 'older'
-      ? Math.min(playbackIndex + 1, playbackHistory.length)
-      : Math.max(playbackIndex - 1, 0);
+    const nextIndex = getAdjacentPlaybackIndex(direction);
 
     if (nextIndex === playbackIndex) {
-      animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+      animateMotion(historySwipeX, 0, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
       return;
     }
 
-    const exitX = direction === 'older' ? 390 : -390;
+    const exitX = direction === 'older' ? 190 : -190;
     const token = historySwipeTokenRef.current + 1;
     historySwipeTokenRef.current = token;
     animateMotion(historySwipeX, exitX, {
       duration: 0.16,
-      ease: [0.4, 0, 1, 1],
+      ease: [0.16, 1, 0.3, 1],
       onComplete: () => {
         if (historySwipeTokenRef.current !== token) return;
         setPlaybackIndex(nextIndex);
         setPanel('stats');
-        historySwipeX.set(direction === 'older' ? -72 : 72);
-        animateMotion(historySwipeX, 0, { duration: 0.24, ease: [0.16, 1, 0.3, 1] });
+        historySwipeX.set(direction === 'older' ? -46 : 46);
+        animateMotion(historySwipeX, 0, { duration: 0.2, ease: [0.16, 1, 0.3, 1] });
       },
     });
-  }, [historySwipeX, playbackHistory.length, playbackIndex]);
+  }, [getAdjacentPlaybackIndex, historySwipeX, playbackIndex]);
   const track = activePlayback?.track;
   const trackId = String(track?.id || track?.track?.id || '');
   const artistId = getMainArtistId(track);
@@ -1197,16 +1261,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         panelDataKeyRef.current = panelCacheKey;
         return;
       }
-      const cachedTimer = window.setTimeout(() => {
-        window.requestAnimationFrame(() => {
-          React.startTransition(() => {
-            setPanelData(cached.data);
-            setPanelHydration(cached.hydration);
-            panelDataKeyRef.current = panelCacheKey;
-          });
-        });
-      }, 240);
-      return () => window.clearTimeout(cachedTimer);
+      React.startTransition(() => {
+        setPanelData(cached.data);
+        setPanelHydration(cached.hydration);
+        panelDataKeyRef.current = panelCacheKey;
+      });
+      return;
     }
 
     if (!isOpen) {
@@ -1391,14 +1451,33 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     const closeToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = closeToken;
     setIsModalVisible(false);
-    setIsOpen(false);
     setSelectedTrackLink(null);
     setRecentPickerOpen(false);
+    animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
     window.setTimeout(() => {
       if (modalOpenTokenRef.current !== closeToken) return;
+      setIsOpen(false);
       setPanel('stats');
-    }, 240);
-  }, []);
+    }, 220);
+  }, [historySwipeX]);
+
+  const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
+    if (!start || selectedTrackLink) return;
+    const deltaX = clientX - start.x;
+    const deltaY = clientY - start.y;
+    const isVertical = Math.abs(deltaY) > Math.abs(deltaX) * 0.85;
+
+    if (!isVertical) return;
+    if (deltaY > 58) {
+      if (start.fromScroll) {
+        const lyricsScroll = lyricsScrollRef.current;
+        if (lyricsScroll && lyricsScroll.scrollTop > 2) return;
+      }
+      setPanel('stats');
+    } else if (!start.fromScroll && deltaY < -58) {
+      closeStatsModal();
+    }
+  }, [closeStatsModal, selectedTrackLink]);
 
   const handleOpenStats = React.useCallback(() => {
     const openToken = modalOpenTokenRef.current + 1;
@@ -1485,6 +1564,42 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       if (lyricsRequestKeyRef.current === requestKey) setLyricsLoading(false);
     }
   }, [artistName, currentLyricsRequestKey, track?.name]);
+
+  const handleStatsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
+    if (!start || selectedTrackLink || panel !== 'stats') return false;
+    const deltaX = clientX - start.x;
+    const deltaY = clientY - start.y;
+
+    if (Math.abs(deltaY) > 48 && Math.abs(deltaY) > Math.abs(deltaX) * 1.02) {
+      animateMotion(historySwipeX, 0, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
+      if (deltaY < 0) {
+        handleLyrics();
+      } else if (deltaY > 118) {
+        closeStatsModal();
+      }
+      return true;
+    }
+
+    if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.1) {
+      animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+      return false;
+    }
+
+    if (deltaX > 0 && olderPlaybackIndex !== playbackIndex) {
+      setRecentPickerOpen(false);
+      animateHistorySwipe('older');
+      return true;
+    }
+
+    if (deltaX < 0 && newerPlaybackIndex !== playbackIndex) {
+      setRecentPickerOpen(false);
+      animateHistorySwipe('newer');
+      return true;
+    }
+
+    animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+    return false;
+  }, [animateHistorySwipe, closeStatsModal, handleLyrics, historySwipeX, newerPlaybackIndex, olderPlaybackIndex, panel, playbackIndex, selectedTrackLink]);
 
   React.useEffect(() => {
     if (!isOpen || panel !== 'lyrics' || !track?.name) return;
@@ -1578,39 +1693,52 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   return (
     <>
-      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[60px] w-[60px] shrink-0" aria-hidden={false}>
+      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[66px] w-[66px] shrink-0" aria-hidden={false}>
         <motion.button
           type="button"
           onClick={handleBubblePress}
           className={clsx(
-            "pointer-events-auto z-[1001] flex h-[60px] w-[60px] touch-manipulation items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
+            "pointer-events-auto z-[1001] flex h-[66px] w-[66px] touch-manipulation items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
             "absolute inset-0"
           )}
+          style={isBubbleLive ? {
+            boxShadow: `0 12px 38px -14px rgba(0,0,0,0.72), 0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 58%, rgba(255,255,255,0.18)), 0 0 26px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
+          } : undefined}
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
           <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+          {isBubbleLive && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[2px] rounded-full"
+              style={{
+                border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 66%, rgba(255,255,255,0.18))`,
+                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 20%, transparent) 0%, transparent 66%)`,
+              }}
+            />
+          )}
           {shouldAnimateBubble ? (
             <>
               <motion.span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-[1px] rounded-full"
                 style={{
-                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 38%, transparent) 0%, transparent 68%)`,
-                  boxShadow: `0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 46%, transparent), 0 0 18px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
+                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 62%, transparent) 0%, color-mix(in srgb, ${bubbleAccentColor} 32%, transparent) 42%, transparent 72%)`,
+                  boxShadow: `0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 72%, transparent), 0 0 30px color-mix(in srgb, ${bubbleAccentColor} 62%, transparent)`,
                 }}
-                animate={{ opacity: [0.34, 0.78, 0.38], scale: [0.92, 1.08, 0.96] }}
-                transition={{ duration: 2.45, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ opacity: [0.48, 0.92, 0.5], scale: [0.9, 1.16, 0.96] }}
+                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
               />
               <motion.span
                 aria-hidden="true"
                 key={`${trackId || trackTitle}-bubble-glow`}
-                className="pointer-events-none absolute inset-[5px] rounded-full"
+                className="pointer-events-none absolute inset-[4px] rounded-full"
                 style={{
-                  border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 60%, rgba(255,255,255,0.24))`,
+                  border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 78%, rgba(255,255,255,0.28))`,
                 }}
-                animate={{ opacity: [0.45, 0.88, 0.5], scale: [1, 1.035, 1] }}
-                transition={{ duration: 2.45, repeat: Infinity, ease: 'easeInOut' }}
+                animate={{ opacity: [0.62, 1, 0.66], scale: [0.98, 1.08, 1] }}
+                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
               />
             </>
           ) : (
@@ -1621,19 +1749,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           )}
           {artistImage ? (
             <motion.div
-              className="relative z-10 h-[44px] w-[44px] overflow-hidden rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-              animate={shouldAnimateBubble ? { scale: [1, 1.065, 1] } : { scale: 1 }}
-              transition={shouldAnimateBubble ? { duration: 2.45, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
+              className="relative z-10 h-[54px] w-[54px] overflow-hidden rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+              animate={shouldAnimateBubble ? { scale: [0.97, 1.13, 1] } : { scale: 1 }}
+              transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
             >
               <SmartImage src={artistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
             </motion.div>
           ) : (
             <motion.div
-              className="relative z-10 flex h-[44px] w-[44px] items-center justify-center rounded-full"
-              animate={shouldAnimateBubble ? { scale: [1, 1.065, 1] } : { scale: 1 }}
-              transition={shouldAnimateBubble ? { duration: 2.45, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
+              className="relative z-10 flex h-[54px] w-[54px] items-center justify-center rounded-full"
+              animate={shouldAnimateBubble ? { scale: [0.97, 1.13, 1] } : { scale: 1 }}
+              transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
             >
-              <Music2 className="h-7 w-7 text-white/72" />
+              <Music2 className="h-8 w-8 text-white/72" />
             </motion.div>
           )}
         </motion.button>
@@ -1642,12 +1770,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       {typeof document !== 'undefined' && createPortal(
           <motion.div
             className={clsx(
-              "fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+100px)] z-[999] flex items-end justify-center px-3 pb-2 transition-opacity duration-200 ease-out",
+              "fixed left-0 right-0 top-0 bottom-[calc(env(safe-area-inset-bottom)+100px)] z-[999] flex items-end justify-center px-3 pb-2",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
             )}
             aria-hidden={!isModalVisible}
             initial={false}
-            style={{ opacity: isModalVisible ? 1 : 0, willChange: 'opacity', visibility: 'visible' }}
+            animate={{ opacity: isModalVisible ? 1 : 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            style={{ willChange: 'opacity', visibility: 'visible' }}
           >
             <button
               type="button"
@@ -1659,6 +1789,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               tabIndex={isModalVisible ? 0 : -1}
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
+                if (recentPickerOpen) {
+                  setRecentPickerOpen(false);
+                  return;
+                }
                 closeStatsModal();
               }}
             />
@@ -1668,6 +1802,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 if (!isModalVisible) return;
                 if (selectedTrackLink) return;
                 const target = event.target as HTMLElement;
+                if (recentPickerOpen && !target.closest('[data-recent-picker],[data-recent-toggle]')) {
+                  event.stopPropagation();
+                  setRecentPickerOpen(false);
+                  modalPointerStartRef.current = null;
+                  lyricsPointerStartRef.current = null;
+                  animateMotion(historySwipeX, 0, { duration: 0.14, ease: [0.16, 1, 0.3, 1] });
+                  return;
+                }
                 if (target.closest('button,a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
                 if (panel === 'lyrics') {
                   lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY };
@@ -1682,55 +1824,72 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 const deltaX = event.clientX - start.x;
                 const deltaY = event.clientY - start.y;
                 if (Math.abs(deltaX) < 5 || Math.abs(deltaX) < Math.abs(deltaY) * 1.08) return;
-                const atBoundary = (deltaX > 0 && playbackIndex >= playbackHistory.length)
+                const atBoundary = (deltaX > 0 && olderPlaybackIndex === playbackIndex)
                   || (deltaX < 0 && playbackIndex <= 0);
-                historySwipeX.set(Math.max(-118, Math.min(118, deltaX * (atBoundary ? 0.22 : 0.72))));
+                historySwipeX.set(Math.max(-96, Math.min(96, deltaX * (atBoundary ? 0.2 : 0.62))));
               }}
               onPointerUpCapture={(event) => {
                 if (!isModalVisible) return;
                 if (panel === 'lyrics') {
                   const start = lyricsPointerStartRef.current;
                   lyricsPointerStartRef.current = null;
-                  if (!start || selectedTrackLink) return;
-                  const deltaX = event.clientX - start.x;
-                  const deltaY = event.clientY - start.y;
-                  if (deltaY > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    setPanel('stats');
-                  } else if (deltaY < -58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    closeStatsModal();
-                  }
+                  handleLyricsDragEnd(start, event.clientX, event.clientY);
                   return;
                 }
                 const start = modalPointerStartRef.current;
                 modalPointerStartRef.current = null;
-                if (!start || selectedTrackLink || panel !== 'stats') return;
-                const deltaX = event.clientX - start.x;
-                const deltaY = event.clientY - start.y;
-                if (Math.abs(deltaY) > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 1.08) {
-                  animateMotion(historySwipeX, 0, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
-                  if (deltaY < 0) {
-                    if (lyricsText) {
-                      setPanel('lyrics');
-                    } else {
-                      handleLyrics();
-                    }
-                  } else if (deltaY > 118) {
-                    closeStatsModal();
-                  }
+                handleStatsDragEnd(start, event.clientX, event.clientY);
+              }}
+              onTouchStartCapture={(event) => {
+                if (!isModalVisible || selectedTrackLink) return;
+                const touch = event.touches[0];
+                if (!touch) return;
+                const target = event.target as HTMLElement;
+                if (recentPickerOpen && !target.closest('[data-recent-picker],[data-recent-toggle]')) {
+                  event.stopPropagation();
+                  setRecentPickerOpen(false);
+                  modalPointerStartRef.current = null;
+                  lyricsPointerStartRef.current = null;
+                  animateMotion(historySwipeX, 0, { duration: 0.14, ease: [0.16, 1, 0.3, 1] });
                   return;
                 }
-                if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.1) {
-                  animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+                if (target.closest('a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
+                if (panel === 'lyrics') {
+                  lyricsPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
+                } else if (panel === 'stats') {
+                  modalPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
+                }
+              }}
+              onTouchMoveCapture={(event) => {
+                if (!isModalVisible || panel !== 'stats') return;
+                const start = modalPointerStartRef.current;
+                const touch = event.touches[0];
+                if (!start || !touch || selectedTrackLink) return;
+                const deltaX = touch.clientX - start.x;
+                const deltaY = touch.clientY - start.y;
+                if (Math.abs(deltaY) > 10 && Math.abs(deltaY) > Math.abs(deltaX) * 1.02) {
+                  event.preventDefault();
+                }
+                if (Math.abs(deltaX) < 5 || Math.abs(deltaX) < Math.abs(deltaY) * 1.08) return;
+                const atBoundary = (deltaX > 0 && olderPlaybackIndex === playbackIndex)
+                  || (deltaX < 0 && playbackIndex <= 0);
+                historySwipeX.set(Math.max(-96, Math.min(96, deltaX * (atBoundary ? 0.2 : 0.62))));
+              }}
+              onTouchEndCapture={(event) => {
+                if (!isModalVisible) return;
+                const touch = event.changedTouches[0];
+                if (!touch) return;
+                if (panel === 'lyrics') {
+                  const start = lyricsPointerStartRef.current;
+                  lyricsPointerStartRef.current = null;
+                  handleLyricsDragEnd(start, touch.clientX, touch.clientY);
                   return;
                 }
-                if (deltaX > 0 && playbackIndex < playbackHistory.length) {
-                  setRecentPickerOpen(false);
-                  animateHistorySwipe('older');
-                } else if (deltaX < 0 && playbackIndex > 0) {
-                  setRecentPickerOpen(false);
-                  animateHistorySwipe('newer');
-                } else {
-                  animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
+                const start = modalPointerStartRef.current;
+                modalPointerStartRef.current = null;
+                if (handleStatsDragEnd(start, touch.clientX, touch.clientY)) {
+                  event.preventDefault();
+                  event.stopPropagation();
                 }
               }}
               onPointerCancelCapture={() => {
@@ -1740,17 +1899,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               onClick={(event) => event.stopPropagation()}
               className={clsx(
-                "bottom-track-stats-modal glass-aura relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] touch-pan-y transition-[opacity,transform,height] duration-[250ms] ease-[cubic-bezier(0.16,1,0.3,1)] [contain:layout]",
+                "bottom-track-stats-modal glass-aura relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] [contain:layout]",
                 isModalVisible ? "pointer-events-auto" : "pointer-events-none",
                 panel === 'lyrics' ? "h-[min(78dvh,560px)]" : "h-[min(66dvh,462px)]"
               )}
-              style={{
+              animate={{
                 opacity: isModalVisible ? 1 : 0,
-                transform: isModalVisible ? 'translate3d(0,0,0) scale(1)' : 'translate3d(0,32px,0) scale(0.972)',
-                willChange: 'transform, opacity',
+                y: isModalVisible ? 0 : 28,
+                scale: isModalVisible ? 1 : 0.975,
               }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              style={{ touchAction: panel === 'stats' ? 'none' : 'pan-y', willChange: 'transform, opacity' }}
             >
-              {playbackHistory.length > 0 && panel === 'stats' && (
+              {visiblePlaybackHistory.length > 0 && panel === 'stats' && (
                 <motion.div
                   className="absolute inset-x-0 -top-[58px] z-30 flex items-center justify-center gap-3"
                   initial={{ opacity: 0, y: 8, scale: 0.96 }}
@@ -1765,11 +1926,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   onPointerUp={(event) => event.stopPropagation()}
                   onClick={(event) => event.stopPropagation()}
                 >
-                  {playbackIndex < playbackHistory.length ? (
+                  {olderPlaybackIndex !== playbackIndex ? (
                     <button
                       type="button"
                       aria-label="Abrir música anterior do seu histórico"
-                      onClick={() => selectPlaybackChoice(Math.min(playbackHistory.length, playbackIndex + 1))}
+                      onClick={() => selectPlaybackChoice(olderPlaybackIndex)}
                       className="flex h-11 w-11 items-center justify-center rounded-full bg-black/44 text-white/82 shadow-[0_12px_34px_rgba(0,0,0,0.34)] backdrop-blur-2xl transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
@@ -1779,6 +1940,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                   <button
                     type="button"
+                    data-recent-toggle="true"
                     aria-label="Abrir lista das suas recentes"
                     onClick={() => setRecentPickerOpen(value => !value)}
                     className={clsx(
@@ -1789,11 +1951,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
                     <span className="ml-2 text-[8px] font-black uppercase tracking-[0.14em]">Recentes</span>
                   </button>
-                  {playbackIndex > 0 ? (
+                  {newerPlaybackIndex !== playbackIndex ? (
                     <button
                       type="button"
                       aria-label="Voltar para música mais recente"
-                      onClick={() => selectPlaybackChoice(Math.max(0, playbackIndex - 1))}
+                      onClick={() => selectPlaybackChoice(newerPlaybackIndex)}
                       className="flex h-11 w-11 items-center justify-center rounded-full bg-black/44 text-white/82 shadow-[0_12px_34px_rgba(0,0,0,0.34)] backdrop-blur-2xl transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
@@ -1806,6 +1968,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
+                    data-recent-picker="true"
                     className="absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] bg-black/76 p-2 shadow-[0_22px_60px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1874,7 +2037,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="min-w-0 pt-1">
                   <div className="flex items-center gap-2">
                     <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
-                      {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? `Histórico - ${playbackIndex}` : 'Stats da música'}
+                      {panel === 'lyrics' ? 'Letra' : playbackIndex > 0 ? activePlaybackLabel : 'Stats da música'}
                     </span>
                     {panel === 'lyrics' && (
                       <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-yellow-100/70">
@@ -2277,19 +2440,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 onPointerUp={(event) => {
                   const start = lyricsPointerStartRef.current;
                   lyricsPointerStartRef.current = null;
-                  if (!start) return;
-                  const deltaX = event.clientX - start.x;
-                  const deltaY = event.clientY - start.y;
-                  if (deltaY > 58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    setPanel('stats');
-                  } else if (deltaY < -58 && Math.abs(deltaY) > Math.abs(deltaX) * 0.85) {
-                    closeStatsModal();
-                  }
+                  handleLyricsDragEnd(start, event.clientX, event.clientY);
                 }}
                 onPointerCancel={() => {
                   lyricsPointerStartRef.current = null;
                 }}
-                className="mt-4 touch-pan-y"
+                className="mt-4 select-none"
               >
                 {lyricsLoading ? (
                   <div className="flex h-[clamp(280px,50dvh,430px)] items-center justify-center">
@@ -2299,10 +2455,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <div
                     ref={setLyricsScrollElement}
                     data-lyrics-scroll="true"
-                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => {
+                      event.stopPropagation();
+                      lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY, fromScroll: true };
+                    }}
                     onPointerMove={(event) => event.stopPropagation()}
-                    onPointerUp={(event) => event.stopPropagation()}
-                    onPointerCancel={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => {
+                      event.stopPropagation();
+                      const start = lyricsPointerStartRef.current;
+                      lyricsPointerStartRef.current = null;
+                      handleLyricsDragEnd(start, event.clientX, event.clientY);
+                    }}
+                    onPointerCancel={(event) => {
+                      event.stopPropagation();
+                      lyricsPointerStartRef.current = null;
+                    }}
                     onScroll={updateLyricsScrollMask}
                     className="min-h-[min(34dvh,260px)] max-h-[clamp(280px,50dvh,430px)] overflow-y-auto overscroll-contain pl-3 pr-4 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:pl-4 sm:pr-5 sm:text-[16px]"
                   >
@@ -2345,21 +2512,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
                   </button>
                 )}
-                <div className="mt-3 flex items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/22">
+                <div className="mt-3 flex select-none items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/42">
                   <span>Powered by</span>
                   {lyricsMatch?.match?.url ? (
                     <a
                       href={lyricsMatch.match.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group flex items-start gap-0.5 text-white/24 transition-colors hover:text-white/42"
+                      className="group flex items-start gap-0.5 text-white/46 transition-colors hover:text-white/70"
                       aria-label="Abrir Genius"
                     >
-                      <img src="/genius-logo_hor.svg" alt="Genius" className="h-2 w-auto opacity-34 grayscale invert transition-opacity group-hover:opacity-55" />
+                      <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert transition-opacity group-hover:opacity-80" />
                       <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
                     </a>
                   ) : (
-                    <img src="/genius-logo_hor.svg" alt="Genius" className="h-2 w-auto opacity-34 grayscale invert" />
+                    <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert" />
                   )}
                 </div>
                 <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">

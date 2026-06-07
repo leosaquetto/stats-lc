@@ -1,45 +1,63 @@
 # stats.lc Backlog Tecnico
 
-Backlog resumido. Use este arquivo para follow-ups; regras ativas ficam em `AGENTS.md`.
+Backlog vivo e curto. Regras ativas ficam em `AGENTS.md`; estado atual fica em
+`docs/current-state.md`.
 
-## Prioridade Alta
+## Alta
 
-1. Corrigir warning de chunking entre `src/store/useStatsStore.ts` e `src/services/statsService.ts`.
-   - Separar helpers puros ou adaptador fino para evitar acoplamento circular.
+1. Corrigir warning de chunking entre `src/store/useStatsStore.ts` e
+   `src/services/statsService.ts`.
+   - Separar helpers puros ou adaptador fino para reduzir acoplamento circular.
 
 2. Reduzir assinaturas amplas do Zustand.
-   - Revisar `StatsScreen`, `SettingsScreen`, `CommonUI`, `MusicCard`, `HomeHighlights`, `HomeInsights`, `FriendsMonthlyHighlights`, `CircleActivityModal` e `TrackLeaderboardModal`.
+   - Revisar `StatsScreen`, `SettingsScreen`, `CommonUI`, `MusicCard`,
+     `HomeHighlights`, `HomeInsights`, `FriendsMonthlyHighlights`,
+     `CircleActivityModal` e `TrackLeaderboardModal`.
    - Usar selectors escalares e derivar arrays/objetos com `useMemo`.
 
 3. Padronizar cancelamento de requests em effects.
-   - Revisar `HomeScreen`, `StatsScreen`, `RankingScreen`, `AlikeScreen`, `FriendHistoryCard` e `FriendsMonthlyHighlights`.
-   - Usar flag `cancelled` ou `AbortController`.
+   - Revisar `HomeScreen`, `StatsScreen`, `RankingScreen`, `AlikeScreen`,
+     `FriendHistoryCard` e `FriendsMonthlyHighlights`.
+   - Preferir `AbortController` quando o servico suportar `signal`; usar flag
+     `cancelled` quando o efeito for local.
 
-4. Unificar loading/empty/error.
-   - Criar componentes pequenos como `SectionLoadingState`, `SectionEmptyState` e `SectionErrorState`.
-   - Manter visual atual, mas padronizar altura minima e retry.
+4. Sanear cache persistido de forma centralizada.
+   - Validar `groupStats.members`, `groupStats.users`, `featuredUserId`,
+     `hiddenUsers`, `historyCustomOrder` e caches por usuario.
+   - Nao persistir `topItems`, historicos, full stats, Orbits completos ou
+     arrays pesados no frontend.
 
-5. Sanear cache persistido de forma centralizada.
-   - Validar `groupStats.members`, `groupStats.users`, `featuredUserId`, `hiddenUsers`, `historyCustomOrder` e caches por usuario.
+## Media
 
-## Prioridade Media
+1. Unificar loading/empty/error.
+   - Criar componentes pequenos como `SectionLoadingState`,
+     `SectionEmptyState` e `SectionErrorState`.
+   - Manter visual atual, mas padronizar altura minima, retry e copy curta.
 
-1. Revisar keys em modais e telas secundarias.
-   - `TrackLeaderboardModal`, `UserModals`, `UserHistoryModal`, `AlbumDetailModal`, `FriendsStatsComparer` e listas internas da Stats.
+2. Revisar keys em modais e telas secundarias.
+   - Focar `TrackLeaderboardModal`, `UserModals`, `UserHistoryModal`,
+     `AlbumDetailModal`, `FriendsStatsComparer` e listas internas da Stats.
 
-2. Evoluir Circle sem redesign grande.
+3. Auditar gestos reais de Bottom Bubble e Letras.
+   - Validar drag para baixo, swipe horizontal e fechamento em touch real ou
+     Browser confiavel.
+   - Se ainda houver engasgo, investigar re-render interno do modal antes de
+     refatorar a Home.
+
+4. Evoluir Circle sem redesign grande.
    - Manter `/circle`, `/ranking` e `/alike`.
-   - Transformar Duelos em superficie real usando dados existentes.
-   - Considerar lazy-load por aba se o chunk crescer.
+   - Fortalecer Duelos com dados existentes antes de criar feature nova.
+   - Considerar lazy-load por aba apenas se o chunk crescer ou houver medida
+     real de lentidao.
 
-3. Melhorar observabilidade em dev.
-   - Logs dev-only com contexto para rankings, replay, featuredUserId invalido, cache invalido e chunk errors.
+5. Melhorar observabilidade em dev.
+   - Logs dev-only com contexto para rankings, replay, `featuredUserId`
+     invalido, cache invalido, chunk errors e fallbacks de dados temporais.
 
-4. Padronizar badges e alturas responsivas da Home.
-   - Especialmente `Seus Destaques`, `ReplaySection` e popover de contagens do LeoHeader.
-
-## Prioridade Baixa
+## Baixa
 
 1. Criar guia visual pequeno para novas secoes da Home.
 2. Revisar rota/tab legada para Circle, sem quebrar links antigos.
 3. Avaliar code splitting adicional apenas se houver lentidao real medida.
+4. Padronizar badges e alturas responsivas da Home, especialmente
+   `Seus Destaques`, `ReplaySection` e popover de contagens do LeoHeader.

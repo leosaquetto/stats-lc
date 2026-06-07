@@ -10,6 +10,21 @@ interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
 }
 
+type HomeInsightTone = 'orange' | 'red' | 'yellow' | 'blue' | 'violet';
+
+type HomeInsight = {
+  key: string;
+  type: 'active' | 'match' | 'month' | 'album' | 'rivalry' | 'late';
+  tone: HomeInsightTone;
+  icon: React.ReactNode;
+  title: string;
+  headline: string;
+  detail: string;
+  users: any[];
+  image?: string;
+  action?: () => void;
+};
+
 let cachedInsightIndex = 0;
 
 const useInsightsVisibility = () => {
@@ -247,63 +262,67 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     const albumUser = [...activeMembers].sort((a, b) => ((b.topItems?.albums?.[0]?.playcount || b.topItems?.albums?.[0]?.streams || 0) - (a.topItems?.albums?.[0]?.playcount || a.topItems?.albums?.[0]?.streams || 0)))[0];
     const lateUser = [...activeMembers].sort((a, b) => new Date(b.nowPlaying?.timestamp || 0).getTime() - new Date(a.nowPlaying?.timestamp || 0).getTime())[0];
     const runnerUp = sortedToday[1];
+    const album = albumUser?.topItems?.albums?.[0];
 
     return [
       mostActive && {
         key: 'active',
         tone: 'orange',
-        icon: <Zap className="h-2.5 w-2.5 text-orange-400" />,
+        icon: <Zap className="h-3.5 w-3.5 text-orange-300" />,
         title: 'Mais Ativo Hoje',
-        primary: firstName(mostActive.name),
-        secondary: getMostActiveInsight(mostActive, activeMembers.length),
+        headline: firstName(mostActive.name),
+        detail: getMostActiveInsight(mostActive, activeMembers.length),
         users: [mostActive],
-        onClick: () => onFriendClick(mostActive),
+        image: coreUtils.getUserAvatar(mostActive.id, mostActive.avatar),
+        action: () => onFriendClick(mostActive),
         type: 'active'
       },
       match && buildMatchReason(match) && {
         key: 'match',
         tone: 'red',
-        icon: <Heart className="h-2.5 w-2.5 fill-red-400 text-red-400" />,
+        icon: <Heart className="h-3.5 w-3.5 fill-red-300 text-red-300" />,
         title: 'Match do Dia',
-        primary: `${firstName(match.u1.name)} + ${firstName(match.u2.name)}`,
-        secondary: buildMatchReason(match),
+        headline: `${firstName(match.u1.name)} + ${firstName(match.u2.name)}`,
+        detail: buildMatchReason(match),
         users: [match.u1, match.u2],
         type: 'match'
       },
       topMonth && {
         key: 'month',
-        tone: 'white',
-        icon: <Trophy className="h-2.5 w-2.5 text-yellow-300" />,
+        tone: 'yellow',
+        icon: <Trophy className="h-3.5 w-3.5 text-yellow-200" />,
         title: 'Líder do Mês',
-        primary: firstName(topMonth.name),
-        secondary: getMonthLeaderInsight(topMonth),
+        headline: firstName(topMonth.name),
+        detail: getMonthLeaderInsight(topMonth),
         users: [topMonth],
-        onClick: () => onFriendClick(topMonth),
+        image: coreUtils.getUserAvatar(topMonth.id, topMonth.avatar),
+        action: () => onFriendClick(topMonth),
         type: 'month'
       },
-      albumUser && albumUser.topItems?.albums?.[0] && {
+      albumUser && album && {
         key: 'album',
         tone: 'blue',
-        icon: <Disc3 className="h-2.5 w-2.5 text-blue-300" />,
+        icon: <Disc3 className="h-3.5 w-3.5 text-sky-200" />,
         title: 'Álbum Dominante',
-        primary: albumUser.topItems.albums[0].name || firstName(albumUser.name),
-        secondary: getDominantAlbumInsight(albumUser),
+        headline: album.name || firstName(albumUser.name),
+        detail: getDominantAlbumInsight(albumUser),
         users: [albumUser],
-        onClick: () => onFriendClick(albumUser),
+        image: album.image,
+        action: () => onFriendClick(albumUser),
         type: 'album',
-        albumArt: albumUser.topItems.albums[0].image
       },
       (runnerUp || lateUser) && {
         key: 'pulse',
-        tone: 'purple',
-        icon: <Clock className="h-2.5 w-2.5 text-violet-300" />,
+        tone: 'violet',
+        icon: <Clock className="h-3.5 w-3.5 text-violet-200" />,
         title: runnerUp ? 'Disputa do Dia' : 'Última Sintonia',
-        primary: runnerUp ? `${firstName(mostActive?.name)} vs ${firstName(runnerUp.name)}` : firstName(lateUser?.name),
-        secondary: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'última atividade registrada',
+        headline: runnerUp ? `${firstName(mostActive?.name)} vs ${firstName(runnerUp.name)}` : firstName(lateUser?.name),
+        detail: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'última atividade registrada',
         users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : [],
+        action: runnerUp && mostActive ? () => onFriendClick(mostActive) : lateUser ? () => onFriendClick(lateUser) : undefined,
         type: runnerUp ? 'rivalry' : 'late'
       }
-    ].filter(Boolean) as any[];
+    ].filter(Boolean) as HomeInsight[];
   }, [activeMembers, match, mostActive, onFriendClick]);
 
   const goToInsight = React.useCallback((index: number) => {
@@ -348,58 +367,89 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   if (activeMembers.length < 2 || insights.length === 0) return null;
 
-  const renderInsightCard = (insight: any) => {
-    const isRivalry = insight.type === 'rivalry';
-    const isMatch = insight.type === 'match';
-    const isAlbum = insight.type === 'album';
+  const activeInsight = insights[activeInsightIndex % insights.length];
+  const satelliteInsights = insights
+    .map((insight, index) => ({ insight, index }))
+    .filter(({ index }) => index !== activeInsightIndex % insights.length)
+    .slice(0, 4);
+  const shouldAnimateOrbit = !shouldReduceMotion && isInsightsVisible;
+
+  const getToneClasses = (tone: HomeInsightTone) => {
+    switch (tone) {
+      case 'red':
+        return {
+          border: 'border-red-300/24',
+          text: 'text-red-200',
+          glow: 'rgba(248,113,113,0.2)',
+          bg: 'bg-red-400/10',
+          ring: 'ring-red-300/28',
+        };
+      case 'yellow':
+        return {
+          border: 'border-yellow-200/24',
+          text: 'text-yellow-100',
+          glow: 'rgba(250,204,21,0.2)',
+          bg: 'bg-yellow-300/10',
+          ring: 'ring-yellow-200/28',
+        };
+      case 'blue':
+        return {
+          border: 'border-sky-200/24',
+          text: 'text-sky-100',
+          glow: 'rgba(125,211,252,0.18)',
+          bg: 'bg-sky-300/10',
+          ring: 'ring-sky-200/28',
+        };
+      case 'violet':
+        return {
+          border: 'border-violet-200/24',
+          text: 'text-violet-100',
+          glow: 'rgba(196,181,253,0.18)',
+          bg: 'bg-violet-300/10',
+          ring: 'ring-violet-200/28',
+        };
+      default:
+        return {
+          border: 'border-orange-300/28',
+          text: 'text-orange-200',
+          glow: 'rgba(249,115,22,0.22)',
+          bg: 'bg-orange-400/10',
+          ring: 'ring-orange-300/30',
+        };
+    }
+  };
+
+  const renderInsightMedia = (insight: HomeInsight, size: 'main' | 'satellite') => {
+    const tone = getToneClasses(insight.tone);
+    const isMain = size === 'main';
+    const imageSize = isMain ? 'h-[58px] w-[58px]' : 'h-12 w-12';
+    const userImageSize = isMain ? 'h-[58px] w-[58px]' : 'h-9 w-9';
+    const iconSize = isMain ? 'h-[58px] w-[58px]' : 'h-12 w-12';
+    const users = insight.users.slice(0, 2);
+
+    if (insight.image) {
+      return (
+        <div className={`${imageSize} shrink-0 overflow-hidden ${insight.type === 'album' ? 'rounded-[18px]' : 'rounded-full'} bg-white/[0.06] ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
+          <SmartImage src={insight.image} rounded={insight.type === 'album' ? '2xl' : 'full'} className="h-full w-full object-cover" fallback="" />
+        </div>
+      );
+    }
+
+    if (users.length > 0) {
+      return (
+        <div className={`flex ${isMain ? '-space-x-4' : '-space-x-2'} shrink-0`}>
+          {users.map((user) => (
+            <div key={user.id} className={`${userImageSize} overflow-hidden rounded-full bg-black ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
+              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
+            </div>
+          ))}
+        </div>
+      );
+    }
 
     return (
-      <div className="relative flex h-full min-h-[138px] flex-col overflow-visible px-0 py-0 text-left">
-        {isAlbum && insight.albumArt ? (
-          <SmartImage src={insight.albumArt} rounded="3xl" className="pointer-events-none absolute -inset-3 h-[calc(100%+24px)] w-[calc(100%+24px)] object-cover opacity-[0.06] blur-[1px]" fallback="" />
-        ) : null}
-
-        <div className="relative z-10 mb-3 flex items-start justify-between gap-2">
-          <div className="flex -space-x-2 overflow-visible py-1 pl-0.5">
-            {isRivalry ? (
-              insight.users.slice(0, 2).map((user: any) => (
-                <div key={user.id} className="h-9 w-9 overflow-hidden rounded-full border-2 border-orange-500/55 bg-black shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
-                  <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
-                </div>
-              ))
-            ) : isMatch ? (
-              insight.users.slice(0, 2).map((user: any) => (
-                <div key={user.id} className="h-9 w-9 overflow-hidden rounded-full border-2 border-red-500/55 bg-black shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
-                  <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
-                </div>
-              ))
-            ) : isAlbum && insight.albumArt ? (
-              <div className="h-10 w-10 overflow-hidden rounded-[14px] border border-orange-500/35 bg-black shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
-                <SmartImage src={insight.albumArt} rounded="xl" className="h-full w-full object-cover" fallback="" />
-              </div>
-            ) : insight.users[0] ? (
-              <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-orange-500/55 bg-black shadow-[0_12px_28px_rgba(0,0,0,0.38)]">
-                <SmartImage src={coreUtils.getUserAvatar(insight.users[0].id, insight.users[0].avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
-              </div>
-            ) : null}
-          </div>
-
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-black/35 text-white shadow-[0_14px_30px_rgba(0,0,0,0.34)] backdrop-blur-xl">
-            {insight.icon}
-          </div>
-        </div>
-
-        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
-          <span className="mb-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-orange-400">
-            {insight.title}
-          </span>
-          <h3 className="line-clamp-2 text-[18px] font-black leading-[1.02] text-white">
-            {insight.primary}
-          </h3>
-          <p className="mt-2 line-clamp-3 text-[10.5px] font-medium leading-snug text-white/58">
-            {insight.secondary}
-          </p>
-        </div>
+      <div className={`${iconSize} flex shrink-0 items-center justify-center rounded-full border ${tone.border} ${tone.bg} ${tone.text}`}>
+        {insight.icon}
       </div>
     );
   };
@@ -428,53 +478,85 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[232px] select-none overflow-visible px-1 py-2"
+        className="relative h-[286px] select-none overflow-hidden rounded-[30px] px-1 py-2"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
       >
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[252px] w-[252px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[196px] w-[196px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/[0.16]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/[0.16] bg-black/10 shadow-[0_0_32px_rgba(249,115,22,0.06)]" />
+        <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[radial-gradient(circle_at_50%_48%,rgba(249,115,22,0.13),rgba(0,0,0,0)_42%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0))]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[268px] w-[268px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[206px] w-[206px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-400/[0.18]" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-300/[0.13]" />
         <motion.div
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/25 bg-black/40"
-          animate={shouldReduceMotion || !isInsightsVisible ? {} : { rotate: 360 }}
-          transition={{ duration: 28, repeat: Infinity, ease: 'linear' }}
-          style={{ transformOrigin: 'center' }}
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[206px] w-[206px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          animate={shouldAnimateOrbit ? { rotate: 360 } : { rotate: 0 }}
+          transition={{ duration: 34, repeat: Infinity, ease: 'linear' }}
         >
-          <span className="absolute -right-[88px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-orange-500/55 shadow-[0_0_18px_rgba(249,115,22,0.45)]" />
+          <span className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-orange-400/65 shadow-[0_0_18px_rgba(249,115,22,0.55)]" />
+          <span className="absolute left-5 top-6 h-1.5 w-1.5 rounded-full bg-white/24" />
         </motion.div>
 
-        <div className="relative z-10 h-full">
-          {Array.from({ length: Math.min(3, insights.length) }, (_, offset) => {
-            const index = (activeInsightIndex + offset) % insights.length;
-            const insight = insights[index];
-            if (!insight) return null;
-            const isPrimary = offset === 0;
-            const positionClass = offset === 0
-              ? "left-0 top-5 w-[164px]"
-              : offset === 1
-                ? "right-0 bottom-2 w-[164px]"
-                : "left-[92px] top-[86px] w-[148px]";
-            const shouldFloat = !shouldReduceMotion && isInsightsVisible;
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <motion.button
+            type="button"
+            key={activeInsight.key}
+            onClick={() => activeInsight.action?.()}
+            initial={{ opacity: 0, scale: 0.94, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className={`relative flex h-[158px] w-[238px] max-w-[calc(100%-104px)] flex-col overflow-hidden rounded-[28px] border bg-black/48 p-4 text-left shadow-[0_22px_70px_rgba(0,0,0,0.46)] backdrop-blur-2xl ${getToneClasses(activeInsight.tone).border}`}
+            style={{ boxShadow: `0 22px 70px rgba(0,0,0,0.46), 0 0 46px ${getToneClasses(activeInsight.tone).glow}` }}
+          >
+            <div className={`pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/28 to-transparent`} />
+            <div className="flex min-w-0 items-start gap-3">
+              {renderInsightMedia(activeInsight, 'main')}
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${getToneClasses(activeInsight.tone).bg} ${getToneClasses(activeInsight.tone).text}`}>
+                    {activeInsight.icon}
+                  </span>
+                  <span className={`min-w-0 truncate text-[7px] font-black uppercase tracking-[0.18em] ${getToneClasses(activeInsight.tone).text}`}>
+                    {activeInsight.title}
+                  </span>
+                </div>
+                <h3 className="line-clamp-2 text-[22px] font-black leading-[0.96] text-white">
+                  {activeInsight.headline}
+                </h3>
+              </div>
+            </div>
+            <p className="mt-3 line-clamp-2 text-[11px] font-semibold leading-snug text-white/58">
+              {activeInsight.detail}
+            </p>
+          </motion.button>
+        </div>
+
+        <div className="absolute inset-0 z-20">
+          {satelliteInsights.map(({ insight, index }, offset) => {
+            const tone = getToneClasses(insight.tone);
+            const positionClass = [
+              'left-7 top-5',
+              'right-7 top-8',
+              'left-8 bottom-6',
+              'right-8 bottom-7',
+            ][offset] || 'right-7 bottom-7';
             return (
               <motion.button
                 type="button"
                 key={`${insight.key}-${index}`}
-                onClick={() => {
-                  insight.onClick?.();
-                }}
+                onClick={() => goToInsight(index)}
                 initial={false}
-                animate={!shouldFloat ? { y: 0, x: 0, rotate: 0 } : {
-                  y: isPrimary ? [0, -7, 0] : offset === 1 ? [0, 6, 0] : [0, -4, 0],
-                  x: isPrimary ? [0, 5, 0] : offset === 1 ? [0, -5, 0] : [0, 3, 0],
-                  rotate: isPrimary ? [0, -1.3, 0] : offset === 1 ? [0, 1.3, 0] : [0, 0.9, 0],
-                }}
-                transition={!shouldFloat ? { duration: 0.2 } : { duration: 9 + offset * 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                className={`absolute text-left ${positionClass}`}
+                animate={shouldAnimateOrbit ? {
+                  y: offset % 2 === 0 ? [0, -5, 0] : [0, 5, 0],
+                  x: offset < 2 ? [0, 3, 0] : [0, -3, 0],
+                  scale: [1, 1.035, 1],
+                } : { y: 0, x: 0, scale: 1 }}
+                transition={shouldAnimateOrbit ? { duration: 8 + offset, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18 }}
+                className={`absolute flex h-[64px] w-[64px] items-center justify-center rounded-full border bg-black/58 shadow-[0_16px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl ${positionClass} ${tone.border}`}
+                aria-label={`Abrir insight ${insight.title}`}
               >
-                {renderInsightCard(insight)}
+                {renderInsightMedia(insight, 'satellite')}
+                <span className={`pointer-events-none absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${tone.bg}`} />
               </motion.button>
             );
           })}
