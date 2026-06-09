@@ -4,11 +4,11 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
-import { MONTHS_SHORT, type ReplayFilterPeriod, type ReplaySelectedSubValues, type ReplayWeekMode } from '../components/home/replayUtils';
+import { MONTHS_SHORT, getReplayFilterLabel, type ReplayFilterPeriod, type ReplaySelectedSubValues, type ReplayWeekMode } from '../components/home/replayUtils';
 import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
@@ -22,6 +22,7 @@ import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighl
 import { StatsAlike } from '../components/home/StatsAlike';
 import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
+import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 
@@ -169,19 +170,6 @@ const getReplayItemArtist = (item: any) => {
 const getReplayItemImage = (item: any) => item?.image || item?.albumImage || item?.album?.image || item?.artist?.image || item?.track?.image || item?.track?.albumImage || '';
 const getReplayItemTitle = (item: any) => item?.name || item?.track?.name || item?.album?.name || item?.artist?.name || 'sem nome';
 
-const getHighlightOrbitSeed = (value: string) => {
-  let seed = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    seed = (Math.imul(seed, 31) + value.charCodeAt(i)) | 0;
-  }
-  return Math.abs(seed);
-};
-
-const seededUnit = (seed: number, index: number) => {
-  const value = Math.sin(seed + index * 91.7) * 10000;
-  return value - Math.floor(value);
-};
-
 const getFirstName = (name?: string) => {
   if (!name) return '';
   return name.trim().split(/\s+/)[0] || name;
@@ -202,16 +190,18 @@ const useHomeSectionVisibility = (rootMargin = '180px') => {
   return [ref, isVisible] as const;
 };
 
-const HomeReplayFilter = ({
+const HomeHighlightPeriodControls = ({
   activeTab,
   selectedSubValues,
   onActiveTabChange,
-  onSelectedSubValuesChange
+  onSelectedSubValuesChange,
+  children,
 }: {
   activeTab: ReplayFilterPeriod;
   selectedSubValues: ReplaySelectedSubValues;
   onActiveTabChange: (tab: ReplayFilterPeriod) => void;
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
+  children?: React.ReactNode;
 }) => {
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
@@ -226,28 +216,36 @@ const HomeReplayFilter = ({
   ];
 
   return (
-    <div className="space-y-2.5">
-      <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1 pr-1">
-        {periodTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => onActiveTabChange(tab.key)}
-            className={cn(
-              "shrink-0 rounded-full px-4 py-2 text-[13px] font-black lowercase transition-colors",
-              activeTab === tab.key ? "bg-white/16 text-white shadow-[0_10px_26px_rgba(0,0,0,0.28)]" : "bg-white/[0.025] text-white/42"
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <div data-home-horizontal-scroll="true" className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-[26px] border border-white/[0.06] bg-black/22 p-1">
+      {children && (
+        <>
+          {children}
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
+        </>
+      )}
+
+      {periodTabs.map((tab) => (
+        <button
+          key={tab.key}
+          type="button"
+          onClick={() => onActiveTabChange(tab.key)}
+          className={cn(
+            "shrink-0 rounded-[20px] px-3 py-2 text-[10px] font-black lowercase transition-[background-color,color,box-shadow,transform] active:scale-[0.98]",
+            activeTab === tab.key
+              ? "bg-white/16 text-white shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
+              : "text-white/42 hover:bg-white/[0.045] hover:text-white/68"
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
 
       {activeTab === 'week' && (
-        <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1">
+        <>
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
           {[
-            { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
-            { key: 'current' as ReplayWeekMode, label: 'esta semana' }
+            { key: 'last-7' as ReplayWeekMode, label: '7 dias' },
+            { key: 'current' as ReplayWeekMode, label: 'semana atual' }
           ].map((option) => {
             const isSelected = selectedSubValues.weekMode === option.key;
             return (
@@ -256,19 +254,20 @@ const HomeReplayFilter = ({
                 type="button"
                 onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, weekMode: option.key })}
                 className={cn(
-                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-black transition-colors",
-                  isSelected ? "bg-white/14 text-white" : "bg-white/[0.025] text-white/42"
+                  "shrink-0 rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] transition-colors",
+                  isSelected ? "bg-orange-500/14 text-orange-100" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
                 )}
               >
                 {option.label}
               </button>
             );
           })}
-        </div>
+        </>
       )}
 
       {activeTab === 'month' && (
-        <div data-home-horizontal-scroll="true" className="flex items-center gap-2 overflow-x-auto no-scrollbar pl-1 pr-1">
+        <>
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
           {availableMonths.map((month, index) => {
             const value = String(index).padStart(2, '0');
             const isSelected = selectedSubValues.month === value;
@@ -280,19 +279,20 @@ const HomeReplayFilter = ({
                 disabled={isFuture}
                 onClick={() => !isFuture && onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
                 className={cn(
-                  "shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold lowercase transition-colors",
-                  isSelected ? "text-white" : isFuture ? "text-white/12" : "text-white/42"
+                  "shrink-0 rounded-full px-3 py-2 text-[10px] font-black lowercase transition-colors disabled:cursor-not-allowed",
+                  isSelected ? "bg-orange-500/13 text-white" : isFuture ? "text-white/12" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
                 )}
               >
                 {month}
               </button>
             );
           })}
-        </div>
+        </>
       )}
 
       {activeTab === 'year' && (
-        <div data-home-horizontal-scroll="true" className="flex items-center gap-3 overflow-x-auto no-scrollbar pl-1">
+        <>
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
           {years.map((year) => {
             const isSelected = selectedSubValues.year === String(year);
             return (
@@ -301,16 +301,17 @@ const HomeReplayFilter = ({
                 type="button"
                 onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) })}
                 className={cn(
-                  "shrink-0 rounded-full px-5 py-2 text-[14px] font-black transition-colors",
-                  isSelected ? "bg-white/14 text-white" : "bg-white/[0.025] text-white/42"
+                  "shrink-0 rounded-full px-3.5 py-2 text-[11px] font-black transition-colors",
+                  isSelected ? "bg-orange-500/13 text-white" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
                 )}
               >
                 {year}
               </button>
             );
           })}
-        </div>
+        </>
       )}
+
     </div>
   );
 };
@@ -322,29 +323,41 @@ const HomeOrbitalHighlights = ({
   artists,
   tracks,
   albums,
+  activeTab,
+  selectedSubValues,
+  onActiveTabChange,
+  onSelectedSubValuesChange,
   onItemClick
 }: {
   totalMinutes: number;
   artists: any[];
   tracks: any[];
   albums: any[];
+  activeTab: ReplayFilterPeriod;
+  selectedSubValues: ReplaySelectedSubValues;
+  onActiveTabChange: (tab: ReplayFilterPeriod) => void;
+  onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
   onItemClick?: (item: any) => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const groups: Array<{ key: HomeHighlightKind; title: string; icon: any; items: any[] }> = [
-    { key: 'artists' as const, title: 'Top artistas', icon: UserCircle, items: artists.slice(0, 5) },
-    { key: 'tracks' as const, title: 'Top músicas', icon: Music2, items: tracks.slice(0, 5) },
-    { key: 'albums' as const, title: 'Top álbuns', icon: Disc3, items: albums.slice(0, 5) }
-  ].filter((group) => group.items.length > 0);
+  const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
+  const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
+    { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 5) },
+    { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 5) },
+    { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, 5) }
+  ].filter((group) => group.items.length > 0), [albums, artists, tracks]);
 
   useEffect(() => {
-    if (activeIndex >= groups.length) setActiveIndex(0);
-  }, [activeIndex, groups.length]);
+    if (groups.length === 0) return;
+    if (!groups.some((group) => group.key === activeKind)) {
+      setActiveKind(groups[0].key);
+    }
+  }, [activeKind, groups]);
 
-  const stageHeight = "h-[314px] sm:h-[334px]";
+  const stageHeight = "h-[238px] sm:h-[258px]";
+  const activeGroup = groups.find((group) => group.key === activeKind) || groups[0];
+  const periodLabel = getReplayFilterLabel(activeTab, selectedSubValues);
   const metricLabel = (item: any, kind: HomeHighlightKind) => {
     if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
     return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
@@ -360,266 +373,187 @@ const HomeOrbitalHighlights = ({
     artistName: getReplayItemArtist(item),
   });
 
-  const goTo = useCallback((index: number) => {
-    if (groups.length === 0) return;
-    setActiveIndex((index + groups.length) % groups.length);
-  }, [groups.length]);
-
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  }, []);
-
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    const touch = event.touches[0];
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-      event.stopPropagation();
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    const start = touchStartRef.current;
-    const touch = event.changedTouches[0];
-    touchStartRef.current = null;
-    if (!start || !touch) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 38 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
-    goTo(activeIndex + (dx < 0 ? 1 : -1));
-  }, [activeIndex, goTo]);
-
   const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
-    const primary = items[0];
-    const satellites = items.slice(1, 5);
-    if (!primary) return null;
-    const isArtist = kind === 'artists';
-    const orbitSeed = getHighlightOrbitSeed(`${kind}:${items.map((item) => item?.id || getReplayItemTitle(item)).join('|')}`);
-    const baseSatellitePositions = [
-      { x: -126, y: -82, width: 92, height: 108, rotate: -8, opacity: 0.9 },
-      { x: 126, y: -76, width: 90, height: 106, rotate: 7, opacity: 0.84 },
-      { x: -124, y: 92, width: 88, height: 104, rotate: 5, opacity: 0.8 },
-      { x: 124, y: 92, width: 88, height: 104, rotate: -5, opacity: 0.76 },
-    ];
-    const positionOffset = orbitSeed % baseSatellitePositions.length;
-    const satellitePositions = baseSatellitePositions.map((_, index) => {
-      const base = baseSatellitePositions[(index + positionOffset) % baseSatellitePositions.length];
-      const side = base.x < 0 ? -1 : 1;
-      return {
-        ...base,
-        x: base.x + (seededUnit(orbitSeed, index) - 0.5) * 22 * side,
-        y: base.y + (seededUnit(orbitSeed, index + 11) - 0.5) * 24,
-        rotate: base.rotate + (seededUnit(orbitSeed, index + 23) - 0.5) * 10,
-        width: base.width + Math.round((seededUnit(orbitSeed, index + 31) - 0.5) * 10),
-        height: base.height + Math.round((seededUnit(orbitSeed, index + 43) - 0.5) * 12),
-      };
-    });
-    const primaryImageSize = isArtist ? "h-[182px] w-[136px] sm:h-[194px] sm:w-[146px]" : "h-[156px] w-[156px] sm:h-[164px] sm:w-[164px]";
-    const primaryRadius = isArtist ? "rounded-[24px]" : "rounded-[28px]";
+    const orderedItems = items.slice(0, 5);
+    if (orderedItems.length === 0) return null;
+    const visualConfig = {
+      artists: {
+        primaryImageSize: "h-[182px] w-[136px] sm:h-[194px] sm:w-[146px]",
+        secondaryImageSize: "h-[126px] w-[94px] sm:h-[134px] sm:w-[100px]",
+        primaryRadius: "rounded-[25px]",
+        secondaryRadius: "rounded-[22px]",
+        ringScale: "h-[230px] w-[230px]",
+        dashScale: "h-[172px] w-[172px]",
+      },
+      tracks: {
+        primaryImageSize: "h-[158px] w-[158px] sm:h-[168px] sm:w-[168px]",
+        secondaryImageSize: "h-[112px] w-[112px] sm:h-[120px] sm:w-[120px]",
+        primaryRadius: "rounded-[32px]",
+        secondaryRadius: "rounded-[26px]",
+        ringScale: "h-[220px] w-[220px]",
+        dashScale: "h-[164px] w-[164px]",
+      },
+      albums: {
+        primaryImageSize: "h-[170px] w-[170px] sm:h-[182px] sm:w-[182px]",
+        secondaryImageSize: "h-[118px] w-[118px] sm:h-[126px] sm:w-[126px]",
+        primaryRadius: "rounded-[24px]",
+        secondaryRadius: "rounded-[20px]",
+        ringScale: "h-[236px] w-[236px]",
+        dashScale: "h-[178px] w-[178px]",
+      },
+    }[kind];
 
     return (
       <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
-        <div className="pointer-events-none absolute left-1/2 top-[48%] h-[286px] w-[286px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
+        <div className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]", visualConfig.ringScale)} />
         <motion.div
-          className="pointer-events-none absolute left-1/2 top-[48%] h-[214px] w-[214px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16"
+          className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
           animate={!shouldReduceMotion && isSectionVisible && isCentered ? { rotate: 360 } : {}}
           transition={!shouldReduceMotion && isSectionVisible && isCentered ? { duration: 58, repeat: Infinity, ease: 'linear' } : {}}
         />
-        <div className="pointer-events-none absolute left-1/2 top-[48%] h-[96px] w-[96px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.04] blur-2xl" />
+        <div className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl" />
 
-        {satellites.map((item, index) => {
-          const position = satellitePositions[index] || satellitePositions[0];
-          return (
-            <motion.div
-              key={`${kind}-sat-${item.id || item.name || index}`}
-              onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
-              data-entity-stats-trigger={kind}
-              data-entity-stats-active={isCentered ? 'true' : undefined}
-              data-entity-stats-satellite={index + 2}
-              className={cn(
-                "absolute left-1/2 top-[47%] overflow-hidden rounded-[18px] bg-black shadow-[0_18px_38px_rgba(0,0,0,0.45)]",
-                onItemClick && isCentered && "cursor-pointer"
-              )}
-              initial={{ opacity: 0, scale: 0.72, x: `calc(-50% + ${position.x}px)`, y: `calc(-50% + ${position.y + 12}px)` }}
-              animate={{
-                opacity: position.opacity,
-                scale: 1,
-                x: `calc(-50% + ${position.x}px)`,
-                y: `calc(-50% + ${position.y}px)`,
-                rotate: position.rotate,
-              }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: 0.04 + index * 0.025 }}
-              style={{ width: position.width, height: position.height }}
-            >
-              <motion.div
-                className="relative h-full w-full"
-                animate={isCentered && isSectionVisible && !shouldReduceMotion ? {
-                  y: [0, index % 2 === 0 ? -3 : 3, 0],
-                  rotate: [0, index % 2 === 0 ? 0.45 : -0.45, 0],
-                } : {}}
-                transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
-                  duration: 6.8 + index * 0.55,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                } : {}}
-              >
-                <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/8 via-black/10 to-black/78" />
-                <span className="absolute left-2 top-1.5 text-[22px] font-black leading-none text-white drop-shadow-[0_8px_16px_rgba(0,0,0,0.65)]">{index + 2}</span>
-                <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
-                  {detailLabel(item, kind) && (
-                    <span className="mb-0.5 block truncate text-[7px] font-black uppercase tracking-[0.08em] text-white/62">
-                      {detailLabel(item, kind)}
-                    </span>
-                  )}
-                  <span className="block truncate text-[9.5px] font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]">
-                    {getReplayItemTitle(item)}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[7.5px] font-black uppercase tracking-[0.08em] text-orange-200/85">
-                    {metricLabel(item, kind)}
-                  </span>
-                </div>
-              </motion.div>
-            </motion.div>
-          );
-        })}
-
-        <motion.div
-          key={`${kind}-primary-${primary.id || primary.name}`}
-          onClick={() => isCentered && onItemClick?.(buildDetailItem(primary, kind))}
-          data-entity-stats-trigger={kind}
-          data-entity-stats-active={isCentered ? 'true' : undefined}
-          data-entity-stats-primary="true"
-          className={cn(
-            "absolute left-1/2 top-[44%] z-30 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center",
-            onItemClick && isCentered && "cursor-pointer"
-          )}
-          initial={{ opacity: 0, scale: 0.88, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <motion.div
-            animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, -5, 3, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-            transition={isCentered && isSectionVisible && !shouldReduceMotion ? { duration: 10.5, repeat: Infinity, ease: 'easeInOut' } : {}}
-          >
-            <div className={cn("relative overflow-hidden bg-black shadow-[0_24px_62px_rgba(0,0,0,0.58)]", primaryImageSize, primaryRadius)}>
-              <SmartImage src={getReplayItemImage(primary)} className="absolute inset-0 h-full w-full object-cover" fallback={getReplayItemTitle(primary)} rounded="none" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/6 via-black/8 to-black/82" />
-              <span className="absolute left-3 top-2 z-20 text-[52px] font-black leading-none text-white drop-shadow-[0_12px_26px_rgba(0,0,0,0.55)]">1</span>
-              <div className="absolute bottom-3 left-3 right-3 z-20 min-w-0">
-                {detailLabel(primary, kind) && (
-                  <span className="mb-0.5 block truncate text-[8px] font-black uppercase tracking-[0.1em] text-white/64">
-                    {detailLabel(primary, kind)}
-                  </span>
+        <div data-home-horizontal-scroll="true" className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5">
+          {orderedItems.map((item, index) => {
+            const isPrimary = index === 0;
+            return (
+              <motion.button
+                key={`${kind}-rank-${item.id || item.name || index}`}
+                type="button"
+                onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
+                data-entity-stats-trigger={kind}
+                data-entity-stats-active={isCentered ? 'true' : undefined}
+                data-entity-stats-primary={isPrimary ? 'true' : undefined}
+                data-entity-stats-satellite={!isPrimary ? index + 1 : undefined}
+                className={cn(
+                  "relative shrink-0 overflow-hidden bg-black text-left shadow-[0_18px_38px_rgba(0,0,0,0.45)] transition-transform active:scale-[0.98]",
+                  isPrimary ? visualConfig.primaryImageSize : visualConfig.secondaryImageSize,
+                  isPrimary ? visualConfig.primaryRadius : visualConfig.secondaryRadius,
+                  kind === 'albums' && "ring-1 ring-white/12",
+                  onItemClick && isCentered && "cursor-pointer"
                 )}
-                <span className="block truncate text-[15px] font-black leading-tight text-white drop-shadow-[0_10px_24px_rgba(0,0,0,0.72)]">
-                  {getReplayItemTitle(primary)}
-                </span>
-                <span className="mt-1 block truncate text-[9px] font-black uppercase tracking-[0.08em] text-orange-200/90">
-                  {metricLabel(primary, kind)}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
+                initial={{ opacity: 0, y: 12, scale: isPrimary ? 0.94 : 0.9 }}
+                animate={{ opacity: isPrimary ? 1 : 0.88, y: 0, scale: 1 }}
+                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: index * 0.035 }}
+              >
+                <motion.div
+                  className="relative h-full w-full"
+                  animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, isPrimary ? -3 : -1.5, 0] } : {}}
+                  transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
+                    duration: isPrimary ? 8.5 : 7 + index * 0.3,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  } : {}}
+                >
+                  <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
+                  <span className={cn(
+                    "absolute z-20 font-black leading-none text-white drop-shadow-[0_10px_22px_rgba(0,0,0,0.62)]",
+                    isPrimary ? "left-3 top-2 text-[50px]" : "left-2 top-1.5 text-[24px]"
+                  )}>
+                    {index + 1}
+                  </span>
+                  <div className={cn("absolute bottom-2 z-20 min-w-0", isPrimary ? "left-3 right-3" : "left-2 right-2")}>
+                    {detailLabel(item, kind) && (
+                      <span className={cn(
+                        "mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62",
+                        isPrimary ? "text-[8px]" : "text-[6.5px]"
+                      )}>
+                        {detailLabel(item, kind)}
+                      </span>
+                    )}
+                    <span className={cn(
+                      "block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]",
+                      isPrimary ? "text-[15px]" : "text-[9.5px]"
+                    )}>
+                      {getReplayItemTitle(item)}
+                    </span>
+                    <span className={cn(
+                      "mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88",
+                      isPrimary ? "text-[9px]" : "text-[7.5px]"
+                    )}>
+                      {metricLabel(item, kind)}
+                    </span>
+                  </div>
+                </motion.div>
+              </motion.button>
+            );
+          })}
+        </div>
       </div>
     );
   };
 
   if (groups.length === 0) return null;
-  const activeGroup = groups[activeIndex] || groups[0];
-  const ActiveIcon = activeGroup.icon;
 
   return (
     <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Sparkles className="h-5 w-5 text-orange-500" />
-          <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Seus Destaques</h2>
-          <span className="text-white/18">·</span>
-          <span className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-orange-300">{activeGroup.title}</span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/25 px-2.5 py-1.5">
-          <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
-          <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
-          <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">min</span>
-        </div>
-      </div>
-
-      <div
-        data-home-horizontal-scroll="true"
-        className="relative select-none overflow-visible"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={() => { touchStartRef.current = null; }}
-      >
-        <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
-          <div className="relative z-10 mb-1 flex h-7 items-center justify-between gap-3">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] backdrop-blur-2xl">
-              <ActiveIcon className="h-3.5 w-3.5 text-orange-300" />
-            </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              {groups.length > 1 && (
-                <div className="hidden items-center gap-1 sm:flex">
-                  <button type="button" onClick={() => goTo(activeIndex - 1)} className="rounded-full p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80" aria-label="Destaque anterior">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button type="button" onClick={() => goTo(activeIndex + 1)} className="rounded-full p-1.5 text-white/40 transition-colors hover:bg-white/10 hover:text-white/80" aria-label="Próximo destaque">
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+      <div className="relative overflow-visible rounded-[34px] border border-white/[0.055] bg-white/[0.018] px-3.5 pb-2.5 pt-4 shadow-[0_28px_70px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/30 to-transparent" />
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
+            <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.28em] text-white/86">Seus Destaques</h2>
+            <span className="shrink-0 rounded-full bg-orange-500/12 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200">{periodLabel}</span>
+            <span className="hidden truncate text-[8px] font-black uppercase tracking-[0.14em] text-white/34 min-[430px]:block">{activeGroup.title}</span>
           </div>
+          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5">
+            <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
+            <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
+            <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">min</span>
+          </div>
+        </div>
 
-          <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
-            {groups.map((group, index) => {
-              const relative = (index - activeIndex + groups.length) % groups.length;
-              const isCentered = relative === 0;
-              const isRight = relative === 1;
-              const isLeft = relative === groups.length - 1;
-              if (!isCentered && !isRight && !isLeft) return null;
-              const x = isCentered ? 0 : isRight ? 142 : -142;
-              const y = isCentered ? 0 : -22;
-              const scale = isCentered ? 1 : 0.7;
-              const opacity = isCentered ? 1 : 0.28;
+        <HomeHighlightPeriodControls
+          activeTab={activeTab}
+          selectedSubValues={selectedSubValues}
+          onActiveTabChange={onActiveTabChange}
+          onSelectedSubValuesChange={onSelectedSubValuesChange}
+        >
+          {groups.length > 1 && groups.map((group) => {
+              const Icon = group.icon;
+              const isActive = group.key === activeGroup.key;
               return (
-                <motion.div
-                  key={`highlight-orbit-${group.key}`}
-                  className="absolute inset-0"
-                  animate={{ x, y, scale, opacity, zIndex: isCentered ? 30 : 8 }}
-                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                  onClick={() => !isCentered && goTo(index)}
-                  aria-hidden={!isCentered}
+                <button
+                  key={group.key}
+                  type="button"
+                  onClick={() => setActiveKind(group.key)}
+                  className={cn(
+                    "flex shrink-0 items-center gap-1.5 rounded-[22px] border px-2.5 py-2 text-[8.5px] font-black uppercase tracking-[0.12em] transition-[background-color,border-color,color,transform] active:scale-[0.98]",
+                    isActive
+                      ? "border-orange-500/24 bg-orange-500/13 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)]"
+                      : "border-white/[0.055] bg-black/18 text-white/36 hover:text-white/64"
+                  )}
+                  aria-pressed={isActive}
                 >
-                  {renderHighlightOrbit(group.items, group.key, isCentered)}
-                </motion.div>
+                  <Icon className="h-3.5 w-3.5" />
+                  {group.tabLabel}
+                </button>
               );
             })}
-          </div>
-        </article>
+        </HomeHighlightPeriodControls>
 
-        {groups.length > 1 && (
-          <div className="mt-3 flex justify-center gap-1.5">
-            {groups.map((group, index) => (
-              <button
-                key={group.key}
-                type="button"
-                onClick={() => goTo(index)}
-                className={cn(
-                  "h-1.5 rounded-full transition-[width,background-color]",
-                  index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
-                )}
-                aria-label={`Abrir ${group.title}`}
-              />
-            ))}
-          </div>
-        )}
+        <div
+          data-home-horizontal-scroll="true"
+          className="relative mt-1 select-none overflow-visible"
+        >
+          <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
+            <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={`highlight-orbit-${activeGroup.key}`}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
+                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {renderHighlightOrbit(activeGroup.items, activeGroup.key, true)}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
   );
@@ -878,87 +812,36 @@ const HomePerceptions = ({
 };
 
 const HomeRecentPlays = ({
+  user,
   recent,
-  onViewMore,
-  onTrackClick
+  onFullHistoryClick,
+  onTrackClick,
 }: {
+  user: any;
   recent: any[];
-  onViewMore?: () => void;
+  onFullHistoryClick?: () => void;
   onTrackClick?: (track: any) => void;
 }) => {
-  const list = recent.slice(0, 10);
   return (
     <section className="px-4 sm:px-6 lg:px-8">
-      <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center gap-3">
         <div className="flex items-center gap-3">
           <Clock3 className="h-5 w-5 text-orange-500" />
           <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/86">Últimas Reproduções</h2>
         </div>
-        {list.length > 0 && (
-          <button
-            type="button"
-            onClick={onViewMore}
-            className="shrink-0 rounded-full bg-white/[0.045] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-white/45 transition-[background-color,color] hover:bg-white/[0.08] hover:text-white/80"
-          >
-            ver mais
-          </button>
-        )}
       </div>
-      <div className="glass-aura relative overflow-hidden rounded-[32px] p-3">
-        <div className="pointer-events-none absolute left-[34px] top-5 bottom-5 w-px bg-gradient-to-b from-orange-500/0 via-orange-500/28 to-orange-500/0" />
-        {list.length === 0 && (
-          <div className="flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 text-center">
-            <Clock3 className="h-5 w-5 text-white/18" />
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/32">Nenhuma reprodução recente confirmada</span>
-          </div>
-        )}
-        <div className="flex flex-col gap-2">
-        {list.map((item, index) => {
-          const track = item.track || item;
-          const artist = Array.isArray(track.artists)
-            ? track.artists.map((a: any) => typeof a === 'string' ? a : a.name).filter(Boolean).join(', ')
-            : track.artist?.name || item.artistName || '';
-          const playedAt = item.playedAt || item.timestamp || item.endTime || item.date;
-          const image = track.image || track.albumImage || track.album?.image;
-          return (
-            <button
-              key={`${track.id || track.name}-${playedAt || index}`}
-              type="button"
-              onClick={() => onTrackClick?.({ ...track, type: 'track', artistName: artist, playedAt })}
-              className="group relative grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-3 rounded-[24px] bg-white/[0.035] px-3 py-2.5 text-left transition-[background-color,transform] active:scale-[0.99] hover:bg-white/[0.055]"
-            >
-              <div className="relative">
-                <span className="absolute -left-[17px] top-1/2 z-10 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-300/70 bg-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.45)]" />
-                <SmartImage src={image} className="h-12 w-12 object-cover shadow-[0_12px_26px_rgba(0,0,0,0.32)]" fallback={track.name || 'play'} rounded="2xl" />
-              </div>
-              <div className="min-w-0">
-                <span className="block truncate text-[13px] font-black leading-tight text-white">{track.name || 'Sem título'}</span>
-                <span className="mt-0.5 block truncate text-[11px] font-semibold text-white/46">{artist || 'Artista'}</span>
-              </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                <span className="rounded-full border border-white/10 bg-black/24 px-2 py-1 text-[8px] font-black uppercase tracking-[0.1em] text-white/42">
-                  {playedAt ? coreUtils.formatRelativeTimeSP(playedAt) : 'agora'}
-                </span>
-                {index === 0 && (
-                  <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200">
-                    Recente
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-        </div>
-        {list.length > 0 && (
-          <button
-            type="button"
-            onClick={onViewMore}
-            className="mt-3 w-full rounded-[22px] border border-orange-500/15 bg-orange-500/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-orange-200/82 transition-[background-color,color,border-color] hover:bg-orange-500/[0.13] hover:text-orange-100"
-          >
-            Ver todo histórico
-          </button>
-        )}
-      </div>
+      <FriendHistoryCard
+        key={`home-recent-${user.id}`}
+        user={user}
+        index={0}
+        defaultExpanded
+        recentOverride={recent}
+        maxInlineItems={5}
+        onTrackClick={(track) => onTrackClick?.(track)}
+        onFullHistoryClick={onFullHistoryClick}
+        showFullHistoryButton
+        showInlineHistory
+      />
     </section>
   );
 };
@@ -2207,23 +2090,6 @@ export default function HomeScreen() {
         )}
       </AnimatePresence>
 
-      {isAppReady && primaryUser && (
-        <motion.div
-          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-          className="px-4 sm:px-6 lg:px-8"
-        >
-          <HomeReplayFilter
-            activeTab={replayActiveTab}
-            selectedSubValues={replaySelectedSubValues}
-            onActiveTabChange={setReplayActiveTab}
-            onSelectedSubValuesChange={setReplaySelectedSubValues}
-          />
-        </motion.div>
-      )}
-
       {isReplayInitialLoading && <HomeSectionLoader label="Carregando seus destaques" />}
 
       {isAppReady && primaryUser && replayState === 'error' && (
@@ -2242,6 +2108,10 @@ export default function HomeScreen() {
           artists={replayArtists}
           tracks={replayTracks}
           albums={replayAlbums}
+          activeTab={replayActiveTab}
+          selectedSubValues={replaySelectedSubValues}
+          onActiveTabChange={setReplayActiveTab}
+          onSelectedSubValuesChange={setReplaySelectedSubValues}
           onItemClick={handleOpenMusicDetail}
         />
       )}
@@ -2307,8 +2177,9 @@ export default function HomeScreen() {
           className="content-auto-safe"
         >
           <HomeRecentPlays
+            user={primaryUser}
             recent={resolvedRecentPlays}
-            onViewMore={() => setViewingFullHistoryUser(primaryUser)}
+            onFullHistoryClick={() => setViewingFullHistoryUser(primaryUser)}
             onTrackClick={handleOpenMusicDetail}
           />
         </motion.div>

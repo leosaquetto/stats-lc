@@ -512,7 +512,7 @@ export const VinylRecord = ({
                     style={{ background: 'transparent' }}
                   />
                   <div
-                    className="absolute left-1/2 top-1/2 z-30 h-[13%] w-[13%] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+                    className="absolute left-1/2 top-1/2 z-30 h-[9.5%] w-[9.5%] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
                     style={{
                       background: `
                         radial-gradient(circle at 42% 38%, rgba(255,255,255,0.22) 0%, rgba(48,42,48,0.84) 30%, rgba(28,24,28,0.9) 62%, rgba(22,20,22,0.72) 100%)

@@ -22,6 +22,9 @@ interface FriendHistoryCardProps {
   onTrackClick: (track: any) => void;
   onFullHistoryClick?: (user: any) => void;
   index?: number;
+  defaultExpanded?: boolean;
+  recentOverride?: any[];
+  maxInlineItems?: number;
   showFullHistoryButton?: boolean;
   showInlineHistory?: boolean;
 }
@@ -109,10 +112,13 @@ export const FriendHistoryCard = memo(({
   onTrackClick,
   onFullHistoryClick,
   index = 0,
+  defaultExpanded = false,
+  recentOverride,
+  maxInlineItems = 5,
   showFullHistoryButton = true,
   showInlineHistory = true
 }: FriendHistoryCardProps) => {
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(defaultExpanded);
   const [recents, setRecents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<any>(null);
@@ -124,6 +130,11 @@ export const FriendHistoryCard = memo(({
   );
   const animationDuration = useStatsStore(state => state.animationDuration) || 0.5;
   const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
+  const normalizedRecentOverride = useMemo(
+    () => (Array.isArray(recentOverride) ? recentOverride.map(statsService.normalizeRecentStream).filter(Boolean) : []),
+    [recentOverride]
+  );
+  const inlineHistoryLimit = Math.max(1, maxInlineItems);
 
   const isLive = storeUser.nowPlaying?.isNow === true;
   const activityTimestamp = getActivityTimestamp(storeUser) || getActivityTimestamp(user);
@@ -141,9 +152,9 @@ export const FriendHistoryCard = memo(({
       const otherRecents = recents.filter(
         item => item.track?.id !== (storeUser.nowPlaying?.track?.id || user.nowPlaying?.track?.id)
       );
-      return [liveTrack, ...otherRecents].slice(0, 5);
+      return [liveTrack, ...otherRecents].slice(0, inlineHistoryLimit);
     }
-    return recents.slice(0, 5);
+    return recents.slice(0, inlineHistoryLimit);
   };
 
   // Sempre carrega dados ao montar — não só ao expandir
@@ -159,15 +170,21 @@ export const FriendHistoryCard = memo(({
         return;
       }
 
+      const hasRecentOverride = normalizedRecentOverride.length > 0;
+      if (hasRecentOverride && mounted) {
+        setRecents(normalizedRecentOverride);
+        setLoading(false);
+      }
+
       const embeddedRecent = storeUser.recent || user.recent || [];
-      if (embeddedRecent.length > 0 && mounted) {
+      if (!hasRecentOverride && embeddedRecent.length > 0 && mounted) {
         setRecents(embeddedRecent.map(statsService.normalizeRecentStream).filter(Boolean));
         setLoading(false);
       }
 
       // 1. Servir cache imediatamente se disponível
       const cachedHistory = store.getHistoryCache(user.id);
-      if (cachedHistory && cachedHistory.length > 0 && mounted) {
+      if (!hasRecentOverride && cachedHistory && cachedHistory.length > 0 && mounted) {
         setRecents(cachedHistory.map(statsService.normalizeRecentStream).filter(Boolean));
         setLoading(false);
       }
@@ -183,6 +200,7 @@ export const FriendHistoryCard = memo(({
 
       // 2. Só buscar dados novos se não tiver cache ou se o cache for muito antigo (> 5 min)
       const hasValidCache =
+        hasRecentOverride ||
         (cachedHistory && cachedHistory.length > 0) ||
         embeddedRecent.length > 0;
       if (hasValidCache) {
@@ -209,7 +227,7 @@ export const FriendHistoryCard = memo(({
 
     fetchData();
     return () => { mounted = false; };
-  }, [user.id, showInlineHistory]);
+  }, [user.id, showInlineHistory, normalizedRecentOverride]);
 
   const historyList = getHistoryList();
 

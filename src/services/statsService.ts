@@ -186,14 +186,28 @@ const normalizeTrack = (track: any) => {
     track.album?.primaryArtist ||
     track.album?.primaryArtistName;
   const albumArtistName = getArtistName(albumArtist);
+  const trackArtistFromList = Array.isArray(track.artists)
+    ? track.artists.find((artist: any) => artist?.isMainArtist === true) || track.artists[0]
+    : undefined;
+  const trackPrimaryArtistObject =
+    track.primaryArtist ||
+    (trackArtistFromList && typeof trackArtistFromList !== 'string' ? trackArtistFromList : undefined);
+  const trackPrimaryArtistName =
+    track.primaryArtistName ||
+    getArtistName(trackPrimaryArtistObject) ||
+    getPrimaryArtistName(track.artists);
+  const trackPrimaryArtistId =
+    track.primaryArtistId ||
+    (trackPrimaryArtistObject ? trackPrimaryArtistObject.id : undefined);
+  const shouldUseAlbumArtistAsPrimary = !trackPrimaryArtistName;
 
   return {
     id: track.id,
     name: track.name,
     artists: track.artists || [],
-    primaryArtist: albumArtist && typeof albumArtist !== 'string' ? albumArtist : track.primaryArtist,
-    primaryArtistId: (albumArtist && typeof albumArtist !== 'string' ? albumArtist.id : undefined) || track.primaryArtistId,
-    primaryArtistName: albumArtistName || track.primaryArtistName || getPrimaryArtistName(track.artists),
+    primaryArtist: trackPrimaryArtistObject || (shouldUseAlbumArtistAsPrimary && albumArtist && typeof albumArtist !== 'string' ? albumArtist : undefined),
+    primaryArtistId: trackPrimaryArtistId || (shouldUseAlbumArtistAsPrimary && albumArtist && typeof albumArtist !== 'string' ? albumArtist.id : undefined),
+    primaryArtistName: trackPrimaryArtistName || albumArtistName,
     secondaryArtists: track.secondaryArtists,
     image: track.image,
     album: track.album,
@@ -227,9 +241,9 @@ const normalizeRecentStream = (stream: any) => {
     durationMs: rawTrack.durationMs ?? stream.durationMs ?? stream.playedMs,
     image: rawTrack.image || stream.trackImage || stream.albumImage || stream.album?.image,
     artists: rawTrack.artists?.length ? rawTrack.artists : stream.artists || stream.album?.artists || [],
-    primaryArtist: rawTrack.primaryArtist || stream.primaryArtist || stream.albumArtist,
-    primaryArtistId: rawTrack.primaryArtistId || stream.primaryArtistId || stream.albumArtistId,
-    primaryArtistName: rawTrack.primaryArtistName || stream.primaryArtistName || stream.albumArtistName,
+    primaryArtist: rawTrack.primaryArtist || stream.primaryArtist,
+    primaryArtistId: rawTrack.primaryArtistId || stream.primaryArtistId,
+    primaryArtistName: rawTrack.primaryArtistName || stream.primaryArtistName,
     album: rawTrack.album || stream.album,
     albums: rawTrack.albums || stream.albums,
     albumId: rawTrack.albumId || stream.albumId,
