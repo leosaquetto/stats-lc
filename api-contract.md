@@ -46,7 +46,18 @@ Represents **catalog availability** for the track.
 - Live now-playing calls may opt into an internal `cacheProfile: "live"` with a shorter fresh/stale window. This is still handled inside `statsfmFetch` and does not change normal endpoint payloads.
 - `/api/group-live` has an internal 1.9-second endpoint deadline and may return partial members with `live_deadline_exceeded` warnings instead of blocking the full poll.
 - Optional dominant-color work is intentionally outside the `/api/group-live` and `/api/group` critical paths. Clients keep existing/local colors while richer endpoints refresh them.
-- Successful API responses expose `X-Request-Id` and `Server-Timing`; structured runtime logs include only request ID, method, route, status, and duration.
+- `/api/group` uses a 180-second CDN fresh window with a 900-second stale-while-revalidate window.
+- Successful API responses expose `X-Request-Id`, `Server-Timing`, and `X-App-Timing`. `X-App-Timing` is the platform-safe fallback when `Server-Timing` is stripped.
+- Structured runtime logs include only request ID, method, route, status, and duration.
+- The Home may render from the compact recent baseline included in `/api/group`; it must not wait for the full `/api/recent` history request before dismissing splash.
+- `/api/recent`, Replay, tops, highlights, and modal data are progressive cold-data surfaces. Automatic flows must not add `force=1`.
+
+### Production performance checkpoint (2026-06-09)
+
+- API production commit: `1f4c2cf` (rollup commits `33abac4`, `f34ed76`, `cfcb20d`, `1f4c2cf`).
+- `/api/group-live?profile=0` returned `200` in 0.85 seconds on an observed cache MISS, with `X-App-Timing: app;dur=341.5`.
+- `/api/group` returned `200` in 0.51 seconds from stale CDN data; the observed payload was about 161 kB.
+- These values are operational snapshots, not response-time guarantees. Recheck under the same region/cache conditions before comparing a regression.
 
 ## Public Endpoint Reference
 

@@ -39,16 +39,77 @@ Regras ativas continuam em `AGENTS.md`; contrato de API continua em
 - Preloads de rotas secundarias so iniciam em idle depois da Home pronta; tops
   do circulo e Stats Alike adiam fanout ate suas secoes se aproximarem da tela.
 
-## Performance e iOS
+## Performance e Mobile
 
 - O bundle inicial e Home sao chunks separados. `npm run build:report` aplica
   os orcamentos de 160 kB gzip para a entrada e 500 kB gzip para todo o JS.
-- `window.__STATS_LC_PERFORMANCE__` expoe amostras leves de Home pronta,
-  navegacao, long tasks e long animation frames para validacao.
+- `window.__STATS_LC_PERFORMANCE__` expoe Home pronta, navegacao, long tasks e
+  long animation frames. Contadores e maximos separam boot e pos-boot.
 - Vercel Speed Insights usa amostragem de 20%.
-- O shell Capacitor fica em `ios/`, usa `com.leosaquetto.statslc`, scheme
-  `statslc://`, safe areas existentes e pausa/retoma o polling pelo ciclo de
-  vida nativo. Use `npm run cap:sync` antes de abrir no Xcode.
+- O desenvolvimento continua web-first. Expo e o caminho nativo pretendido
+  para uma fase futura, depois da lapidacao das features web.
+- Xcode, simulador e iPhone real nao sao gates atuais.
+- O shell Capacitor permanece em `ios/` como referencia pausada. Ele usa
+  `com.leosaquetto.statslc`, scheme `statslc://`, safe areas e ciclo de vida
+  nativo, mas nao deve receber novas features sem pedido explicito.
+
+### Rollout de Performance de 2026-06-09
+
+Commits publicados:
+
+- frontend base: `c6248a8` (`Optimize app performance and add iOS shell`)
+- frontend complemento: `60b4aac`
+  (`Reduce Home boot blocking and improve performance metrics`)
+- API: `33abac4`, `f34ed76`, `cfcb20d` e `1f4c2cf`
+
+Mudancas consolidadas no frontend:
+
+- Home e rotas secundarias isoladas em chunks lazy.
+- Preload global imediato removido; rotas secundarias aquecem por intencao ou
+  em idle depois da Home pronta.
+- Conteudos pesados e interiores de modais carregam progressivamente, mantendo
+  shells imediatos.
+- A base recente compacta de `/api/group` libera a splash; a busca de 20 itens
+  de historico continua em background.
+- Warmup visual inicial limitado ao usuario principal, capa principal, tres
+  amigos ativos e tres capas recentes.
+- Atualizacoes live priorizam `liveNowPlayingByUserId` e nao regravam
+  `groupStats` quando apenas o playback mudou.
+- Requests compartilhados ganharam dedupe/cancelamento nos fluxos centrais e
+  polling/animações respeitam visibilidade e ciclo de vida.
+- Blurs atmosfericos globais mantem o visual, mas o movimento ocorre no wrapper
+  por `transform`/`opacity`, evitando animar o blur diretamente.
+- Contadores de long task e Long Animation Frame deixaram de usar apenas o
+  array truncado de amostras e agora registram total, fase e maior duracao.
+
+Mudancas consolidadas na API:
+
+- `/api/group-live` tem deadline interno de 1,9 s, timeout curto por usuario e
+  pode devolver membro parcial com `live_deadline_exceeded`.
+- Resolucao direta de album continua no caminho live quando barata; cor
+  dominante e enriquecimentos opcionais sairam do caminho critico.
+- `/api/group` usa cache CDN de 180 s com stale de 900 s.
+- Cache upstream frio padrao passou para 3 min fresh e 15 min stale.
+- `/api/top` aceita aliases de periodo e transforma `400` de faixa vazia em
+  resposta `200` com `items: []` e warning `upstream_empty_range`.
+- Dispatcher central registra request ID, rota, status e duracao sem PII.
+- Respostas expoem `X-Request-Id`, `Server-Timing` e `X-App-Timing`; este ultimo
+  funciona como fallback quando a plataforma remove `Server-Timing`.
+
+Baseline observado em 2026-06-09:
+
+- bundle: entrada `127,0 kB gzip`; JS total `460,0 kB gzip`; Home
+  `25,4 kB gzip`
+- Home fria local em nova aba: `2,16 s`
+- Home fria em producao: `1,89 s`
+- `/api/group-live?profile=0`: `200` em `0,85 s` num MISS, com
+  `X-App-Timing: 341,5 ms`
+- `/api/group`: `200` em `0,51 s` servindo stale; payload observado de
+  aproximadamente `161 kB`
+
+Esses numeros sao snapshots, nao garantias ou SLOs. O Browser in-app pode
+inflar long tasks/LoAF pos-boot e nao substitui profiling em aparelho real.
+Compare regressao usando o mesmo viewport, rede e estado de cache.
 
 ## Home, LeoHeader e Vinil
 
@@ -64,6 +125,9 @@ Regras ativas continuam em `AGENTS.md`; contrato de API continua em
 - Progress clock da faixa deve evitar rerender por segundo no componente todo.
 - Recentes usados por Home/Vinil devem preservar capas reais; quando aplicavel,
   preferir `/api/recent?resolveAlbums=1`.
+- A Home pode renderizar primeiro a base recente de `/api/group`, mas a
+  hidratacao completa deve continuar usando a superficie de historico com
+  resolucao de album quando aplicavel.
 
 ## Bottom Bubble e Modal de Musica
 
@@ -123,6 +187,15 @@ Checkpoint consolidado da sessao de 2026-06-05:
 
 ## Validacoes Recentes
 
+- Performance web em 2026-06-09: Browser in-app `390x844` validou Home fria e
+  quente, Stats, Orbita, Ajustes, scroll, modal de historico, LeoHeader, vinil,
+  tonearm e palcos orbitais. Resultado: zero overflow horizontal, imagens
+  quebradas ou `warn/error` de console.
+- Producao foi confirmada servindo `assets/index-CA5CelhI.js` a partir do
+  frontend `60b4aac`; Speed Insights estava ativo.
+- Checks da rodada de performance: frontend `npm run lint`,
+  `npm run build:report` e `git diff --check`; API `npm run check` com 61 testes
+  na rodada do backend.
 - Premium 430 em 2026-06-04: Browser in-app `430x932` validou `/`, `/stats`,
   `/circle`, `/circle?tab=orbits`, `/circle?tab=arena`, `/ranking`,
   `/circle?tab=duels`, `/circle?tab=affinity`, `/alike` e `/settings` sem

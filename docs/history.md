@@ -35,6 +35,22 @@ novo e `docs/current-state.md` para o estado operacional recente.
 - Bottom Bubble/modal de musica foi ajustado para reduzir lag, reflow, flicker
   de imagem e pulos de layout, mantendo o modal montado e animando por
   `opacity`/`transform`.
+- O rollout completo de performance web/API foi publicado em producao:
+  - frontend `c6248a8` separou chunks, adiou preloads/fanouts, integrou Speed
+    Insights, adicionou orcamento de bundle, ciclo de vida e shell Capacitor;
+  - frontend `60b4aac` deixou o historico completo fora do bloqueio da splash,
+    reduziu warmup de imagens, melhorou as metricas de boot/pos-boot e moveu a
+    animacao dos blurs globais para wrappers de composicao;
+  - API `33abac4`, `f34ed76`, `cfcb20d` e `1f4c2cf` adicionou deadline parcial
+    no live, cache/stale maior, normalizacao de `/api/top`, timing headers,
+    logs estruturados e testes de fallback.
+- Em producao, a Home fria foi observada em `1,89 s`; o bundle ficou em
+  `127,0 kB gzip` de entrada e `460,0 kB gzip` total. Home, Stats, Orbita,
+  Ajustes e modal de historico passaram no Browser in-app em `390x844` sem
+  overflow, imagens quebradas ou logs relevantes.
+- A fase nativa deixou de ser gate imediato. O produto continua web-first e
+  Expo ficou definido como caminho pretendido para uma etapa futura. O shell
+  Capacitor existente foi mantido, mas esta pausado.
 
 ## Decisoes Importantes Ja Incorporadas
 
@@ -46,7 +62,11 @@ novo e `docs/current-state.md` para o estado operacional recente.
   indevidamente.
 - `TrackLeaderboardModal` deve respeitar `hiddenUsers`.
 - `/api/group-live` deve ignorar cache longo de resposta e servir como refresh
-  leve de live.
+  leve de live, com deadline e resposta parcial segura quando necessario.
+- `/api/group` pode liberar a Home com base recente compacta. Historico
+  completo, Replay e outros dados frios devem hidratar progressivamente.
+- Medidas do Browser in-app sao direcionais e nao equivalem a prova de 60 fps
+  em iPhone real.
 - Quando a API demora para reconhecer nova musica, e melhor manter a faixa
   antiga por alguns segundos do que piscar fallback incompleto.
 - Bottom menu e glass antigo foram aproximados para um padrao Apple-like, com

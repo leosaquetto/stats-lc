@@ -4,7 +4,7 @@ Guia unico para agentes trabalhando em `/Users/leosaquetto/Developer/GitHub/stat
 
 ## Objetivo
 
-`stats-lc` e o frontend web/mobile do stats.lc. A Home mostra o usuario em destaque, LeoHeader, vinil, reproduzindo agora, atividade do circulo, Replay, Top 1 do Circulo, Stats Alike e historico recente. O app usa Vite, React 19, TypeScript, Tailwind, Zustand e API via `src/services/statsService.ts`.
+`stats-lc` e o frontend web-first do stats.lc. A Home mostra o usuario em destaque, LeoHeader, vinil, reproduzindo agora, atividade do circulo, Replay, Top 1 do Circulo, Stats Alike e historico recente. O app usa Vite, React 19, TypeScript, Tailwind, Zustand e API via `src/services/statsService.ts`. Uma fase nativa via Expo esta planejada para depois da lapidacao web.
 
 API de producao: `https://statslc.leosaquetto.com`.
 App local: `http://localhost:3000/`.
@@ -16,10 +16,12 @@ App producao: `https://appstatslc.leosaquetto.com`.
 npm run dev
 npm run lint
 npm run build
+npm run build:report
 git diff --check
 ```
 
-`npm run lint` e `npm run build` sao as validacoes principais. O build pode avisar sobre chunks grandes; isso nao bloqueia automaticamente.
+`npm run lint` e `npm run build` sao as validacoes principais.
+`npm run build:report` aplica os orcamentos atuais de bundle.
 
 ## Fluxo Padrao
 
@@ -41,6 +43,17 @@ Use preferencialmente:
 - viewport mobile: `390 x 844`
 
 Se a ferramenta de browser falhar, nao gaste tempo excessivo: relate a limitacao e use lint/build quando fizer sentido.
+
+## Estrategia Mobile Atual
+
+- Continuar desenvolvimento, performance e QA pela webapp.
+- Expo e o caminho nativo pretendido para uma fase futura.
+- Xcode, simulador e iPhone real nao sao gates do trabalho atual.
+- O shell Capacitor em `ios/` esta preservado, mas pausado.
+- Nao migrar componentes para React Native, instalar stack Expo ou remover
+  Capacitor sem pedido explicito.
+- Quando a fase Expo comecar, preservar contratos da API, identidade visual,
+  palcos orbitais e comportamento web validado.
 
 ## Nao Fazer Sem Pedido Explicito
 
@@ -89,6 +102,15 @@ Regras importantes:
 - UI acionada por scroll deve ficar montada e alternar `opacity`, `transform` e `pointer-events`.
 - Evite animar `height`, `width`, blur pesado ou sombras pesadas em areas de alta frequencia.
 - Imagens e rankings ja aquecidos devem ser reutilizados; nao reprocessar avatares/capas toda vez que um modal ou card monta.
+- `/api/group` fornece uma base recente compacta suficiente para liberar a
+  Home; a busca de 20 recentes deve continuar em background.
+- O warmup inicial deve se limitar a imagens realmente criticas para a primeira
+  viewport. Nao voltar a preaquecer todos os amigos e todo o historico.
+- `window.__STATS_LC_PERFORMANCE__` e os atributos
+  `data-stats-lc-*` separam long tasks/LoAF de boot e pos-boot. Use uma nova aba
+  para medir boot frio, pois `sessionStorage` e isolado por aba.
+- Medidas do Browser in-app sao direcionais. Elas nao comprovam sozinhas 60 fps
+  em iPhone real.
 
 ### Comportamentos Protegidos Da Home
 
@@ -135,6 +157,17 @@ Hosts corretos:
 
 - App: `appstatslc.leosaquetto.com`
 - API: `statslc.leosaquetto.com`
+
+Binding frontend conhecido:
+
+- projeto Vercel: `appstatslc`
+- project ID: `prj_qiPsRxSxAbOkLlWuWZ2sbRtbnQG8`
+
+Checkpoint de performance e producao de 2026-06-09:
+
+- frontend: `c6248a8` + `60b4aac`
+- API: `33abac4` + `f34ed76` + `cfcb20d` + `1f4c2cf`
+- detalhes e metricas: `docs/current-state.md`
 
 ## Relatorio Final
 
