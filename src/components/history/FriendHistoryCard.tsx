@@ -120,6 +120,7 @@ const openOrbitComposer = (track: any) => {
 export const FriendHistoryCard = memo(({
   user,
   onTrackClick,
+  onHistoryItemClick,
   onFullHistoryClick,
   index = 0,
   defaultExpanded = false,

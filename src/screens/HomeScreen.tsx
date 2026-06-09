@@ -1793,6 +1793,7 @@ export default function HomeScreen() {
                     }));
                   }}
                   groupStats={groupStats}
+                  openRowsInBottomBubble
                 />
               )}
               {selectedTrack && (

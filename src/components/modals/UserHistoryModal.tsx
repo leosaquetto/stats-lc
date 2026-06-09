@@ -207,6 +207,7 @@ const HistoryTrackRow = React.memo(({
   onOpen,
   onClose,
   onTrackClick,
+  openInBottomBubble,
 }: {
   item: any;
   user: any;
@@ -214,6 +215,7 @@ const HistoryTrackRow = React.memo(({
   onOpen: () => void;
   onClose: () => void;
   onTrackClick?: (track: any, item?: any) => void;
+  openInBottomBubble?: boolean;
 }) => {
   const trackItem = item.data || item;
   const track = trackItem.track || {};
@@ -275,6 +277,10 @@ const HistoryTrackRow = React.memo(({
         onClick={() => {
           if (isOpen) {
             onClose();
+            return;
+          }
+          if (openInBottomBubble) {
+            openBottomTrackPanel(user, trackItem, 'stats');
             return;
           }
           onTrackClick?.(track, trackItem);
@@ -343,12 +349,14 @@ HistoryTrackRow.displayName = 'HistoryTrackRow';
 export const UserHistoryModal = ({ 
   user, 
   onClose, 
-  onTrackClick
+  onTrackClick,
+  openRowsInBottomBubble = false
 }: { 
   user: any, 
   onClose: () => void, 
   onTrackClick?: (track: any, item?: any) => void,
-  groupStats?: any
+  groupStats?: any,
+  openRowsInBottomBubble?: boolean
 }) => {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -773,6 +781,7 @@ export const UserHistoryModal = ({
                        onOpen={() => setOpenRowKey(rowKey)}
                        onClose={() => setOpenRowKey(null)}
                        onTrackClick={onTrackClick}
+                       openInBottomBubble={openRowsInBottomBubble}
                      />
                    );
                  })}
