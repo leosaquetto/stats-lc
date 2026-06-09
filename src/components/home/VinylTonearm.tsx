@@ -39,7 +39,18 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
         return `${point.x},${point.y}`;
       })
       .join(' ');
+  const translatedPolygonPoints = (corners: Array<[number, number]>, dx: number, dy: number) =>
+    corners
+      .map(([distance, offset]) => {
+        const point = pointAt(distance, offset);
+        return `${point.x + dx},${point.y + dy}`;
+      })
+      .join(' ');
   const armEnd = pointAt(armLength);
+  const shadowYOffset = 2.65;
+  const shadowXOffset = 0.15;
+  const finalArmShadowStart = pointAt(42.2);
+  const finalArmShadowEnd = pointAt(55.3);
   const collarPoints = polygonPoints([
     [42.8, -1.55],
     [50.8, -1.55],
@@ -52,6 +63,12 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     [56.2, 2.48],
     [49.1, 2.2],
   ]);
+  const headShadowPoints = translatedPolygonPoints([
+    [49.4, -2.45],
+    [56.6, -2.18],
+    [56.2, 2.48],
+    [49.1, 2.2],
+  ], shadowXOffset, shadowYOffset);
   const headHighlight = polygonPoints([
     [50.3, -1.35],
     [55.3, -1.14],
@@ -114,8 +131,8 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             <stop offset="62%" stopColor="#111216" />
             <stop offset="100%" stopColor="#000000" />
           </radialGradient>
-          <filter id={`${uniqueId}-tonearm-shadow`} x="-30%" y="-40%" width="180%" height="220%">
-            <feGaussianBlur stdDeviation="1.25" />
+          <filter id={`${uniqueId}-tonearm-shadow`} x="-50%" y="-80%" width="220%" height="260%">
+            <feGaussianBlur stdDeviation="1.05" />
           </filter>
         </defs>
 
@@ -198,16 +215,28 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             animate={{ x2: armEnd.x, y2: armEnd.y }}
             transition={transition}
           />
-          <motion.line
-            x1={pivotX}
-            y1={pivotY + 0.8}
-            stroke="rgba(0,0,0,0.48)"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-            filter={`url(#${uniqueId}-tonearm-shadow)`}
-            animate={{ x2: armEnd.x + 0.35, y2: armEnd.y + 1.05 }}
-            transition={transition}
-          />
+          <g filter={`url(#${uniqueId}-tonearm-shadow)`} opacity="0.34">
+            <motion.line
+              x1={finalArmShadowStart.x + shadowXOffset}
+              y1={finalArmShadowStart.y + shadowYOffset}
+              stroke="rgba(0,0,0,0.48)"
+              strokeWidth="1.9"
+              strokeLinecap="round"
+              animate={{
+                x1: finalArmShadowStart.x + shadowXOffset,
+                y1: finalArmShadowStart.y + shadowYOffset,
+                x2: finalArmShadowEnd.x + shadowXOffset,
+                y2: finalArmShadowEnd.y + shadowYOffset,
+              }}
+              transition={transition}
+            />
+            <motion.polygon
+              points={headShadowPoints}
+              animate={{ points: headShadowPoints }}
+              transition={transition}
+              fill="rgba(0,0,0,0.46)"
+            />
+          </g>
           <motion.line
             x1={pivotX}
             y1={pivotY}
