@@ -1308,7 +1308,9 @@ export default function HomeScreen() {
   ], []);
 
   const homeWarmupImageUrls = useMemo(() => {
-    const activeFriends = members.filter((member) => member.id !== primaryUser?.id);
+    const activeFriends = members
+      .filter((member) => member.id !== primaryUser?.id)
+      .slice(0, 3);
     const urls = [
       miniHeaderAlbumImage,
       primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : '',
@@ -1317,7 +1319,7 @@ export default function HomeScreen() {
         const track = member?.nowPlaying?.track as any;
         return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
       }),
-      ...criticalRecentPlays.slice(0, 10).map(getRecentArtworkUrl),
+      ...criticalRecentPlays.slice(0, 3).map(getRecentArtworkUrl),
     ];
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
   }, [criticalRecentPlays, members, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
@@ -1787,7 +1789,9 @@ export default function HomeScreen() {
       return;
     }
 
-    setRecentPrepState('loading');
+    // /api/group already supplies a compact recent baseline. Render it now and
+    // expand to the full Home history in the background instead of holding splash.
+    setRecentPrepState(preparedRecent.length > 0 ? 'ready' : 'loading');
     statsCacheService.fetchPaginatedHistory(primaryUser.id, 0, 20)
       .then((items) => {
         if (cancelled) return;

@@ -2804,8 +2804,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Background Atmosphere */}
       <div className="app-background pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] h-[50%] w-[70%] rounded-full bg-blue-600/[0.07] blur-[120px] animate-pulse-slow" />
-        <div className="absolute bottom-[10%] right-[-10%] h-[40%] w-[60%] rounded-full bg-purple-600/[0.07] blur-[120px] animate-pulse-slow ml-auto" />
+        <div className="stats-lc-ambient-drift-primary absolute top-[-10%] left-[-10%] h-[50%] w-[70%]">
+          <div className="absolute inset-0 rounded-full bg-blue-600/[0.07] blur-[120px] transform-gpu" />
+        </div>
+        <div className="stats-lc-ambient-drift-secondary absolute bottom-[10%] right-[-10%] h-[40%] w-[60%]">
+          <div className="absolute inset-0 rounded-full bg-purple-600/[0.07] blur-[120px] transform-gpu" />
+        </div>
         
         {/* Subtle Noise Texture */}
         <div className="absolute inset-0 opacity-[0.015] mix-blend-overlay bg-[url('https://transparenttextures.com/patterns/asfalt-dark.png')]" />

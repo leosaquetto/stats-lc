@@ -13,6 +13,12 @@ declare global {
       routeSettles: Array<{ name: string; duration: number; startedAt: number }>;
       longTasks: Array<{ name: string; duration: number; startedAt: number }>;
       longAnimationFrames: Array<{ name: string; duration: number; startedAt: number }>;
+      bootLongTasks: number;
+      postReadyLongTasks: number;
+      bootLongAnimationFrames: number;
+      postReadyLongAnimationFrames: number;
+      maxLongTaskMs: number;
+      maxLongAnimationFrameMs: number;
     };
   }
 }
