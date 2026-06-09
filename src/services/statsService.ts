@@ -54,6 +54,19 @@ const getArtistName = (artist: any) => {
   return artist.name || artist.artistName || artist.displayName;
 };
 
+const normalizeArtistKey = (value: any) => {
+  const name = typeof value === 'string' ? value : getArtistName(value);
+  return typeof name === 'string'
+    ? name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+    : '';
+};
+
+const sameArtistName = (artist: any, name: string | undefined) => {
+  const left = normalizeArtistKey(artist);
+  const right = normalizeArtistKey(name);
+  return !!left && !!right && left === right;
+};
+
 const decodeHtml = (value: string) => {
   const textarea = document.createElement('textarea');
   textarea.innerHTML = value;
@@ -196,16 +209,28 @@ const normalizeTrack = (track: any) => {
     track.primaryArtistName ||
     getArtistName(trackPrimaryArtistObject) ||
     getPrimaryArtistName(track.artists);
+  const trackPrimaryArtist =
+    trackPrimaryArtistName && !sameArtistName(trackPrimaryArtistObject, trackPrimaryArtistName)
+      ? (
+          Array.isArray(track.artists)
+            ? track.artists.find((artist: any) => sameArtistName(artist, trackPrimaryArtistName))
+            : undefined
+        ) || {
+          id: track.primaryArtistId,
+          name: trackPrimaryArtistName,
+          artistName: trackPrimaryArtistName
+        }
+      : trackPrimaryArtistObject;
   const trackPrimaryArtistId =
     track.primaryArtistId ||
-    (trackPrimaryArtistObject ? trackPrimaryArtistObject.id : undefined);
+    (trackPrimaryArtist ? trackPrimaryArtist.id : undefined);
   const shouldUseAlbumArtistAsPrimary = !trackPrimaryArtistName;
 
   return {
     id: track.id,
     name: track.name,
     artists: track.artists || [],
-    primaryArtist: trackPrimaryArtistObject || (shouldUseAlbumArtistAsPrimary && albumArtist && typeof albumArtist !== 'string' ? albumArtist : undefined),
+    primaryArtist: trackPrimaryArtist || (shouldUseAlbumArtistAsPrimary && albumArtist && typeof albumArtist !== 'string' ? albumArtist : undefined),
     primaryArtistId: trackPrimaryArtistId || (shouldUseAlbumArtistAsPrimary && albumArtist && typeof albumArtist !== 'string' ? albumArtist.id : undefined),
     primaryArtistName: trackPrimaryArtistName || albumArtistName,
     secondaryArtists: track.secondaryArtists,

@@ -820,7 +820,7 @@ const HomeRecentPlays = ({
   user: any;
   recent: any[];
   onFullHistoryClick?: () => void;
-  onTrackClick?: (track: any) => void;
+  onTrackClick?: (track: any, item?: any) => void;
 }) => {
   return (
     <section className="px-4 sm:px-6 lg:px-8">
@@ -836,11 +836,12 @@ const HomeRecentPlays = ({
         index={0}
         defaultExpanded
         recentOverride={recent}
-        maxInlineItems={5}
-        onTrackClick={(track) => onTrackClick?.(track)}
+        maxInlineItems={10}
+        onHistoryItemClick={(item) => onTrackClick?.(item.track, item)}
         onFullHistoryClick={onFullHistoryClick}
         showFullHistoryButton
         showInlineHistory
+        showInlineOrbitButton={false}
       />
     </section>
   );
@@ -1736,6 +1737,18 @@ export default function HomeScreen() {
     setSelectedTrack({ ...item, type: item.type || 'track' });
   }, []);
 
+  const handleOpenTrackStatsBubble = useCallback((track: any, playback?: any) => {
+    if (!track?.name) return;
+    window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+      detail: {
+        panel: 'stats',
+        userId: primaryUser?.id,
+        track,
+        playback,
+      },
+    }));
+  }, [primaryUser?.id]);
+
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
   const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
   const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
@@ -1769,7 +1782,16 @@ export default function HomeScreen() {
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
                   onClose={() => setViewingFullHistoryUser(null)}
-                  onTrackClick={(track) => setSelectedTrack(track)}
+                  onTrackClick={(track, playback) => {
+                    window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+                      detail: {
+                        panel: 'stats',
+                        userId: viewingFullHistoryUser?.id,
+                        track,
+                        playback,
+                      },
+                    }));
+                  }}
                   groupStats={groupStats}
                 />
               )}
@@ -2180,7 +2202,7 @@ export default function HomeScreen() {
             user={primaryUser}
             recent={resolvedRecentPlays}
             onFullHistoryClick={() => setViewingFullHistoryUser(primaryUser)}
-            onTrackClick={handleOpenMusicDetail}
+            onTrackClick={handleOpenTrackStatsBubble}
           />
         </motion.div>
       )}

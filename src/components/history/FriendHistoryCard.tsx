@@ -19,7 +19,8 @@ const historyItemKey = (item: any, index: number) => {
 
 interface FriendHistoryCardProps {
   user: any;
-  onTrackClick: (track: any) => void;
+  onTrackClick?: (track: any, item?: any) => void;
+  onHistoryItemClick?: (item: any) => void;
   onFullHistoryClick?: (user: any) => void;
   index?: number;
   defaultExpanded?: boolean;
@@ -27,6 +28,7 @@ interface FriendHistoryCardProps {
   maxInlineItems?: number;
   showFullHistoryButton?: boolean;
   showInlineHistory?: boolean;
+  showInlineOrbitButton?: boolean;
 }
 
 // Ícone de equalizer para o header (ao vivo no card)
@@ -64,6 +66,14 @@ const firstFiniteNumber = (...values: any[]) => {
   for (const value of values) {
     const numberValue = Number(value);
     if (Number.isFinite(numberValue)) return numberValue;
+  }
+  return 0;
+};
+
+const firstPositiveFiniteNumber = (...values: any[]) => {
+  for (const value of values) {
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue) && numberValue > 0) return numberValue;
   }
   return 0;
 };
@@ -116,7 +126,8 @@ export const FriendHistoryCard = memo(({
   recentOverride,
   maxInlineItems = 5,
   showFullHistoryButton = true,
-  showInlineHistory = true
+  showInlineHistory = true,
+  showInlineOrbitButton = true
 }: FriendHistoryCardProps) => {
   const [isStatsExpanded, setIsStatsExpanded] = useState(defaultExpanded);
   const [recents, setRecents] = useState<any[]>([]);
@@ -246,7 +257,7 @@ export const FriendHistoryCard = memo(({
       user.stats?.month?.streams,
       userStats?.totalStreamsThisMonth
     ),
-    totalStreamsThisYear: firstFiniteNumber(
+    totalStreamsThisYear: firstPositiveFiniteNumber(
       storeUser.streamsYear,
       user.streamsYear,
       storeUser.stats?.year?.streams,
@@ -265,6 +276,15 @@ export const FriendHistoryCard = memo(({
   };
 
   const fmt = (n: number) => coreUtils.formatNumber(n || 0);
+  const expandedStats = [
+    { label: 'Hoje', value: fmt(currentStats.streamsToday), color: 'text-orange-500' },
+    { label: 'Mês', value: fmt(currentStats.totalStreamsThisMonth), color: 'text-white/90' },
+    currentStats.totalStreamsThisYear > 0
+      ? { label: 'Ano', value: fmt(currentStats.totalStreamsThisYear), color: 'text-white/90' }
+      : currentStats.lifetime > 0
+        ? { label: 'Total', value: fmt(currentStats.lifetime), color: 'text-white/90' }
+        : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; color: string }>;
 
   return (
     <motion.div
@@ -366,11 +386,7 @@ export const FriendHistoryCard = memo(({
               className="overflow-hidden"
             >
               <div className="px-4 py-3 border-t border-white/5 flex gap-4 text-center bg-white/[0.01]">
-                {[
-                  { label: 'Hoje', value: fmt(currentStats.streamsToday), color: 'text-orange-500' },
-                  { label: 'Mês', value: fmt(currentStats.totalStreamsThisMonth), color: 'text-white/90' },
-                  { label: 'Ano', value: fmt(currentStats.totalStreamsThisYear), color: 'text-white/90' },
-                ].map(stat => (
+                {expandedStats.map(stat => (
                   <div key={stat.label} className="flex-1 flex flex-col gap-0.5">
                     <span className="text-[7px] font-black uppercase tracking-[0.25em] text-white/30">{stat.label}</span>
                     <span className={cn("text-[13px] font-black font-sans", stat.color)}>{stat.value}</span>
@@ -386,7 +402,7 @@ export const FriendHistoryCard = memo(({
           {loading && recents.length === 0 ? (
             <div className="p-3 flex flex-col gap-2">
               <ShimmerOverlay duration={2.6} />
-              {[0, 1, 2, 3, 4].map((row) => (
+              {Array.from({ length: Math.min(inlineHistoryLimit, 10) }).map((_, row) => (
                 <div key={row} className="flex items-center gap-3 p-1.5 rounded-xl">
                   <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
                   <div className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -411,7 +427,13 @@ export const FriendHistoryCard = memo(({
                     animate={{ opacity: 1, y: 0 }}
                     style={{ willChange: "transform, opacity" }}
                     transition={{ delay: Math.min(idx * 0.04, 0.2), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                    onClick={() => onTrackClick?.(item.track)}
+                    onClick={() => {
+                      if (onHistoryItemClick) {
+                        onHistoryItemClick(item);
+                        return;
+                      }
+                      onTrackClick?.(item.track, item);
+                    }}
                     className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
                   >
                     {/* Capa com badge de count */}
@@ -453,17 +475,19 @@ export const FriendHistoryCard = memo(({
 
                     {/* Direita: tempo ou ícone ao vivo */}
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          openOrbitComposer(item.track);
-                        }}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-orange-500/15 bg-orange-500/10 text-orange-400 opacity-70 transition-opacity hover:opacity-100"
-                        aria-label="Enviar Orbit"
-                      >
-                        <Send className="h-3 w-3" />
-                      </button>
+                      {showInlineOrbitButton && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openOrbitComposer(item.track);
+                          }}
+                          className="flex h-7 w-7 items-center justify-center rounded-full border border-orange-500/15 bg-orange-500/10 text-orange-400 opacity-70 transition-opacity hover:opacity-100"
+                          aria-label="Enviar Orbit"
+                        >
+                          <Send className="h-3 w-3" />
+                        </button>
+                      )}
                       {item.isLive ? (
                         <LiveWaveIcon />
                       ) : (

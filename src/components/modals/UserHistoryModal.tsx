@@ -4,11 +4,11 @@ import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
 import { statsCacheService } from '../../services/statsCacheService';
 import { SmartImage } from '../shared/CommonUI';
-import { MusicCard } from '../shared/MusicCard';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useStatsStore } from '../../store/useStatsStore';
 import { getArtistListString } from '../../lib/artistUtils';
+import { BarChart3, BookOpen, ExternalLink, Loader2, Music2, Search, SlidersHorizontal, X } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -99,129 +99,255 @@ const getTrackImage = (track: any) => {
   return '';
 };
 
-interface HistoryRowProps {
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    items: any[];
-    user: any;
-    onTrackClick: (track: any) => void;
-    hasMore: boolean;
-    loadingMore: boolean;
-    loadMoreItems: () => void;
-    groupStats: any;
+const getTrackAlbumName = (track: any) => (
+  track?.albumName ||
+  track?.album?.name ||
+  track?.albums?.[0]?.name ||
+  track?.album?.title ||
+  ''
+);
+
+const getItemTimestamp = (item: any) => (
+  item?.playedAt ||
+  item?.timestamp ||
+  item?.endTime ||
+  item?.date ||
+  item?.createdAt ||
+  ''
+);
+
+const firstExternalId = (value: any) => {
+  if (Array.isArray(value)) return value.find((item) => typeof item === 'string' && item.trim()) || '';
+  return typeof value === 'string' ? value : '';
+};
+
+const getHistoryActionLinks = (track: any, user: any) => {
+  const spotifyId = track?.spotifyId || firstExternalId(track?.externalIds?.spotify);
+  const appleMusicId = track?.appleMusicId || firstExternalId(track?.externalIds?.appleMusic);
+  const statsId = track?.id || track?.statsfmId;
+  const isAppleUser = user?.platform?.primary === 'appleMusic' || user?.platform === 'appleMusic' || user?.nowPlaying?.platform === 'appleMusic';
+
+  return {
+    stats: statsId ? { label: isAppleUser ? 'stats.am' : 'stats.fm', url: `https://stats.fm/track/${statsId}` } : null,
+    spotify: spotifyId ? { label: 'Spotify', url: `https://open.spotify.com/track/${spotifyId}` } : null,
+    apple: appleMusicId ? { label: 'Apple', url: `https://music.apple.com/song/${appleMusicId}` } : null,
   };
-}
+};
 
-const HistoryRow = React.memo(({ index, style, data }: HistoryRowProps) => {
-  const { items, user, onTrackClick, hasMore, loadingMore, loadMoreItems, groupStats } = data;
+const openExternalUrl = (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
 
-  if (index === items.length) {
-    if (hasMore) {
-      return (
-        <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 10, paddingLeft: 4, paddingRight: 4 }}>
-          <button 
-            type="button"
-            onClick={loadMoreItems}
-            disabled={loadingMore}
-            className="w-full py-4 rounded-3xl bg-white/5 border border-white/5 text-[11px] font-black uppercase tracking-[0.3em] text-orange-500 hover:bg-orange-500/10 hover:border-orange-500/20 active:scale-95 transition-all disabled:opacity-50"
-          >
-            <div className="flex items-center justify-center gap-3">
-              {loadingMore ? (
-                <div className="h-4 w-4 border-2 border-orange-500/30 border-t-orange-500 rounded-full animate-spin" />
-              ) : null}
-              <span>{loadingMore ? "Carregando..." : "Carregar mais histórico"}</span>
-            </div>
-          </button>
+const openBottomTrackPanel = (user: any, item: any, panel: 'stats' | 'lyrics') => {
+  const track = item?.track;
+  if (!track?.name) return;
+  window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+    detail: {
+      panel,
+      userId: user?.id,
+      track,
+      playback: item,
+    },
+  }));
+};
+
+const HistorySectionHeader = ({ label }: { label: string }) => (
+  <div className="sticky top-0 z-20 bg-[#090807]/88 px-1 pb-2 pt-3 backdrop-blur-xl">
+    <div className="flex items-center gap-3 border-b border-white/[0.06] pb-2">
+      {label === 'Agora' ? (
+        <div className="relative h-2.5 w-2.5 rounded-full bg-red-500">
+          <span className="absolute inset-0 rounded-full bg-red-500 animate-ping" />
         </div>
-      );
-    } else {
-      return (
-        <div style={{ ...style, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: 10, paddingLeft: 4, paddingRight: 4 }}>
-          <div className="w-full text-center opacity-20 text-[9px] font-black uppercase tracking-[0.4em] py-4">
-            Fim do histórico disponível
-          </div>
+      ) : (
+        <div className="h-1.5 w-1.5 rounded-full bg-white/24" />
+      )}
+      <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">{label}</span>
+      {label === 'Agora' && (
+        <div className="flex h-2.5 items-end gap-[1.5px]">
+          {[0, 1, 2].map((index) => (
+            <motion.span
+              key={index}
+              animate={{ height: ['25%', '100%', '45%'] }}
+              transition={{ duration: 0.62, repeat: Infinity, delay: index * 0.1 }}
+              className="w-[1.5px] rounded-full bg-red-500"
+            />
+          ))}
         </div>
-      );
-    }
-  }
+      )}
+    </div>
+  </div>
+);
 
-  const item = items[index];
-  if (!item) return null;
+const HistoryActionButton = ({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    type="button"
+    onClick={(event) => {
+      event.stopPropagation();
+      onClick();
+    }}
+    className="flex h-11 w-10 flex-col items-center justify-center gap-0.5 rounded-[15px] bg-white/[0.075] text-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-[background-color,transform,color] active:scale-95"
+  >
+    {children}
+    <span className="max-w-full truncate px-0.5 text-[5.8px] font-black uppercase tracking-[0.04em]">{label}</span>
+  </button>
+);
 
-  // Header Divider
-  if (item.type === 'header') {
-    return (
-      <div style={{ ...style, display: 'flex', alignItems: 'center', paddingLeft: 12, paddingRight: 12 }} key={item.id}>
-        <div className="flex items-center gap-3 w-full border-b border-white/[0.04] pb-2 pt-1">
-          {item.label === 'Agora' ? (
-            <div className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
-          ) : (
-            <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
-          )}
-          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40">
-            {item.label}
-          </span>
-          {item.label === 'Agora' && (
-            <div className="flex items-end gap-[1.5px] h-2.5 mb-[1px]">
-               {[0,1,2].map(i => (
-                 <motion.div 
-                   key={i} 
-                   animate={{ height: ["20%", "100%", "40%"] }} 
-                   transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} 
-                   className="w-[1.5px] bg-red-500 rounded-full" 
-                 />
-               ))}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const trackItem = item.data;
-  const isActuallyLive = trackItem.isLive;
-
-  const userPlayCount = trackItem.playCount || 0;
-  const isFirstPlay = userPlayCount === 1;
+const HistoryTrackRow = React.memo(({
+  item,
+  user,
+  isOpen,
+  onOpen,
+  onClose,
+  onTrackClick,
+}: {
+  item: any;
+  user: any;
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onTrackClick?: (track: any, item?: any) => void;
+}) => {
+  const trackItem = item.data || item;
+  const track = trackItem.track || {};
+  const image = getTrackImage(track);
+  const artistName = getArtistListString(track);
+  const albumName = getTrackAlbumName(track);
+  const links = getHistoryActionLinks(track, user);
+  const timestamp = getItemTimestamp(trackItem);
+  const playedAt = timestamp ? new Date(timestamp) : null;
+  const timeLabel = trackItem.isLive
+    ? 'ouvindo'
+    : playedAt && Number.isFinite(playedAt.getTime())
+      ? coreUtils.formatTimeSP(playedAt)
+      : 'recente';
+  const progress = trackItem.durationMs
+    ? Math.max(0, Math.min(100, ((trackItem.progressMs || 0) / trackItem.durationMs) * 100))
+    : 0;
 
   return (
-    <div style={{ ...style, paddingBottom: 10, paddingLeft: 4, paddingRight: 4 }} key={`${trackItem.id}-${index}`}>
-      <MusicCard 
-        userId={user.id}
-        userName={user.name}
-        songName={trackItem.track?.name}
-        artistName={getArtistListString(trackItem.track)}
-        track={trackItem.track}
-        imageUrl={getTrackImage(trackItem.track)}
-        isNowPlaying={isActuallyLive}
-        isFirstPlay={isFirstPlay}
-        playCount={userPlayCount}
-        progressMs={trackItem.progressMs}
-        durationMs={trackItem.durationMs}
-        className={cn(
-          "bg-white/[0.02] border-white/[0.04] p-3 transition-colors h-full",
-          isActuallyLive && "border-orange-500/30 bg-orange-500/5"
+    <div className="relative overflow-hidden rounded-[24px]">
+      <div className="absolute inset-y-0 right-0 z-0 flex items-center justify-end gap-1 rounded-[24px] bg-orange-500/[0.055] pl-4 pr-2">
+        {track?.name && artistName && (
+          <HistoryActionButton label="Letra" onClick={() => openBottomTrackPanel(user, trackItem, 'lyrics')}>
+            <BookOpen className="h-4 w-4 text-yellow-100/82" strokeWidth={2.2} />
+          </HistoryActionButton>
         )}
-        onClick={() => onTrackClick(trackItem.track)}
-        footer={isActuallyLive ? (
-           <span className="text-orange-500 animate-pulse font-black uppercase">Ouvindo</span>
-        ) : coreUtils.formatTimeSP(new Date(trackItem.playedAt || trackItem.timestamp))}
-      />
+        <HistoryActionButton label="Stats" onClick={() => openBottomTrackPanel(user, trackItem, 'stats')}>
+          <BarChart3 className="h-4 w-4 text-orange-200" strokeWidth={2.2} />
+        </HistoryActionButton>
+        {links.stats && (
+          <HistoryActionButton label={links.stats.label} onClick={() => openExternalUrl(links.stats!.url)}>
+            <ExternalLink className="h-4 w-4 text-white/76" strokeWidth={2.2} />
+          </HistoryActionButton>
+        )}
+        {links.spotify && (
+          <HistoryActionButton label="Spotify" onClick={() => openExternalUrl(links.spotify!.url)}>
+            <Music2 className="h-4 w-4 text-green-200/86" strokeWidth={2.2} />
+          </HistoryActionButton>
+        )}
+        {links.apple && (
+          <HistoryActionButton label="Apple" onClick={() => openExternalUrl(links.apple!.url)}>
+            <Music2 className="h-4 w-4 text-white/84" strokeWidth={2.2} />
+          </HistoryActionButton>
+        )}
+      </div>
+
+      <motion.button
+        type="button"
+        drag="x"
+        dragConstraints={{ left: -234, right: 0 }}
+        dragElastic={0.08}
+        initial={false}
+        animate={{ x: isOpen ? -226 : 0 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -42 || info.velocity.x < -260) onOpen();
+          else onClose();
+        }}
+        onClick={() => {
+          if (isOpen) {
+            onClose();
+            return;
+          }
+          onTrackClick?.(track, trackItem);
+        }}
+        className={cn(
+          "relative z-10 flex w-full touch-pan-y items-center gap-3 rounded-[24px] border px-3 py-3 text-left shadow-[0_18px_46px_rgba(0,0,0,0.24)] transition-colors",
+          trackItem.isLive
+            ? "border-orange-500/24 bg-orange-500/[0.075]"
+            : "border-white/[0.07] bg-white/[0.035]"
+        )}
+      >
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-[17px] bg-white/[0.06]">
+          {image ? (
+            <SmartImage src={image} className="h-full w-full object-cover" rounded="none" fallback="" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <Music2 className="h-7 w-7 text-white/34" />
+            </div>
+          )}
+          {trackItem.playCount > 1 && !trackItem.isLive && (
+            <span className="absolute -left-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border border-black/70 bg-orange-600 px-1 text-[8px] font-black leading-none text-white">
+              {coreUtils.formatNumber(trackItem.playCount)}
+            </span>
+          )}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-1.5">
+            <span className="line-clamp-2 min-w-0 text-[13px] font-black leading-[1.08] text-white/92">
+              {track.name || 'Música sem título'}
+            </span>
+            {trackItem.playCount === 1 && !trackItem.isLive && (
+              <span className="mt-0.5 shrink-0 rounded-full border border-orange-500/18 bg-orange-500/13 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-[0.1em] text-orange-300">
+                Inédito
+              </span>
+            )}
+          </div>
+          <span className="mt-1 block truncate text-[10px] font-semibold text-white/48">{artistName}</span>
+          {albumName && (
+            <span className="mt-0.5 block truncate text-[8px] font-black uppercase tracking-[0.05em] text-orange-200/46">{albumName}</span>
+          )}
+          {trackItem.isLive && trackItem.durationMs && (
+            <span className="mt-2 block h-1 overflow-hidden rounded-full bg-white/[0.08]">
+              <span className="block h-full rounded-full bg-orange-500" style={{ width: `${progress}%` }} />
+            </span>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          <span className={cn(
+            "text-[8px] font-black uppercase tracking-[0.08em]",
+            trackItem.isLive ? "text-orange-300" : "text-white/38"
+          )}>
+            {timeLabel}
+          </span>
+          <span className="rounded-full border border-white/[0.06] bg-black/22 px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-white/28">
+            arraste
+          </span>
+        </div>
+      </motion.button>
     </div>
   );
 });
-HistoryRow.displayName = 'HistoryRow';
+HistoryTrackRow.displayName = 'HistoryTrackRow';
 
 export const UserHistoryModal = ({ 
   user, 
   onClose, 
-  onTrackClick,
-  groupStats
+  onTrackClick
 }: { 
   user: any, 
   onClose: () => void, 
-  onTrackClick: (track: any) => void,
+  onTrackClick?: (track: any, item?: any) => void,
   groupStats?: any
 }) => {
   const [items, setItems] = useState<any[]>([]);
@@ -239,6 +365,7 @@ export const UserHistoryModal = ({
   const [artistFilter, setArtistFilter] = useState('');
   const [trackFilter, setTrackFilter] = useState('');
   const [albumFilter, setAlbumFilter] = useState('');
+  const [openRowKey, setOpenRowKey] = useState<string | null>(null);
 
   const buildLiveItem = () => {
     if (!user.nowPlaying?.track) return null;
@@ -448,7 +575,7 @@ export const UserHistoryModal = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-end justify-center liquid-glass-overlay"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/72 px-0 pt-8 backdrop-blur-xl"
       onClick={onClose}
     >
       <motion.div
@@ -456,39 +583,45 @@ export const UserHistoryModal = ({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 50, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="liquid-glass-modal w-full h-[95vh] rounded-t-[48px] overflow-hidden shadow-2xl flex flex-col"
+        className="relative flex h-[min(92dvh,760px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-18px)] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[36px] border border-white/[0.09] bg-[#090807]/94 shadow-[0_-24px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header Section */}
-        <div className="p-8 pb-4 flex flex-col shrink-0">
-           <div className="flex items-center justify-between w-full">
-             <div className="flex items-center gap-4">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/[0.06] to-transparent" />
+        <div className="shrink-0 px-5 pb-3 pt-6">
+           <div className="flex w-full items-center justify-between gap-4">
+             <div className="flex min-w-0 items-center gap-3">
                  <SmartImage 
                     src={coreUtils.getUserAvatar(user.id, user.avatar)} 
-                    className="h-12 w-12 rounded-full border-2 border-white/10" 
+                    className="h-12 w-12 shrink-0 rounded-full border-2 border-white/10" 
                     fallback="" 
                     rounded="full"
                   />
-                 <div className="flex flex-col">
-                    <h2 className="text-xl font-mundial font-bold text-white">{user.name}</h2>
+                 <div className="flex min-w-0 flex-col">
+                    <h2 className="truncate text-lg font-mundial font-bold text-white">{user.name}</h2>
                     <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Histórico completo</span>
                  </div>
              </div>
-             <button onClick={onClose} className="h-10 w-10 glass rounded-full flex items-center justify-center text-xl">×</button>
+             <button
+               type="button"
+               onClick={onClose}
+               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.045] text-white/72 shadow-[0_10px_30px_rgba(0,0,0,0.3)] transition-[background-color,transform,color] active:scale-95"
+               aria-label="Fechar histórico completo"
+             >
+               <X className="h-5 w-5" strokeWidth={2.3} />
+             </button>
            </div>
            
-           {/* Expandable Filter UI Block */}
-           <div className="pt-6 flex flex-col gap-3">
+           <div className="flex flex-col gap-3 pt-5">
              <div className="relative">
                 <input 
                   type="text" 
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Pesquisar título, artista ou data..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 transition-all"
+                  className="w-full rounded-2xl border border-white/[0.09] bg-white/[0.055] py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 transition-all focus:border-white/20 focus:outline-none"
                 />
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
+                  <Search className="h-4 w-4" strokeWidth={2.2} />
                 </div>
              </div>
 
@@ -496,15 +629,16 @@ export const UserHistoryModal = ({
                <button
                  type="button"
                  onClick={() => setShowFilters(true)}
-                 className="w-full py-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-[10px] font-black uppercase tracking-widest text-orange-400 border border-orange-500/10 active:scale-95 transition-all text-center flex items-center justify-center gap-1.5"
+                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/12 bg-orange-500/10 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-[0.99]"
                >
+                 <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2.4} />
                  Filtros
                </button>
              ) : (
                <motion.div 
                  initial={{ opacity: 0, y: -10 }}
                  animate={{ opacity: 1, y: 0 }}
-                 className="flex flex-col gap-3.5 p-4 rounded-3xl bg-white/[0.02] border border-white/5"
+                 className="flex flex-col gap-3.5 rounded-3xl border border-white/[0.07] bg-white/[0.035] p-4"
                >
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
                     <span className="text-[9px] font-black uppercase tracking-widest text-white/40">Filtros Avançados</span>
@@ -613,36 +747,55 @@ export const UserHistoryModal = ({
            </div>
         </div>
 
-        {/* History List */}
-        <div className="flex-1 px-6 pb-20 relative">
+        <div className="relative min-h-0 flex-1 overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)]">
            {loading ? (
              <div className="flex flex-col gap-3 py-4">
                 {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)}
              </div>
            ) : renderedListItems.length > 0 ? (
-             <div className="h-full w-full overflow-y-auto no-scrollbar">
-               {[
-                 ...renderedListItems,
-                 ...(hasMore ? [{ type: 'load-more', id: 'load-more' }] : [])
-               ].map((item, index, listItems) => (
-                 <HistoryRow
-                   key={item.id}
-                   index={item.type === 'load-more' ? renderedListItems.length : index}
-                   style={{ height: item.type === 'header' ? 44 : 93 }}
-                   data={{
-                     items: renderedListItems,
-                     user,
-                     onTrackClick,
-                     hasMore: item.type === 'load-more' && listItems.length > renderedListItems.length,
-                     loadingMore,
-                     loadMoreItems: () => loadData(offset + LIMIT),
-                     groupStats
-                   }}
-                 />
-               ))}
+             <div
+               className="h-full w-full overflow-y-auto overscroll-contain pr-1 no-scrollbar"
+               onScroll={() => setOpenRowKey(null)}
+             >
+               <div className="flex flex-col gap-2 pb-3">
+                 {renderedListItems.map((item) => {
+                   if (item.type === 'header') {
+                     return <HistorySectionHeader key={item.id} label={item.label} />;
+                   }
+
+                   const rowKey = item.id || getHistoryItemKey(item.data);
+                   return (
+                     <HistoryTrackRow
+                       key={rowKey}
+                       item={item}
+                       user={user}
+                       isOpen={openRowKey === rowKey}
+                       onOpen={() => setOpenRowKey(rowKey)}
+                       onClose={() => setOpenRowKey(null)}
+                       onTrackClick={onTrackClick}
+                     />
+                   );
+                 })}
+
+                 {hasMore ? (
+                   <button
+                     type="button"
+                     onClick={() => loadData(offset + LIMIT)}
+                     disabled={loadingMore}
+                     className="mt-2 flex w-full items-center justify-center gap-3 rounded-3xl border border-white/[0.08] bg-white/[0.04] py-4 text-[10px] font-black uppercase tracking-[0.24em] text-orange-400 transition-[background-color,transform,opacity] active:scale-[0.99] disabled:opacity-55"
+                   >
+                     {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                     <span>{loadingMore ? "Carregando..." : "Carregar mais histórico"}</span>
+                   </button>
+                 ) : (
+                   <div className="py-5 text-center text-[9px] font-black uppercase tracking-[0.32em] text-white/22">
+                     Fim do histórico disponível
+                   </div>
+                 )}
+               </div>
              </div>
            ) : (
-             <div className="py-20 text-center opacity-30 italic uppercase tracking-widest text-xs">Sem dados correspondentes</div>
+             <div className="py-20 text-center text-xs font-black uppercase tracking-widest text-white/30">Sem dados correspondentes</div>
            )}
         </div>
       </motion.div>
