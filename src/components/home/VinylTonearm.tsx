@@ -96,7 +96,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
         className="pointer-events-none absolute inset-0"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        style={{ zIndex: 80, overflow: 'visible', filter: 'drop-shadow(0 9px 18px rgba(0,0,0,0.78))' }}
+        style={{ zIndex: 80, overflow: 'visible' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -114,6 +114,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             <stop offset="62%" stopColor="#111216" />
             <stop offset="100%" stopColor="#000000" />
           </radialGradient>
+          <filter id={`${uniqueId}-tonearm-shadow`} x="-30%" y="-40%" width="180%" height="220%">
+            <feGaussianBlur stdDeviation="1.25" />
+          </filter>
         </defs>
 
         <g
@@ -178,11 +181,11 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
 
           <motion.g
             animate={isPlaying && !isDragging
-              ? { rotate: [0, 0.42, -0.24, 0], transformOrigin: `${pivotX}px ${pivotY}px` }
+              ? { rotate: [0, 1.4, -0.65, 0.82, 0], transformOrigin: `${pivotX}px ${pivotY}px` }
               : { rotate: 0, transformOrigin: `${pivotX}px ${pivotY}px` }
             }
             transition={isPlaying && !isDragging
-              ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' }
+              ? { duration: 5.1, times: [0, 0.22, 0.52, 0.78, 1], repeat: Infinity, ease: 'easeInOut' }
               : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
             }
           >
@@ -197,20 +200,12 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           />
           <motion.line
             x1={pivotX}
-            y1={pivotY + 0.44}
-            stroke="rgba(0,0,0,0.26)"
-            strokeWidth="2.5"
+            y1={pivotY + 0.8}
+            stroke="rgba(0,0,0,0.48)"
+            strokeWidth="2.8"
             strokeLinecap="round"
-            animate={{ x2: armEnd.x, y2: armEnd.y + 0.24 }}
-            transition={transition}
-          />
-          <motion.line
-            x1={pivotX}
-            y1={pivotY + 1.12}
-            stroke="rgba(0,0,0,0.12)"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            animate={{ x2: armEnd.x, y2: armEnd.y + 0.98 }}
+            filter={`url(#${uniqueId}-tonearm-shadow)`}
+            animate={{ x2: armEnd.x + 0.35, y2: armEnd.y + 1.05 }}
             transition={transition}
           />
           <motion.line

@@ -129,6 +129,31 @@ Compare regressao usando o mesmo viewport, rede e estado de cache.
   hidratacao completa deve continuar usando a superficie de historico com
   resolucao de album quando aplicavel.
 
+### Lapidacao de Home e orbitais de 2026-06-09
+
+- O contador `TOTAL HOJE` usa o `featuredStats` opcional do mesmo polling
+  `/api/group-live?statsUser=<usuario>`. O valor fica em
+  `liveStreamsTodayByUserId`, separado de `groupStats` e fora da persistencia.
+- O primeiro valor do contador anima de zero ate o total atual. Atualizacoes
+  seguintes partem do valor anterior, com duracao adaptativa; movimento
+  reduzido continua instantaneo.
+- O mini vinil de scroll foi removido por completo. A capa principal continua
+  no warmup visual do LeoHeader, sem listener ou estado paralelo de mini-header.
+- A troca de faixa anima o vinil completo saindo e entrando pela direita,
+  mantendo o tonearm fora da arvore trocada e preservando o angulo de giro.
+- O tonearm usa uma unica sombra suave alinhada ao braco e oscilacao de
+  reproducao mais ampla, lenta e assimetrica. O drag manual foi preservado.
+- Perceptions e Insights usam rotacao automatica pausada fora da viewport, com
+  aba oculta ou durante interacao. Swipe, setas, satelites e pontos reiniciam o
+  relogio da secao.
+- `Ultima descoberta` so aparece quando `/api/latest-discovery` retorna
+  `coverage.complete=true`. Resposta parcial nunca e apresentada como prova.
+- Top 1 do Circulo mostra artista sob faixa e album, usa badge visual compativel
+  com RankingSummary e nao exibe mais o pill central `TOP 1`.
+- Stats Alike valida o tipo de cada top, preserva artista/IDs externos, aceita
+  titulo em duas linhas e usa cache de tops `v2` para descartar classificacoes
+  antigas incorretas.
+
 ## Bottom Bubble e Modal de Musica
 
 Checkpoint consolidado da sessao de 2026-06-05:

@@ -395,7 +395,15 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
   </div>
 );
 
-export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?: number }) => {
+export const AnimatedNumber = ({
+  value,
+  startFrom,
+  adaptive = false,
+}: {
+  value: number;
+  startFrom?: number;
+  adaptive?: boolean;
+}) => {
   const [numberRef, isVisible] = useElementVisibility<HTMLSpanElement>('120px');
   const prefersReducedMotion = usePrefersReducedMotion();
   const initialValue = startFrom == null ? value : startFrom;
@@ -419,7 +427,10 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
     
     const startValue = prevValueRef.current;
     const endValue = value;
-    const duration = 620;
+    const delta = Math.abs(endValue - startValue);
+    const duration = adaptive
+      ? Math.min(900, Math.max(360, 360 + Math.log10(delta + 1) * 180))
+      : 620;
 
     const animate = (time: number) => {
       if (!startTimeRef.current) startTimeRef.current = time;
@@ -445,7 +456,7 @@ export const AnimatedNumber = ({ value, startFrom }: { value: number; startFrom?
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
     };
-  }, [value, isVisible, prefersReducedMotion, numberRef]);
+  }, [adaptive, value, isVisible, prefersReducedMotion, numberRef]);
 
   return <span ref={numberRef}>{coreUtils.formatNumber(initialValueRef.current)}</span>;
 };

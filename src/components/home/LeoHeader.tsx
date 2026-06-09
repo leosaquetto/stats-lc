@@ -1509,7 +1509,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                         "text-[11px] sm:text-[13px] font-black tabular-nums leading-none transition-colors duration-500",
                         isActuallyLive ? "text-white" : "text-white/60"
                       )}>
-                        <AnimatedNumber value={streamsToday} />
+                        <AnimatedNumber key={user.id} value={streamsToday} startFrom={0} adaptive />
                       </span>
                       <span className="text-[6px] sm:text-[6.5px] font-black uppercase tracking-[0.16em] text-white/35 leading-none whitespace-nowrap truncate">
                         TOTAL HOJE

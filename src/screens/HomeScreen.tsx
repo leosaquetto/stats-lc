@@ -23,8 +23,7 @@ import { StatsAlike } from '../components/home/StatsAlike';
 import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
-import { getDominantColor } from '../lib/colorUtils';
-import { VinylRecord } from '../components/home/VinylRecord';
+import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 
 const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
 const loadTrackLeaderboardModule = () => import('../components/modals/TrackLeaderboardModal');
@@ -146,53 +145,6 @@ const getProfileSlugCandidates = (user: any) => {
     ...(PROFILE_HASH_ALIASES[userKey] || []),
   ].filter(Boolean));
 };
-
-const FloatingMiniHeader = React.memo(({
-  visible,
-  albumImage,
-  dominantColor,
-  isPlaying,
-  onClick
-}: {
-  visible: boolean;
-  albumImage: string;
-  dominantColor: string;
-  isPlaying: boolean;
-  onClick: () => void;
-}) => {
-  if (!albumImage) return null;
-
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.header
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isPlaying ? 1 : 0.42 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-          className="pointer-events-none fixed top-0 left-0 right-0 z-[150] h-[calc(130px+env(safe-area-inset-top,0px))] overflow-visible"
-        >
-          <motion.div
-            initial={{ y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
-            animate={{ y: 0, opacity: 1, scale: 1, rotate: 0 }}
-            exit={{ y: -42, opacity: 0, scale: 0.76, rotate: -9 }}
-            transition={{ type: 'spring', stiffness: 520, damping: 28, mass: 0.7 }}
-            className="pointer-events-auto absolute right-[-62px] top-[calc(env(safe-area-inset-top,0px)-66px)] h-[158px] w-[158px] sm:right-[calc(50%-304px)] sm:h-[176px] sm:w-[176px]"
-          >
-            <VinylRecord
-              albumImage={albumImage}
-              dominantColor={dominantColor}
-              isPlaying={isPlaying}
-              hideTonearm
-            />
-          </motion.div>
-        </motion.header>
-      )}
-    </AnimatePresence>
-  );
-});
-
-FloatingMiniHeader.displayName = 'FloatingMiniHeader';
 
 const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?: string }) => (
   <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-3 rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
@@ -673,32 +625,110 @@ const HomeOrbitalHighlights = ({
   );
 };
 
-const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: any[]; recent: any[] }) => {
+const latestDiscoveryCache = new Map<string, any>();
+
+const HomePerceptions = ({
+  tracks,
+  artists,
+  userId,
+  activeTab,
+  selectedSubValues,
+}: {
+  tracks: any[];
+  artists: any[];
+  userId: string;
+  activeTab: ReplayFilterPeriod;
+  selectedSubValues: ReplaySelectedSubValues;
+}) => {
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [latestDiscovery, setLatestDiscovery] = useState<any>(
+    () => latestDiscoveryCache.get(userId) || null
+  );
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
-  const discovery = tracks.find((track) => getReplayItemCount(track) <= 2) || tracks[tracks.length - 1];
+  const lowRepeatTrack = tracks.find((track) => getReplayItemCount(track) <= 2) || tracks[tracks.length - 1];
   const topTrackArtist = topTrack ? getReplayItemArtist(topTrack) : '';
-  const discoveryArtist = discovery ? getReplayItemArtist(discovery) : '';
-  const recentTrack = recent[0]?.track || recent[0];
-  const recentArtist = recentTrack ? getReplayItemArtist(recentTrack) : '';
+  const lowRepeatArtist = lowRepeatTrack ? getReplayItemArtist(lowRepeatTrack) : '';
+  const discoveryTrack = latestDiscovery?.coverage?.complete
+    ? latestDiscovery.item?.track || latestDiscovery.item
+    : null;
+  const discoveryArtist = discoveryTrack ? getReplayItemArtist(discoveryTrack) : '';
+  const discoveryDate = latestDiscovery?.firstPlayedAt
+    ? new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+      }).format(new Date(latestDiscovery.firstPlayedAt))
+    : '';
+  const periodSentence = getPerceptionPeriodSentence(activeTab, selectedSubValues);
   const perceptions = [
-    topTrack && { title: 'ritual recente', text: `Você ouviu ${topTrack.name || topTrack.track?.name}${topTrackArtist ? `, de ${topTrackArtist}` : ''}, ${coreUtils.formatNumber(getReplayItemCount(topTrack))} vezes neste período.`, icon: Music2, image: getReplayItemImage(topTrack) },
-    artists[0] && { title: 'sequência', text: `${artists[0].name} dominou seu período com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} reproduções.`, icon: UserCircle, image: getReplayItemImage(artists[0]) },
-    discovery && { title: 'baixa repetição', text: `${discovery.name || discovery.track?.name}${discoveryArtist ? `, de ${discoveryArtist}` : ''}, foi uma das faixas que você menos repetiu neste recorte.`, icon: Sparkles, image: getReplayItemImage(discovery) },
-    recentTrack && { title: 'última descoberta', text: `${recentTrack.name || 'uma faixa nova'}${recentArtist ? `, de ${recentArtist}` : ''}, aparece como sua reprodução mais recente.`, icon: Clock3, image: getReplayItemImage(recentTrack) }
+    topTrack && {
+      title: 'Ritual recente',
+      text: `Você ouviu ${topTrack.name || topTrack.track?.name}${topTrackArtist ? `, de ${topTrackArtist}` : ''}, ${coreUtils.formatNumber(getReplayItemCount(topTrack))} vezes ${periodSentence}.`,
+      icon: Music2,
+      image: getReplayItemImage(topTrack),
+    },
+    artists[0] && {
+      title: 'Sequência',
+      text: `${artists[0].name} dominou seus charts ${periodSentence} com ${coreUtils.formatNumber(getReplayItemCount(artists[0]))} reproduções.`,
+      icon: UserCircle,
+      image: getReplayItemImage(artists[0]),
+    },
+    lowRepeatTrack && {
+      title: 'Baixa repetição',
+      text: `${lowRepeatTrack.name || lowRepeatTrack.track?.name}${lowRepeatArtist ? `, de ${lowRepeatArtist}` : ''}, foi uma das faixas que você menos repetiu ${periodSentence}.`,
+      icon: Sparkles,
+      image: getReplayItemImage(lowRepeatTrack),
+    },
+    discoveryTrack && discoveryDate && {
+      title: 'Última descoberta',
+      text: `${discoveryTrack.name || 'Uma faixa nova'}${discoveryArtist ? `, de ${discoveryArtist}` : ''}, foi a última faixa nova que você reproduziu, em ${discoveryDate}.`,
+      icon: Clock3,
+      image: getReplayItemImage(discoveryTrack),
+    },
   ].filter(Boolean) as Array<{ title: string; text: string; icon: any; image?: string }>;
+
+  useEffect(() => {
+    setLatestDiscovery(latestDiscoveryCache.get(userId) || null);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!isSectionVisible || !userId || latestDiscoveryCache.has(userId)) return;
+    const controller = new AbortController();
+    statsService.getLatestDiscovery(userId, controller.signal)
+      .then((response) => {
+        latestDiscoveryCache.set(userId, response);
+        setLatestDiscovery(response);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [isSectionVisible, userId]);
 
   useEffect(() => {
     if (activeIndex >= perceptions.length) setActiveIndex(0);
   }, [activeIndex, perceptions.length]);
 
-  const goTo = useCallback((index: number) => {
-    if (perceptions.length === 0) return;
-    setActiveIndex((index + perceptions.length) % perceptions.length);
+  const advance = useCallback(() => {
+    if (perceptions.length < 2) return;
+    setDirection(1);
+    setActiveIndex((index) => (index + 1) % perceptions.length);
   }, [perceptions.length]);
+
+  const { restart: restartRotation, interactionProps } = useAutoOrbitRotation({
+    enabled: isSectionVisible && !shouldReduceMotion && perceptions.length > 1,
+    intervalMs: 5500,
+    onAdvance: advance,
+  });
+
+  const goTo = useCallback((index: number, nextDirection?: number) => {
+    if (perceptions.length === 0) return;
+    setDirection(nextDirection || (index >= activeIndex ? 1 : -1));
+    setActiveIndex((index + perceptions.length) % perceptions.length);
+    restartRotation();
+  }, [activeIndex, perceptions.length, restartRotation]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -725,7 +755,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
     if (Math.abs(dx) < 38 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
-    goTo(activeIndex + (dx < 0 ? 1 : -1));
+    goTo(activeIndex + (dx < 0 ? 1 : -1), dx < 0 ? 1 : -1);
   }, [activeIndex, goTo]);
 
   if (perceptions.length === 0) return null;
@@ -750,6 +780,7 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
+        {...interactionProps}
       >
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[226px] w-[226px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
         <motion.div
@@ -797,29 +828,33 @@ const HomePerceptions = ({ tracks, artists, recent }: { tracks: any[]; artists: 
           );
         })}
 
-        <motion.article
-          key={`perception-active-${activePerception.title}`}
-          className="absolute left-1/2 top-[50%] z-30 grid w-[82%] -translate-x-1/2 -translate-y-1/2 grid-cols-[78px_minmax(0,1fr)] gap-4"
-          initial={{ opacity: 0, scale: 0.92, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <motion.div
-            animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-            transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
-            className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
+        <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+          <motion.article
+            key={`perception-active-${activePerception.title}`}
+            custom={direction}
+            className="absolute left-1/2 top-[50%] z-30 grid w-[82%] -translate-x-1/2 -translate-y-1/2 grid-cols-[78px_minmax(0,1fr)] gap-4"
+            initial={{ opacity: 0, scale: 0.94, x: direction * 28 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.94, x: direction * -28 }}
+            transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 0.7 }}
           >
-            {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
-            <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
-              <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
+            <motion.div
+              animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+              transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+              className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
+            >
+              {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
+              <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
+                <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
+              </div>
+            </motion.div>
+            <div className="min-w-0 self-center">
+              <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{activePerception.title}</span>
+              <p className="mt-1.5 line-clamp-4 text-[12px] font-black leading-snug text-white/92">{activePerception.text}</p>
             </div>
-          </motion.div>
-          <div className="min-w-0 self-center">
-            <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{activePerception.title}</span>
-            <p className="mt-1.5 line-clamp-4 text-[12px] font-black leading-snug text-white/92">{activePerception.text}</p>
-          </div>
-        </motion.article>
+          </motion.article>
+        </AnimatePresence>
 
         {perceptions.length > 1 && (
           <div className="absolute bottom-4 left-0 right-0 z-40 flex justify-center gap-1.5">
@@ -956,17 +991,17 @@ const HomeEmptyState = ({ onRetry }: { onRetry: () => void }) => (
 );
 
 const getStartOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-const headerTodayStreamsCache = new Map<string, { value: number; expiresAt: number }>();
-const getHeaderTodayStreamsValue = (source: any) => {
-  const direct = Number(source?.streams ?? source?.count ?? source?.c ?? source?.totalStreams ?? source?.plays ?? source?.scrobbles);
-  if (Number.isFinite(direct)) return direct;
-  if (Array.isArray(source?.items)) {
-    return source.items.reduce((sum: number, item: any) => {
-      const count = Number(item?.streams ?? item?.count ?? item?.c ?? item?.plays ?? item?.scrobbles ?? 1);
-      return sum + (Number.isFinite(count) ? count : 0);
-    }, 0);
-  }
-  return null;
+const SAO_PAULO_DAY_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+const getSaoPauloDayKey = (date: Date) => {
+  const parts = Object.fromEntries(
+    SAO_PAULO_DAY_FORMATTER.formatToParts(date).map((part) => [part.type, part.value])
+  );
+  return `${parts.year}-${parts.month}-${parts.day}`;
 };
 const REPLAY_MONTHS_LONG = [
   'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
@@ -1012,6 +1047,23 @@ const getReplayModalPeriod = (activeTab: ReplayFilterPeriod, selected: ReplaySel
   }
   if (activeTab === 'year') return selected.year || String(now.getFullYear());
   return 'total';
+};
+
+const getPerceptionPeriodSentence = (
+  activeTab: ReplayFilterPeriod,
+  selected: ReplaySelectedSubValues
+) => {
+  const now = new Date();
+  if (activeTab === 'today') return 'hoje';
+  if (activeTab === 'week') {
+    return selected.weekMode === 'current' ? 'nesta semana' : 'nos últimos 7 dias';
+  }
+  if (activeTab === 'month') {
+    const month = Number(selected.month ?? now.getMonth());
+    return `em ${REPLAY_MONTHS_LONG[month] || 'mês'} de ${now.getFullYear()}`;
+  }
+  if (activeTab === 'year') return `em ${selected.year || now.getFullYear()}`;
+  return 'em todo o histórico';
 };
 
 const getReplayMinutes = (item: any) => {
@@ -1112,6 +1164,7 @@ export default function HomeScreen() {
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
+  const liveStreamsTodayByUserId = useStatsStore(state => state.liveStreamsTodayByUserId);
   const isLoading = useStatsStore(state => state.isLoading);
   const isRefreshing = useStatsStore(state => state.isRefreshing);
   const isOffline = useStatsStore(state => state.isOffline);
@@ -1132,19 +1185,14 @@ export default function HomeScreen() {
   const [viewingAlbumHistoryUser, setViewingAlbumHistoryUser] = useState<any>(null);
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [avatarClickPosition, setAvatarClickPosition] = useState<{ x: number; y: number } | null>(null);
-  const [selectorMode, setSelectorMode] = useState<'header' | 'mini-header'>('header');
   const [toasts, setToasts] = useState<any[]>([]);
   const [processedItems, setProcessedItems] = useState(0);
   const [refreshStepText, setRefreshStepText] = useState('Status: Ciclo Sincronizado');
   const [refreshProgress, setRefreshProgress] = useState(100);
-  const [isHeaderScrolled, setIsHeaderScrolled] = useState(false);
   const [headerHighlight, setHeaderHighlight] = useState(false);
-  const [headerTodayStreams, setHeaderTodayStreams] = useState<number | null>(null);
   const [isAppReady, setIsAppReady] = useState(() => hasBootReadySession());
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
   const [showInitialModal, setShowInitialModal] = useState(false);
-  const [miniHeaderResolvedColor, setMiniHeaderResolvedColor] = useState('');
-  const isHeaderScrolledRef = useRef(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
@@ -1209,66 +1257,28 @@ export default function HomeScreen() {
     );
   }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id || '';
-  const displayedHeaderStreamsToday = headerTodayStreams ?? primaryUser?.streamsToday ?? 0;
+  const liveTodayStats = primaryUser?.id ? liveStreamsTodayByUserId[primaryUser.id] : undefined;
+  const currentSaoPauloDay = getSaoPauloDayKey(new Date());
+  const displayedHeaderStreamsToday = liveTodayStats
+    ? liveTodayStats.day === currentSaoPauloDay ? liveTodayStats.streams : 0
+    : primaryUser?.streamsToday ?? 0;
 
-  useEffect(() => {
-    if (!primaryUser?.id) {
-      setHeaderTodayStreams(null);
-      return;
-    }
-
-    const dayStart = getStartOfDay(new Date());
-    const cacheKey = `${primaryUser.id}:${dayStart}`;
-    const cached = headerTodayStreamsCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      setHeaderTodayStreams(cached.value);
-      return;
-    }
-
-    let cancelled = false;
-    setHeaderTodayStreams(null);
-    const timer = window.setTimeout(() => {
-      statsService.fetchTimeRangeStats(primaryUser.id, dayStart)
-        .then((response) => {
-          if (cancelled) return;
-          const value = getHeaderTodayStreamsValue(response);
-          if (value === null) return;
-          headerTodayStreamsCache.set(cacheKey, {
-            value,
-            expiresAt: Date.now() + 60 * 1000,
-          });
-          setHeaderTodayStreams(value);
-        })
-        .catch(() => undefined);
-    }, 450);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [primaryUser?.id, primaryUser?.streamsToday]);
-
-  // Mini header mirrors the now playing vinyl once the hero scrolls away.
-  const miniHeaderTrack = primaryUser?.nowPlaying?.track as any;
-  const miniHeaderAlbumImage = (
-    miniHeaderTrack?.image ||
-    miniHeaderTrack?.albumImage ||
-    miniHeaderTrack?.album?.image ||
-    miniHeaderTrack?.album?.images?.[0]?.url ||
-    miniHeaderTrack?.album?.images?.[0] ||
-    miniHeaderTrack?.images?.[0]?.url ||
-    miniHeaderTrack?.images?.[0] ||
-    miniHeaderTrack?.albumArt ||
-    miniHeaderTrack?.coverArt ||
-    miniHeaderTrack?.cover_art ||
-    miniHeaderTrack?.album_image ||
-    miniHeaderTrack?.cover ||
+  const primaryTrack = primaryUser?.nowPlaying?.track as any;
+  const primaryAlbumImage = (
+    primaryTrack?.image ||
+    primaryTrack?.albumImage ||
+    primaryTrack?.album?.image ||
+    primaryTrack?.album?.images?.[0]?.url ||
+    primaryTrack?.album?.images?.[0] ||
+    primaryTrack?.images?.[0]?.url ||
+    primaryTrack?.images?.[0] ||
+    primaryTrack?.albumArt ||
+    primaryTrack?.coverArt ||
+    primaryTrack?.cover_art ||
+    primaryTrack?.album_image ||
+    primaryTrack?.cover ||
     ''
   );
-  const hasMiniHeaderAlbumImage = typeof miniHeaderAlbumImage === 'string' && miniHeaderAlbumImage.trim().length > 5;
-  const miniHeaderDominantColor = primaryUser?.nowPlaying?.dominantColor || miniHeaderResolvedColor || '';
-  const miniHeaderPlayback = primaryUser ? coreUtils.getPlaybackStatus({ nowPlaying: primaryUser.nowPlaying }) : null;
-  const miniHeaderIsPlaying = miniHeaderPlayback?.status === 'live' && primaryUser?.nowPlaying?.isNow === true;
   const friendActivityOffset = "-mt-16";
   const replayPeriodQuery = useMemo(
     () => getReplayQuery(replayActiveTab, replaySelectedSubValues),
@@ -1312,7 +1322,7 @@ export default function HomeScreen() {
       .filter((member) => member.id !== primaryUser?.id)
       .slice(0, 3);
     const urls = [
-      miniHeaderAlbumImage,
+      primaryAlbumImage,
       primaryUser ? coreUtils.getUserAvatar(primaryUser.id, primaryUser.avatar) : '',
       ...activeFriends.map((member) => coreUtils.getUserAvatar(member.id, member.avatar)),
       ...activeFriends.map((member) => {
@@ -1322,12 +1332,11 @@ export default function HomeScreen() {
       ...criticalRecentPlays.slice(0, 3).map(getRecentArtworkUrl),
     ];
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
-  }, [criticalRecentPlays, members, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id]);
+  }, [criticalRecentPlays, members, primaryAlbumImage, primaryUser?.avatar, primaryUser?.id]);
 
   useEffect(() => {
     if (!primaryUser) {
       setIsVisualWarmupReady(false);
-      setMiniHeaderResolvedColor('');
       return;
     }
 
@@ -1343,21 +1352,8 @@ export default function HomeScreen() {
       setIsVisualWarmupReady(false);
     }
 
-    const resolveArtworkColor = () => {
-      if (!hasMiniHeaderAlbumImage || primaryUser?.nowPlaying?.dominantColor) {
-        return Promise.resolve('');
-      }
-      return getDominantColor(miniHeaderAlbumImage).catch(() => '');
-    };
-
-    const visualPreparation = Promise.all([
-      preloadSmartImages(urls),
-      resolveArtworkColor(),
-    ]).then(([, color]) => color);
+    const visualPreparation = preloadSmartImages(urls);
     if (document.visibilityState === 'hidden') {
-      visualPreparation.then((color) => {
-        if (!cancelled) setMiniHeaderResolvedColor(color || '');
-      });
       setIsVisualWarmupReady(true);
       return () => {
         cancelled = true;
@@ -1367,49 +1363,16 @@ export default function HomeScreen() {
     const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, HOME_CRITICAL_WARMUP_TIMEOUT_MS));
     Promise.race([
       visualPreparation,
-      timeout.then(() => ''),
-    ]).then((color) => {
+      timeout,
+    ]).then(() => {
       if (cancelled) return;
-      setMiniHeaderResolvedColor(color || '');
       setIsVisualWarmupReady(true);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [hasMiniHeaderAlbumImage, homeWarmupImageUrls, miniHeaderAlbumImage, primaryUser?.avatar, primaryUser?.id, primaryUser?.nowPlaying?.dominantColor]);
-
-  useEffect(() => {
-    let frame = 0;
-    const handleScroll = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-        const shouldBeScrolled = scrollY >= 340;
-        const shouldBeReset = scrollY <= 240;
-
-        let nextValue = isHeaderScrolledRef.current;
-        if (!isHeaderScrolledRef.current && shouldBeScrolled) {
-          nextValue = true;
-        } else if (isHeaderScrolledRef.current && shouldBeReset) {
-          nextValue = false;
-        }
-
-        if (nextValue !== isHeaderScrolledRef.current) {
-          isHeaderScrolledRef.current = nextValue;
-          setIsHeaderScrolled(nextValue);
-        }
-
-        frame = 0;
-      });
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
+  }, [homeWarmupImageUrls, primaryUser?.id]);
 
   useEffect(() => {
     const handleNowPlaying = (event: any) => {
@@ -2025,18 +1988,9 @@ export default function HomeScreen() {
                 setAvatarClickPosition(null);
               }}
               triggerPosition={avatarClickPosition || undefined}
-              mode={selectorMode}
+              mode="header"
             />
           </AnimatePresence>
-
-          {/* Top Bar Navigation - Floating */}
-          <FloatingMiniHeader
-            visible={isHeaderScrolled && hasMiniHeaderAlbumImage}
-            albumImage={miniHeaderAlbumImage}
-            dominantColor={miniHeaderDominantColor}
-            isPlaying={miniHeaderIsPlaying}
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          />
         </>,
         document.body
       )}
@@ -2297,7 +2251,9 @@ export default function HomeScreen() {
           <HomePerceptions
             tracks={replayTracks}
             artists={replayArtists}
-            recent={resolvedRecentPlays}
+            userId={primaryUser.id}
+            activeTab={replayActiveTab}
+            selectedSubValues={replaySelectedSubValues}
           />
         </div>
       )}

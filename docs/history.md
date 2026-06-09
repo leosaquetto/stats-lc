@@ -72,6 +72,25 @@ novo e `docs/current-state.md` para o estado operacional recente.
 - Bottom menu e glass antigo foram aproximados para um padrao Apple-like, com
   fundo escuro translucido e blur forte.
 
+## 2026-06-09 - Home, vinil e secoes orbitais
+
+- Substituida a consulta isolada de stats do LeoHeader pelo campo opcional
+  `featuredStats` de `/api/group-live`, com estado live nao persistido e defesa
+  contra resposta atrasada e virada do dia.
+- Adicionada animacao adaptativa do contador, troca do vinil completo pela
+  direita, sombra unica do tonearm e oscilacao de reproducao suavizada.
+- Removidos mini vinil, portal, listener de scroll, cor derivada e estados
+  associados.
+- Perceptions passou a usar periodos explicitos e descoberta comprovada por
+  `/api/latest-discovery`; Insights passou a distinguir semana, mes e hoje nos
+  textos.
+- Perceptions e Insights ganharam rotacao automatica consciente de viewport,
+  visibilidade da pagina e interacao, com transicoes direcionais.
+- Top 1 ganhou artista para faixa/album e badge coerente com RankingSummary.
+- Stats Alike ganhou normalizacao estrita por tipo, artista sob faixa/album,
+  titulo de duas linhas e versao `v2` do cache de tops.
+- Expo, Capacitor, Xcode, commit e deploy ficaram fora deste lote.
+
 ## Vinil
 
 - `src/components/home/VinylRecord.tsx` tem variantes procedurais: `classic`,

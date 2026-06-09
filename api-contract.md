@@ -68,7 +68,7 @@ All endpoints are `GET` handlers. `user` accepts configured aliases from `lib/us
 | Endpoint | Query | Purpose | Response highlights |
 | --- | --- | --- | --- |
 | `/api/group` | optional `force=1`, `debug=1` | Full group dashboard payload. | `members`, `rankings.today|week|month`, each member's `profile`, `platform`, `catalogSummary`, `nowPlaying`, `recent`, `stats`, `tops`, and per-section `errors`. Debug includes Sao Paulo range anchors and sanitized upstream/cache details. |
-| `/api/group-live` | optional `force=1`, `debug=1` | Lightweight Home/now-playing polling surface. | `ok`, `source`, `generatedAt`, and `members`. Each member includes `key`, `id`, minimal `profile`, `platform`, and `nowPlaying`. It intentionally omits stats, tops, leaderboard data, and cache metadata. |
+| `/api/group-live` | optional `force=1`, `debug=1`, `statsUser=<user>` | Lightweight Home/now-playing polling surface. | `ok`, `source`, `generatedAt`, and `members`. With a valid `statsUser`, it may also return `featuredStats.{userId,day,streams,durationMs,generatedAt}` from the 20-second live cache. Calls without `statsUser` keep the previous payload. |
 | `/api/user` | `user=<user>`, optional `force=1`, `debug=1` | One user profile summary. | `profile`, resolved `platform`, `legacy` upstream result, and sanitized `raw` only when `debug=1`. |
 | `/api/health` | none | Operational snapshot for agents and debugging. | `ok`, `service`, `time`, and `statsfm` cache/retry/metric snapshot. Cache/debug metadata belongs here, not in normal payloads. |
 
@@ -102,6 +102,7 @@ All endpoints are `GET` handlers. `user` accepts configured aliases from `lib/us
 | Endpoint | Query | Purpose | Response highlights |
 | --- | --- | --- | --- |
 | `/api/search` | `q=<query>` or `query=<query>`, optional `type=track,artist,album,user`, `limit`, `force=1` | Typed search facade. | `items[]` shaped as `{ type, item }`, with normalized track/artist/album/user payloads when recognized. |
+| `/api/latest-discovery` | `user=<user>` | Proves the most recent first listen for Perceptions without blocking Home. | Paginates recent tracks, checks each first stream with `order=asc`, limits concurrency to 3 and returns `item`, `firstPlayedAt` and `coverage.complete`. When proof is partial, `item` and `firstPlayedAt` are `null`. |
 | `/api/compare` | `users=<csv>` with 2 to 5 aliases or stats.fm IDs/custom IDs, optional `period=4w|6m|all|month|week`, explicit `after`/`before` epoch ms, `limit` default `250` max `500`, `force=1` | Rich comparison across users. | `users`, `summaryByUser`, `common.tracks|artists|albums|genres`, `timeByUser`, `firstStreamsByUser`, `lastStreamsByUser`, and per-user partial `errors`. Explicit `after` takes priority over `period`; presets are calculated in the Sao Paulo timezone. Common rows match entity `id` first and `externalIds.spotify/appleMusic` as catalog fallback, expose original per-user ranks, `score`, and `sharedByCount`. |
 
 ### Common response conventions

@@ -5,12 +5,13 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { GroupStats, LiveNowPlayingByUserId, UserStats } from '../types/stats';
+import { GroupStats, LiveNowPlayingByUserId, LiveStreamsTodayByUserId, UserStats } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { notificationService } from '../services/notificationService';
 import { coreUtils } from '../services/statsCore';
 import { attachLiveNowPlayingToMember, dedupeIds, getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
+import { buildTopItemsCacheKey } from '../lib/topItemUtils';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -504,6 +505,7 @@ const sanitizePreferences = (
 interface StatsState {
   groupStats: GroupStats | null;
   liveNowPlayingByUserId: LiveNowPlayingByUserId;
+  liveStreamsTodayByUserId: LiveStreamsTodayByUserId;
   isLoading: boolean;
   isRefreshing: boolean;
   isLiveFetching: boolean;
@@ -656,6 +658,7 @@ export const useStatsStore = create<StatsState>()(
         return stripNowPlayingFromGroupStats(canonicalizeGroupStats(cached));
       })(),
       liveNowPlayingByUserId: extractLiveNowPlayingByUserId(loadFromMMKV<GroupStats | null>('groupStats', null)),
+      liveStreamsTodayByUserId: {},
       isLoading: false,
       isRefreshing: false,
       isLiveFetching: false,
@@ -744,9 +747,9 @@ export const useStatsStore = create<StatsState>()(
         const cacheKey = `${userId}:${period}`;
         const userCacheKey = coreUtils.getUserCacheKey(userId);
         const cacheAgeLimit = 15 * 60 * 1000;
-        const existingTracksKey = `${userCacheKey}:tracks:${period}`;
-        const existingArtistsKey = `${userCacheKey}:artists:${period}`;
-        const existingAlbumsKey = `${userCacheKey}:albums:${period}`;
+        const existingTracksKey = buildTopItemsCacheKey(userCacheKey, 'tracks', period);
+        const existingArtistsKey = buildTopItemsCacheKey(userCacheKey, 'artists', period);
+        const existingAlbumsKey = buildTopItemsCacheKey(userCacheKey, 'albums', period);
         const existingTracks = get().getTopItemsFromCache(existingTracksKey);
         const existingArtists = get().getTopItemsFromCache(existingArtistsKey);
         const existingAlbums = get().getTopItemsFromCache(existingAlbumsKey);
@@ -1252,8 +1255,30 @@ export const useStatsStore = create<StatsState>()(
         }, 8000);
 
         try {
-          const liveData = await statsService.getGroupLiveData(force);
+          const requestedFeaturedUserId = get().featuredUserId;
+          const liveData = await statsService.getGroupLiveData(force, requestedFeaturedUserId || undefined);
           const currentGroupStats = get().groupStats;
+
+          if (requestedFeaturedUserId && liveData.featuredStats) {
+            const incomingStats = liveData.featuredStats;
+            const existingStats = get().liveStreamsTodayByUserId[requestedFeaturedUserId];
+            const incomingTime = Date.parse(incomingStats.generatedAt);
+            const existingTime = existingStats ? Date.parse(existingStats.generatedAt) : 0;
+            const shouldApply =
+              !existingStats ||
+              incomingStats.day > existingStats.day ||
+              (incomingStats.day === existingStats.day &&
+                (!Number.isFinite(existingTime) || !Number.isFinite(incomingTime) || incomingTime >= existingTime));
+
+            if (shouldApply) {
+              set((state) => ({
+                liveStreamsTodayByUserId: {
+                  ...state.liveStreamsTodayByUserId,
+                  [requestedFeaturedUserId]: incomingStats,
+                },
+              }));
+            }
+          }
 
           if (currentGroupStats) {
             const newGroupStats = { ...currentGroupStats };

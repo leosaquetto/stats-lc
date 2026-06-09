@@ -9,6 +9,7 @@ import { UserStats, GroupStats, LyricsMatch, LyricsFullResponse } from '../types
 import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
+import { buildTopItemsCacheKey, sanitizeTopItems } from '../lib/topItemUtils';
 
 const getBaseUrl = () => {
   const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
@@ -329,7 +330,8 @@ const normalizeGroupStats = (data: any): GroupStats => {
   return {
     users,
     members,
-    lastUpdated: data?.generatedAt || data?.lastUpdated || new Date().toISOString()
+    lastUpdated: data?.generatedAt || data?.lastUpdated || new Date().toISOString(),
+    featuredStats: data?.featuredStats
   };
 };
 
@@ -507,7 +509,7 @@ export type SimultaneousListeningQuery = {
 };
 
 let groupRequestInFlight: Promise<GroupStats> | null = null;
-let liveRequestInFlight: Promise<GroupStats> | null = null;
+const liveRequestInFlight = new Map<string, Promise<GroupStats>>();
 
 export const statsService = {
   normalizeMember,
@@ -721,14 +723,20 @@ export const statsService = {
   /**
    * Busca dados live do grupo (apenas nowPlaying, etc)
    */
-  async getGroupLiveData(forceRefresh = false): Promise<GroupStats> {
-    if (liveRequestInFlight && !forceRefresh) {
-      return liveRequestInFlight;
+  async getGroupLiveData(forceRefresh = false, statsUser?: string): Promise<GroupStats> {
+    const requestKey = statsUser || 'no-featured-stats';
+    const existingRequest = liveRequestInFlight.get(requestKey);
+    if (existingRequest && !forceRefresh) {
+      return existingRequest;
     }
 
     const request = (async () => {
       try {
-        const data = await fetchFromApi<any>('/api/group-live', { resolveAlbums: 1, profile: 0 }, forceRefresh, 0, !forceRefresh);
+        const data = await fetchFromApi<any>('/api/group-live', {
+          resolveAlbums: 1,
+          profile: 0,
+          ...(statsUser ? { statsUser: coreUtils.getUserApiParam(statsUser) } : {}),
+        }, forceRefresh, 0, !forceRefresh);
         if ((import.meta as any).env?.DEV) console.debug("[statsService] getGroupLiveData raw response:", data);
 
         return normalizeGroupStats(data);
@@ -747,12 +755,20 @@ export const statsService = {
         
         throw new Error(`Erro ao sincronizar live: ${errorMessage}`);
       } finally {
-        if (liveRequestInFlight === request) liveRequestInFlight = null;
+        if (liveRequestInFlight.get(requestKey) === request) {
+          liveRequestInFlight.delete(requestKey);
+        }
       }
     })();
 
-    if (!forceRefresh) liveRequestInFlight = request;
+    if (!forceRefresh) liveRequestInFlight.set(requestKey, request);
     return request;
+  },
+
+  async getLatestDiscovery(userId: string, signal?: AbortSignal): Promise<any> {
+    return fetchFromApi<any>('/api/latest-discovery', {
+      user: coreUtils.getUserApiParam(userId),
+    }, false, 0, true, { signal });
   },
 
   /**
@@ -969,7 +985,7 @@ export const statsService = {
     const userParam = coreUtils.getUserApiParam(userId);
     const periodValue = typeof period === 'string' ? period : period.period;
     const periodKey = typeof period === 'string' ? period : stableStringify(period);
-    const cacheKey = `${coreUtils.getUserCacheKey(userId)}:${type}:${periodKey}`;
+    const cacheKey = buildTopItemsCacheKey(coreUtils.getUserCacheKey(userId), type, periodKey);
     try {
       const adapter = getStoreAdapter();
         const store = adapter.getState();
@@ -1003,7 +1019,8 @@ export const statsService = {
         params.period = this.mapPeriod(periodValue, 'top');
       }
       const res = await fetchFromApi<any>('/api/top', params, shouldForce);
-      const items = res?.items || [];
+      const expectedType = type === 'tracks' ? 'track' : type === 'artists' ? 'artist' : 'album';
+      const items = sanitizeTopItems(res?.items || [], expectedType);
 
       // Atualiza o cache do store
       if (store.setTopItemsCache) {

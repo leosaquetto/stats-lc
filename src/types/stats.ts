@@ -95,10 +95,17 @@ export interface NowPlaying {
 export interface TopItem {
   id: string;
   name: string;
+  type?: 'artist' | 'track' | 'album';
   image?: string;
   streams?: number;
   playcount?: number;
-  artists?: { name: string; id: string }[];
+  artistName?: string;
+  primaryArtistName?: string;
+  albumArtistName?: string;
+  artist?: any;
+  album?: any;
+  artists?: Array<{ name: string; id?: string }>;
+  externalIds?: any;
   durationMs?: number;
   playedMs?: number;
   endTime?: string;
@@ -143,6 +150,17 @@ export interface GroupStats {
   users: Record<string, UserStats>;
   members?: UserStats[];
   lastUpdated: string;
+  featuredStats?: FeaturedStats;
 }
 
 export type LiveNowPlayingByUserId = Record<string, NowPlaying | undefined>;
+
+export interface FeaturedStats {
+  userId: string;
+  day: string;
+  streams: number;
+  durationMs: number;
+  generatedAt: string;
+}
+
+export type LiveStreamsTodayByUserId = Record<string, FeaturedStats | undefined>;

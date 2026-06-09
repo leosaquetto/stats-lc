@@ -13,6 +13,11 @@ import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'luci
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getVisibleMembers } from '../../lib/memberSelectors';
+import {
+  buildTopItemsCacheKey,
+  getTopItemArtistName,
+  normalizeTopItemForType,
+} from '../../lib/topItemUtils';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -94,12 +99,12 @@ export const StatsAlike = React.memo(() => {
 
     // 3. Try topItemsCache from store
     const memberCacheKey = coreUtils.getUserCacheKey(member.id);
-    const cacheKey = `${memberCacheKey}:tracks:month`;
+    const cacheKey = buildTopItemsCacheKey(memberCacheKey, 'tracks', 'month');
     if (topItemsCache?.[cacheKey]) {
       return {
         tracks: topItemsCache[cacheKey] || [],
-        artists: topItemsCache[`${memberCacheKey}:artists:month`] || [],
-        albums: topItemsCache[`${memberCacheKey}:albums:month`] || [],
+        artists: topItemsCache[buildTopItemsCacheKey(memberCacheKey, 'artists', 'month')] || [],
+        albums: topItemsCache[buildTopItemsCacheKey(memberCacheKey, 'albums', 'month')] || [],
       };
     }
 
@@ -190,28 +195,45 @@ export const StatsAlike = React.memo(() => {
     const friends = members.filter(m => m.id !== effectiveFeaturedUserId);
 
     const featuredUserTops = getMemberTopItems(featuredUser);
+    const knownTrackItems = members.flatMap((member) => getMemberTopItems(member)?.tracks || []);
 
     // Helper to find match for a specific type
     const findMatches = (type: 'artist' | 'track' | 'album', limit: number = 3) => {
-      const normalizeItem = (item: any) => {
-        const nested = item.track || item.artist || item.album;
-        return {
-          ...item,
-          id: nested?.id || item.id,
-          name: nested?.name || item.name || item.artistName || item.albumName || '',
-          image: nested?.image || item.image || nested?.album?.image || item.album?.image,
-          artists: nested?.artists || item.artists || [],
-          playcount: item.playcount || item.streams || nested?.playcount || 0
-        };
+      const normalizeItem = (item: any) => normalizeTopItemForType(item, type);
+      const attachAlbumArtist = (album: TopItem, tops: any) => {
+        if (type !== 'album' || getTopItemArtistName(album)) return album;
+        const albumId = String(album.id || album.album?.id || '');
+        const albumName = coreUtils.normalizeText(album.name || album.album?.name || '');
+        const albumImage = album.image || album.album?.image;
+        const matchingTrack = [...(tops?.tracks || []), ...knownTrackItems]
+          .map((track: any) => normalizeTopItemForType(track, 'track'))
+          .filter((track: TopItem | null): track is TopItem => Boolean(track))
+          .find((track: TopItem) => {
+            const trackAlbum = track.album || (track.track as any)?.album;
+            const trackAlbumId = String(trackAlbum?.id || (track as any).albumId || '');
+            const trackAlbumName = coreUtils.normalizeText(trackAlbum?.name || (track as any).albumName || '');
+            const trackAlbumImage = trackAlbum?.image || (track as any).albumImage;
+            return (
+              (albumId && trackAlbumId && albumId === trackAlbumId) ||
+              (albumName && trackAlbumName && albumName === trackAlbumName) ||
+              (albumImage && trackAlbumImage && albumImage === trackAlbumImage)
+            );
+          });
+        const artistName = getTopItemArtistName(matchingTrack);
+        return artistName
+          ? { ...album, artistName, primaryArtistName: album.primaryArtistName || artistName }
+          : album;
       };
-
-      const userItems = (featuredUserTops?.[`${type}s` as keyof typeof featuredUserTops] as TopItem[] || []).map(normalizeItem);
+      const userItems = (featuredUserTops?.[`${type}s` as keyof typeof featuredUserTops] as TopItem[] || [])
+        .map(normalizeItem)
+        .filter((item): item is TopItem => Boolean(item));
+      const enrichedUserItems = userItems.map((item) => attachAlbumArtist(item, featuredUserTops));
       
       const found: AlikeConnection[] = [];
       const searchDepth = 36;
 
-      for (let i = 0; i < searchDepth && i < userItems.length; i++) {
-        const topItem = userItems[i];
+      for (let i = 0; i < searchDepth && i < enrichedUserItems.length; i++) {
+        const topItem = enrichedUserItems[i];
         if (!topItem.name) continue;
         
         const userPosition = i + 1;
@@ -223,7 +245,11 @@ export const StatsAlike = React.memo(() => {
 
         friends.forEach(friend => {
           const friendTops = getMemberTopItems(friend);
-          const friendItems = (friendTops?.[`${type}s` as keyof typeof friendTops] as TopItem[] || []).map(normalizeItem).slice(0, searchDepth);
+          const friendItems = (friendTops?.[`${type}s` as keyof typeof friendTops] as TopItem[] || [])
+            .map(normalizeItem)
+            .filter((item): item is TopItem => Boolean(item))
+            .map((item) => attachAlbumArtist(item, friendTops))
+            .slice(0, searchDepth);
 
           const matchIndex = friendItems.findIndex(i => {
             if (!i.name) return false;
@@ -603,6 +629,9 @@ const AlikeOrbitalItem = ({
   }
 
   const friendPlaycount = matchingItem.playcount || matchingItem.streams || 0;
+  const artistName = type === 'track' || type === 'album'
+    ? getTopItemArtistName(item)
+    : '';
 
   return (
     <div className={cn(
@@ -700,9 +729,14 @@ const AlikeOrbitalItem = ({
             exit={{ opacity: 0, y: -10 }}
             className="flex flex-col items-center text-center max-w-[270px]"
           >
-            <span className="text-[18px] font-black text-white px-2 tracking-tight line-clamp-1">
+            <span className="line-clamp-2 px-2 text-[18px] font-black leading-tight tracking-tight text-white">
               {item.name}
             </span>
+            {artistName && (
+              <span className="mt-1 line-clamp-1 px-2 text-[10px] font-semibold text-white/48">
+                {artistName}
+              </span>
+            )}
             <div className="flex flex-wrap justify-center items-center gap-1.5 mt-1">
               <span className="text-[10px] font-bold text-white/46 uppercase tracking-widest bg-white/5 px-2.5 py-1 rounded-md whitespace-nowrap">
                 Match com {alikeUser.name}

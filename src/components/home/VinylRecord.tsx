@@ -291,13 +291,19 @@ export const VinylRecord = ({
       </AnimatePresence>
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
+      <AnimatePresence initial={false} mode="sync">
       <motion.div
+        key={displayAlbumImage || 'vinyl-placeholder'}
         className="absolute inset-0 z-10"
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+        initial={canAnimate ? { x: 74, opacity: 0, scale: 0.985 } : false}
+        animate={{ x: 0, opacity: 1, scale: 1 }}
+        exit={canAnimate ? { x: 86, opacity: 0, scale: 0.975 } : { opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 210, damping: 26, mass: 0.78 }}
       >
       <div
-        ref={discRef}
+        ref={(node) => {
+          if (node) discRef.current = node;
+        }}
         className={`h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10 ${!isPlaying && canAnimate ? "vinyl-record-idle" : ""}`}
         style={{
           background: `
@@ -492,15 +498,7 @@ export const VinylRecord = ({
 
         {/* ── CAPA DO ÁLBUM ──────────────────────────────────────── */}
         <div className="absolute inset-[24%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
-          <AnimatePresence mode="sync" initial={false}>
-            <motion.div
-              key={displayAlbumImage || 'placeholder'}
-              className="w-full h-full absolute inset-0 flex items-center justify-center"
-              initial={canAnimate ? { opacity: 0, x: 32, scale: 1.01 } : false}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={canAnimate ? { opacity: 0, x: -18, scale: 0.995 } : { opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            >
+            <div className="w-full h-full absolute inset-0 flex items-center justify-center">
               {displayAlbumImage ? (
                 <div className="w-full h-full relative">
                   <SmartImage
@@ -530,8 +528,7 @@ export const VinylRecord = ({
                   </div>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
+            </div>
 
           {/* Escurecimento da capa no idle — como luz apagando */}
           <AnimatePresence>
@@ -553,6 +550,7 @@ export const VinylRecord = ({
 
       </div>
       </motion.div>
+      </AnimatePresence>
       </>
 
       {!hideTonearm && <VinylTonearm isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}

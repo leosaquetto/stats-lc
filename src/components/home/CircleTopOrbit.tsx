@@ -11,7 +11,8 @@ import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ChevronLeft, ChevronRight, Crown, Disc, Mic2, Music } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Disc, Mic2, Music } from 'lucide-react';
+import { getTopItemArtistName } from '../../lib/topItemUtils';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -277,10 +278,6 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
                       {member.name.split(/\s+/)[0] || member.name}
                     </span>
-                    <div className="flex items-center gap-1.5 rounded-full border border-orange-500/35 bg-orange-500/[0.13] px-3 py-1.5 shadow-[0_0_22px_rgba(249,115,22,0.2)] backdrop-blur-xl">
-                      <Crown className="h-3 w-3 text-orange-300" />
-                      <span className="text-[10px] font-black uppercase leading-none tracking-[0.12em] text-orange-100">TOP 1</span>
-                    </div>
                   </div>
                 </motion.div>
               </motion.div>
@@ -339,6 +336,10 @@ const OrbitalSatellite = ({
 
   const playCount = item.playcount || item.streams || 0;
   const displayCount = coreUtils.formatNumber(playCount);
+  const artistName = label === 'faixa' || label === 'álbum'
+    ? getTopItemArtistName(item)
+    : '';
+  const countBadgeClass = "leo-soft-badge absolute z-10 flex h-5 min-w-[22px] items-center justify-center rounded-full bg-[#ff5f00]/58 px-1.5 text-[8px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md";
 
   return (
     <motion.div
@@ -359,8 +360,8 @@ const OrbitalSatellite = ({
               fallback=""
             />
             {playCount > 0 && (
-              <div className="absolute -bottom-1 -right-1 h-[22px] min-w-[22px] px-1.5 rounded-full bg-orange-600 border-2 border-black flex items-center justify-center shadow-lg z-10">
-                <span className="text-[8px] font-black text-white leading-none">{displayCount}</span>
+              <div className={cn(countBadgeClass, "-bottom-1 -right-1")}>
+                <span>{displayCount}</span>
               </div>
             )}
           </div>
@@ -383,8 +384,8 @@ const OrbitalSatellite = ({
               fallback=""
             />
             {playCount > 0 && (
-              <div className="absolute -top-1.5 -right-1.5 h-[22px] min-w-[22px] px-1.5 rounded-full bg-orange-600 border-2 border-black flex items-center justify-center shadow-lg z-10">
-                <span className="text-[8px] font-black text-white leading-none">{displayCount}</span>
+              <div className={cn(countBadgeClass, "-top-1.5 -right-1.5")}>
+                <span>{displayCount}</span>
               </div>
             )}
           </div>
@@ -395,6 +396,11 @@ const OrbitalSatellite = ({
             <span className="text-[9px] font-bold text-white/80 leading-tight line-clamp-2 block text-center">
               {item.name}
             </span>
+            {artistName && (
+              <span className="mt-0.5 block line-clamp-1 text-center text-[7px] font-semibold leading-tight text-white/42">
+                {artistName}
+              </span>
+            )}
           </div>
         </div>
       )}
