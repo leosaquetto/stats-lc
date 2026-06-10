@@ -53,6 +53,8 @@ function cn(...inputs: ClassValue[]) {
 
 const HOME_CACHE_TTL = 15 * 60 * 1000;
 const HOME_CRITICAL_WARMUP_TIMEOUT_MS = 1800;
+const HOME_RECENT_CACHE_VERSION = 'v2-album-resolved';
+const getHomeRecentCacheKey = (userId: string) => `stats-lc-home-recent:${HOME_RECENT_CACHE_VERSION}:${userId}`;
 
 const readHomeSessionCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -104,11 +106,11 @@ const mergeHomeRecentItems = (freshItems: any[], existingItems: any[]) => {
 const getRecentArtworkUrl = (item: any) => {
   const track = item?.track || item;
   return (
-    track?.image ||
     track?.albumImage ||
     track?.album?.image ||
     track?.album?.images?.[0]?.url ||
     track?.album?.images?.[0] ||
+    track?.image ||
     ''
   );
 };
@@ -1911,11 +1913,11 @@ export default function HomeScreen() {
 
   const primaryTrack = primaryUser?.nowPlaying?.track as any;
   const primaryAlbumImage = (
-    primaryTrack?.image ||
     primaryTrack?.albumImage ||
     primaryTrack?.album?.image ||
     primaryTrack?.album?.images?.[0]?.url ||
     primaryTrack?.album?.images?.[0] ||
+    primaryTrack?.image ||
     primaryTrack?.images?.[0]?.url ||
     primaryTrack?.images?.[0] ||
     primaryTrack?.albumArt ||
@@ -1948,7 +1950,7 @@ export default function HomeScreen() {
     if (!primaryUser?.id) return [];
     const directRecent = normalizeHomeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []);
     const cachedRecent = normalizeHomeRecentItems(getHistoryCache(primaryUser.id) || []);
-    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
+    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(getHomeRecentCacheKey(primaryUser.id)) || []);
     return ([cachedRecent, sessionRecent, directRecent].sort((a, b) => b.length - a.length)[0] || []).slice(0, 10);
   }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, (primaryUser as any)?.history]);
 
@@ -1973,7 +1975,7 @@ export default function HomeScreen() {
       ...activeFriends.map((member) => coreUtils.getUserAvatar(member.id, member.avatar)),
       ...activeFriends.map((member) => {
         const track = member?.nowPlaying?.track as any;
-        return track?.image || track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || '';
+        return track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || track?.image || '';
       }),
       ...criticalRecentPlays.slice(0, 3).map(getRecentArtworkUrl),
     ];
@@ -2368,7 +2370,7 @@ export default function HomeScreen() {
 
     const directRecent = normalizeHomeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []).slice(0, 20);
     const cachedRecent = normalizeHomeRecentItems(getHistoryCache(primaryUser.id) || []);
-    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(`stats-lc-home-recent:${primaryUser.id}`) || []);
+    const sessionRecent = normalizeHomeRecentItems(readHomeSessionCache<any[]>(getHomeRecentCacheKey(primaryUser.id)) || []);
     const preparedRecent = [cachedRecent, sessionRecent, directRecent]
       .sort((a, b) => b.length - a.length)[0] || [];
 
@@ -2378,7 +2380,7 @@ export default function HomeScreen() {
 
     if (preparedRecent.length >= 10) {
       setHistoryCache(primaryUser.id, preparedRecent);
-      writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, preparedRecent);
+      writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), preparedRecent);
       setRecentPrepState('ready');
       void statsService.fetchRecent(primaryUser.id, 20, 0)
         .then((freshItems) => {
@@ -2390,7 +2392,7 @@ export default function HomeScreen() {
           const merged = mergeHomeRecentItems(normalizedFresh, preparedRecent);
           if (merged.length > 0) {
             setHistoryCache(primaryUser.id, merged);
-            writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, merged);
+            writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), merged);
             setResolvedRecentPlays(merged.slice(0, 10));
           }
         })
@@ -2408,7 +2410,7 @@ export default function HomeScreen() {
         setResolvedRecentPlays(nextRecent.slice(0, 10));
         if (nextRecent.length > 0) {
           setHistoryCache(primaryUser.id, nextRecent);
-          writeHomeSessionCache(`stats-lc-home-recent:${primaryUser.id}`, nextRecent);
+          writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), nextRecent);
         }
         setRecentPrepState('ready');
       })

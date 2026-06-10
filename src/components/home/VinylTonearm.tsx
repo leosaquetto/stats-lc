@@ -18,9 +18,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
 
   const pivotX = 62;
   const pivotY = -15;
-  const armLength = 49;
-  const idleAngle = 170;
-  const playingAngle = 115;
+  const armLength = 46;
+  const idleAngle = 184;
+  const playingAngle = 122;
   const angle = idleAngle + (playingAngle - idleAngle) * level;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;

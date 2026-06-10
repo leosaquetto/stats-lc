@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, memo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { Repeat, TrendingUp, Star, BookOpen } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -737,6 +737,7 @@ const ArenaRankingBubble = ({
   selectedUserId,
   shouldReduceMotion,
   isHiddenInitial,
+  isLive,
 }: {
   user: { id: string; name: string; plays: number; avatar: string };
   index: number;
@@ -744,10 +745,11 @@ const ArenaRankingBubble = ({
   selectedUserId: string;
   shouldReduceMotion: boolean | null;
   isHiddenInitial: boolean;
+  isLive: boolean;
 }) => {
   const isSelected = user.id === selectedUserId;
   const showFirstListenStar = isSelected && user.plays === 1;
-  const baseScale = isSelected ? 1.05 : 1;
+  const baseScale = isSelected && isLive ? 1.05 : 1;
   const initialX = ARENA_BADGE_LEFT_PAD + (isHiddenInitial ? (ARENA_BADGE_VISIBLE_SLOTS - 1) * ARENA_BADGE_SLOT_SIZE : index * ARENA_BADGE_SLOT_SIZE);
   const initialScale = isHiddenInitial ? 0 : baseScale;
 
@@ -805,9 +807,22 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const arenaRafRef = useRef<number | null>(null);
   const arenaDragStartRef = useRef<{ pointerId: number; x: number; value: number; moved: boolean } | null>(null);
   const arenaSuppressClickUntilRef = useRef(0);
-
+  const groupStatsForUser = useStatsStore(s => s.groupStats);
+  const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
+  const storeUser = useMemo(
+    () => getCanonicalMembers(groupStatsForUser).find(u => u.id === user.id),
+    [groupStatsForUser, user.id]
+  );
   const profileAvatarOriginal = useMemo(() => {
-    const nextAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+    const avatarCandidates = [
+      user.avatar,
+      (user as any).profile?.image,
+      storeUser?.avatar,
+      (storeUser as any)?.profile?.image,
+    ];
+    const nextAvatar = avatarCandidates
+      .map((candidate) => coreUtils.getUserAvatar(user.id, candidate))
+      .find(Boolean) || '';
     const stableAvatar = stableHeaderAvatarByUserId.get(user.id);
     if (stableAvatar) return stableAvatar;
     if (nextAvatar) {
@@ -815,15 +830,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
       return nextAvatar;
     }
     return '';
-  }, [user.id, user.avatar]);
+  }, [storeUser?.avatar, user.id, user.avatar]);
   const profileAvatar = useMemo(() => getStaticAvatarCandidate(profileAvatarOriginal), [profileAvatarOriginal]);
   const profileAvatarFallback = profileAvatar !== profileAvatarOriginal ? profileAvatarOriginal : undefined;
-  const groupStatsForUser = useStatsStore(s => s.groupStats);
-  const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
-  const storeUser = useMemo(
-    () => getCanonicalMembers(groupStatsForUser).find(u => u.id === user.id),
-    [groupStatsForUser, user.id]
-  );
   const activeUser = attachLiveNowPlayingToMember(storeUser || user, liveNowPlayingByUserId);
   const nowPlaying = activeUser.nowPlaying;
   const track = nowPlaying?.track as any;
@@ -997,7 +1006,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const visibleArenaCount = Math.min(trackArenaUsers.length, ARENA_BADGE_VISIBLE_SLOTS);
   const arenaSummaryWidth = hiddenArenaCount > 0
     ? ARENA_BADGE_RIGHT_MORE_LEFT + 40
-    : Math.max(0, ((visibleArenaCount - 1) * ARENA_BADGE_SLOT_SIZE) + 52);
+    : Math.max(52, ((visibleArenaCount - 1) * ARENA_BADGE_SLOT_SIZE) + 52);
   const selectedArenaIndex = allTrackArenaUsers.findIndex(u => u.id === user.id);
   const arenaDragDistance = Math.max(0, hiddenArenaCount * ARENA_BADGE_SLOT_SIZE);
   const arenaRenderableUsers = trackArenaUsers;
@@ -1142,10 +1151,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     });
   }, [arenaPageSize, getArenaDomCache, hiddenArenaCount, selectedArenaIndex, trackArenaUsers.length]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     arenaOffsetRef.current = 0;
     arenaDomCacheRef.current = null;
-    requestAnimationFrame(() => applyArenaOffset(0));
+    applyArenaOffset(0);
   }, [applyArenaOffset, hiddenArenaCount, track?.id]);
 
   useEffect(() => {
@@ -1457,7 +1466,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                   className={cn("relative shrink-0", onAvatarClick && "cursor-pointer")}
                   whileTap={onAvatarClick ? { scale: 0.95 } : undefined}
                 >
-                  {isActuallyLive && (
+                  {isActuallyLive && profileAvatar && (
                     <motion.div
                       className="absolute inset-[-3px] rounded-full"
                       style={{
@@ -1472,21 +1481,25 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       "relative rounded-full overflow-hidden border-2 transition-[width,height,border-color,box-shadow,opacity,transform] duration-500",
                       isActuallyLive
                         ? "w-[70px] h-[70px] sm:w-[86px] sm:h-[86px] border-white/80 shadow-[0_0_16px_rgba(255,255,255,0.45)]"
-                        : "w-16 h-16 sm:w-[72px] sm:h-[72px] border-white/20"
+                        : "w-16 h-16 sm:w-[72px] sm:h-[72px] border-white/20",
+                      !profileAvatar && "bg-black/28 border-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
                     )}>
                     <SmartImage
                       src={profileAvatar}
                       fallbackSrc={profileAvatarFallback}
                       cacheKey={`leoheader-avatar:${user.id}`}
                       className="h-full w-full"
-                      fallback=""
+                      fallback={profileAvatar ? "" : user.name}
                       rounded="full"
                     />
                   </div>
                 </motion.div>
 
                 {/* Nome + Streams */}
-                <div className="flex flex-col items-start min-w-0 gap-1 flex-1 pr-[92px] sm:pr-[150px]">
+                <div className={cn(
+                  "flex flex-col items-start min-w-0 gap-1 flex-1 transition-[padding-right] duration-500",
+                  visualIsLive ? "pr-[118px] sm:pr-[168px]" : "pr-[92px] sm:pr-[150px]"
+                )}>
 
                   {/* Nome */}
                   <div className="relative flex w-full items-center gap-2 overflow-visible">
@@ -1619,14 +1632,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                            <motion.div
 	                              onClick={handleArenaSummaryClick}
 	                              whileTap={{ scale: 0.98 }}
-	                              className="relative flex max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
+	                              className="relative flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
 	                            >
                               <div
                                 ref={arenaTrailRef}
                                 key={`arena-trail-${track.id || track.name || 'track'}`}
                                 data-home-horizontal-scroll="true"
-                                className="relative h-[58px] overflow-visible py-2 pr-0"
-                                style={{ width: `${arenaSummaryWidth}px` }}
+                                className="relative h-[58px] overflow-visible pr-0"
+                                style={{ width: `${arenaSummaryWidth}px`, minWidth: `${Math.min(arenaSummaryWidth, 52)}px` }}
                               >
                                 <div
                                   className="absolute -inset-x-5 -inset-y-4 z-[80] cursor-grab touch-none active:cursor-grabbing"
@@ -1676,6 +1689,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                     selectedUserId={user.id}
                                     shouldReduceMotion={shouldReduceMotion}
                                     isHiddenInitial={i >= arenaPageSize}
+                                    isLive={isActuallyLive}
                                   />
                                 ))}
                                 {rightHiddenArenaCount > 0 && (
@@ -1698,6 +1712,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                         "leo-soft-badge text-white/86"
                                       )}
                                       style={{
+                                        opacity: 1,
                                         transform: `translate3d(${ARENA_BADGE_RIGHT_MORE_LEFT}px, -50%, 0) scale(1)`,
                                         transformOrigin: 'left center',
                                       }}
