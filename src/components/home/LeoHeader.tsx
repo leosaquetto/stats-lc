@@ -108,12 +108,12 @@ const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
         <span
           key={badge}
           className={cn(
-            "max-w-full truncate rounded-full text-left font-black uppercase leading-none text-white/74 shadow-[0_8px_20px_rgba(0,0,0,0.22)] backdrop-blur-md",
+            "leo-soft-badge max-w-full truncate rounded-full text-left font-black uppercase leading-none text-white/74 shadow-[0_8px_20px_rgba(0,0,0,0.22)]",
             hasMultipleBadges
               ? "px-2 py-[2px] text-[5.9px] tracking-[0.1em] sm:px-2.5 sm:text-[6.4px]"
               : "px-2.5 py-[3px] text-[7px] tracking-[0.11em] sm:px-3 sm:text-[7.6px]"
           )}
-          style={{ backgroundColor: index === 0 ? 'rgba(255,255,255,0.062)' : 'rgba(255,255,255,0.036)' }}
+          style={{ opacity: index === 0 ? 1 : 0.78 }}
         >
           {badge}
         </span>

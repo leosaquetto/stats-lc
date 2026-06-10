@@ -28,7 +28,10 @@ export const getReplayFilterLabel = (
       return selectedSubValues.weekMode === 'last-7' ? 'ultimos 7 dias' : 'esta semana';
     case 'month': {
       const monthIndex = parseInt(selectedSubValues.month || '0');
-      return MONTHS_SHORT[monthIndex] || 'mes';
+      const year = selectedSubValues.year;
+      const currentYear = String(new Date().getFullYear());
+      const monthLabel = MONTHS_SHORT[monthIndex] || 'mes';
+      return year && year !== currentYear ? `${monthLabel} ${year}` : monthLabel;
     }
     case 'year':
       return selectedSubValues.year || String(new Date().getFullYear());
@@ -50,7 +53,11 @@ export const getReplayFilterSentence = (
       return selectedSubValues.weekMode === 'last-7' ? 'nos ultimos 7 dias' : 'esta semana';
     case 'month': {
       const monthIndex = parseInt(selectedSubValues.month || '0');
-      return `em ${MONTHS_LONG[monthIndex] || 'mes'}`;
+      const year = selectedSubValues.year;
+      const currentYear = String(new Date().getFullYear());
+      return year && year !== currentYear
+        ? `em ${MONTHS_LONG[monthIndex] || 'mes'} de ${year}`
+        : `em ${MONTHS_LONG[monthIndex] || 'mes'}`;
     }
     case 'year':
       return `em ${selectedSubValues.year || new Date().getFullYear()}`;

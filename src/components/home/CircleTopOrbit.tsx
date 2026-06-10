@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { UserStats, TopItem } from '../../types/stats';
-import { SmartImage } from '../shared/CommonUI';
+import { OrbitPagerIndicator, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -162,6 +162,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             >
               <SmartImage
                 src={coreUtils.getUserAvatar(activeUser.id, activeUser.avatar)}
+                cacheKey={`circle-top-picker-active:${activeUser.id}`}
                 rounded="full"
                 className="h-full w-full object-cover"
                 fallback=""
@@ -191,6 +192,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                       >
                         <SmartImage
                           src={coreUtils.getUserAvatar(member.id, member.avatar)}
+                          cacheKey={`circle-top-picker-member:${member.id}`}
                           rounded="full"
                           className="h-full w-full object-cover"
                           fallback=""
@@ -269,6 +271,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                       <div className="h-28 w-28 overflow-hidden rounded-full border-3 border-orange-500 shadow-2xl shadow-orange-500/25">
                         <SmartImage
                           src={coreUtils.getUserAvatar(member.id, member.avatar)}
+                          cacheKey={`circle-top-center:${member.id}`}
                           rounded="full"
                           className="h-full w-full object-cover"
                           fallback=""
@@ -278,18 +281,29 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
                       {member.name.split(/\s+/)[0] || member.name}
                     </span>
+                    {isCentered && (
+                      <OrbitPagerIndicator
+                        count={validMembers.length}
+                        activeIndex={activeIndex}
+                        onSelect={goToIndex}
+                        label="membro do Top 1"
+                        className="mt-1"
+                      />
+                    )}
                   </div>
                 </motion.div>
               </motion.div>
             );
           })}
 
-          <button type="button" onClick={handlePrev} className="absolute left-0 top-1/2 z-40 -translate-y-1/2 rounded-full bg-black/25 p-2 backdrop-blur-xl active:scale-95 sm:hidden">
-            <ChevronLeft className="h-4 w-4 text-white/45" />
-          </button>
-          <button type="button" onClick={handleNext} className="absolute right-0 top-1/2 z-40 -translate-y-1/2 rounded-full bg-black/25 p-2 backdrop-blur-xl active:scale-95 sm:hidden">
-            <ChevronRight className="h-4 w-4 text-white/45" />
-          </button>
+          <div className="pointer-events-none absolute inset-x-0 bottom-1 z-40 flex justify-center gap-24 sm:hidden">
+            <button type="button" onClick={handlePrev} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
+              <ChevronLeft className="h-4 w-4 text-white/48" />
+            </button>
+            <button type="button" onClick={handleNext} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
+              <ChevronRight className="h-4 w-4 text-white/48" />
+            </button>
+          </div>
         </div>
     </div>
   );
@@ -326,7 +340,7 @@ const OrbitalSatellite = ({
           {icon}
         </div>
         <div className="glass-card border-white/5 bg-white/[0.02] rounded-2xl px-3 py-2 max-w-[100px]">
-          <span className="text-[7px] font-black uppercase tracking-wider text-white/30 block text-center">
+          <span className="text-left text-[7px] font-black uppercase tracking-wider text-white/30 block">
             sem dados
           </span>
         </div>
@@ -355,6 +369,7 @@ const OrbitalSatellite = ({
           <div className="relative h-[72px] w-[72px] shrink-0">
             <SmartImage
               src={item.image}
+              cacheKey={`circle-top-satellite:${item.id || item.name}`}
               className="h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border-2 border-white/10 rounded-full"
               rounded="full"
               fallback=""
@@ -379,6 +394,7 @@ const OrbitalSatellite = ({
           <div className="relative h-[72px] w-[72px] shrink-0">
             <SmartImage
               src={item.image}
+              cacheKey={`circle-top-satellite:${item.id || item.name}`}
               className="h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border border-white/10 rounded-xl"
               rounded="lg"
               fallback=""
@@ -393,11 +409,11 @@ const OrbitalSatellite = ({
             <span className="text-[7px] font-black uppercase tracking-[0.16em] text-orange-500/80 leading-none block mb-1">
               {label}
             </span>
-            <span className="text-[9px] font-bold text-white/80 leading-tight line-clamp-2 block text-center">
+            <span className="block line-clamp-2 text-left text-[9px] font-bold leading-tight text-white/80">
               {item.name}
             </span>
             {artistName && (
-              <span className="mt-0.5 block line-clamp-1 text-center text-[7px] font-semibold leading-tight text-white/42">
+              <span className="mt-0.5 block line-clamp-1 text-left text-[7px] font-semibold leading-tight text-white/42">
                 {artistName}
               </span>
             )}

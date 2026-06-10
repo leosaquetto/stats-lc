@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, ChevronLeft, ChevronRight } from 'lucide-react';
-import { SmartImage } from '../shared/CommonUI';
+import { OrbitPagerIndicator, SmartImage } from '../shared/CommonUI';
 import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { useAutoOrbitRotation } from '../../hooks/useAutoOrbitRotation';
 
@@ -437,15 +437,15 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const renderInsightMedia = (insight: HomeInsight, size: 'main' | 'satellite') => {
     const tone = getToneClasses(insight.tone);
     const isMain = size === 'main';
-    const imageSize = isMain ? 'h-[58px] w-[58px]' : 'h-12 w-12';
-    const userImageSize = isMain ? 'h-[58px] w-[58px]' : 'h-9 w-9';
-    const iconSize = isMain ? 'h-[58px] w-[58px]' : 'h-12 w-12';
+    const imageSize = isMain ? 'h-11 w-11' : 'h-10 w-10';
+    const userImageSize = isMain ? 'h-11 w-11' : 'h-8 w-8';
+    const iconSize = isMain ? 'h-11 w-11' : 'h-10 w-10';
     const users = insight.users.slice(0, 2);
 
     if (insight.image) {
       return (
         <div className={`${imageSize} shrink-0 overflow-hidden ${insight.type === 'album' ? 'rounded-[18px]' : 'rounded-full'} bg-white/[0.06] ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
-          <SmartImage src={insight.image} rounded={insight.type === 'album' ? '2xl' : 'full'} className="h-full w-full object-cover" fallback="" />
+          <SmartImage src={insight.image} cacheKey={`home-insight-media:${insight.key}`} rounded={insight.type === 'album' ? '2xl' : 'full'} className="h-full w-full object-cover" fallback="" />
         </div>
       );
     }
@@ -455,7 +455,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         <div className={`flex ${isMain ? '-space-x-4' : '-space-x-2'} shrink-0`}>
           {users.map((user) => (
             <div key={user.id} className={`${userImageSize} overflow-hidden rounded-full bg-black ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
-              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} rounded="full" className="h-full w-full object-cover" fallback="" />
+              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} cacheKey={`home-insight-user:${user.id}`} rounded="full" className="h-full w-full object-cover" fallback="" />
             </div>
           ))}
         </div>
@@ -524,34 +524,30 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
               animate={{ opacity: 1, scale: 1, x: 0 }}
               exit={{ opacity: 0, scale: 0.94, x: direction * -34 }}
               transition={{ type: 'spring', stiffness: 240, damping: 25, mass: 0.72 }}
-              className={`relative flex h-[158px] w-[238px] max-w-[calc(100%-104px)] flex-col overflow-hidden rounded-[28px] border bg-black/48 p-4 text-left shadow-[0_22px_70px_rgba(0,0,0,0.46)] backdrop-blur-2xl ${getToneClasses(activeInsight.tone).border}`}
+              className={`glass-aura relative flex h-[170px] w-[244px] max-w-[calc(100%-92px)] flex-col overflow-hidden rounded-[28px] border p-3.5 text-left shadow-[0_22px_70px_rgba(0,0,0,0.46)] ${getToneClasses(activeInsight.tone).border}`}
               style={{ boxShadow: `0 22px 70px rgba(0,0,0,0.46), 0 0 46px ${getToneClasses(activeInsight.tone).glow}` }}
             >
             <div className={`pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/28 to-transparent`} />
-            <div className="flex min-w-0 items-start gap-3">
+            <div className="flex min-w-0 items-center gap-2">
               {renderInsightMedia(activeInsight, 'main')}
-              <div className="min-w-0 flex-1 pt-0.5">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${getToneClasses(activeInsight.tone).bg} ${getToneClasses(activeInsight.tone).text}`}>
-                    {activeInsight.icon}
-                  </span>
-                  <span className={`min-w-0 truncate text-[7px] font-black uppercase tracking-[0.18em] ${getToneClasses(activeInsight.tone).text}`}>
-                    {activeInsight.title}
-                  </span>
-                </div>
-                <h3 className="line-clamp-2 text-[22px] font-black leading-[0.96] text-white">
-                  {activeInsight.headline}
-                </h3>
-              </div>
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${getToneClasses(activeInsight.tone).bg} ${getToneClasses(activeInsight.tone).text}`}>
+                {activeInsight.icon}
+              </span>
+              <span className={`min-w-0 truncate text-[7px] font-black uppercase tracking-[0.18em] ${getToneClasses(activeInsight.tone).text}`}>
+                {activeInsight.title}
+              </span>
             </div>
-            <p className="mt-3 line-clamp-2 text-[11px] font-semibold leading-snug text-white/58">
+            <h3 className="mt-3 line-clamp-2 text-[20px] font-black leading-[0.98] text-white">
+              {activeInsight.headline}
+            </h3>
+            <p className="mt-2 line-clamp-2 text-[10.5px] font-semibold leading-snug text-white/58">
               {activeInsight.detail}
             </p>
             </motion.button>
           </AnimatePresence>
         </div>
 
-        <div className="absolute inset-0 z-20">
+        <div className="absolute inset-0 z-[6]">
           {satelliteInsights.map(({ insight, index }, offset) => {
             const tone = getToneClasses(insight.tone);
             const positionClass = [
@@ -572,14 +568,22 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   scale: [1, 1.035, 1],
                 } : { y: 0, x: 0, scale: 1 }}
                 transition={shouldAnimateOrbit ? { duration: 8 + offset, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18 }}
-                className={`absolute flex h-[64px] w-[64px] items-center justify-center rounded-full border bg-black/58 shadow-[0_16px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl ${positionClass} ${tone.border}`}
-                aria-label={`Abrir insight ${insight.title}`}
-              >
+              className={`absolute flex h-[54px] w-[54px] items-center justify-center rounded-full border bg-black/58 shadow-[0_16px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl ${positionClass} ${tone.border}`}
+              aria-label={`Abrir insight ${insight.title}`}
+            >
                 {renderInsightMedia(insight, 'satellite')}
                 <span className={`pointer-events-none absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${tone.bg}`} />
               </motion.button>
             );
           })}
+        </div>
+        <div className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2">
+          <OrbitPagerIndicator
+            count={insights.length}
+            activeIndex={activeInsightIndex}
+            onSelect={goToInsight}
+            label="insight"
+          />
         </div>
       </div>
     </div>

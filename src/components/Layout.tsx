@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -283,7 +283,11 @@ const getAlbumReleaseDate = (track: any) => {
     // Último recurso para payloads antigos: a data da faixa não deve sobrepor a do álbum.
     track?.releaseDate,
     track?.releasedAt,
-  ].find((value) => typeof value === 'string' && value.trim().length > 0) || '';
+  ].find((value) => {
+    if (typeof value === 'number') return Number.isFinite(value) && value > 0;
+    if (typeof value === 'string') return value.trim().length > 0;
+    return false;
+  }) || '';
 };
 
 const firstExternalId = (value: any) => {
@@ -316,14 +320,43 @@ const formatFullDate = (value: any) => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const parseDateMs = (value: any) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric) && /^\d+$/.test(trimmed)) return numeric;
+    const parsed = new Date(trimmed).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const parsed = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getSaoPauloDayKey = (value: any) => {
+  const time = parseDateMs(value);
+  if (!time) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(time));
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${map.year}-${map.month}-${map.day}`;
+};
+
 const formatAlbumReleaseDate = (value: any) => {
-  if (!value) return '';
-  const date = new Date(value);
+  const time = parseDateMs(value);
+  if (!time) return '';
+  const date = new Date(time);
   if (!Number.isFinite(date.getTime())) return '';
   const currentYear = new Date().getFullYear();
-  const options: Intl.DateTimeFormatOptions = date.getFullYear() === currentYear
-    ? { day: '2-digit', month: 'short' }
-    : { day: '2-digit', month: 'short', year: 'numeric' };
+  const releaseYear = Number(getSaoPauloDayKey(value).slice(0, 4)) || date.getFullYear();
+  const options: Intl.DateTimeFormatOptions = releaseYear === currentYear
+    ? { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short' }
+    : { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', year: 'numeric' };
   return date.toLocaleDateString('pt-BR', options).replace('.', '.');
 };
 
@@ -1120,7 +1153,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const artistImage = trackArtists[0]?.image || getTrackArtistImage(track) || artwork;
   const albumName = track?.albumName || track?.album?.name || 'Álbum';
   const dominantColor = panelUser?.nowPlaying?.dominantColor || track?.dominantColor || '#ff5f00';
-  const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(getAlbumReleaseDate(track)), [track]);
+  const albumReleaseRawDate = React.useMemo(() => getAlbumReleaseDate(track), [track]);
+  const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(albumReleaseRawDate), [albumReleaseRawDate]);
   const isBubbleLive = panelUser?.nowPlaying?.isNow === true && playbackIndex === 0 && !hasExternalPlayback;
   const shouldAnimateBubble = isBubbleLive && !isModalVisible;
   const bubbleAccentColor = dominantColor || '#ff5f00';
@@ -1156,6 +1190,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return members.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${trackId}`));
   }, [members, trackId, userTrackStats]);
   const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
+  const isReleaseDayFirstListen = React.useMemo(() => {
+    if (!albumReleaseRawDate || !circleFirstListen?.playedAt) return false;
+    return getSaoPauloDayKey(albumReleaseRawDate) === getSaoPauloDayKey(circleFirstListen.playedAt);
+  }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
       .map((writer) => writer.trim())
@@ -2055,13 +2093,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <p className="mt-1 text-xs font-semibold leading-tight text-white/48">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
-              <p className="mt-1 line-clamp-1 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
-                {albumName}
+              <p className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
+                <span className="min-w-0 truncate">{albumName}</span>
                 {albumReleaseDate && (
-                  <>
-                    <span className="px-1.5 text-orange-300/60">•</span>
-                        <span>{albumReleaseDate}</span>
-                      </>
+                  <span
+                    className={clsx(
+                      "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
+                      isReleaseDayFirstListen
+                        ? "bg-orange-500/18 text-orange-100 shadow-[0_0_16px_rgba(249,115,22,0.2)]"
+                        : "bg-white/[0.045] text-white/38"
+                    )}
+                    title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
+                  >
+                    <CalendarDays className="h-2.5 w-2.5" />
+                    {albumReleaseDate}
+                    {isReleaseDayFirstListen && <span className="text-orange-200/76">lançamento</span>}
+                  </span>
                 )}
               </p>
             </div>
@@ -2218,7 +2265,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           "h-[29px] w-[29px] overflow-hidden rounded-full bg-black shadow-[0_5px_12px_rgba(0,0,0,0.28)]",
                           "ring-0"
                         )}>
-                          <SmartImage src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)} className="h-full w-full object-cover" rounded="full" fallback="" />
+                          <SmartImage
+                            src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)}
+                            cacheKey={`bottom-track-ranking-avatar:${item.user.id}`}
+                            className="h-full w-full object-cover"
+                            rounded="full"
+                            fallback=""
+                          />
                         </div>
                         <span className={clsx(
                           "absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full bg-black/42 px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.25)] backdrop-blur-md",
@@ -2242,36 +2295,40 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                   >
                     <div
-                      className="relative flex h-9 shrink-0 items-center py-0.5 pl-1 pr-2"
-                    >
-                      {socialAvatarEntries.map((entry, index) => (
-                        <div
-                          key={`${entry.user?.id || index}-${entry.playedAt}`}
-                          className="-mr-2.5 h-[29px] w-[29px] shrink-0 overflow-hidden rounded-full bg-white/[0.055] ring-0 shadow-[0_4px_10px_rgba(0,0,0,0.24)]"
-                          style={{ zIndex: socialAvatarEntries.length - index }}
-                        >
-                          <SmartImage
-                            src={coreUtils.getUserAvatar(entry.user?.id || panelUser?.id, entry.user?.avatar || panelUser?.avatar)}
-                            className="h-full w-full object-cover"
-                            rounded="full"
-                            fallback=""
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div
-                      className={clsx(
-                        "relative min-w-0 overflow-x-auto overflow-y-hidden py-1 no-scrollbar",
-                        shouldShowSocialRankingBadge ? "flex-1" : "w-full max-w-[220px]"
-                      )}
+                      className="flex h-full min-w-0 flex-1 overflow-x-auto overflow-y-hidden no-scrollbar"
                       data-home-horizontal-scroll="true"
                     >
-                      <span
-                        className="block max-h-[2.3em] min-w-full whitespace-normal text-[9px] font-bold leading-[1.12] text-white/58"
-                        style={{ width: socialInsight.length > 56 ? '22rem' : '100%' }}
+                      <div
+                        className="flex min-w-full shrink-0 items-center gap-2 py-1"
+                        style={{
+                          width: socialInsight.length > 56 ? '24rem' : '100%',
+                          minWidth: socialInsight.length > 56 ? '24rem' : '100%',
+                        }}
                       >
-                        {socialInsight}
-                      </span>
+                        <div className="relative flex h-9 shrink-0 items-center py-0.5 pl-1 pr-2">
+                          {socialAvatarEntries.map((entry, index) => {
+                            const entryUserId = entry.user?.id || panelUser?.id || `social-${index}`;
+                            return (
+                              <div
+                                key={`${entryUserId}-${entry.playedAt}`}
+                                className="-mr-2.5 h-[29px] w-[29px] shrink-0 overflow-hidden rounded-full bg-white/[0.055] ring-0 shadow-[0_4px_10px_rgba(0,0,0,0.24)]"
+                                style={{ zIndex: socialAvatarEntries.length - index }}
+                              >
+                                <SmartImage
+                                  src={coreUtils.getUserAvatar(entry.user?.id || panelUser?.id, entry.user?.avatar || panelUser?.avatar)}
+                                  cacheKey={`bottom-track-social-avatar:${entryUserId}`}
+                                  className="h-full w-full object-cover"
+                                  rounded="full"
+                                  fallback=""
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <span className="block max-h-[2.3em] min-w-0 flex-1 overflow-hidden whitespace-normal text-[9px] font-bold leading-[1.12] text-white/58">
+                          {socialInsight}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : (

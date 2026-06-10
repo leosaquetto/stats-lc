@@ -20,7 +20,7 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
+import { OrbitPagerIndicator, ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
@@ -203,10 +203,13 @@ const HomeHighlightPeriodControls = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ left: 16, top: 120, width: 272 });
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: Math.max(1, currentYear - 2024 + 1) }, (_, index) => 2024 + index);
+  const selectedYear = Number(selectedSubValues.year || currentYear);
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
     { key: 'today', label: 'Hoje' },
     { key: 'week', label: 'Semana' },
@@ -218,14 +221,43 @@ const HomeHighlightPeriodControls = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    const updateMenuPosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const viewportWidth = window.innerWidth || 390;
+      const viewportHeight = window.innerHeight || 750;
+      const width = Math.min(272, Math.max(240, viewportWidth - 32));
+      const left = Math.min(Math.max(16, rect.right - width), Math.max(16, viewportWidth - width - 16));
+      const estimatedHeight = activeTab === 'month'
+        ? 254
+        : activeTab === 'week'
+          ? 166
+          : activeTab === 'year'
+            ? 166
+            : 138;
+      const belowTop = rect.bottom + 8;
+      const shouldOpenAbove = belowTop + estimatedHeight > viewportHeight - 16 && rect.top > estimatedHeight + 24;
+      setMenuPosition({
+        left,
+        top: Math.max(12, shouldOpenAbove ? rect.top - estimatedHeight - 8 : belowTop),
+        width,
+      });
+    };
     const handlePointerDown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
+    updateMenuPosition();
     document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
-  }, [isOpen]);
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [activeTab, isOpen]);
 
   const handlePeriodSelect = (tab: ReplayFilterPeriod) => {
     onActiveTabChange(tab);
@@ -237,6 +269,7 @@ const HomeHighlightPeriodControls = ({
   return (
     <div ref={menuRef} className="relative z-40 shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((value) => !value)}
         className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/30 px-3 text-orange-100 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-[background-color,border-color,transform] active:scale-[0.96]"
@@ -257,7 +290,12 @@ const HomeHighlightPeriodControls = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-0 top-11 z-50 w-[248px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+            className="fixed z-50 max-h-[min(420px,calc(100vh-150px))] overflow-y-auto rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl no-scrollbar"
+            style={{
+              left: menuPosition.left,
+              top: menuPosition.top,
+              width: menuPosition.width,
+            }}
           >
             <div className="grid grid-cols-2 gap-1">
               {periodTabs.map((tab) => (
@@ -309,11 +347,29 @@ const HomeHighlightPeriodControls = ({
 
             {activeTab === 'month' && (
               <div className="mt-2 border-t border-white/[0.06] pt-2">
+                <div className="mb-2 flex gap-1 overflow-x-auto no-scrollbar" data-home-horizontal-scroll="true">
+                  {years.map((year) => {
+                    const isSelected = selectedSubValues.year === String(year);
+                    return (
+                      <button
+                        key={`month-year-${year}`}
+                        type="button"
+                        onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) })}
+                        className={cn(
+                          "shrink-0 rounded-full px-2.5 py-1.5 text-[9px] font-black transition-colors",
+                          isSelected ? "bg-orange-500/16 text-orange-100" : "bg-white/[0.04] text-white/44 hover:text-white/72"
+                        )}
+                      >
+                        {year}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="grid grid-cols-4 gap-1">
                   {availableMonths.map((month, index) => {
                     const value = String(index).padStart(2, '0');
                     const isSelected = selectedSubValues.month === value;
-                    const isFuture = index > currentMonth;
+                    const isFuture = selectedYear > currentYear || (selectedYear === currentYear && index > currentMonth);
                     return (
                       <button
                         key={month}
@@ -501,8 +557,18 @@ const HomeOrbitalHighlights = ({
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
+  const [highlightActiveIndexes, setHighlightActiveIndexes] = useState<Record<HomeHighlightKind, number>>({
+    artists: 0,
+    tracks: 0,
+    albums: 0,
+  });
   const highlightScrollRefs = useRef<Partial<Record<HomeHighlightKind, HTMLDivElement | null>>>({});
   const highlightScrollRafRef = useRef<number | null>(null);
+  const highlightActiveIndexRefs = useRef<Record<HomeHighlightKind, number>>({
+    artists: 0,
+    tracks: 0,
+    albums: 0,
+  });
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
     { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
     { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 12) },
@@ -527,11 +593,18 @@ const HomeOrbitalHighlights = ({
     const anchorLeft = containerRect.left + 8;
     const step = config.secondary.width + 8;
     const cards = Array.from(node.querySelectorAll<HTMLElement>('[data-highlight-card="true"]'));
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
 
-    cards.forEach((card) => {
+    cards.forEach((card, index) => {
       const cardRect = card.getBoundingClientRect();
       const distance = cardRect.left - anchorLeft;
       const slot = distance / step;
+      const slotDistance = Math.abs(slot);
+      if (slotDistance < nearestDistance) {
+        nearestDistance = slotDistance;
+        nearestIndex = index;
+      }
       const rightSlot = Math.max(0, slot);
       const sizeProgress = shouldReduceMotion
         ? (rightSlot < 0.55 ? 1 : Math.max(0.22, 1 - rightSlot * 0.32))
@@ -556,6 +629,13 @@ const HomeOrbitalHighlights = ({
       card.style.setProperty('--highlight-detail-size', `${6.5 + (8 - 6.5) * textProgress}px`);
       card.style.setProperty('--highlight-content-inset', `${8 + (12 - 8) * textProgress}px`);
     });
+
+    if (highlightActiveIndexRefs.current[kind] !== nearestIndex) {
+      highlightActiveIndexRefs.current[kind] = nearestIndex;
+      setHighlightActiveIndexes((current) => (
+        current[kind] === nearestIndex ? current : { ...current, [kind]: nearestIndex }
+      ));
+    }
   }, [shouldReduceMotion]);
 
   const scheduleHighlightCardStyles = useCallback((kind: HomeHighlightKind) => {
@@ -570,8 +650,21 @@ const HomeOrbitalHighlights = ({
   useEffect(() => {
     const node = highlightScrollRefs.current[activeKind];
     if (node) node.scrollLeft = 0;
+    highlightActiveIndexRefs.current[activeKind] = 0;
+    setHighlightActiveIndexes((current) => current[activeKind] === 0 ? current : { ...current, [activeKind]: 0 });
     scheduleHighlightCardStyles(activeKind);
   }, [activeKind, activeGroup?.items.length, scheduleHighlightCardStyles]);
+
+  const scrollToHighlightIndex = useCallback((kind: HomeHighlightKind, index: number) => {
+    const node = highlightScrollRefs.current[kind];
+    if (!node) return;
+    const config = HIGHLIGHT_VISUAL_CONFIG[kind];
+    const step = config.secondary.width + 8;
+    node.scrollTo({ left: Math.max(0, index * step), behavior: shouldReduceMotion ? 'auto' : 'smooth' });
+    highlightActiveIndexRefs.current[kind] = index;
+    setHighlightActiveIndexes((current) => current[kind] === index ? current : { ...current, [kind]: index });
+    scheduleHighlightCardStyles(kind);
+  }, [scheduleHighlightCardStyles, shouldReduceMotion]);
 
   useEffect(() => {
     return () => {
@@ -630,6 +723,7 @@ const HomeOrbitalHighlights = ({
                 type="button"
                 onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
                 data-highlight-card="true"
+                data-highlight-index={index}
                 data-entity-stats-trigger={kind}
                 data-entity-stats-active={isCentered ? 'true' : undefined}
                 data-entity-stats-primary={index === 0 ? 'true' : undefined}
@@ -704,8 +798,7 @@ const HomeOrbitalHighlights = ({
 
   return (
     <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
-      <div className="relative overflow-visible rounded-[34px] bg-white/[0.018] px-3.5 pb-2.5 pt-4 shadow-[0_28px_70px_rgba(0,0,0,0.28)]">
-        <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/30 to-transparent" />
+      <div className="relative overflow-visible rounded-[34px] px-0 pb-1 pt-1">
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
@@ -754,6 +847,13 @@ const HomeOrbitalHighlights = ({
                 </motion.div>
               </AnimatePresence>
             </div>
+            <OrbitPagerIndicator
+              count={activeGroup.items.length}
+              activeIndex={highlightActiveIndexes[activeGroup.key] || 0}
+              onSelect={(index) => scrollToHighlightIndex(activeGroup.key, index)}
+              label={`destaque ${activeGroup.tabLabel.toLowerCase()}`}
+              className="-mt-2"
+            />
           </article>
         </div>
       </div>
@@ -1104,14 +1204,14 @@ const getReplayQuery = (activeTab: ReplayFilterPeriod, selected: ReplaySelectedS
       const day = now.getDay();
       const diffToMonday = (day + 6) % 7;
       const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday);
-      return { period: 'week', after: getStartOfDay(monday), limit: 30 };
+      return { period: 'week', after: getStartOfDay(monday), before: now.getTime(), limit: 30 };
     }
     const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    return { period: '7days', after: getStartOfDay(sevenDaysAgo), limit: 30 };
+    return { period: 'week', after: getStartOfDay(sevenDaysAgo), before: now.getTime(), limit: 30 };
   }
   if (activeTab === 'month') {
     const month = Number(selected.month ?? now.getMonth());
-    const year = now.getFullYear();
+    const year = Number(selected.year || now.getFullYear());
     const start = new Date(year, month, 1);
     const end = new Date(year, month + 1, 1);
     return { period: 'month', after: start.getTime(), before: end.getTime(), limit: 30 };
@@ -1129,7 +1229,7 @@ const getReplayModalPeriod = (activeTab: ReplayFilterPeriod, selected: ReplaySel
   if (activeTab === 'week') return selected.weekMode === 'current' ? 'esta semana' : 'últimos 7 dias';
   if (activeTab === 'month') {
     const month = Number(selected.month ?? now.getMonth());
-    return `${REPLAY_MONTHS_LONG[month] || 'mês'} de ${now.getFullYear()}`;
+    return `${REPLAY_MONTHS_LONG[month] || 'mês'} de ${selected.year || now.getFullYear()}`;
   }
   if (activeTab === 'year') return selected.year || String(now.getFullYear());
   return 'total';
@@ -1146,7 +1246,7 @@ const getPerceptionPeriodSentence = (
   }
   if (activeTab === 'month') {
     const month = Number(selected.month ?? now.getMonth());
-    return `em ${REPLAY_MONTHS_LONG[month] || 'mês'} de ${now.getFullYear()}`;
+    return `em ${REPLAY_MONTHS_LONG[month] || 'mês'} de ${selected.year || now.getFullYear()}`;
   }
   if (activeTab === 'year') return `em ${selected.year || now.getFullYear()}`;
   return 'em todo o histórico';

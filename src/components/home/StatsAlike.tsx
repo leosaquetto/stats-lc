@@ -8,7 +8,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { UserStats, TopItem } from '../../types/stats';
-import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
+import { OrbitPagerIndicator, SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -426,6 +426,13 @@ export const StatsAlike = React.memo(() => {
     });
   };
 
+  const goToAlikeIndex = (index: number) => {
+    if (alikeConnections.length === 0) return;
+    const next = (index + alikeConnections.length) % alikeConnections.length;
+    cachedAlikeIndex = next;
+    setActiveIndex(next);
+  };
+
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, intent: 'pending' };
@@ -554,7 +561,7 @@ export const StatsAlike = React.memo(() => {
                 }}
                 transition={{ type: "spring", stiffness: 150, damping: 24 }}
                 className="absolute top-1/2 left-1/2 w-[332px]"
-                onClick={() => position !== 0 && setActiveIndex(idx)}
+                onClick={() => position !== 0 && goToAlikeIndex(idx)}
               >
                 <motion.div
                   animate={shouldReduceMotion || !isOrbitVisible ? {} : {
@@ -577,6 +584,13 @@ export const StatsAlike = React.memo(() => {
           })}
         </div>
       </div>
+      <OrbitPagerIndicator
+        count={alikeConnections.length}
+        activeIndex={activeIndex}
+        onSelect={goToAlikeIndex}
+        label="stats alike"
+        className="-mt-6 mb-2"
+      />
     </div>
   );
 });
@@ -658,6 +672,7 @@ const AlikeOrbitalItem = ({
           <div className="relative h-16 w-16 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(featuredUserId, featuredUserAvatar)} 
+              cacheKey={`stats-alike-featured:${featuredUserId}`}
               rounded="full" 
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
@@ -677,6 +692,7 @@ const AlikeOrbitalItem = ({
           <div className="relative h-32 w-32 flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
+              cacheKey={`stats-alike-item:${type}:${item.id || item.name}`}
               className={cn(
                 "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all duration-700",
                 type === 'artist' ? 'rounded-full' : 'rounded-2xl',
@@ -705,6 +721,7 @@ const AlikeOrbitalItem = ({
           <div className="relative h-16 w-16 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(alikeUser.id, alikeUser.avatar)} 
+              cacheKey={`stats-alike-friend:${alikeUser.id}`}
               rounded="full" 
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""

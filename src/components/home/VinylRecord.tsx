@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
+import { useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
@@ -24,7 +24,6 @@ type VinylVisualSnapshot = {
   dominantColor: string;
   identity: string;
   playbackKey: string;
-  revision: number;
 };
 
 const hashString = (value: string) => {
@@ -117,9 +116,7 @@ const decodeVinylImage = (source: string) => new Promise<void>((resolve, reject)
   image.src = source;
 });
 
-const getVisualIdentity = (playbackKey: string | undefined, albumImage: string) => (
-  `${playbackKey || 'playback-unknown'}::${albumImage || 'vinyl-placeholder'}`
-);
+const getVisualIdentity = (albumImage: string) => albumImage || 'vinyl-placeholder';
 
 const getTransitionMotion = (prefersReducedMotion: boolean) => {
   if (prefersReducedMotion) {
@@ -132,20 +129,20 @@ const getTransitionMotion = (prefersReducedMotion: boolean) => {
   }
 
   return {
-    initial: { x: 140, opacity: 0, scale: 0.96 },
+    initial: { x: 170, opacity: 0, scale: 0.94 },
     animate: { x: 0, opacity: 1, scale: 1 },
     exit: {
-      x: 150,
+      x: 178,
       opacity: 0,
-      scale: 0.94,
+      scale: 0.92,
       transition: {
-        duration: 0.54,
-        ease: [0.4, 0, 0.2, 1] as const,
+        duration: 0.9,
+        ease: [0.45, 0, 0.16, 1] as const,
       },
     },
     transition: {
-      duration: 0.58,
-      delay: 0.08,
+      duration: 0.92,
+      delay: 0.04,
       ease: [0.22, 1, 0.36, 1] as const,
     },
   };
@@ -161,24 +158,21 @@ export const VinylRecord = ({
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
-  const initialIdentity = getVisualIdentity(playbackKey, albumImage);
+  const initialIdentity = getVisualIdentity(albumImage);
   const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
     albumImage,
     dominantColor,
     identity: initialIdentity,
     playbackKey: playbackKey || initialIdentity,
-    revision: 0,
   }));
   const discRef = useRef<HTMLDivElement | null>(null);
   const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
   const previousPlayingRef = useRef(isPlaying);
-  const transitionPlayingRef = useRef(isPlaying);
-  const visualRevisionRef = useRef(0);
   const visualRequestRef = useRef(0);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
-  const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
+  const incomingIdentity = getVisualIdentity(albumImage);
   const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
   incomingVisualRef.current = { albumImage, dominantColor, identity: incomingIdentity, playbackKey };
   const transitionMotion = useMemo(
@@ -222,13 +216,11 @@ export const VinylRecord = ({
       const nextVisual = incomingVisualRef.current;
       if (nextVisual.identity !== incomingIdentity) return;
 
-      visualRevisionRef.current += 1;
       setVisualSnapshot({
         albumImage: nextVisual.albumImage,
         dominantColor: nextVisual.dominantColor,
         identity: nextVisual.identity,
         playbackKey: nextVisual.playbackKey || nextVisual.identity,
-        revision: visualRevisionRef.current,
       });
     };
 
@@ -263,23 +255,11 @@ export const VinylRecord = ({
     }));
   }, [dominantColor, incomingIdentity, visualSnapshot.dominantColor, visualSnapshot.identity]);
 
-  useLayoutEffect(() => {
-    const wasPlaying = transitionPlayingRef.current;
-    transitionPlayingRef.current = isPlaying;
-    if (wasPlaying || !isPlaying || incomingIdentity !== visualSnapshot.identity) return;
-
-    visualRevisionRef.current += 1;
-    setVisualSnapshot(snapshot => ({
-      ...snapshot,
-      revision: visualRevisionRef.current,
-    }));
-  }, [incomingIdentity, isPlaying, visualSnapshot.identity]);
-
   useEffect(() => {
     const node = discRef.current;
     if (!node) return;
     node.style.transform = `rotate(${rotationRef.current}deg)`;
-  }, [visualSnapshot.revision]);
+  }, [visualSnapshot.identity]);
 
   useEffect(() => {
     const node = discRef.current;
@@ -295,28 +275,7 @@ export const VinylRecord = ({
         spinAnimationRef.current = null;
       }
 
-      if (mode === 'decelerate' && canAnimate) {
-        const endRotation = rotationRef.current + 18;
-        const deceleration = node.animate(
-          [
-            { transform: `rotate(${rotationRef.current}deg)` },
-            { transform: `rotate(${endRotation}deg)` },
-          ],
-          { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
-        );
-        spinAnimationRef.current = deceleration;
-        deceleration.onfinish = () => {
-          rotationRef.current = endRotation % 360;
-          node.style.transform = `rotate(${rotationRef.current}deg)`;
-          if (spinAnimationRef.current === deceleration) spinAnimationRef.current = null;
-        };
-        deceleration.oncancel = () => {
-          node.style.transform = `rotate(${rotationRef.current}deg)`;
-          if (spinAnimationRef.current === deceleration) spinAnimationRef.current = null;
-        };
-        return;
-      }
-
+      // Pause should freeze the physical disc at the captured angle.
       node.style.transform = `rotate(${rotationRef.current}deg)`;
     };
 
@@ -339,7 +298,7 @@ export const VinylRecord = ({
     );
     previousPlayingRef.current = isPlaying;
     return () => stopSpin('instant');
-  }, [canAnimate, isPlaying, visualSnapshot.revision]);
+  }, [canAnimate, isPlaying, visualSnapshot.identity]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -395,7 +354,7 @@ export const VinylRecord = ({
       data-vinyl-variant={textureName}
       data-vinyl-playback-key={visualSnapshot.playbackKey}
       data-vinyl-playing={isPlaying ? "true" : "false"}
-      data-vinyl-revision={visualSnapshot.revision}
+      data-vinyl-visual-key={visualSnapshot.identity}
     >
       <>
 
@@ -415,8 +374,8 @@ export const VinylRecord = ({
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={false} mode="sync">
       <motion.div
-        key={`${visualSnapshot.playbackKey}:${visualSnapshot.revision}`}
-        data-vinyl-visual={visualSnapshot.revision}
+        key={visualSnapshot.identity}
+        data-vinyl-visual={visualSnapshot.identity}
         className="absolute inset-0 z-10"
         initial={transitionMotion.initial}
         animate={transitionMotion.animate}

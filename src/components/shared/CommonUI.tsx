@@ -16,6 +16,46 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export const OrbitPagerIndicator = memo(({
+  count,
+  activeIndex,
+  onSelect,
+  label = 'item',
+  className = '',
+}: {
+  count: number;
+  activeIndex: number;
+  onSelect?: (index: number) => void;
+  label?: string;
+  className?: string;
+}) => {
+  if (count <= 1) return null;
+
+  return (
+    <div className={cn("flex items-center justify-center gap-1.5", className)} aria-label={`Navegação de ${label}`}>
+      {Array.from({ length: count }, (_, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <button
+            key={`${label}-${index}`}
+            type="button"
+            onClick={() => onSelect?.(index)}
+            className={cn(
+              "h-1.5 rounded-full transition-[width,background-color,opacity,transform] duration-200 active:scale-90",
+              isActive ? "w-5 bg-orange-500 opacity-100" : "w-1.5 bg-white/18 opacity-70",
+              !onSelect && "pointer-events-none"
+            )}
+            aria-label={`Ir para ${label} ${index + 1}`}
+            aria-current={isActive ? 'true' : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+});
+
+OrbitPagerIndicator.displayName = 'OrbitPagerIndicator';
+
 const usePrefersReducedMotion = () => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
@@ -147,7 +187,9 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const cachedStableSrc = cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '';
   const resolvedSrc = overrideSrc || inputSrc;
   const displaySrc = resolvedSrc || lastGoodSrcRef.current || cachedStableSrc;
-  const hasDisplayableSrc = !!displaySrc && !displaySrc.includes("private.webp") && !error;
+  const previousDisplaySrc = lastGoodSrcRef.current || cachedStableSrc;
+  const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
+  const hasDisplayableSrc = !!imageSrc && !imageSrc.includes("private.webp");
 
   useEffect(() => {
     setOverrideSrc('');
@@ -174,16 +216,16 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
   useEffect(() => {
     const image = imageRef.current;
-    if (!image || !displaySrc || error) return;
+    if (!image || !imageSrc || error) return;
 
     if (image.complete && image.naturalWidth > 0) {
-      lastGoodSrcRef.current = displaySrc;
-      if (cacheKey) stableImageSrcByKey.set(cacheKey, displaySrc);
-      loadedImageSrcs.add(displaySrc);
+      lastGoodSrcRef.current = imageSrc;
+      if (cacheKey) stableImageSrcByKey.set(cacheKey, imageSrc);
+      loadedImageSrcs.add(imageSrc);
       setLoading(false);
       setShowFallback(false);
     }
-  }, [cacheKey, displaySrc, error]);
+  }, [cacheKey, error, imageSrc]);
 
   // Get initials from fallback name (max 2 chars)
   const getInitials = (name: string) => {
@@ -195,9 +237,8 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
     return name.slice(0, 2).toUpperCase();
   };
 
-  const previousDisplaySrc = lastGoodSrcRef.current;
   const shouldShowFallback = !hasDisplayableSrc && showFallback && !previousDisplaySrc;
-  const shouldKeepPreviousImage = loading && !!previousDisplaySrc && previousDisplaySrc !== displaySrc;
+  const shouldKeepPreviousImage = !!previousDisplaySrc && (loading || error || previousDisplaySrc !== imageSrc);
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
@@ -238,35 +279,37 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
         </div>
       ) : hasDisplayableSrc ? (
         <img
-          src={displaySrc}
+          src={imageSrc}
           className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
           referrerPolicy="no-referrer"
           loading="eager"
           ref={imageRef}
           onLoad={() => {
-            lastGoodSrcRef.current = displaySrc;
-            if (cacheKey) stableImageSrcByKey.set(cacheKey, displaySrc);
-            loadedImageSrcs.add(displaySrc);
+            lastGoodSrcRef.current = imageSrc;
+            if (cacheKey) stableImageSrcByKey.set(cacheKey, imageSrc);
+            loadedImageSrcs.add(imageSrc);
             setLoading(false);
+            setError(false);
+            setShowFallback(false);
           }}
           onError={() => {
-            if (fallbackSrc && displaySrc !== fallbackSrc) {
+            if (fallbackSrc && imageSrc !== fallbackSrc) {
               setOverrideSrc(fallbackSrc);
               setError(false);
               setLoading(true);
               setShowFallback(false);
               return;
             }
-            if (lastGoodSrcRef.current && displaySrc !== lastGoodSrcRef.current) {
+            if (lastGoodSrcRef.current && imageSrc !== lastGoodSrcRef.current) {
               setOverrideSrc(lastGoodSrcRef.current);
               setError(false);
               setLoading(false);
               setShowFallback(false);
               return;
             }
-            setError(true);
+            setError(!lastGoodSrcRef.current);
             setLoading(false);
-            setShowFallback(true);
+            setShowFallback(!lastGoodSrcRef.current);
           }}
           alt=""
         />
