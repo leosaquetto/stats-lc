@@ -2855,6 +2855,7 @@ export default function HomeScreen() {
                 <LeoHeader
                   user={primaryUser}
                   streamsToday={displayedHeaderStreamsToday}
+                  recentPlays={resolvedRecentPlays}
                   onTrackClick={handleOpenMusicDetail}
                   isHighlighted={headerHighlight}
                 />

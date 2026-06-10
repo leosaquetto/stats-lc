@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
+import { useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
@@ -26,6 +26,9 @@ type VinylVisualSnapshot = {
   playbackKey: string;
   revision: number;
 };
+
+type VinylPhase = 'booting' | 'playing' | 'swapping-album' | 'idle';
+type TonearmState = 'rest' | 'lifted' | 'playing';
 
 const hashString = (value: string) => {
   let hash = 0;
@@ -117,9 +120,14 @@ const decodeVinylImage = (source: string) => new Promise<void>((resolve, reject)
   image.src = source;
 });
 
-const getVisualIdentity = (playbackKey: string | undefined, albumImage: string) => (
-  `${playbackKey || 'playback-unknown'}::${albumImage || 'vinyl-placeholder'}`
+const getVisualIdentity = (_playbackKey: string | undefined, albumImage: string) => (
+  albumImage || 'vinyl-placeholder'
 );
+
+const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
+const steadyRotationDuration = 7200;
+const accelerationDuration = 4200;
+const accelerationRotations = accelerationDuration / steadyRotationDuration / 2;
 
 const getTransitionMotion = (prefersReducedMotion: boolean) => {
   if (prefersReducedMotion) {
@@ -169,15 +177,20 @@ export const VinylRecord = ({
     playbackKey: playbackKey || initialIdentity,
     revision: 0,
   }));
+  const [phase, setPhase] = useState<VinylPhase>(() => isPlaying ? 'booting' : 'idle');
+  const [tonearmState, setTonearmState] = useState<TonearmState>(() => isPlaying ? 'lifted' : 'rest');
+  const [spinEnabled, setSpinEnabled] = useState(false);
   const discRef = useRef<HTMLDivElement | null>(null);
   const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
-  const previousPlayingRef = useRef(isPlaying);
-  const transitionPlayingRef = useRef(isPlaying);
+  const previousPlayingRef = useRef(false);
   const visualRevisionRef = useRef(0);
   const visualRequestRef = useRef(0);
+  const playbackSequenceRef = useRef(0);
+  const albumSwapInFlightRef = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
+  const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
   const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
   const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
   incomingVisualRef.current = { albumImage, dominantColor, identity: incomingIdentity, playbackKey };
@@ -232,24 +245,99 @@ export const VinylRecord = ({
       });
     };
 
-    if (!albumImage) {
-      commitSnapshot();
-      return () => {
-        cancelled = true;
-      };
-    }
+    const runAlbumSwap = async () => {
+      albumSwapInFlightRef.current = true;
 
-    preloadSmartImages([albumImage])
-      .then(() => decodeVinylImage(albumImage))
-      .then(commitSnapshot)
-      .catch(() => {
-        // Keep the previous decoded artwork instead of flashing an unloaded cover.
-      });
+      if (canAnimate) {
+        setPhase('swapping-album');
+        setTonearmState('lifted');
+        setSpinEnabled(false);
+        await wait(780);
+      }
+
+      if (cancelled || requestId !== visualRequestRef.current) return;
+
+      if (albumImage) {
+        try {
+          await preloadSmartImages([albumImage]);
+          await decodeVinylImage(albumImage);
+        } catch {
+          // Keep the previous decoded artwork instead of flashing an unloaded cover.
+        }
+      }
+
+      commitSnapshot();
+
+      if (!canAnimate) {
+        setPhase(isPlaying ? 'playing' : 'idle');
+        setTonearmState(isPlaying ? 'playing' : 'rest');
+        setSpinEnabled(isPlaying);
+        albumSwapInFlightRef.current = false;
+        return;
+      }
+
+      await wait(660);
+      if (cancelled || requestId !== visualRequestRef.current) return;
+      if (!isPlaying) {
+        setPhase('idle');
+        setTonearmState('rest');
+        setSpinEnabled(false);
+        albumSwapInFlightRef.current = false;
+        return;
+      }
+
+      setTonearmState('playing');
+      await wait(760);
+      if (cancelled || requestId !== visualRequestRef.current) return;
+      setPhase('playing');
+      setSpinEnabled(true);
+      albumSwapInFlightRef.current = false;
+    };
+
+    void runAlbumSwap();
+
+    return () => {
+      cancelled = true;
+      albumSwapInFlightRef.current = false;
+    };
+  }, [albumImage, canAnimate, incomingIdentity, isPlaying, visualSnapshot.identity]);
+
+  useEffect(() => {
+    const sequenceId = ++playbackSequenceRef.current;
+    let cancelled = false;
+
+    const runPlaybackSequence = async () => {
+      if (!isPlaying) {
+        setPhase('idle');
+        setTonearmState('rest');
+        setSpinEnabled(false);
+        return;
+      }
+
+      if (incomingIdentity !== visualSnapshot.identity) return;
+      if (albumSwapInFlightRef.current) return;
+
+      setPhase('booting');
+      setSpinEnabled(false);
+      setTonearmState(canAnimate ? 'lifted' : 'playing');
+
+      if (canAnimate) await wait(120);
+      if (cancelled || sequenceId !== playbackSequenceRef.current) return;
+
+      setTonearmState('playing');
+      if (canAnimate) await wait(760);
+      if (cancelled || sequenceId !== playbackSequenceRef.current) return;
+
+      setPhase('playing');
+      setSpinEnabled(true);
+    };
+
+    void runPlaybackSequence();
 
     return () => {
       cancelled = true;
     };
-  }, [albumImage, incomingIdentity, visualSnapshot.identity]);
+  }, [canAnimate, incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
     if (
@@ -262,18 +350,6 @@ export const VinylRecord = ({
       dominantColor,
     }));
   }, [dominantColor, incomingIdentity, visualSnapshot.dominantColor, visualSnapshot.identity]);
-
-  useLayoutEffect(() => {
-    const wasPlaying = transitionPlayingRef.current;
-    transitionPlayingRef.current = isPlaying;
-    if (wasPlaying || !isPlaying || incomingIdentity !== visualSnapshot.identity) return;
-
-    visualRevisionRef.current += 1;
-    setVisualSnapshot(snapshot => ({
-      ...snapshot,
-      revision: visualRevisionRef.current,
-    }));
-  }, [incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
     const node = discRef.current;
@@ -290,25 +366,20 @@ export const VinylRecord = ({
     const startSpinWithAcceleration = (startRotation: number) => {
       if (!node) return;
 
-      // Fase 1: Aceleração gradual (0 → velocidade máxima)
-      const accelerationDuration = 3500; // 3.5 segundos para acelerar
-      const fullRotations = 0.8; // 0.8 voltas durante aceleração
-
       const accelAnimation = node.animate(
         [
           { transform: `rotate(${startRotation}deg)` },
-          { transform: `rotate(${startRotation + (360 * fullRotations)}deg)` }
+          { transform: `rotate(${startRotation + (360 * accelerationRotations)}deg)` }
         ],
         {
           duration: accelerationDuration,
           fill: 'forwards',
-          easing: 'cubic-bezier(0.33, 0, 0.2, 1)' // Simula torque do motor
+          easing: 'cubic-bezier(0.42, 0, 0.58, 1)'
         }
       );
 
       accelAnimation.onfinish = () => {
-        // Fase 2: Rotação constante após atingir velocidade
-        rotationRef.current = (startRotation + (360 * fullRotations)) % 360;
+        rotationRef.current = (startRotation + (360 * accelerationRotations)) % 360;
 
         if (!node) return;
         spinAnimationRef.current = node.animate(
@@ -317,7 +388,7 @@ export const VinylRecord = ({
             { transform: `rotate(${rotationRef.current + 360}deg)` }
           ],
           {
-            duration: 9000,
+            duration: steadyRotationDuration,
             iterations: Infinity,
             easing: 'linear'
           }
@@ -340,9 +411,8 @@ export const VinylRecord = ({
       }
 
       if (mode === 'decelerate' && canAnimate) {
-        // Calcula momento baseado na velocidade atual (360° / 9000ms)
-        const baseVelocity = 360 / 9000; // deg por ms na velocidade máxima
-        const decelerationTime = 4000; // 4 segundos para parar
+        const baseVelocity = 360 / steadyRotationDuration;
+        const decelerationTime = phase === 'swapping-album' ? 720 : 4000;
 
         // Distância percorrida durante desaceleração ≈ velocidade média × tempo ÷ 2
         const decelerationRotations = (baseVelocity * decelerationTime / 2) / 360;
@@ -374,30 +444,30 @@ export const VinylRecord = ({
       node.style.transform = `rotate(${rotationRef.current}deg)`;
     };
 
-    if (!node || !canAnimate || !isPlaying) {
-      const shouldDecelerate = previousPlayingRef.current && !isPlaying;
+    if (!node || !canAnimate || !shouldSpin) {
+      const shouldDecelerate = previousPlayingRef.current && !shouldSpin;
       stopSpin(shouldDecelerate ? 'decelerate' : 'instant');
-      previousPlayingRef.current = isPlaying;
+      previousPlayingRef.current = shouldSpin;
       return;
     }
 
     // Limpar animações obsoletas antes de verificar se deve iniciar nova
-    if (spinAnimationRef.current && previousPlayingRef.current !== isPlaying) {
+    if (spinAnimationRef.current && previousPlayingRef.current !== shouldSpin) {
       spinAnimationRef.current.cancel();
       spinAnimationRef.current = null;
     }
 
     // Se já está tocando e o estado não mudou, não reiniciar animação
-    if (previousPlayingRef.current === isPlaying && spinAnimationRef.current) {
+    if (previousPlayingRef.current === shouldSpin && spinAnimationRef.current) {
       return;
     }
 
     stopSpin('instant');
     const startRotation = rotationRef.current;
     startSpinWithAcceleration(startRotation);
-    previousPlayingRef.current = isPlaying;
+    previousPlayingRef.current = shouldSpin;
     return () => stopSpin('instant');
-  }, [canAnimate, isPlaying, visualSnapshot.identity]);
+  }, [canAnimate, phase, shouldSpin, visualSnapshot.identity]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -452,14 +522,15 @@ export const VinylRecord = ({
       className="relative w-full aspect-square flex items-center justify-center"
       data-vinyl-variant={textureName}
       data-vinyl-playback-key={visualSnapshot.playbackKey}
-      data-vinyl-playing={isPlaying ? "true" : "false"}
+      data-vinyl-playing={shouldSpin ? "true" : "false"}
+      data-vinyl-phase={phase}
       data-vinyl-visual-key={visualSnapshot.identity}
     >
       <>
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
-        {!isPlaying && canAnimate && (
+        {!shouldSpin && canAnimate && (
           <div
             className="vinyl-record-aura absolute inset-[-8%] rounded-full pointer-events-none z-0"
             style={{
@@ -471,7 +542,7 @@ export const VinylRecord = ({
       </AnimatePresence>
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
-      <AnimatePresence initial={false} mode="sync">
+      <AnimatePresence initial={canAnimate} mode="sync">
       <motion.div
         key={visualSnapshot.identity}
         data-vinyl-visual={visualSnapshot.identity}
@@ -482,7 +553,7 @@ export const VinylRecord = ({
         exit={transitionMotion.exit}
         transition={transitionMotion.transition}
       >
-      <div className={`relative h-full w-full ${!isPlaying && canAnimate ? "vinyl-record-idle" : ""}`}>
+      <div className={`relative h-full w-full ${!shouldSpin && canAnimate ? "vinyl-record-idle" : ""}`}>
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[4%] w-[4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/70" />
       <div
         ref={(node) => {
@@ -516,10 +587,10 @@ export const VinylRecord = ({
           transformOrigin: 'center center',
           transform: `rotate(${rotationRef.current}deg)`,
           willChange: canAnimate ? 'transform' : 'auto',
-          transition: isPlaying ? 'filter 0.45s ease, box-shadow 0.45s ease, opacity 0.45s ease' : 'filter 0.65s ease, box-shadow 0.65s ease, opacity 0.65s ease',
+          transition: shouldSpin ? 'filter 0.45s ease, box-shadow 0.45s ease, opacity 0.45s ease' : 'filter 0.65s ease, box-shadow 0.65s ease, opacity 0.65s ease',
           opacity: isPlaying ? 1 : 0.82,
-          filter: isPlaying ? 'brightness(1.08) saturate(1.08)' : 'none',
-          boxShadow: isPlaying
+          filter: shouldSpin ? 'brightness(1.08) saturate(1.08)' : 'none',
+          boxShadow: shouldSpin
             ? `0 0 24px ${withAlpha(safeDominantColor, 0.32)}, 0 0 48px ${withAlpha(safeDominantColor, 0.18)}`
             : 'none'
         }}
@@ -545,7 +616,7 @@ export const VinylRecord = ({
               radial-gradient(circle at center, transparent 0 31%, rgba(255,255,255,0.05) 32%, rgba(255,255,255,0.015) 72%, transparent 100%)
             `,
             mixBlendMode: 'screen',
-            opacity: isPlaying ? 0.86 : 0.72,
+            opacity: shouldSpin ? 0.86 : 0.72,
           }}
         />
 
@@ -555,7 +626,7 @@ export const VinylRecord = ({
           style={{
             background: 'conic-gradient(from 35deg, transparent 0deg, rgba(255,255,255,0.12) 12deg, transparent 28deg, transparent 180deg, rgba(255,255,255,0.12) 192deg, transparent 208deg)',
             mixBlendMode: 'screen',
-            opacity: isPlaying ? 0.95 : 0.7,
+            opacity: shouldSpin ? 0.95 : 0.7,
             transition: 'opacity 0.5s ease',
           }}
         />
@@ -564,7 +635,7 @@ export const VinylRecord = ({
         <svg
           viewBox="0 0 100 100"
           className="absolute inset-0 h-full w-full pointer-events-none"
-          style={{ zIndex: 14, opacity: isPlaying ? 1 : 0.85 }}
+          style={{ zIndex: 14, opacity: shouldSpin ? 1 : 0.85 }}
         >
           <defs>
             <clipPath id={`${uniqueId}-vinyl-disc-clip`}>
@@ -654,7 +725,7 @@ export const VinylRecord = ({
             fill="none"
             stroke="rgba(0,0,0,0.115)"
             strokeWidth="7.8"
-            opacity={isPlaying ? 0.46 : 0.38}
+            opacity={shouldSpin ? 0.46 : 0.38}
           />
           <circle
             cx="50"
@@ -663,7 +734,7 @@ export const VinylRecord = ({
             fill="none"
             stroke="rgba(255,255,255,0.14)"
             strokeWidth="1.1"
-            opacity={isPlaying ? 0.62 : 0.54}
+            opacity={shouldSpin ? 0.62 : 0.54}
           />
         </svg>
 
@@ -707,7 +778,7 @@ export const VinylRecord = ({
 
           {/* Escurecimento da capa no idle — como luz apagando */}
           <AnimatePresence>
-            {!isPlaying && (
+            {!shouldSpin && (
               <motion.div
                 className="absolute inset-0 rounded-full pointer-events-none"
                 initial={{ opacity: 0 }}
@@ -729,7 +800,7 @@ export const VinylRecord = ({
       </AnimatePresence>
       </>
 
-      {!hideTonearm && <VinylTonearm isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}
+      {!hideTonearm && <VinylTonearm state={tonearmState} isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}
 
     </div>
   );

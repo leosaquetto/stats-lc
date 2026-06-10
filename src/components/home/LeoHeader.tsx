@@ -30,9 +30,11 @@ function cn(...inputs: ClassValue[]) {
 
 const ScrollingTrackTitle = React.memo(({
   title,
+  isPlaying,
   onClick
 }: {
   title: string;
+  isPlaying: boolean;
   onClick?: () => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
@@ -47,13 +49,14 @@ const ScrollingTrackTitle = React.memo(({
       const text = measureRef.current;
       if (!container || !text) return;
       const overflow = text.scrollWidth - container.clientWidth;
-      setScrollDistance(overflow > 2 ? text.scrollWidth + 32 : 0);
+      const shouldMarqueeOnCompactViewport = title.length >= 18 && window.innerWidth <= 430 && text.scrollWidth > container.clientWidth * 0.82;
+      setScrollDistance(overflow > 2 || shouldMarqueeOnCompactViewport ? text.scrollWidth + 32 : 0);
     };
 
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [title]);
+  }, [isPlaying, title]);
 
   return (
     <button
@@ -61,14 +64,15 @@ const ScrollingTrackTitle = React.memo(({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative block max-w-[42vw] overflow-hidden pb-1 text-left pointer-events-auto cursor-pointer hover:underline sm:max-w-[260px]",
+        "relative z-0 block overflow-hidden pb-px text-left pointer-events-auto cursor-pointer hover:underline",
+        isPlaying ? "max-w-[192px]" : "max-w-[calc(100vw-45px)]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_86%,transparent_100%)]"
       )}
       title={title}
     >
       {shouldScroll ? (
         <span
-          className="stats-lc-track-marquee flex w-max whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal"
+          className="stats-lc-track-marquee flex w-max whitespace-nowrap text-[20.66px] font-sans font-semibold text-white leading-[1.14] tracking-[-0.01em]"
           style={{
             '--track-title-distance': `${scrollDistance}px`,
             '--track-title-duration': `${Math.min(18, Math.max(8, title.length * 0.34))}s`,
@@ -78,13 +82,13 @@ const ScrollingTrackTitle = React.memo(({
           <span className="pr-8" aria-hidden="true">{title}</span>
         </span>
       ) : (
-        <span className="block whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold text-white leading-[1.14] tracking-normal">
+        <span className="block whitespace-nowrap text-[20.66px] font-sans font-semibold text-white leading-[1.14] tracking-[-0.01em]">
           {title}
         </span>
       )}
       <span
         ref={measureRef}
-        className="pointer-events-none absolute -z-10 whitespace-nowrap text-[22px] sm:text-[28px] font-sans font-bold leading-[1.14] tracking-normal opacity-0"
+        className="pointer-events-none absolute -z-10 whitespace-nowrap text-[20.66px] font-sans font-semibold leading-[1.14] tracking-[-0.01em] opacity-0"
         aria-hidden="true"
       >
         {title}
@@ -100,20 +104,20 @@ const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
   return (
     <div
       className={cn(
-        "flex max-w-[128px] shrink-0 flex-col items-start justify-start self-start sm:max-w-[150px]",
-        hasMultipleBadges ? "mt-0 gap-px" : "mt-[1px] gap-[2px]"
+        "flex max-w-[148px] shrink-0 flex-col items-start justify-start self-start sm:max-w-[170px]",
+        hasMultipleBadges ? "-mt-0.5 gap-px" : "mt-[1px] gap-[2px]"
       )}
     >
-      {badges.map((badge, index) => (
+      {badges.map((badge) => (
         <span
           key={badge}
           className={cn(
             "max-w-full truncate rounded-full text-left font-black uppercase leading-none text-white/74 shadow-[0_8px_20px_rgba(0,0,0,0.22)] backdrop-blur-md",
             hasMultipleBadges
-              ? "px-2 py-[2px] text-[5.9px] tracking-[0.1em] sm:px-2.5 sm:text-[6.4px]"
+              ? "px-2 py-[1.5px] text-[5.9px] tracking-[0.1em] sm:px-2.5 sm:text-[6.4px]"
               : "px-2.5 py-[3px] text-[7px] tracking-[0.11em] sm:px-3 sm:text-[7.6px]"
           )}
-          style={{ backgroundColor: index === 0 ? 'rgba(255,255,255,0.062)' : 'rgba(255,255,255,0.036)' }}
+          style={{ backgroundColor: 'rgba(255,255,255,0.062)' }}
         >
           {badge}
         </span>
@@ -278,6 +282,57 @@ function getPlaybackKey(userId: string, nowPlaying: any, previousSnapshot: Playb
 
   return `${userId}:${trackId}:${nowPlaying?.timestamp ?? ''}`;
 }
+
+const getTrackExternalIds = (track: any) => {
+  const spotify = [
+    track?.spotifyId,
+    ...(Array.isArray(track?.externalIds?.spotify) ? track.externalIds.spotify : []),
+  ].filter(Boolean).map(String);
+  const appleMusic = [
+    track?.appleMusicId,
+    ...(Array.isArray(track?.externalIds?.appleMusic) ? track.externalIds.appleMusic : []),
+  ].filter(Boolean).map(String);
+
+  return { spotify, appleMusic };
+};
+
+const normalizeTrackTitleKey = (value: string | undefined) => (
+  value
+    ?.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase() || ''
+);
+
+const isSameResolvedTrack = (liveTrack: any, recentTrack: any) => {
+  if (!liveTrack || !recentTrack) return false;
+  if (liveTrack.id != null && recentTrack.id != null && String(liveTrack.id) === String(recentTrack.id)) return true;
+
+  const liveIds = getTrackExternalIds(liveTrack);
+  const recentIds = getTrackExternalIds(recentTrack);
+  if (liveIds.spotify.some((id) => recentIds.spotify.includes(id))) return true;
+  if (liveIds.appleMusic.some((id) => recentIds.appleMusic.includes(id))) return true;
+
+  const liveName = normalizeTrackTitleKey(liveTrack.name);
+  const recentName = normalizeTrackTitleKey(recentTrack.name);
+  const liveDuration = Number(liveTrack.durationMs || 0);
+  const recentDuration = Number(recentTrack.durationMs || 0);
+
+  return !!liveName && liveName === recentName && (!liveDuration || !recentDuration || Math.abs(liveDuration - recentDuration) <= 2500);
+};
+
+const mergeResolvedTrackMetadata = (liveTrack: any, resolvedTrack: any) => {
+  if (!liveTrack || !resolvedTrack) return liveTrack;
+  return {
+    ...liveTrack,
+    ...resolvedTrack,
+    id: liveTrack.id ?? resolvedTrack.id,
+    name: liveTrack.name || resolvedTrack.name,
+    durationMs: liveTrack.durationMs || resolvedTrack.durationMs,
+    playedCount: liveTrack.playedCount ?? resolvedTrack.playedCount,
+  };
+};
 
 function calculateSnapshotProgress(snapshot: PlaybackSnapshot | null, now = Date.now()) {
   if (!snapshot) return 0;
@@ -579,7 +634,7 @@ export const LiveTrackProgress = memo(({
         <motion.div
           key="playing"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="flex flex-col gap-1 w-full"
+          className="flex w-full origin-left scale-[1.05] flex-col gap-1.5"
         >
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-0.5">
               <LiveElapsedTime
@@ -589,13 +644,13 @@ export const LiveTrackProgress = memo(({
                 className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
               />
             <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
-              <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
-              <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
+              <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+              <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
                 {PlatformLogo}
               </div>
-              <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
+              <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
             </div>
-            <span className="text-[8px] font-black text-white/30 uppercase tracking-[0.08em] tabular-nums">
+            <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
               {formatTrackTime(durationMs)}
             </span>
           </div>
@@ -798,7 +853,7 @@ const ArenaRankingBubble = ({
   );
 };
 
-export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
+export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, recentPlays?: any[], onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailRef = useRef<HTMLDivElement | null>(null);
@@ -835,7 +890,14 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const profileAvatarFallback = profileAvatar !== profileAvatarOriginal ? profileAvatarOriginal : undefined;
   const activeUser = attachLiveNowPlayingToMember(storeUser || user, liveNowPlayingByUserId);
   const nowPlaying = activeUser.nowPlaying;
-  const track = nowPlaying?.track as any;
+  const liveTrack = nowPlaying?.track as any;
+  const track = useMemo(() => {
+    if (!liveTrack || !recentPlays.length) return liveTrack;
+    const match = recentPlays
+      .map((item: any) => item?.track || item)
+      .find((candidate: any) => isSameResolvedTrack(liveTrack, candidate));
+    return match ? mergeResolvedTrackMetadata(liveTrack, match) : liveTrack;
+  }, [liveTrack, recentPlays]);
   const parsedTrackTitle = useMemo(() => parseTrackTitleBadges(track?.name), [track?.name]);
   const albumImage = useMemo(() => {
     if (!track) return "";
@@ -1344,8 +1406,8 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
         )}
         style={{
           willChange: 'transform, opacity',
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 76%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 8%, black 76%, transparent 100%)'
+          maskImage: 'linear-gradient(to bottom, black 0%, black 76%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 76%, transparent 100%)'
         }}
         >
           <AnimatePresence>
@@ -1378,7 +1440,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.28) 0%, transparent 58%)"
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/10 to-transparent backdrop-blur-[1px]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/6 to-transparent backdrop-blur-[1px]" />
               </motion.div>
             ) : (
               <motion.div
@@ -1413,7 +1475,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                    }}
                  />
                  {/* Vinheta escura nas bordas */}
-                 <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-transparent" />
+                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/25" />
               </motion.div>
             )}
@@ -1421,7 +1483,10 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
           <div className="stats-lc-grain stats-lc-header-grain absolute inset-0 pointer-events-none" />
         </div>
         {track && (
-          <div className="absolute right-[-142px] top-[-58px] h-[330px] w-[330px] sm:right-[-188px] sm:top-[-82px] sm:h-[470px] sm:w-[470px] shrink-0 z-20 pointer-events-auto">
+          <div className={cn(
+            "absolute top-[-58px] shrink-0 z-20 pointer-events-auto",
+            visualIsLive ? "right-[-190px] h-[360px] w-[360px]" : "right-[-150px] h-[330px] w-[330px]"
+          )}>
             <div className="w-full h-full overflow-visible">
               <VinylRecord
                 albumImage={albumImage || ""}
@@ -1526,7 +1591,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                       )}>
                         <AnimatedNumber key={user.id} value={streamsToday} startFrom={0} adaptive />
                       </span>
-                      <span className="text-[6px] sm:text-[6.5px] font-black uppercase tracking-[0.16em] text-white/35 leading-none whitespace-nowrap truncate">
+                      <span className="text-[6px] sm:text-[6.5px] font-black uppercase tracking-[0.16em] text-white/60 leading-none whitespace-nowrap truncate">
                         TOTAL HOJE
                       </span>
                     </div>
@@ -1536,24 +1601,33 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
               </div>
 
               {track ? (
-                <div className="flex flex-col gap-6 sm:gap-7 mt-0">
+                <div className={cn(
+                  "flex flex-col mt-0",
+                  visualIsLive && !showRankingSummary ? "gap-7" : "gap-6"
+                )}>
                   {/* Track Info Section */}
                   <motion.div variants={itemVariants} className="flex relative items-start min-h-[168px] sm:min-h-[210px] w-full">
 
                     {/* Conteúdo Esquerdo: textos e ranking compactos, com o vinil vazando por trás */}
-                    <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-40">
+                    <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-10">
                       <div className="flex flex-col gap-0.5">
-                        <div className="flex max-w-[66vw] items-start gap-1.5 sm:max-w-[390px]">
+                        <div className={cn(
+                          "flex items-start gap-1.5",
+                          visualIsLive ? "max-w-[calc(100vw-45px)]" : "max-w-[calc(100vw-45px)]"
+                        )}>
                           <ScrollingTrackTitle
                             title={parsedTrackTitle.displayTitle || track.name}
+                            isPlaying={visualIsLive}
                             onClick={() => onTrackClick?.({ ...track, type: 'track' })}
                           />
                           <TrackTitleBadges badges={parsedTrackTitle.badges} />
                         </div>
-                        <div className="block w-[62vw] max-w-[300px] overflow-hidden pb-0.5 text-[22px] font-medium leading-[1.04] text-white/68 pointer-events-auto select-none line-clamp-2 [text-wrap:balance] sm:text-[28px]">
+                        <div
+                          className="block w-[calc(100vw-45px)] max-w-none overflow-hidden whitespace-nowrap pb-0.5 text-[19.70px] font-normal leading-[1.14] tracking-[-0.016em] text-white/72 pointer-events-auto select-none"
+                        >
                           {displayArtists.map((artist, idx) => {
                             const isLast = idx === displayArtists.length - 1;
-                            const separator = idx === 0 ? '' : isLast ? '\u00a0&\u00a0' : ',\u00a0';
+                            const separator = idx === 0 ? '' : isLast ? ' & ' : ', ';
                             return (
                               <React.Fragment key={`${artist.type}-${artist.id || artist.name}-${idx}`}>
                                 {separator && <span className="text-white/40">{separator}</span>}
@@ -1568,7 +1642,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                   }}
                                   className={cn(
                                     "hover:underline cursor-pointer",
-                                    artist.type === 'primary' ? "text-white/72" : "text-white/58"
+                                    artist.type === 'primary' ? "text-white/72" : "text-white/65"
                                   )}
                                 >
                                   {artist.name}
@@ -1594,14 +1668,17 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 artistName: albumArtistName || mainArtistName
                               });
                             }}
-                            className="text-[10px] sm:text-[12px] font-black uppercase tracking-[0.02em] text-white/50 line-clamp-2 hover:underline hover:text-white/80 cursor-pointer text-left pointer-events-auto w-[62vw] max-w-[300px] leading-[1.18] [text-wrap:balance]"
+                            className="mt-0.5 text-[10px] sm:text-[12px] font-black uppercase tracking-[0.02em] text-white/60 line-clamp-2 hover:underline hover:text-white/85 cursor-pointer text-left pointer-events-auto w-[62vw] max-w-[300px] leading-[1.18] [text-wrap:balance]"
                           >
                             {track.albumName.toUpperCase()}
                           </div>
                         )}
                       </div>
 
-                      <div className="w-[calc((100vw-40px)*0.5)] min-w-[154px] max-w-[220px]">
+                      <div className={cn(
+                        "w-[calc((100vw-40px)*0.5)] min-w-[154px] max-w-[220px]",
+                        visualIsLive && "mt-1"
+                      )}>
                          <LiveTrackProgress
                             progressMs={livePlayback.progressMs}
                             progressPercent={livePlayback.progressPercent}
@@ -1616,15 +1693,24 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                          />
                       </div>
 
-                      <div className="relative flex w-[calc(100vw-40px)] max-w-[350px] items-start pr-1">
-                        <div className="flex min-w-0 w-full flex-wrap items-center gap-2">
+                      <div className={cn(
+                        "relative flex w-[calc(100vw-40px)] max-w-[350px] items-start pr-1",
+                        visualIsLive && (showRankingSummary ? "mt-2" : "mt-2.5")
+                      )}>
+                        <div className="flex min-w-0 w-full flex-wrap items-center gap-3">
                           {showExclusiveFirstListen ? (
-                            <div className="leo-soft-badge flex h-7 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2">
-                              <Star className="h-2.5 w-2.5 fill-orange-400 text-orange-400" />
-                              <span className="text-[10px] font-black tabular-nums leading-none text-orange-300">
-                                <AnimatedNumber value={1} />
-                              </span>
-                              <span className="text-[7px] font-black uppercase tracking-[0.18em] leading-none text-orange-300/80 whitespace-nowrap">
+                            <div className={cn(
+                              "leo-soft-badge flex cursor-pointer items-center rounded-full",
+                              visualIsLive ? "h-8 gap-1.5 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
+                            )}>
+                              <Star className={cn(
+                                "fill-orange-400 text-orange-400",
+                                visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5"
+                              )} />
+                              <span className={cn(
+                                "font-black uppercase tracking-[0.15em] leading-none text-white/60 whitespace-nowrap",
+                                visualIsLive ? "text-[7.5px]" : "text-[7px]"
+                              )}>
                                 FIRST LISTEN
                               </span>
                             </div>
@@ -1733,19 +1819,25 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                               {playCount === undefined ? (
                                 <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
                               ) : (
-                                <div className="leo-soft-badge flex h-7 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2">
+                                <div className={cn(
+                                  "leo-soft-badge flex cursor-pointer items-center rounded-full",
+                                  visualIsLive ? "h-8 gap-1.5 pl-3 pr-2.5" : "h-7 gap-1 pl-2.5 pr-2"
+                                )}>
                                   <Repeat className={cn(
-                                    "h-2.5 w-2.5 transition-colors duration-500",
+                                    "transition-colors duration-500",
+                                    visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
                                     isActuallyLive ? "text-orange-400" : "text-white/40"
                                   )} />
                                   <span className={cn(
-                                    "text-[10px] font-black tabular-nums leading-none transition-colors duration-500",
+                                    "font-black tabular-nums leading-none transition-colors duration-500",
+                                    visualIsLive ? "text-[10.8px]" : "text-[10.3px]",
                                     isActuallyLive ? "text-white" : "text-white/60"
                                   )}>
                                     <AnimatedNumber value={playCount} />
                                   </span>
                                   <span className={cn(
-                                    "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                    "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                    visualIsLive ? "text-[7.5px]" : "text-[7px]",
                                     isActuallyLive ? "text-white/60" : "text-white/40"
                                   )}>
                                     REPEATS
@@ -1764,18 +1856,23 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                                 }));
                               }}
                               whileTap={{ scale: 0.94 }}
-	                              className="leo-soft-badge relative z-[90] flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full pl-2.5 pr-2 transition-colors"
+                              className={cn(
+                                "leo-soft-badge relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                                visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
+                              )}
                               aria-label="Abrir letra"
                             >
                               <BookOpen
                                 className={cn(
-                                  "h-2.5 w-2.5 transition-colors duration-500",
+                                  "transition-colors duration-500",
+                                  visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
                                   isActuallyLive ? "text-orange-400" : "text-white/40"
                                 )}
                                 strokeWidth={2.4}
                               />
                               <span className={cn(
-                                "text-[7px] font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                visualIsLive ? "text-[7.5px]" : "text-[7px]",
                                 isActuallyLive ? "text-white/60" : "text-white/40"
                               )}>
                                 Letra

@@ -3,25 +3,34 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 interface VinylTonearmProps {
-  isPlaying: boolean;
+  isPlaying?: boolean;
+  state?: 'rest' | 'lifted' | 'playing';
   onUserPlaybackChange?: (isPlaying: boolean) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmProps) => {
+export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
   const [level, setLevel] = useState(0.5);
   const [isDragging, setIsDragging] = useState(false);
   const levelRef = useRef(0.5);
   const isDraggingRef = useRef(false);
+  const tonearmState = state ?? (isPlaying ? 'playing' : 'rest');
 
-  const pivotX = 62;
-  const pivotY = -15;
-  const armLength = 46;
-  const idleAngle = 184;
-  const playingAngle = 122;
-  const angle = idleAngle + (playingAngle - idleAngle) * level;
+  const pivotX = 60;
+  const pivotY = -18;
+  const armReachBoost = tonearmState === 'playing' ? 1.4 : 0;
+  const armLength = 46 + armReachBoost;
+  // SVG angles use the browser coordinate plane: 0deg points right, 90deg points down.
+  // Pivot lives at the tonearm mount. Rest stays outside the record; lifted hovers near the groove.
+  const restAngle = 155;
+  const liftedAngle = 140;
+  const playAngle = 135;
+  const angle = restAngle + (playAngle - restAngle) * level;
+  const liftOffset = tonearmState === 'lifted' ? -2.4 : 0;
+  const liftScale = tonearmState === 'lifted' ? 0.992 : 1;
+  const liftOpacity = tonearmState === 'rest' ? 0.48 : tonearmState === 'lifted' ? 0.82 : 1;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;
   const unitX = Math.cos(angleRadians);
@@ -30,7 +39,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
   const perpY = unitX;
   const pointAt = (distance: number, offset = 0) => ({
     x: pivotX + unitX * distance + perpX * offset,
-    y: pivotY + unitY * distance + perpY * offset,
+    y: pivotY + unitY * distance + perpY * offset + liftOffset,
   });
   const polygonPoints = (corners: Array<[number, number]>) =>
     corners
@@ -51,40 +60,45 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
   const shadowYOffset = 3.05;
   const shadowXOffset = 0.2;
   const finalArmShadowStart = pointAt(46.8);
-  const finalArmShadowEnd = pointAt(55.1);
+  const finalArmShadowEnd = pointAt(55.1 + armReachBoost);
   const collarPoints = polygonPoints([
-    [42.8, -1.55],
-    [50.8, -1.55],
-    [50.8, 1.55],
-    [42.8, 1.55],
+    [42.8, -1.75],
+    [51.1 + armReachBoost, -1.75],
+    [51.1 + armReachBoost, 1.75],
+    [42.8, 1.75],
   ]);
   const headPoints = polygonPoints([
-    [49.4, -2.45],
-    [56.6, -2.18],
-    [56.2, 2.48],
-    [49.1, 2.2],
+    [49.2 + armReachBoost, -2.72],
+    [57.0 + armReachBoost, -2.42],
+    [56.6 + armReachBoost, 2.74],
+    [48.9 + armReachBoost, 2.42],
   ]);
   const headShadowPoints = translatedPolygonPoints([
-    [49.4, -2.45],
-    [56.6, -2.18],
-    [56.2, 2.48],
-    [49.1, 2.2],
+    [49.2 + armReachBoost, -2.72],
+    [57.0 + armReachBoost, -2.42],
+    [56.6 + armReachBoost, 2.74],
+    [48.9 + armReachBoost, 2.42],
   ], shadowXOffset, shadowYOffset);
   const headHighlight = polygonPoints([
-    [50.3, -1.35],
-    [55.3, -1.14],
-    [55.2, -0.52],
-    [50.2, -0.74],
+    [50.3 + armReachBoost, -1.48],
+    [55.6 + armReachBoost, -1.24],
+    [55.5 + armReachBoost, -0.54],
+    [50.2 + armReachBoost, -0.8],
   ]);
-  const needleStart = pointAt(56.2, -2.12);
-  const needleEnd = pointAt(56.88, -2.76);
+  const needleStart = pointAt(56.5 + armReachBoost, -2.36);
+  const needleEnd = pointAt(57.28 + armReachBoost, -3.08);
+  const getTargetLevel = () => {
+    if (tonearmState === 'playing') return 1;
+    if (tonearmState === 'lifted') return (liftedAngle - restAngle) / (playAngle - restAngle);
+    return 0;
+  };
 
   useEffect(() => {
     if (isDraggingRef.current) return;
-    const nextLevel = isPlaying ? 1 : 0;
+    const nextLevel = getTargetLevel();
     levelRef.current = nextLevel;
     setLevel(nextLevel);
-  }, [isPlaying]);
+  }, [tonearmState]);
 
   const updateFromPointer = (event: ReactPointerEvent<SVGGElement>) => {
     const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -93,7 +107,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
     const pointerX = ((event.clientX - rect.left) / rect.width) * 100;
     const pointerY = ((event.clientY - rect.top) / rect.height) * 100;
     const pointerAngle = Math.atan2(pointerY - pivotY, pointerX - pivotX) * 180 / Math.PI;
-    const nextLevel = clamp01((idleAngle - pointerAngle) / (idleAngle - playingAngle));
+    const nextLevel = clamp01((pointerAngle - restAngle) / (playAngle - restAngle));
     levelRef.current = nextLevel;
     setLevel(nextLevel);
   };
@@ -122,9 +136,9 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
       >
         <defs>
           <linearGradient id={`${uniqueId}-tonearm-metal`} x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#f8fafc" />
-            <stop offset="42%" stopColor="#94a3b8" />
-            <stop offset="72%" stopColor="#e5e7eb" />
+            <stop offset="0%" stopColor="#d7dde6" />
+            <stop offset="42%" stopColor="#8793a4" />
+            <stop offset="72%" stopColor="#c7ced8" />
             <stop offset="100%" stopColor="#1f2937" />
           </linearGradient>
           <radialGradient id={`${uniqueId}-tonearm-head`} cx="38%" cy="25%" r="85%">
@@ -165,7 +179,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             event.preventDefault();
             isDraggingRef.current = false;
             setIsDragging(false);
-            const nextLevel = isPlaying ? 1 : 0;
+            const nextLevel = getTargetLevel();
             levelRef.current = nextLevel;
             setLevel(nextLevel);
           }}
@@ -203,29 +217,38 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           </g>
 
           <motion.g
-            animate={isPlaying && !isDragging
-              ? { rotate: [0, 1.4, -0.65, 0.82, 0], transformOrigin: `${pivotX}px ${pivotY}px` }
-              : { rotate: 0, transformOrigin: `${pivotX}px ${pivotY}px` }
+            animate={tonearmState === 'playing' && !isDragging
+              ? { rotate: [0, 1.4, -0.65, 0.82, 0], opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
+              : { rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
             }
-            transition={isPlaying && !isDragging
+            transition={tonearmState === 'playing' && !isDragging
               ? { duration: 5.1, times: [0, 0.22, 0.52, 0.78, 1], repeat: Infinity, ease: 'easeInOut' }
-              : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+              : { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] }
             }
           >
           <motion.line
             x1={pivotX}
             y1={pivotY}
             stroke="transparent"
-            strokeWidth="7"
+            strokeWidth="15"
             strokeLinecap="round"
             animate={{ x2: armEnd.x, y2: armEnd.y }}
+            transition={transition}
+          />
+          <motion.line
+            x1={pivotX - 4}
+            y1={pivotY + 1}
+            stroke="transparent"
+            strokeWidth="18"
+            strokeLinecap="round"
+            animate={{ x2: needleEnd.x + 4, y2: needleEnd.y + 4 }}
             transition={transition}
           />
           <motion.line
             x1={pivotX}
             y1={pivotY + armShadowYOffset}
             stroke="rgba(0,0,0,0.34)"
-            strokeWidth="1.45"
+            strokeWidth="1.7"
             strokeLinecap="round"
             filter={`url(#${uniqueId}-tonearm-shadow)`}
             animate={{
@@ -234,7 +257,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             }}
             transition={transition}
           />
-          <g filter={`url(#${uniqueId}-tonearm-shadow)`} opacity="0.32">
+          <g filter={`url(#${uniqueId}-tonearm-shadow)`} opacity={isDragging ? 0.14 : 0.26}>
             <motion.line
               x1={finalArmShadowStart.x + shadowXOffset}
               y1={finalArmShadowStart.y + shadowYOffset}
@@ -259,8 +282,8 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           <motion.line
             x1={pivotX}
             y1={pivotY}
-            stroke="#c4cad2"
-            strokeWidth="0.94"
+            stroke="rgba(196,202,210,0.82)"
+            strokeWidth="1.14"
             strokeLinecap="round"
             animate={{ x2: armEnd.x, y2: armEnd.y }}
             transition={transition}
@@ -282,7 +305,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
             }}
             transition={transition}
             stroke="rgba(251,146,60,0.78)"
-            strokeWidth="0.36"
+            strokeWidth="0.42"
             strokeLinecap="round"
           />
           <motion.circle
