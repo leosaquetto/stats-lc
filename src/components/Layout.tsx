@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Moon } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -318,6 +318,20 @@ const formatFullDate = (value: any) => {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'sem registro';
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatBadgeDate = (timestamp: string) => {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return '';
+  const currentYear = new Date().getFullYear();
+  const year = date.getFullYear();
+
+  const options: Intl.DateTimeFormatOptions = year === currentYear
+    ? { day: 'numeric', month: 'short' }
+    : { day: 'numeric', month: 'short', year: 'numeric' };
+
+  return date.toLocaleDateString('pt-BR', options).replace(/\sde\s/g, ' ').toUpperCase();
 };
 
 const parseDateMs = (value: any) => {
@@ -2112,7 +2126,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               onClick={(event) => event.stopPropagation()}
               className={clsx(
-                "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 [contain:layout]",
+                "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4",
                 isModalVisible ? "pointer-events-auto" : "pointer-events-none",
                 panel === 'lyrics'
                   ? "z-[9999] h-[min(78dvh,600px)] max-h-[calc(100dvh-80px)]"
@@ -2276,7 +2290,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
                       isReleaseDayFirstListen
                         ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
-                        : "stats-lc-soft-white-glass text-white/38"
+                        : "stats-lc-soft-white-glass text-white"
                     )}
                     title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
                   >
@@ -2292,7 +2306,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         />
                       </span>
                     )}
-                    <CalendarDays className="h-2.5 w-2.5 relative z-10" />
+                    <CalendarDays className={clsx(
+                      "h-2.5 w-2.5 relative z-10",
+                      !isReleaseDayFirstListen && "text-orange-300"
+                    )} />
                     <span className="relative z-10">{albumReleaseDate}</span>
                   </span>
                 )}
@@ -2339,14 +2356,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   {artistStats.map((artist) => (
                     <div
                       key={artist.key}
-                      className="bottom-track-stats-surface flex min-w-[132px] max-w-[220px] shrink-0 items-center gap-2 rounded-full px-2.5 py-2"
+                      className="bottom-track-stats-surface flex min-w-0 items-center gap-2 rounded-full pl-2.5 pr-4 py-2"
                     >
                       <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.05]">
                         <SmartImage src={artist.image || artistImage} className="h-full w-full object-cover" rounded="full" fallback={artist.name} />
                       </div>
                       <div className="min-w-0">
-                        <span className="block truncate text-[9px] font-black text-white/78">{artist.name}</span>
-                        <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-orange-300"><AnimatedNumber value={artist.count} /></span>
+                        <span className="block truncate text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">{artist.name}</span>
+                        <span className="mt-1 block text-[10px] font-black uppercase leading-none tabular-nums text-white"><AnimatedNumber value={artist.count} /></span>
                       </div>
                     </div>
                   ))}
@@ -2373,6 +2390,74 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   ))}
                 </div>
                 )
+              )}
+
+              {panelHydration.history && trackHistory && (
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={clsx(
+                      "inline-flex shrink-0 items-center gap-1 rounded-full text-[7px] font-black leading-none tracking-[0.09em]",
+                      isReleaseDayFirstListen
+                        ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
+                        : "bottom-track-stats-surface text-white"
+                    )}
+                    style={{ height: '25px', paddingLeft: isReleaseDayFirstListen && circleFirstListeners.length > 0 ? '4px' : '8px', paddingRight: '8px' }}
+                    title="Primeiro stream"
+                  >
+                    {isReleaseDayFirstListen && (
+                      <span className="absolute inset-0 rounded-full">
+                        <span
+                          className="absolute inset-0 opacity-50"
+                          style={{
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
+                            backgroundSize: '200% 100%',
+                            animation: 'shimmer-orange 2.5s ease-in-out infinite',
+                          }}
+                        />
+                      </span>
+                    )}
+                    {isReleaseDayFirstListen && circleFirstListeners.length > 0 && (
+                      <div className="relative z-10 flex -space-x-1">
+                        {circleFirstListeners.slice(0, 3).map((listener, idx) => (
+                          <div
+                            key={listener.user?.id || idx}
+                            className="h-5 w-5 overflow-hidden rounded-full bg-white/[0.05]"
+                          >
+                            <SmartImage
+                              src={listener.user?.avatar}
+                              className="h-full w-full object-cover"
+                              rounded="full"
+                              fallback={listener.user?.name || '?'}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Sparkles className={clsx(
+                      "h-2.5 w-2.5 relative z-10",
+                      !isReleaseDayFirstListen && "text-orange-300"
+                    )} fill="currentColor" />
+                    <span className="relative z-10">{formatBadgeDate(trackHistory.firstPlayedAt)}</span>
+                  </span>
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
+                    style={{ height: '25px', paddingLeft: '8px', paddingRight: '8px' }}
+                    title="Último stream"
+                  >
+                    <Moon className="h-2.5 w-2.5 relative z-10 text-orange-300" fill="currentColor" />
+                    <span className="relative z-10">{formatBadgeDate(trackHistory.lastPlayedAt)}</span>
+                  </span>
+                  {trackHistory.bestYear && trackHistory.bestYear !== new Date().getFullYear() && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
+                      style={{ height: '25px' }}
+                      title="Ano recorde"
+                    >
+                      <span className="relative z-10 inline-flex items-center justify-center rounded bg-orange-300 pl-1 pr-0.5 py-0.5 font-black" style={{ fontSize: '7.5px', color: 'rgba(0,0,0,0.75)' }}>{trackHistory.bestYearCount}×</span>
+                      <span className="relative z-10">{trackHistory.bestYear}</span>
+                    </span>
+                  )}
+                </div>
               )}
 
               {panelHydration.history ? (

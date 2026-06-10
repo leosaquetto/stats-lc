@@ -291,8 +291,8 @@ export const VinylRecord = ({
       if (!node) return;
 
       // Fase 1: Aceleração gradual (0 → velocidade máxima)
-      const accelerationDuration = 2000; // 2 segundos para acelerar
-      const fullRotations = 1.5; // 1.5 voltas durante aceleração
+      const accelerationDuration = 3500; // 3.5 segundos para acelerar
+      const fullRotations = 0.8; // 0.8 voltas durante aceleração
 
       const accelAnimation = node.animate(
         [
