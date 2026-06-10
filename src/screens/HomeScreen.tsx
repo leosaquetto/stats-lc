@@ -20,7 +20,7 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { OrbitPagerIndicator, ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
+import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
@@ -847,13 +847,20 @@ const HomeOrbitalHighlights = ({
                 </motion.div>
               </AnimatePresence>
             </div>
-            <OrbitPagerIndicator
-              count={activeGroup.items.length}
-              activeIndex={highlightActiveIndexes[activeGroup.key] || 0}
-              onSelect={(index) => scrollToHighlightIndex(activeGroup.key, index)}
-              label={`destaque ${activeGroup.tabLabel.toLowerCase()}`}
-              className="-mt-2"
-            />
+            <div className="flex justify-center gap-1.5 -mt-2">
+              {groups.map((group) => (
+                <button
+                  key={`highlight-category-${group.key}`}
+                  type="button"
+                  onClick={() => setActiveKind(group.key)}
+                  className={cn(
+                    "h-1.5 rounded-full transition-[width,background-color]",
+                    group.key === activeGroup.key ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
+                  )}
+                  aria-label={`Ver ${group.tabLabel.toLowerCase()}`}
+                />
+              ))}
+            </div>
           </article>
         </div>
       </div>

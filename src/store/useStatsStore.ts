@@ -859,7 +859,7 @@ export const useStatsStore = create<StatsState>()(
       notifyOnGroupHighlights: true,
       notifyOnArenaBattle: false,
       arenaName: 'Arena do Grupo',
-      pollingFrequency: 20,
+      pollingFrequency: 10,
 
       historyOrder: 'lastPlayed',
       historyCustomOrder: [],

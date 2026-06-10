@@ -297,6 +297,17 @@
   display: none;
 }
 
+/* Scroll snap para cards de destaque */
+[data-home-horizontal-scroll="true"] > article > div > div {
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+}
+
+[data-home-horizontal-scroll="true"] button[data-highlight-card] {
+  scroll-snap-align: center;
+  scroll-snap-stop: normal;
+}
+
 @utility custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
