@@ -424,6 +424,10 @@
   to { transform: rotate(360deg); }
 }
 
+.animate-vinyl-record-spin {
+  animation: vinyl-record-spin 9s linear infinite;
+}
+
 @keyframes vinyl-record-idle {
   0%, 100% { transform: scale(0.996); opacity: 0.72; }
   50% { transform: scale(1.004); opacity: 0.84; }

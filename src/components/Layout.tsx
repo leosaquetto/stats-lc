@@ -2673,9 +2673,22 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     return saved !== null ? saved === 'true' : false;
   });
 
+  const [showSyncFooter, setShowSyncFooter] = React.useState(false);
+
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setShowSyncFooter(window.scrollY > 400);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial scroll position
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   React.useEffect(() => {
     const handleNowPlaying = (event: any) => {
@@ -2776,7 +2789,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       )}>
         {/* Sync Info Footer - aparece apenas quando scrollar */}
         <AnimatePresence>
-          {lastUpdate && activeMembersSorted.length > 0 && (
+          {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}

@@ -264,6 +264,7 @@ const HomeHighlightPeriodControls = ({
   const handlePeriodSelect = (tab: ReplayFilterPeriod) => {
     if (tab !== activeTab) {
       setIsPulsing(true);
+      setIsLoadingPeriod(true);
       setTimeout(() => setIsPulsing(false), 400);
     }
     onActiveTabChange(tab);
@@ -749,6 +750,8 @@ const HomeOrbitalHighlights = ({
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [previousKind, setPreviousKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
   const [highlightActiveIndexes, setHighlightActiveIndexes] = useState<Record<HomeHighlightKind, number>>({
     artists: 0,
     tracks: 0,
@@ -767,6 +770,14 @@ const HomeOrbitalHighlights = ({
     { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 12) },
     { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, 10) }
   ].filter((group) => group.items.length > 0), [albums, artists, tracks]);
+
+  // Controlar loading state quando os dados mudam
+  useEffect(() => {
+    if (isLoadingPeriod) {
+      const timer = setTimeout(() => setIsLoadingPeriod(false), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [artists, tracks, albums, isLoadingPeriod]);
 
   useEffect(() => {
     if (groups.length === 0) return;
@@ -789,6 +800,10 @@ const HomeOrbitalHighlights = ({
     let nearestIndex = 0;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
+    // Atualizar scroll offset para parallax
+    const currentScrollOffset = node.scrollLeft;
+    setScrollOffset(currentScrollOffset);
+
     cards.forEach((card, index) => {
       const cardRect = card.getBoundingClientRect();
       const distance = cardRect.left - anchorLeft;
@@ -808,19 +823,21 @@ const HomeOrbitalHighlights = ({
       const farFade = Math.max(0.4, 1 - Math.max(0, rightSlot - 2.5) * 0.12);
       const opacity = leftFade * farFade;
       const leftShift = distance < -14 ? Math.max(-28, distance * 0.18) : 0;
-      const textProgress = Math.max(0, Math.min(1, sizeProgress));
 
+      // Blur progressivo APENAS nos muito distantes (reduzir blur)
+      const blurAmount = shouldReduceMotion ? 0 : Math.min(2, Math.max(0, Math.abs(rightSlot - 0.5) - 3) * 1.5);
+
+      // Aplicar transformações no CARD como um todo (não nos elementos internos)
       card.style.width = `${width}px`;
       card.style.height = `${height}px`;
       card.style.opacity = String(opacity);
       card.style.transform = `translate3d(${leftShift}px, 0, 0)`;
+      card.style.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : '';
       card.style.zIndex = String(Math.round(100 - Math.abs(slot) * 8));
       card.style.pointerEvents = opacity < 0.25 ? 'none' : '';
-      card.style.setProperty('--highlight-rank-size', `${24 + (50 - 24) * textProgress}px`);
-      card.style.setProperty('--highlight-title-size', `${9.5 + (15 - 9.5) * textProgress}px`);
-      card.style.setProperty('--highlight-meta-size', `${7.5 + (9 - 7.5) * textProgress}px`);
-      card.style.setProperty('--highlight-detail-size', `${6.5 + (8 - 6.5) * textProgress}px`);
-      card.style.setProperty('--highlight-content-inset', `${8 + (12 - 8) * textProgress}px`);
+
+      // REMOVER animações de texto individuais - causar "stop motion"
+      // Manter tamanhos fixos para fluidez
 
       // Efeito 3D jukebox para álbuns
       if (kind === 'albums') {
@@ -858,6 +875,12 @@ const HomeOrbitalHighlights = ({
   const scrollToHighlightIndex = useCallback((kind: HomeHighlightKind, index: number) => {
     const node = highlightScrollRefs.current[kind];
     if (!node) return;
+
+    // Haptic feedback no mobile
+    if ('vibrate' in navigator && !shouldReduceMotion) {
+      navigator.vibrate(5);
+    }
+
     const config = HIGHLIGHT_VISUAL_CONFIG[kind];
     const step = config.secondary.width + 8;
     node.scrollTo({ left: Math.max(0, index * step), behavior: shouldReduceMotion ? 'auto' : 'smooth' });
@@ -891,6 +914,11 @@ const HomeOrbitalHighlights = ({
   const handleCategoryChange = useCallback((newKind: HomeHighlightKind) => {
     if (newKind === activeKind) return;
 
+    // Haptic feedback no mobile
+    if ('vibrate' in navigator && !shouldReduceMotion) {
+      navigator.vibrate(10);
+    }
+
     const currentIndex = groups.findIndex(g => g.key === activeKind);
     const newIndex = groups.findIndex(g => g.key === newKind);
     const direction = newIndex > currentIndex ? 1 : -1;
@@ -898,7 +926,7 @@ const HomeOrbitalHighlights = ({
     setCategoryDirection(direction);
     setPreviousKind(activeKind);
     setActiveKind(newKind);
-  }, [activeKind, groups]);
+  }, [activeKind, groups, shouldReduceMotion]);
 
   const handleIndicatorTouchStart = useCallback((e: React.TouchEvent) => {
     setIndicatorTouchStartX(e.touches[0].clientX);
@@ -910,6 +938,11 @@ const HomeOrbitalHighlights = ({
     const diff = indicatorTouchStartX - touchEndX;
 
     if (Math.abs(diff) > 30) {
+      // Haptic feedback no swipe
+      if ('vibrate' in navigator && !shouldReduceMotion) {
+        navigator.vibrate(15);
+      }
+
       const currentIndex = groups.findIndex(g => g.key === activeKind);
       if (diff > 0 && currentIndex < groups.length - 1) {
         handleCategoryChange(groups[currentIndex + 1].key);
@@ -918,12 +951,17 @@ const HomeOrbitalHighlights = ({
       }
     }
     setIndicatorTouchStartX(null);
-  }, [activeKind, groups, indicatorTouchStartX, handleCategoryChange]);
+  }, [activeKind, groups, indicatorTouchStartX, handleCategoryChange, shouldReduceMotion]);
 
   const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
     const orderedItems = items;
     if (orderedItems.length === 0) return null;
     const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
+
+    // Calcular parallax baseado no scroll offset
+    const parallaxRing = scrollOffset * -0.03; // Anel sólido move 3% da velocidade
+    const parallaxDash = scrollOffset * -0.05; // Anel tracejado move 5%
+    const parallaxGlow = scrollOffset * -0.02; // Glow move 2%
 
     return (
       <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
@@ -932,6 +970,9 @@ const HomeOrbitalHighlights = ({
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 0.5, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxRing}px)`,
+          }}
         />
         <motion.div
           className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
@@ -948,12 +989,18 @@ const HomeOrbitalHighlights = ({
               ? { duration: 58, repeat: Infinity, ease: 'linear' }
               : { duration: 0.5 }
           }}
+          style={{
+            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxDash}px) rotate(${!shouldReduceMotion && isSectionVisible && isCentered ? '360deg' : '0deg'})`,
+          }}
         />
         <motion.div
           className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl"
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
+          style={{
+            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxGlow}px)`,
+          }}
         />
 
         <div
@@ -964,7 +1011,7 @@ const HomeOrbitalHighlights = ({
             }
           }}
           data-home-horizontal-scroll="true"
-          className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5"
+          className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5 snap-x snap-mandatory"
           onScroll={() => scheduleHighlightCardStyles(kind)}
           onPointerUp={() => scheduleHighlightCardStyles(kind)}
           onTouchEnd={() => scheduleHighlightCardStyles(kind)}
@@ -995,9 +1042,9 @@ const HomeOrbitalHighlights = ({
                 }}
                 transition={{
                   type: 'spring',
-                  stiffness: 300,
-                  damping: 30,
-                  mass: 0.8,
+                  stiffness: 280,
+                  damping: 28,
+                  mass: 0.6,
                   delay: index * 0.045,
                 }}
                 whileHover={isCentered && onItemClick ? {
@@ -1007,7 +1054,7 @@ const HomeOrbitalHighlights = ({
                 } : {}}
                 whileTap={isCentered && onItemClick ? { scale: 0.98 } : {}}
                 className={cn(
-                  "relative shrink-0 overflow-hidden bg-black text-left transition-[width,height,opacity,transform,border-radius,box-shadow] duration-200 ease-out",
+                  "relative shrink-0 overflow-hidden bg-black text-left snap-start",
                   visualConfig.primaryRadius,
                   kind === 'albums' ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]" : "shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]",
                   onItemClick && isCentered && "cursor-pointer"
@@ -1034,34 +1081,28 @@ const HomeOrbitalHighlights = ({
                   <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
                   <span
                     className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
-                    style={{ fontSize: 'var(--highlight-rank-size, 24px)' }}
+                    style={{ fontSize: index === 0 ? '24px' : '20px' }}
                   >
                     {index + 1}
                   </span>
-                  <div
-                    className="absolute bottom-2 z-20 min-w-0"
-                    style={{
-                      left: 'var(--highlight-content-inset, 8px)',
-                      right: 'var(--highlight-content-inset, 8px)',
-                    }}
-                  >
+                  <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
                     {detailLabel(item, kind) && (
                       <span
                         className="mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62"
-                        style={{ fontSize: 'var(--highlight-detail-size, 6.5px)' }}
+                        style={{ fontSize: index === 0 ? '6.5px' : '5.5px' }}
                       >
                         {detailLabel(item, kind)}
                       </span>
                     )}
                     <span
                       className="block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]"
-                      style={{ fontSize: 'var(--highlight-title-size, 9.5px)' }}
+                      style={{ fontSize: index === 0 ? '9.5px' : '8px' }}
                     >
                       {getReplayItemTitle(item)}
                     </span>
                     <span
                       className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
-                      style={{ fontSize: 'var(--highlight-meta-size, 7.5px)' }}
+                      style={{ fontSize: index === 0 ? '7.5px' : '6.5px' }}
                     >
                       {metricLabel(item, kind)}
                     </span>
@@ -1141,6 +1182,43 @@ const HomeOrbitalHighlights = ({
           data-home-horizontal-scroll="true"
           className="relative mt-1 select-none overflow-visible"
         >
+          {/* Loading shimmer overlay */}
+          <AnimatePresence>
+            {isLoadingPeriod && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 z-50 flex items-center justify-center rounded-[34px] bg-black/40 backdrop-blur-sm"
+              >
+                <div className="relative">
+                  <motion.div
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.6, 1, 0.6],
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="h-8 w-8 rounded-full border-2 border-orange-500/30 border-t-orange-500"
+                  />
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                    className="absolute inset-0 h-8 w-8 rounded-full border-2 border-transparent border-t-orange-500"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
             <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
               <AnimatePresence mode="wait" initial={false} custom={categoryDirection}>

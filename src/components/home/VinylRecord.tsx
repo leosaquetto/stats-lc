@@ -317,7 +317,7 @@ export const VinylRecord = ({
             { transform: `rotate(${rotationRef.current + 360}deg)` }
           ],
           {
-            duration: 3000,
+            duration: 9000,
             iterations: Infinity,
             easing: 'linear'
           }
@@ -340,17 +340,22 @@ export const VinylRecord = ({
       }
 
       if (mode === 'decelerate' && canAnimate) {
-        // Desaceleração realista: 4 segundos com 3.5 rotações de momentum
-        const momentumRotations = 3.5;
-        const endRotation = rotationRef.current + (360 * momentumRotations);
+        // Calcula momento baseado na velocidade atual (360° / 9000ms)
+        const baseVelocity = 360 / 9000; // deg por ms na velocidade máxima
+        const decelerationTime = 4000; // 4 segundos para parar
+
+        // Distância percorrida durante desaceleração ≈ velocidade média × tempo ÷ 2
+        const decelerationRotations = (baseVelocity * decelerationTime / 2) / 360;
+        const endRotation = rotationRef.current + (360 * decelerationRotations);
+
         const deceleration = node.animate(
           [
             { transform: `rotate(${rotationRef.current}deg)` },
             { transform: `rotate(${endRotation}deg)` },
           ],
           {
-            duration: 4000,
-            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Simula atrito físico
+            duration: decelerationTime,
+            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             fill: 'forwards'
           }
         );
@@ -376,6 +381,12 @@ export const VinylRecord = ({
       return;
     }
 
+    // Limpar animações obsoletas antes de verificar se deve iniciar nova
+    if (spinAnimationRef.current && previousPlayingRef.current !== isPlaying) {
+      spinAnimationRef.current.cancel();
+      spinAnimationRef.current = null;
+    }
+
     // Se já está tocando e o estado não mudou, não reiniciar animação
     if (previousPlayingRef.current === isPlaying && spinAnimationRef.current) {
       return;
@@ -386,7 +397,7 @@ export const VinylRecord = ({
     startSpinWithAcceleration(startRotation);
     previousPlayingRef.current = isPlaying;
     return () => stopSpin('instant');
-  }, [canAnimate, isPlaying]);
+  }, [canAnimate, isPlaying, visualSnapshot.identity]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -464,7 +475,8 @@ export const VinylRecord = ({
       <motion.div
         key={visualSnapshot.identity}
         data-vinyl-visual={visualSnapshot.identity}
-        className="absolute inset-0 z-10"
+        className="absolute inset-0 z-10 touch-none"
+        style={{ touchAction: 'none' }}
         initial={transitionMotion.initial}
         animate={transitionMotion.animate}
         exit={transitionMotion.exit}

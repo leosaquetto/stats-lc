@@ -195,7 +195,7 @@ const COMPLETE_MARGIN_MS = 2500;
 const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
 const COMPLETION_RECHECK_INTERVAL_MS = 5000;
-const MAX_COMPLETION_RECHECKS = 10;
+const MAX_COMPLETION_RECHECKS = 30;
 
 function normalizePlaybackAccent(color: string | null) {
   if (!color) return null;

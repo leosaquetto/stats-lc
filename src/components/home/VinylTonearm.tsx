@@ -19,8 +19,8 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
   const pivotX = 62;
   const pivotY = -15;
   const armLength = 49;
-  const idleAngle = 161;
-  const playingAngle = 143;
+  const idleAngle = 170;
+  const playingAngle = 130;
   const angle = idleAngle + (playingAngle - idleAngle) * level;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;
@@ -143,22 +143,26 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => {
             event.stopPropagation();
+            event.preventDefault();
             isDraggingRef.current = true;
             setIsDragging(true);
             event.currentTarget.setPointerCapture(event.pointerId);
             updateFromPointer(event);
           }}
           onPointerMove={(event) => {
+            event.preventDefault();
             if (!isDraggingRef.current) return;
             updateFromPointer(event);
           }}
           onPointerUp={(event) => {
+            event.preventDefault();
             isDraggingRef.current = false;
             setIsDragging(false);
             event.currentTarget.releasePointerCapture(event.pointerId);
             commitPointerLevel();
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(event) => {
+            event.preventDefault();
             isDraggingRef.current = false;
             setIsDragging(false);
             const nextLevel = isPlaying ? 1 : 0;
