@@ -104,11 +104,11 @@ const mergeHomeRecentItems = (freshItems: any[], existingItems: any[]) => {
 const getRecentArtworkUrl = (item: any) => {
   const track = item?.track || item;
   return (
-    track?.image ||
-    track?.albumImage ||
-    track?.album?.image ||
     track?.album?.images?.[0]?.url ||
     track?.album?.images?.[0] ||
+    track?.albumImage ||
+    track?.album?.image ||
+    track?.image ||
     ''
   );
 };
