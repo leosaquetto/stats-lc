@@ -191,8 +191,8 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                   )}
 
 	                  <div className={clsx(
-	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-[border-color,box-shadow,opacity,transform] duration-300",
-	                    isPlaying ? "border-white/10 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25),0_16px_48px_rgba(249,115,22,0.18)]" : "border-white/10 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)] group-hover:border-orange-500/40"
+	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-[border-color,box-shadow,opacity,transform] duration-300 shadow-lg",
+	                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
 	                  )}>
 	                    <div className="absolute inset-0 z-0">
 	                        <div
@@ -208,8 +208,8 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
 	                    </div>
 
-	                    <div className="absolute inset-0 z-10 pt-2.5 px-3.5 pb-3.5 flex flex-col justify-between">
-	                      <div className="flex items-center gap-2" style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))' }}>
+	                    <div className="absolute inset-0 z-10 p-3.5 flex flex-col justify-between">
+	                      <div className="flex items-center gap-2">
 	                        <div className="relative">
 	                          <div className={clsx(
 	                            "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-[border-color,box-shadow,opacity,transform] duration-300",
@@ -224,10 +224,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                          )}
 	                        </div>
 	                        <div className="flex flex-col min-w-0">
-	                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors" style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)' }}>
+	                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors">
 	                            {friend.name.split(' ')[0]}
 	                          </span>
-	                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none" style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)' }}>
+	                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none">
 	                            {isPlaying ? "Ouvindo agora" : coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
 	                          </span>
 	                        </div>

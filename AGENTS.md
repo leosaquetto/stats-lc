@@ -125,17 +125,6 @@ Regras importantes:
 - Quando recentes alimentarem Vinil/LeoHeader, preserve resolucao real de album usando `/api/recent?resolveAlbums=1` quando aplicavel.
 - Se o tonearm parecer ausente, verificar `hideTonearm`, clipping e `z-index` antes de refatorar.
 
-### Animacao do Vinil
-
-- O vinil usa Web Animations API com aceleracao/desaceleracao realistas.
-- **Aceleracao**: 2s, 1.5 rotacoes ate atingir 20 RPM (velocidade de reproducao).
-- **Desaceleracao**: 4s, 3.5 rotacoes ate parar completamente.
-- **Rotacao constante**: 3s/volta (20 RPM) enquanto tocando.
-- Easing simula fisica real: `cubic-bezier(0.33, 0, 0.2, 1)` para aceleracao (torque inicial forte), `cubic-bezier(0.25, 0.46, 0.45, 0.94)` para desaceleracao (atrito constante).
-- O tonearm (0.72s) e mais rapido que o vinil intencionalmente - comportamento realista de toca-discos reais.
-- Animacoes respeitam `prefers-reduced-motion` e sao canceladas quando o componente nao esta visivel (Intersection Observer).
-- Ao trocar track rapidamente, a animacao anterior e cancelada instantaneamente para evitar lag.
-
 ## UI
 
 - Mobile primeiro.

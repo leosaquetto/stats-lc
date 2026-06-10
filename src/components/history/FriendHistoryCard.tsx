@@ -80,10 +80,10 @@ const firstPositiveFiniteNumber = (...values: any[]) => {
 
 const getTrackImage = (track: any) => {
   const candidates = [
-    track?.album?.images?.[0]?.url,
-    track?.album?.images?.[0],
     track?.albumImage,
     track?.album?.image,
+    track?.album?.images?.[0]?.url,
+    track?.album?.images?.[0],
     track?.image,
     track?.images?.[0]?.url,
     track?.images?.[0],

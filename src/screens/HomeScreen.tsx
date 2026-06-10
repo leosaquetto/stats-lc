@@ -104,11 +104,11 @@ const mergeHomeRecentItems = (freshItems: any[], existingItems: any[]) => {
 const getRecentArtworkUrl = (item: any) => {
   const track = item?.track || item;
   return (
-    track?.album?.images?.[0]?.url ||
-    track?.album?.images?.[0] ||
+    track?.image ||
     track?.albumImage ||
     track?.album?.image ||
-    track?.image ||
+    track?.album?.images?.[0]?.url ||
+    track?.album?.images?.[0] ||
     ''
   );
 };
@@ -195,11 +195,13 @@ const HomeHighlightPeriodControls = ({
   selectedSubValues,
   onActiveTabChange,
   onSelectedSubValuesChange,
+  onPeriodLoading,
 }: {
   activeTab: ReplayFilterPeriod;
   selectedSubValues: ReplaySelectedSubValues;
   onActiveTabChange: (tab: ReplayFilterPeriod) => void;
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
+  onPeriodLoading?: () => void;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -264,7 +266,7 @@ const HomeHighlightPeriodControls = ({
   const handlePeriodSelect = (tab: ReplayFilterPeriod) => {
     if (tab !== activeTab) {
       setIsPulsing(true);
-      setIsLoadingPeriod(true);
+      onPeriodLoading?.();
       setTimeout(() => setIsPulsing(false), 400);
     }
     onActiveTabChange(tab);
@@ -748,9 +750,7 @@ const HomeOrbitalHighlights = ({
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
-  const [previousKind, setPreviousKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
-  const [scrollOffset, setScrollOffset] = useState(0);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
   const [highlightActiveIndexes, setHighlightActiveIndexes] = useState<Record<HomeHighlightKind, number>>({
     artists: 0,
@@ -760,6 +760,11 @@ const HomeOrbitalHighlights = ({
   const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
   const highlightScrollRefs = useRef<Partial<Record<HomeHighlightKind, HTMLDivElement | null>>>({});
   const highlightScrollRafRef = useRef<number | null>(null);
+  const highlightParallaxRefs = useRef<Partial<Record<HomeHighlightKind, {
+    ring: HTMLDivElement | null;
+    dash: HTMLDivElement | null;
+    glow: HTMLDivElement | null;
+  }>>>({});
   const highlightActiveIndexRefs = useRef<Record<HomeHighlightKind, number>>({
     artists: 0,
     tracks: 0,
@@ -800,9 +805,22 @@ const HomeOrbitalHighlights = ({
     let nearestIndex = 0;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    // Atualizar scroll offset para parallax
     const currentScrollOffset = node.scrollLeft;
-    setScrollOffset(currentScrollOffset);
+    const parallaxNodes = highlightParallaxRefs.current[kind];
+    if (parallaxNodes) {
+      const parallaxRing = shouldReduceMotion ? 0 : currentScrollOffset * -0.03;
+      const parallaxDash = shouldReduceMotion ? 0 : currentScrollOffset * -0.05;
+      const parallaxGlow = shouldReduceMotion ? 0 : currentScrollOffset * -0.02;
+      if (parallaxNodes.ring) {
+        parallaxNodes.ring.style.transform = `translate(-50%, -50%) translateX(${parallaxRing}px)`;
+      }
+      if (parallaxNodes.dash) {
+        parallaxNodes.dash.style.transform = `translate(-50%, -50%) translateX(${parallaxDash}px)`;
+      }
+      if (parallaxNodes.glow) {
+        parallaxNodes.glow.style.transform = `translate(-50%, -50%) translateX(${parallaxGlow}px)`;
+      }
+    }
 
     cards.forEach((card, index) => {
       const cardRect = card.getBoundingClientRect();
@@ -924,7 +942,6 @@ const HomeOrbitalHighlights = ({
     const direction = newIndex > currentIndex ? 1 : -1;
 
     setCategoryDirection(direction);
-    setPreviousKind(activeKind);
     setActiveKind(newKind);
   }, [activeKind, groups, shouldReduceMotion]);
 
@@ -958,23 +975,23 @@ const HomeOrbitalHighlights = ({
     if (orderedItems.length === 0) return null;
     const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
 
-    // Calcular parallax baseado no scroll offset
-    const parallaxRing = scrollOffset * -0.03; // Anel sólido move 3% da velocidade
-    const parallaxDash = scrollOffset * -0.05; // Anel tracejado move 5%
-    const parallaxGlow = scrollOffset * -0.02; // Glow move 2%
-
     return (
       <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
         <motion.div
+          ref={(node) => {
+            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
+            highlightParallaxRefs.current[kind] = { ...current, ring: node };
+          }}
           className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]", visualConfig.ringScale)}
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 0.5, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          style={{
-            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxRing}px)`,
-          }}
         />
         <motion.div
+          ref={(node) => {
+            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
+            highlightParallaxRefs.current[kind] = { ...current, dash: node };
+          }}
           className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
           initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
           animate={{
@@ -989,18 +1006,16 @@ const HomeOrbitalHighlights = ({
               ? { duration: 58, repeat: Infinity, ease: 'linear' }
               : { duration: 0.5 }
           }}
-          style={{
-            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxDash}px) rotate(${!shouldReduceMotion && isSectionVisible && isCentered ? '360deg' : '0deg'})`,
-          }}
         />
         <motion.div
+          ref={(node) => {
+            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
+            highlightParallaxRefs.current[kind] = { ...current, glow: node };
+          }}
           className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl"
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
-          style={{
-            transform: `translate(-50%, -50%) translateX(${shouldReduceMotion ? 0 : parallaxGlow}px)`,
-          }}
         />
 
         <div
@@ -1175,6 +1190,7 @@ const HomeOrbitalHighlights = ({
             selectedSubValues={selectedSubValues}
             onActiveTabChange={onActiveTabChange}
             onSelectedSubValuesChange={onSelectedSubValuesChange}
+            onPeriodLoading={() => setIsLoadingPeriod(true)}
           />
         </motion.div>
 
@@ -1875,29 +1891,17 @@ export default function HomeScreen() {
     setShowInitialModal(false);
   }, [allMembers, featuredUserId, location.pathname, setFeaturedUserId]);
 
-  const primaryUserRef = useRef<typeof allMembers[0] | null>(null);
-
   const primaryUser = useMemo(() => {
-    if (!groupStats) {
-      primaryUserRef.current = null;
-      return null;
-    }
-
-    const candidate = (
+    if (!groupStats) return null;
+    // Prioriza allMembers para permitir usuário oculto como featuredUserId
+    return (
       allMembers.find(m => m.id === featuredUserId) ||
       members.find(m => m.id === featuredUserId) ||
       members[0] ||
       allMembers[0] ||
       null
     );
-
-    // Só atualiza ref se o ID mudou
-    if (!primaryUserRef.current || primaryUserRef.current.id !== candidate?.id) {
-      primaryUserRef.current = candidate;
-    }
-
-    return primaryUserRef.current;
-  }, [featuredUserId, groupStats]);
+  }, [allMembers, featuredUserId, groupStats, members]);
   const FEATURED_ID = primaryUser?.id || '';
   const liveTodayStats = primaryUser?.id ? liveStreamsTodayByUserId[primaryUser.id] : undefined;
   const currentSaoPauloDay = getSaoPauloDayKey(new Date());
@@ -2535,7 +2539,7 @@ export default function HomeScreen() {
           />
 
           <AnimatePresence>
-            <React.Suspense key="home-detail-modals" fallback={null}>
+            <React.Suspense key="home-detail-modals" fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
               {viewingFullHistoryUser && (
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
@@ -2837,10 +2841,10 @@ export default function HomeScreen() {
           >
             <motion.div
               key={primaryUser.id}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col gap-3 overflow-visible"
             >
               <div 

@@ -33,7 +33,7 @@ export interface MusicCardProps {
   durationMs?: number;
 }
 
-export const MusicCard = ({
+export const MusicCard = React.memo(({
   userId,
   userName,
   songName,
@@ -250,6 +250,16 @@ export const MusicCard = ({
       </AnimatePresence>
     </>
   );
-};
+}, (prev, next) => (
+  prev.userId === next.userId &&
+  prev.songName === next.songName &&
+  prev.isNowPlaying === next.isNowPlaying &&
+  prev.isFirstPlay === next.isFirstPlay &&
+  prev.footer === next.footer &&
+  prev.imageUrl === next.imageUrl &&
+  prev.progressMs === next.progressMs &&
+  prev.durationMs === next.durationMs &&
+  prev.playCount === next.playCount
+));
 
 MusicCard.displayName = 'MusicCard';

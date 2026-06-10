@@ -88,11 +88,10 @@
         splash.dataset.dismissed = '1';
         window.__SPLASH_READY__ = true;
         splash.style.opacity = '0';
-        splash.style.transform = 'translateY(-20px)';
-        splash.style.transition = 'opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+        splash.style.transition = 'opacity 0.35s ease-out';
         setTimeout(function () {
           if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-        }, 400);
+        }, 350);
       };
     </script>
     <div id="root"></div>

@@ -320,9 +320,10 @@ const formatFullDate = (value: any) => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const formatBadgeDate = (timestamp: string) => {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
+const formatBadgeDate = (timestamp: string | number) => {
+  const time = parseDateMs(timestamp);
+  if (!time) return '';
+  const date = new Date(time);
   if (!Number.isFinite(date.getTime())) return '';
   const currentYear = new Date().getFullYear();
   const year = date.getFullYear();
@@ -1521,7 +1522,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           });
         }).catch(() => undefined);
       });
-    }, 80);
+    }, 280);
 
     const fullTimer = window.setTimeout(() => {
       loadBottomTrackStatsPanelData({
@@ -1541,7 +1542,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           panelDataKeyRef.current = panelCacheKey;
         });
       });
-    }, 300);
+    }, 680);
 
     return () => {
       cancelled = true;
@@ -2282,38 +2283,38 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <p className="mt-1 text-xs font-semibold leading-tight text-white/48">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
-              <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
-                <ModalScrollingAlbumName albumName={albumName} />
-                {panel === 'stats' && albumReleaseDate && (
-                  <span
-                    className={clsx(
-                      "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
-                      isReleaseDayFirstListen
-                        ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
-                        : "stats-lc-soft-white-glass text-white"
-                    )}
-                    title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
-                  >
-                    {isReleaseDayFirstListen && (
-                      <span className="absolute inset-0 rounded-full">
-                        <span
-                          className="absolute inset-0 opacity-50"
-                          style={{
-                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                            backgroundSize: '200% 100%',
-                            animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                          }}
-                        />
+                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
+                    <ModalScrollingAlbumName albumName={albumName} />
+                    {panel === 'stats' && albumReleaseDate && (
+                      <span
+                        className={clsx(
+                          "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
+                          isReleaseDayFirstListen
+                            ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
+                            : "stats-lc-soft-white-glass text-white"
+                        )}
+                        title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
+                      >
+                        {isReleaseDayFirstListen && (
+                          <span className="absolute inset-0 rounded-full">
+                            <span
+                              className="absolute inset-0 opacity-50"
+                              style={{
+                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
+                                backgroundSize: '200% 100%',
+                                animation: 'shimmer-orange 2.5s ease-in-out infinite',
+                              }}
+                            />
+                          </span>
+                        )}
+                        <CalendarDays className={clsx(
+                          "h-2.5 w-2.5 relative z-10",
+                          !isReleaseDayFirstListen && "text-orange-300"
+                        )} />
+                        <span className="relative z-10">{albumReleaseDate}</span>
                       </span>
                     )}
-                    <CalendarDays className={clsx(
-                      "h-2.5 w-2.5 relative z-10",
-                      !isReleaseDayFirstListen && "text-orange-300"
-                    )} />
-                    <span className="relative z-10">{albumReleaseDate}</span>
-                  </span>
-                )}
-              </p>
+                  </div>
             </div>
           </div>
 
@@ -2447,7 +2448,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     <Moon className="h-2.5 w-2.5 relative z-10 text-orange-300" fill="currentColor" />
                     <span className="relative z-10">{formatBadgeDate(trackHistory.lastPlayedAt)}</span>
                   </span>
-                  {trackHistory.bestYear && trackHistory.bestYear !== new Date().getFullYear() && (
+                  {trackHistory.bestYear && trackHistory.bestYear !== String(new Date().getFullYear()) && (
                     <span
                       className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
                       style={{ height: '25px' }}

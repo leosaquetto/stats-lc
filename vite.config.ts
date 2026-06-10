@@ -45,12 +45,6 @@ export default defineConfig(({mode}) => {
           secure: true,
         },
       },
-      middlewareMode: false,
-      cors: true,
-      headers: {
-        // Simula cache de produção no localhost
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
     },
   };
 });

@@ -195,7 +195,7 @@ const COMPLETE_MARGIN_MS = 2500;
 const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
 const COMPLETION_RECHECK_INTERVAL_MS = 5000;
-const MAX_COMPLETION_RECHECKS = 30;
+const MAX_COMPLETION_RECHECKS = 6;
 
 function normalizePlaybackAccent(color: string | null) {
   if (!color) return null;
@@ -752,10 +752,7 @@ const ArenaRankingBubble = ({
   const initialScale = isHiddenInitial ? 0 : baseScale;
 
   return (
-    <motion.div
-      layout
-      layoutId={`arena-bubble-${user.id}`}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+    <div
       data-arena-bubble="true"
       data-arena-index={index}
       data-arena-base-scale={baseScale}
@@ -795,16 +792,12 @@ const ArenaRankingBubble = ({
           coreUtils.formatNumber(user.plays)
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
 export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
-
-  // Estabiliza avatar string para evitar re-renders desnecessários
-  const userAvatarString = typeof user.avatar === 'string' ? user.avatar : '';
-
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailRef = useRef<HTMLDivElement | null>(null);
   const arenaDomCacheRef = useRef<ArenaDomCache | null>(null);
@@ -813,27 +806,16 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const arenaDragStartRef = useRef<{ pointerId: number; x: number; value: number; moved: boolean } | null>(null);
   const arenaSuppressClickUntilRef = useRef(0);
 
-  const previousAvatarValue = useRef<string>('');
-  const previousUserId = useRef<string>('');
-
   const profileAvatarOriginal = useMemo(() => {
-    const nextAvatar = coreUtils.getUserAvatar(user.id, userAvatarString);
-
-    // Se o ID e o valor do avatar não mudaram, retorna o valor estável
-    if (previousUserId.current === user.id && previousAvatarValue.current === nextAvatar) {
-      return stableHeaderAvatarByUserId.get(user.id) || nextAvatar;
-    }
-
-    previousUserId.current = user.id;
-    previousAvatarValue.current = nextAvatar;
-
+    const nextAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+    const stableAvatar = stableHeaderAvatarByUserId.get(user.id);
+    if (stableAvatar) return stableAvatar;
     if (nextAvatar) {
       stableHeaderAvatarByUserId.set(user.id, nextAvatar);
       return nextAvatar;
     }
-
-    return stableHeaderAvatarByUserId.get(user.id) || '';
-  }, [user.id, userAvatarString]);
+    return '';
+  }, [user.id, user.avatar]);
   const profileAvatar = useMemo(() => getStaticAvatarCandidate(profileAvatarOriginal), [profileAvatarOriginal]);
   const profileAvatarFallback = profileAvatar !== profileAvatarOriginal ? profileAvatarOriginal : undefined;
   const groupStatsForUser = useStatsStore(s => s.groupStats);
@@ -1641,7 +1623,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                            >
                               <div
                                 ref={arenaTrailRef}
-                                key="arena-trail"
+                                key={`arena-trail-${track.id || track.name || 'track'}`}
                                 data-home-horizontal-scroll="true"
                                 className="relative h-[58px] overflow-visible py-2 pr-0"
                                 style={{ width: `${arenaSummaryWidth}px` }}

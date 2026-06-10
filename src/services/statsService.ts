@@ -243,7 +243,7 @@ const normalizeTrack = (track: any) => {
     albumArtist,
     albumArtistId: track.albumArtistId || track.album?.artistId || track.album?.primaryArtistId || track.album?.artist?.id || track.album?.primaryArtist?.id,
     albumArtistName: track.albumArtistName || albumArtistName || track.album?.artistName || track.album?.primaryArtistName || track.album?.artist?.name || track.album?.primaryArtist?.name,
-    albumImage: track.albumImage || track.album?.images?.[0]?.url || track.album?.images?.[0] || track.album?.image,
+    albumImage: track.albumImage || track.album?.image,
     albumReleaseDate: track.album?.releaseDate || track.album?.releasedAt || track.album?.release_date || track.albumReleaseDate || track.albums?.[0]?.releaseDate || track.albums?.[0]?.releasedAt || track.albums?.[0]?.release_date,
     releaseDate: track.releaseDate || track.releasedAt || track.release_date,
     durationMs: track.durationMs,
