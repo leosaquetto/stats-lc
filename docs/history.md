@@ -91,6 +91,29 @@ novo e `docs/current-state.md` para o estado operacional recente.
   titulo de duas linhas e versao `v2` do cache de tops.
 - Expo, Capacitor, Xcode, commit e deploy ficaram fora deste lote.
 
+## 2026-06-10 - Atividade completa e troca cinematografica do vinil
+
+- Criado `/api/group-activity` no `stats-lc-api`, com historico completo por
+  membro, hidratacao de faixa, concorrencia tres, deadline, cache/stale e
+  resposta parcial.
+- A Home passou a buscar esse fallback em background perto da viewport, sem
+  persistencia, mantendo live como fonte prioritaria e ate tres cards reais.
+- Corrigido o deadline agregado para a rota responder mesmo quando workers
+  upstream continuam lentos; o orçamento por usuario foi ajustado apos teste
+  real com a ultima reproducao de Savio (`Love Controller`).
+- A troca do vinil deixou de combinar oscilacao CSS e giro WAAPI no mesmo
+  elemento. Entrada/saida, idle e rotacao agora possuem camadas separadas.
+- Adicionada `playbackKey` ao vinil, snapshot de capa/cor/chave apos decode e
+  nova revisao ao passar de ocioso para tocando, inclusive pelo tonearm.
+- A transicao passou a tween cinematografico pela direita, com crossfade curto
+  em movimento reduzido e sem alterar API, cache ou persistencia do vinil.
+- O QA mobile confirmou tres atividades reais, incluindo Savio com
+  `Love Controller`, e preservou o scroll horizontal. Lint, build, os 67 testes
+  da API e os dois `git diff --check` passaram.
+- O Browser moveu o tonearm pelo SVG, mas seu driver CUA nao confirmou o
+  `pointerup` capturado; a validacao final desse gesto permanece manual, sem
+  indicar erro de console ou falha estrutural no componente.
+
 ## Vinil
 
 - `src/components/home/VinylRecord.tsx` tem variantes procedurais: `classic`,

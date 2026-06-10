@@ -142,7 +142,11 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   }
 
   return (
-    <div ref={reelRef} className="flex flex-col gap-4 my-6">
+    <div
+      ref={reelRef}
+      className="flex flex-col gap-4 my-6"
+      data-circle-activity-count={topFriends.length}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="h-1.5 w-1.5 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.6)]" />
@@ -172,6 +176,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
             return (
               <motion.div
                 key={friend.id}
+                data-circle-activity-card={friend.id}
                 initial={{ opacity: 0, scale: 0.92, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: idx * 0.035 }}

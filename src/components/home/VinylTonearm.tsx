@@ -138,6 +138,7 @@ export const VinylTonearm = ({ isPlaying, onUserPlaybackChange }: VinylTonearmPr
         </defs>
 
         <g
+          data-vinyl-tonearm-control="true"
           className="pointer-events-auto cursor-grab touch-none active:cursor-grabbing"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => {

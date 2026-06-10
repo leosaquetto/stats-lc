@@ -393,6 +393,9 @@ export const VinylRecord = ({
       ref={containerRef}
       className="relative w-full aspect-square flex items-center justify-center"
       data-vinyl-variant={textureName}
+      data-vinyl-playback-key={visualSnapshot.playbackKey}
+      data-vinyl-playing={isPlaying ? "true" : "false"}
+      data-vinyl-revision={visualSnapshot.revision}
     >
       <>
 
@@ -413,6 +416,7 @@ export const VinylRecord = ({
       <AnimatePresence initial={false} mode="sync">
       <motion.div
         key={`${visualSnapshot.playbackKey}:${visualSnapshot.revision}`}
+        data-vinyl-visual={visualSnapshot.revision}
         className="absolute inset-0 z-10"
         initial={transitionMotion.initial}
         animate={transitionMotion.animate}

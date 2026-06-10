@@ -154,6 +154,53 @@ Compare regressao usando o mesmo viewport, rede e estado de cache.
   titulo em duas linhas e usa cache de tops `v2` para descartar classificacoes
   antigas incorretas.
 
+### Atividade do Circulo e troca do vinil de 2026-06-10
+
+- A Atividade do Circulo continua priorizando `liveNowPlayingByUserId`, mas
+  agora usa `/api/group-activity` como fallback para a ultima reproducao do
+  historico completo de cada membro.
+- `/api/group-activity` consulta `/users/:id/streams?limit=1`, limita a
+  concorrencia interna a tres usuarios, hidrata linhas que possuem apenas
+  `trackId/trackName`, reaproveita a resolucao de album e responde de forma
+  parcial sob deadline de 10,5 segundos. A rota e progressiva e nao bloqueia a
+  liberacao da Home.
+- A rota usa cache CDN de 180 segundos com stale de 900 segundos e nunca envia
+  `force=1`. O frontend reutiliza o cache/dedupe temporario de cinco minutos do
+  `statsService`; nada foi adicionado ao Zustand ou a persistencia.
+- `FriendActivityReel` carrega o fallback somente perto da viewport, mistura
+  live e historico, marca historico como nao-live, ordena live primeiro e
+  depois por timestamp, mostra ate tres cards e oculta membros sem atividade.
+- O rotulo lateral passou de `Tempo Real` para `Atividade recente`.
+- A troca do vinil separa transformacoes em tres camadas: entrada/saida
+  horizontal externa, oscilacao ociosa intermediaria e rotacao WAAPI no disco
+  interno. `vinyl-record-idle` nao atua mais no elemento que gira.
+- `VinylRecord` recebe `playbackKey`, portanto duas faixas com a mesma capa
+  ainda geram revisoes visuais distintas.
+- Capa, cor e playback key ficam em um snapshot visual unico. Uma nova capa so
+  substitui a anterior depois de preload e `decode()`; o fallback prematuro de
+  700 ms foi removido.
+- A passagem de ocioso para tocando tambem cria uma nova revisao visual, mesmo
+  com a mesma reproducao, cobrindo o gesto manual do tonearm sem duplicar a
+  animacao quando chave e capa mudam juntas.
+- A coreografia usa sobreposicao com tween: anterior sai cerca de 150 px para
+  a direita e o novo entra de cerca de 140 px, em 540-580 ms. Movimento
+  reduzido ou vinil fora da viewport usa crossfade curto.
+- Tonearm, drag, sombras, furo, textura e angulo acumulado do disco permanecem
+  independentes da arvore trocada.
+- Validacao local em `390x844` confirmou tres cards reais na Atividade do
+  Circulo: Gabriel, Savio com `Love Controller` de Demi Lovato, e Benny. O
+  scroll horizontal e a composicao mobile permaneceram intactos.
+- A rota local isolada foi necessaria durante o QA porque o fanout completo da
+  Home satura artificialmente o `vercel dev`; ela confirmou a hidratacao e o
+  terceiro card sem alterar o comportamento de producao.
+- O Browser in-app confirmou o vinil e o tonearm montados, a revisao visual e
+  o movimento do braco. A automacao CUA nao entregou de forma confiavel o
+  `pointerup` capturado pelo SVG, portanto o fechamento do gesto manual
+  ocioso/tocando continua sendo um ponto de verificacao humana no aparelho.
+- Gates deste checkpoint: frontend `npm run lint`, `npm run build` e
+  `git diff --check`; API `npm run check` com 67 testes e
+  `git diff --check`, todos aprovados.
+
 ## Bottom Bubble e Modal de Musica
 
 Checkpoint consolidado da sessao de 2026-06-05:
