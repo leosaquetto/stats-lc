@@ -209,7 +209,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                    </div>
 
 	                    <div className="absolute inset-0 z-10 pt-2.5 px-3.5 pb-3.5 flex flex-col justify-between">
-	                      <div className="flex items-center gap-2">
+	                      <div className="flex items-center gap-2" style={{ filter: 'drop-shadow(0 2px 8px rgba(0, 0, 0, 0.6))' }}>
 	                        <div className="relative">
 	                          <div className={clsx(
 	                            "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-[border-color,box-shadow,opacity,transform] duration-300",
@@ -224,10 +224,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                          )}
 	                        </div>
 	                        <div className="flex flex-col min-w-0">
-	                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors">
+	                          <span className="text-[9.5px] font-black text-white truncate leading-none mb-0.5 group-hover:text-orange-400 transition-colors" style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)' }}>
 	                            {friend.name.split(' ')[0]}
 	                          </span>
-	                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none">
+	                          <span className="text-[7px] font-bold text-white/40 uppercase tracking-widest leading-none" style={{ textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)' }}>
 	                            {isPlaying ? "Ouvindo agora" : coreUtils.getTimeAgoSmart(new Date(friend.nowPlaying?.timestamp || 0))}
 	                          </span>
 	                        </div>

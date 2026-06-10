@@ -201,6 +201,37 @@ Compare regressao usando o mesmo viewport, rede e estado de cache.
   `git diff --check`; API `npm run check` com 67 testes e
   `git diff --check`, todos aprovados.
 
+### Lapidacao de UI e Performance de 2026-06-10 (tarde)
+
+Commit publicado: `43ffe69` (`Refine animations, avatar stability, image loading`)
+
+Mudancas consolidadas:
+
+- A transicao da splash para a Home agora usa `translateY` combinado com fade,
+  criando movimento vertical coordenado: splash sobe enquanto desaparece (400ms)
+  e LeoHeader desce enquanto aparece (400ms), eliminando o gap de tela preta.
+- `FriendActivityReel` ajustou padding do card de `p-3.5` para
+  `pt-2.5 px-3.5 pb-3.5`, elevando avatar, nome e timestamp em 4px.
+- Sombras dos cards da Atividade do Circulo foram intensificadas:
+  `shadow-[0_8px_24px_rgba(0,0,0,0.4)]` no estado padrao e dupla sombra
+  `shadow-[0_8px_24px_rgba(0,0,0,0.4),0_16px_48px_rgba(249,115,22,0.24)]` quando
+  tocando, melhorando contraste e leitura.
+- Avatar, nome e timestamp dos cards da Atividade ganharam `drop-shadow` e
+  `text-shadow` adicionais para destacar texto sobre imagens de fundo variaveis.
+- `SmartImage` melhorou logica de cache: verifica `loadedImageSrcs` e
+  `stableImageSrcByKey` antes de disparar estado de loading, evitando shimmer
+  desnecessario quando imagem ja esta carregada.
+- `primaryUser` no HomeScreen usa `useRef` para manter referencia estavel,
+  atualizando apenas quando o ID realmente muda, reduzindo dependencias do
+  `useMemo` de 4 para 2.
+- `profileAvatarOriginal` no LeoHeader extrai `userAvatarString` estavel no
+  inicio do componente e compara `userId` + `avatarValue` antes de recalcular,
+  evitando re-renders quando apenas a referencia do objeto `user` muda.
+- Essas otimizacoes reduzem flickering do avatar do usuario principal durante
+  updates live e trocas de faixa.
+
+Gates desta rodada: `npm run lint`, `npm run build` e `git diff --check`.
+
 ## Bottom Bubble e Modal de Musica
 
 Checkpoint consolidado da sessao de 2026-06-05:
