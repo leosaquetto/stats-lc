@@ -202,9 +202,11 @@ const HomeHighlightPeriodControls = ({
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 16, top: 120, width: 272 });
+  const shouldReduceMotion = useReducedMotion();
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
   const currentYear = new Date().getFullYear();
@@ -260,6 +262,10 @@ const HomeHighlightPeriodControls = ({
   }, [activeTab, isOpen]);
 
   const handlePeriodSelect = (tab: ReplayFilterPeriod) => {
+    if (tab !== activeTab) {
+      setIsPulsing(true);
+      setTimeout(() => setIsPulsing(false), 400);
+    }
     onActiveTabChange(tab);
     if (tab === 'today' || tab === 'all') {
       setIsOpen(false);
@@ -268,28 +274,50 @@ const HomeHighlightPeriodControls = ({
 
   return (
     <div ref={menuRef} className="relative z-40 shrink-0">
-      <button
+      <motion.button
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/30 px-3 text-orange-100 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-[background-color,border-color,transform] active:scale-[0.96]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/30 px-3 text-orange-100 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-[background-color,border-color] hover:bg-black/40 hover:border-white/[0.1]"
         aria-label={`Filtro de período: ${activeLabel}`}
         aria-expanded={isOpen}
+        whileTap={{ scale: 0.96 }}
+        animate={isPulsing && !shouldReduceMotion ? {
+          scale: [1, 1.04, 1],
+        } : {}}
+        transition={{ duration: 0.4, ease: [0.68, -0.55, 0.265, 1.55] }}
       >
         <Clock3 className="h-4 w-4 shrink-0" />
-        <span className="max-w-[76px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76">
+        <motion.span
+          key={activeLabel}
+          initial={{ opacity: 0, y: -3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="max-w-[76px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76"
+        >
           {activeLabel}
-        </span>
-        <ChevronDown className={cn("h-3 w-3 shrink-0 text-white/56 transition-transform", isOpen && "rotate-180")} />
-      </button>
+        </motion.span>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
+          <ChevronDown className="h-3 w-3 shrink-0 text-white/56" />
+        </motion.div>
+      </motion.button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            ref={menuRef}
+            initial={{ opacity: 0, y: -6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{
+              type: 'spring',
+              stiffness: 400,
+              damping: 25,
+              mass: 0.6,
+            }}
             className="fixed z-50 max-h-[min(420px,calc(100vh-150px))] overflow-y-auto rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl no-scrollbar"
             style={{
               left: menuPosition.left,
@@ -298,70 +326,133 @@ const HomeHighlightPeriodControls = ({
             }}
           >
             <div className="grid grid-cols-2 gap-1">
-              {periodTabs.map((tab) => (
-                <button
+              {periodTabs.map((tab, index) => (
+                <motion.button
                   key={tab.key}
                   type="button"
                   onClick={() => handlePeriodSelect(tab.key)}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    duration: 0.18,
+                    ease: [0.16, 1, 0.3, 1],
+                    delay: index * 0.025,
+                  }}
+                  whileHover={activeTab !== tab.key ? {
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    scale: 1.02,
+                    transition: { duration: 0.15 }
+                  } : {}}
+                  whileTap={{ scale: 0.98 }}
                   className={cn(
-                    "flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-[background-color,color,transform] active:scale-[0.98]",
+                    "flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-colors relative overflow-hidden",
                     activeTab === tab.key
                       ? "bg-orange-500/16 text-orange-100"
-                      : "text-white/46 hover:bg-white/[0.05] hover:text-white/76"
+                      : "text-white/46"
                   )}
                 >
-                  <Clock3 className="h-3.5 w-3.5 shrink-0" />
-                  {tab.label}
-                </button>
+                  {activeTab === tab.key && (
+                    <motion.div
+                      layoutId="periodActiveIndicator"
+                      className="absolute inset-0 bg-orange-500/16 rounded-[16px]"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                  <Clock3 className="h-3.5 w-3.5 shrink-0 relative z-10" />
+                  <span className="relative z-10">{tab.label}</span>
+                </motion.button>
               ))}
             </div>
 
             {activeTab === 'week' && (
-              <div className="mt-2 border-t border-white/[0.06] pt-2">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 border-t border-white/[0.06] pt-2"
+              >
                 <div className="grid grid-cols-2 gap-1">
                   {[
                     { key: 'last-7' as ReplayWeekMode, label: '7 dias' },
                     { key: 'current' as ReplayWeekMode, label: 'Semana atual' }
-                  ].map((option) => {
+                  ].map((option, index) => {
                     const isSelected = selectedSubValues.weekMode === option.key;
                     return (
-                      <button
+                      <motion.button
                         key={option.key}
                         type="button"
                         onClick={() => {
                           onSelectedSubValuesChange({ ...selectedSubValues, weekMode: option.key });
                           setIsOpen(false);
                         }}
+                        initial={{ opacity: 0, x: -5 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.16, delay: index * 0.04 }}
+                        whileHover={!isSelected ? {
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          scale: 1.02,
+                        } : {}}
+                        whileTap={{ scale: 0.98 }}
                         className={cn(
-                          "rounded-[14px] px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-[0.08em] transition-colors",
-                          isSelected ? "bg-white/12 text-white" : "text-white/42 hover:bg-white/[0.05] hover:text-white/70"
+                          "rounded-[14px] px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-[0.08em] transition-colors relative overflow-hidden",
+                          isSelected ? "bg-white/12 text-white" : "text-white/42"
                         )}
                       >
-                        {option.label}
-                      </button>
+                        {isSelected && (
+                          <motion.div
+                            layoutId="weekModeIndicator"
+                            className="absolute inset-0 bg-white/12 rounded-[14px]"
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{option.label}</span>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {activeTab === 'month' && (
-              <div className="mt-2 border-t border-white/[0.06] pt-2">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 border-t border-white/[0.06] pt-2"
+              >
                 <div className="mb-2 flex gap-1 overflow-x-auto no-scrollbar" data-home-horizontal-scroll="true">
-                  {years.map((year) => {
+                  {years.map((year, index) => {
                     const isSelected = selectedSubValues.year === String(year);
                     return (
-                      <button
+                      <motion.button
                         key={`month-year-${year}`}
                         type="button"
                         onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) })}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.16, delay: index * 0.03 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
                         className={cn(
-                          "shrink-0 rounded-full px-2.5 py-1.5 text-[9px] font-black transition-colors",
+                          "shrink-0 rounded-full px-2.5 py-1.5 text-[9px] font-black transition-colors relative",
                           isSelected ? "bg-orange-500/16 text-orange-100" : "bg-white/[0.04] text-white/44 hover:text-white/72"
                         )}
                       >
-                        {year}
-                      </button>
+                        {isSelected && (
+                          <motion.div
+                            layoutId="yearIndicator"
+                            className="absolute inset-0 bg-orange-500/16 rounded-full"
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{year}</span>
+                      </motion.button>
                     );
                   })}
                 </div>
@@ -371,7 +462,7 @@ const HomeHighlightPeriodControls = ({
                     const isSelected = selectedSubValues.month === value;
                     const isFuture = selectedYear > currentYear || (selectedYear === currentYear && index > currentMonth);
                     return (
-                      <button
+                      <motion.button
                         key={month}
                         type="button"
                         disabled={isFuture}
@@ -380,43 +471,79 @@ const HomeHighlightPeriodControls = ({
                           onSelectedSubValuesChange({ ...selectedSubValues, month: value });
                           setIsOpen(false);
                         }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.14, delay: index * 0.015 }}
+                        whileHover={!isFuture && !isSelected ? {
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          scale: 1.05,
+                        } : {}}
+                        whileTap={!isFuture ? { scale: 0.95 } : {}}
                         className={cn(
-                          "rounded-[13px] px-2 py-1.5 text-[9px] font-black lowercase transition-colors disabled:cursor-not-allowed",
-                          isSelected ? "bg-white/13 text-white" : isFuture ? "text-white/13" : "text-white/44 hover:bg-white/[0.05] hover:text-white/72"
+                          "rounded-[13px] px-2 py-1.5 text-[9px] font-black lowercase transition-colors disabled:cursor-not-allowed relative overflow-hidden",
+                          isSelected ? "bg-white/13 text-white" : isFuture ? "text-white/13" : "text-white/44"
                         )}
                       >
-                        {month}
-                      </button>
+                        {isSelected && (
+                          <motion.div
+                            layoutId="monthIndicator"
+                            className="absolute inset-0 bg-white/13 rounded-[13px]"
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{month}</span>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {activeTab === 'year' && (
-              <div className="mt-2 border-t border-white/[0.06] pt-2">
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 border-t border-white/[0.06] pt-2"
+              >
                 <div className="grid grid-cols-3 gap-1">
-                  {years.map((year) => {
+                  {years.map((year, index) => {
                     const isSelected = selectedSubValues.year === String(year);
                     return (
-                      <button
+                      <motion.button
                         key={year}
                         type="button"
                         onClick={() => {
                           onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) });
                           setIsOpen(false);
                         }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.16, delay: index * 0.04 }}
+                        whileHover={!isSelected ? {
+                          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                          scale: 1.05,
+                        } : {}}
+                        whileTap={{ scale: 0.95 }}
                         className={cn(
-                          "rounded-[13px] px-2 py-1.5 text-[10px] font-black transition-colors",
-                          isSelected ? "bg-white/13 text-white" : "text-white/44 hover:bg-white/[0.05] hover:text-white/72"
+                          "rounded-[13px] px-2 py-1.5 text-[10px] font-black transition-colors relative overflow-hidden",
+                          isSelected ? "bg-white/13 text-white" : "text-white/44"
                         )}
                       >
-                        {year}
-                      </button>
+                        {isSelected && (
+                          <motion.div
+                            layoutId="yearFilterIndicator"
+                            className="absolute inset-0 bg-white/13 rounded-[13px]"
+                            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{year}</span>
+                      </motion.button>
                     );
                   })}
                 </div>
-              </div>
+              </motion.div>
             )}
           </motion.div>
         )}
@@ -437,7 +564,9 @@ const HomeHighlightCategoryControl = ({
   onChange: (kind: HomeHighlightKind) => void;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPulsing, setIsPulsing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
   const ActiveIcon = activeGroup.icon;
 
   useEffect(() => {
@@ -451,52 +580,113 @@ const HomeHighlightCategoryControl = ({
     return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [isOpen]);
 
+  const handleCategoryChange = (key: HomeHighlightKind) => {
+    if (key === activeGroup.key) {
+      setIsOpen(false);
+      return;
+    }
+
+    setIsPulsing(true);
+    onChange(key);
+    setIsOpen(false);
+
+    setTimeout(() => setIsPulsing(false), 400);
+  };
+
   return (
     <div ref={menuRef} className="relative z-40 shrink-0">
-      <button
+      <motion.button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-orange-500/18 bg-orange-500/12 px-3 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)] transition-[background-color,border-color,transform] active:scale-[0.96]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-orange-500/18 bg-orange-500/12 px-3 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)] transition-[background-color,border-color] hover:bg-orange-500/16 hover:border-orange-500/25"
         aria-label={`Categoria de destaque: ${activeGroup.tabLabel}`}
         aria-expanded={isOpen}
+        whileTap={{ scale: 0.96 }}
+        animate={isPulsing && !shouldReduceMotion ? {
+          scale: [1, 1.05, 1],
+          boxShadow: [
+            '0 12px 24px rgba(249,115,22,0.08)',
+            '0 16px 32px rgba(249,115,22,0.18)',
+            '0 12px 24px rgba(249,115,22,0.08)',
+          ],
+        } : {}}
+        transition={{ duration: 0.4, ease: [0.68, -0.55, 0.265, 1.55] }}
       >
-        <ActiveIcon className="h-4 w-4 shrink-0" />
+        <motion.div
+          animate={isPulsing && !shouldReduceMotion ? {
+            rotate: [0, -8, 8, 0],
+          } : {}}
+          transition={{ duration: 0.35 }}
+        >
+          <ActiveIcon className="h-4 w-4 shrink-0" />
+        </motion.div>
         <span className="max-w-[82px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/78">
           {activeGroup.tabLabel}
         </span>
-        <ChevronDown className={cn("h-3 w-3 shrink-0 text-white/56 transition-transform", isOpen && "rotate-180")} />
-      </button>
+        <motion.div
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
+          <ChevronDown className="h-3 w-3 shrink-0 text-white/56" />
+        </motion.div>
+      </motion.button>
 
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            initial={{ opacity: 0, y: -6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 6, scale: 0.98 }}
-            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{
+              type: 'spring',
+              stiffness: 400,
+              damping: 25,
+              mass: 0.6,
+            }}
             className="absolute left-0 top-11 z-50 w-[182px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl"
           >
-            {groups.map((group) => {
+            {groups.map((group, index) => {
               const Icon = group.icon;
               const isActive = group.key === activeGroup.key;
               return (
-                <button
+                <motion.button
                   key={group.key}
                   type="button"
-                  onClick={() => {
-                    onChange(group.key);
-                    setIsOpen(false);
+                  onClick={() => handleCategoryChange(group.key)}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{
+                    duration: 0.18,
+                    ease: [0.16, 1, 0.3, 1],
+                    delay: index * 0.03,
                   }}
+                  whileHover={!isActive ? {
+                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                    scale: 1.02,
+                    transition: { duration: 0.15 }
+                  } : {}}
+                  whileTap={{ scale: 0.98 }}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-[background-color,color,transform] active:scale-[0.98]",
+                    "flex w-full items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-colors relative overflow-hidden",
                     isActive
                       ? "bg-orange-500/16 text-orange-100"
-                      : "text-white/46 hover:bg-white/[0.05] hover:text-white/76"
+                      : "text-white/46"
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {group.tabLabel}
-                </button>
+                  {isActive && (
+                    <motion.div
+                      layoutId="categoryActiveIndicator"
+                      className="absolute inset-0 bg-orange-500/16 rounded-[16px]"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                  <Icon className="h-3.5 w-3.5 shrink-0 relative z-10" />
+                  <span className="relative z-10">{group.tabLabel}</span>
+                </motion.button>
               );
             })}
           </motion.div>
@@ -557,11 +747,14 @@ const HomeOrbitalHighlights = ({
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
+  const [previousKind, setPreviousKind] = useState<HomeHighlightKind>('artists');
+  const [categoryDirection, setCategoryDirection] = useState(1);
   const [highlightActiveIndexes, setHighlightActiveIndexes] = useState<Record<HomeHighlightKind, number>>({
     artists: 0,
     tracks: 0,
     albums: 0,
   });
+  const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
   const highlightScrollRefs = useRef<Partial<Record<HomeHighlightKind, HTMLDivElement | null>>>({});
   const highlightScrollRafRef = useRef<number | null>(null);
   const highlightActiveIndexRefs = useRef<Record<HomeHighlightKind, number>>({
@@ -612,7 +805,7 @@ const HomeOrbitalHighlights = ({
       const width = config.secondary.width + (config.primary.width - config.secondary.width) * sizeProgress;
       const height = config.secondary.height + (config.primary.height - config.secondary.height) * sizeProgress;
       const leftFade = distance < -14 ? Math.max(0, Math.min(1, 1 + distance / 92)) : 1;
-      const farFade = Math.max(0.56, 1 - Math.max(0, rightSlot - 3) * 0.18);
+      const farFade = Math.max(0.4, 1 - Math.max(0, rightSlot - 2.5) * 0.12);
       const opacity = leftFade * farFade;
       const leftShift = distance < -14 ? Math.max(-28, distance * 0.18) : 0;
       const textProgress = Math.max(0, Math.min(1, sizeProgress));
@@ -622,12 +815,19 @@ const HomeOrbitalHighlights = ({
       card.style.opacity = String(opacity);
       card.style.transform = `translate3d(${leftShift}px, 0, 0)`;
       card.style.zIndex = String(Math.round(100 - Math.abs(slot) * 8));
-      card.style.pointerEvents = opacity < 0.32 ? 'none' : '';
+      card.style.pointerEvents = opacity < 0.25 ? 'none' : '';
       card.style.setProperty('--highlight-rank-size', `${24 + (50 - 24) * textProgress}px`);
       card.style.setProperty('--highlight-title-size', `${9.5 + (15 - 9.5) * textProgress}px`);
       card.style.setProperty('--highlight-meta-size', `${7.5 + (9 - 7.5) * textProgress}px`);
       card.style.setProperty('--highlight-detail-size', `${6.5 + (8 - 6.5) * textProgress}px`);
       card.style.setProperty('--highlight-content-inset', `${8 + (12 - 8) * textProgress}px`);
+
+      // Efeito 3D jukebox para álbuns
+      if (kind === 'albums') {
+        const rotationAngle = Math.max(-8, Math.min(8, (slot - 0.5) * -4));
+        card.style.setProperty('--highlight-rotate-y', `${rotationAngle}deg`);
+        card.style.transformStyle = 'preserve-3d';
+      }
     });
 
     if (highlightActiveIndexRefs.current[kind] !== nearestIndex) {
@@ -688,6 +888,38 @@ const HomeOrbitalHighlights = ({
     artistName: getReplayItemArtist(item),
   });
 
+  const handleCategoryChange = useCallback((newKind: HomeHighlightKind) => {
+    if (newKind === activeKind) return;
+
+    const currentIndex = groups.findIndex(g => g.key === activeKind);
+    const newIndex = groups.findIndex(g => g.key === newKind);
+    const direction = newIndex > currentIndex ? 1 : -1;
+
+    setCategoryDirection(direction);
+    setPreviousKind(activeKind);
+    setActiveKind(newKind);
+  }, [activeKind, groups]);
+
+  const handleIndicatorTouchStart = useCallback((e: React.TouchEvent) => {
+    setIndicatorTouchStartX(e.touches[0].clientX);
+  }, []);
+
+  const handleIndicatorTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!indicatorTouchStartX) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = indicatorTouchStartX - touchEndX;
+
+    if (Math.abs(diff) > 30) {
+      const currentIndex = groups.findIndex(g => g.key === activeKind);
+      if (diff > 0 && currentIndex < groups.length - 1) {
+        handleCategoryChange(groups[currentIndex + 1].key);
+      } else if (diff < 0 && currentIndex > 0) {
+        handleCategoryChange(groups[currentIndex - 1].key);
+      }
+    }
+    setIndicatorTouchStartX(null);
+  }, [activeKind, groups, indicatorTouchStartX, handleCategoryChange]);
+
   const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
     const orderedItems = items;
     if (orderedItems.length === 0) return null;
@@ -695,13 +927,34 @@ const HomeOrbitalHighlights = ({
 
     return (
       <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
-        <div className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]", visualConfig.ringScale)} />
+        <motion.div
+          className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]", visualConfig.ringScale)}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 0.5, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        />
         <motion.div
           className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
-          animate={!shouldReduceMotion && isSectionVisible && isCentered ? { rotate: 360 } : {}}
-          transition={!shouldReduceMotion && isSectionVisible && isCentered ? { duration: 58, repeat: Infinity, ease: 'linear' } : {}}
+          initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
+          animate={{
+            opacity: [0, 0.3, 0.5],
+            scale: 1,
+            rotate: !shouldReduceMotion && isSectionVisible && isCentered ? 360 : 0,
+          }}
+          transition={{
+            opacity: { duration: 0.6, ease: 'easeOut' },
+            scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+            rotate: !shouldReduceMotion && isSectionVisible && isCentered
+              ? { duration: 58, repeat: Infinity, ease: 'linear' }
+              : { duration: 0.5 }
+          }}
         />
-        <div className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl" />
+        <motion.div
+          className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl"
+          initial={{ opacity: 0, scale: 0.7 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+        />
 
         <div
           ref={(node) => {
@@ -718,7 +971,7 @@ const HomeOrbitalHighlights = ({
         >
           {orderedItems.map((item, index) => {
             return (
-              <button
+              <motion.button
                 key={`${kind}-rank-${item.id || item.name || index}`}
                 type="button"
                 onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
@@ -728,16 +981,44 @@ const HomeOrbitalHighlights = ({
                 data-entity-stats-active={isCentered ? 'true' : undefined}
                 data-entity-stats-primary={index === 0 ? 'true' : undefined}
                 data-entity-stats-satellite={index > 0 ? index + 1 : undefined}
+                initial={{
+                  opacity: 0,
+                  scale: 0.7,
+                  y: 20,
+                  rotateX: 12,
+                }}
+                animate={{
+                  opacity: index === 0 ? 1 : 0.88,
+                  scale: 1,
+                  y: 0,
+                  rotateX: 0,
+                }}
+                transition={{
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 30,
+                  mass: 0.8,
+                  delay: index * 0.045,
+                }}
+                whileHover={isCentered && onItemClick ? {
+                  scale: 1.05,
+                  zIndex: 150,
+                  transition: { duration: 0.2 }
+                } : {}}
+                whileTap={isCentered && onItemClick ? { scale: 0.98 } : {}}
                 className={cn(
-                  "relative shrink-0 overflow-hidden bg-black text-left shadow-[0_18px_38px_rgba(0,0,0,0.45)] transition-[width,height,opacity,transform,border-radius] duration-200 ease-out active:scale-[0.98]",
+                  "relative shrink-0 overflow-hidden bg-black text-left transition-[width,height,opacity,transform,border-radius,box-shadow] duration-200 ease-out",
                   visualConfig.primaryRadius,
-                  kind === 'albums' && "ring-1 ring-white/12",
+                  kind === 'albums' ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]" : "shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]",
                   onItemClick && isCentered && "cursor-pointer"
                 )}
                 style={{
                   width: index === 0 ? visualConfig.primary.width : visualConfig.secondary.width,
                   height: index === 0 ? visualConfig.primary.height : visualConfig.secondary.height,
-                  opacity: index === 0 ? 1 : 0.88,
+                  ...(kind === 'albums' && {
+                    transform: `rotateY(var(--highlight-rotate-y, 0deg))`,
+                    transformStyle: 'preserve-3d',
+                  })
                 }}
               >
                 <motion.div
@@ -752,7 +1033,7 @@ const HomeOrbitalHighlights = ({
                   <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
                   <span
-                    className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_10px_22px_rgba(0,0,0,0.62)]"
+                    className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
                     style={{ fontSize: 'var(--highlight-rank-size, 24px)' }}
                   >
                     {index + 1}
@@ -786,7 +1067,7 @@ const HomeOrbitalHighlights = ({
                     </span>
                   </div>
                 </motion.div>
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -799,25 +1080,53 @@ const HomeOrbitalHighlights = ({
   return (
     <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
       <div className="relative overflow-visible rounded-[34px] px-0 pb-1 pt-1">
-        <div className="mb-2.5 flex items-center justify-between gap-2">
+        <motion.div
+          initial={{ opacity: 0, y: -15 }}
+          animate={isSectionVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -15 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-2.5 flex items-center justify-between gap-2"
+        >
           <div className="flex min-w-0 items-center gap-2">
-            <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={isSectionVisible ? { scale: 1, rotate: 0 } : { scale: 0, rotate: -180 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: [0.68, -0.55, 0.265, 1.55] }}
+            >
+              <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
+            </motion.div>
             <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.28em] text-white/86">Seus Destaques</h2>
-            <span className="shrink-0 rounded-full bg-orange-500/12 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200">{periodLabel}</span>
+            <motion.span
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={isSectionVisible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
+              className="shrink-0 rounded-full bg-orange-500/12 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200"
+            >
+              {periodLabel}
+            </motion.span>
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={isSectionVisible ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5"
+          >
             <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
             <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
             <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">min</span>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
-        <div className="mb-1.5 flex items-center gap-2">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={isSectionVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
+          transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-1.5 flex items-center gap-2"
+        >
           {groups.length > 1 && (
             <HomeHighlightCategoryControl
               groups={groups}
               activeGroup={activeGroup}
-              onChange={setActiveKind}
+              onChange={handleCategoryChange}
             />
           )}
           <HomeHighlightPeriodControls
@@ -826,7 +1135,7 @@ const HomeOrbitalHighlights = ({
             onActiveTabChange={onActiveTabChange}
             onSelectedSubValuesChange={onSelectedSubValuesChange}
           />
-        </div>
+        </motion.div>
 
         <div
           data-home-horizontal-scroll="true"
@@ -834,32 +1143,82 @@ const HomeOrbitalHighlights = ({
         >
           <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
             <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
-              <AnimatePresence mode="wait" initial={false}>
+              <AnimatePresence mode="wait" initial={false} custom={categoryDirection}>
                 <motion.div
                   key={`highlight-orbit-${activeGroup.key}`}
                   className="absolute inset-0"
-                  initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.96 }}
-                  transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                  custom={categoryDirection}
+                  initial={{
+                    opacity: 0,
+                    x: categoryDirection * 30,
+                    scale: 0.95,
+                    rotateY: categoryDirection * 5,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    x: 0,
+                    scale: 1,
+                    rotateY: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                    x: categoryDirection * -30,
+                    scale: 0.92,
+                    rotateY: categoryDirection * -5,
+                  }}
+                  transition={{
+                    duration: 0.45,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
+                  style={{ transformStyle: 'preserve-3d' }}
                 >
                   {renderHighlightOrbit(activeGroup.items, activeGroup.key, true)}
                 </motion.div>
               </AnimatePresence>
             </div>
-            <div className="flex justify-center gap-1.5 -mt-2">
-              {groups.map((group) => (
-                <button
-                  key={`highlight-category-${group.key}`}
-                  type="button"
-                  onClick={() => setActiveKind(group.key)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-[width,background-color]",
-                    group.key === activeGroup.key ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
-                  )}
-                  aria-label={`Ver ${group.tabLabel.toLowerCase()}`}
-                />
-              ))}
+            <div
+              className="flex justify-center gap-1.5 mt-4"
+              onTouchStart={handleIndicatorTouchStart}
+              onTouchEnd={handleIndicatorTouchEnd}
+            >
+              {groups.map((group, index) => {
+                const isActive = group.key === activeGroup.key;
+                return (
+                  <motion.button
+                    key={`highlight-category-${group.key}`}
+                    type="button"
+                    onClick={() => handleCategoryChange(group.key)}
+                    className={cn(
+                      "h-1.5 rounded-full transition-colors relative overflow-hidden",
+                      isActive ? "w-5" : "w-1.5"
+                    )}
+                    whileHover={!isActive ? { scale: 1.2, backgroundColor: 'rgba(255, 255, 255, 0.3)' } : {}}
+                    whileTap={{ scale: 0.9 }}
+                    animate={{
+                      width: isActive ? 20 : 6,
+                      backgroundColor: isActive ? 'rgb(249, 115, 22)' : 'rgba(255, 255, 255, 0.18)',
+                    }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 400,
+                      damping: 30,
+                    }}
+                    aria-label={`Ver ${group.tabLabel.toLowerCase()}`}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeCategoryIndicator"
+                        className="absolute inset-0 bg-orange-500 rounded-full"
+                        transition={{
+                          type: 'spring',
+                          stiffness: 500,
+                          damping: 35,
+                        }}
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
           </article>
         </div>

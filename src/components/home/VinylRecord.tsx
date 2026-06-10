@@ -278,11 +278,55 @@ export const VinylRecord = ({
   useEffect(() => {
     const node = discRef.current;
     if (!node) return;
-    node.style.transform = `rotate(${rotationRef.current}deg)`;
+    // Só aplica transform se não houver animação ativa
+    if (!spinAnimationRef.current) {
+      node.style.transform = `rotate(${rotationRef.current}deg)`;
+    }
   }, [visualSnapshot.revision]);
 
   useEffect(() => {
     const node = discRef.current;
+
+    const startSpinWithAcceleration = (startRotation: number) => {
+      if (!node) return;
+
+      // Fase 1: Aceleração gradual (0 → velocidade máxima)
+      const accelerationDuration = 2000; // 2 segundos para acelerar
+      const fullRotations = 1.5; // 1.5 voltas durante aceleração
+
+      const accelAnimation = node.animate(
+        [
+          { transform: `rotate(${startRotation}deg)` },
+          { transform: `rotate(${startRotation + (360 * fullRotations)}deg)` }
+        ],
+        {
+          duration: accelerationDuration,
+          fill: 'forwards',
+          easing: 'cubic-bezier(0.33, 0, 0.2, 1)' // Simula torque do motor
+        }
+      );
+
+      accelAnimation.onfinish = () => {
+        // Fase 2: Rotação constante após atingir velocidade
+        rotationRef.current = (startRotation + (360 * fullRotations)) % 360;
+
+        if (!node) return;
+        spinAnimationRef.current = node.animate(
+          [
+            { transform: `rotate(${rotationRef.current}deg)` },
+            { transform: `rotate(${rotationRef.current + 360}deg)` }
+          ],
+          {
+            duration: 3000,
+            iterations: Infinity,
+            easing: 'linear'
+          }
+        );
+      };
+
+      spinAnimationRef.current = accelAnimation;
+    };
+
     const stopSpin = (mode: 'instant' | 'decelerate' = 'instant') => {
       const animation = spinAnimationRef.current;
       if (!node) return;
@@ -296,13 +340,19 @@ export const VinylRecord = ({
       }
 
       if (mode === 'decelerate' && canAnimate) {
-        const endRotation = rotationRef.current + 18;
+        // Desaceleração realista: 4 segundos com 3.5 rotações de momentum
+        const momentumRotations = 3.5;
+        const endRotation = rotationRef.current + (360 * momentumRotations);
         const deceleration = node.animate(
           [
             { transform: `rotate(${rotationRef.current}deg)` },
             { transform: `rotate(${endRotation}deg)` },
           ],
-          { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' }
+          {
+            duration: 4000,
+            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', // Simula atrito físico
+            fill: 'forwards'
+          }
         );
         spinAnimationRef.current = deceleration;
         deceleration.onfinish = () => {
@@ -326,19 +376,17 @@ export const VinylRecord = ({
       return;
     }
 
+    // Se já está tocando e o estado não mudou, não reiniciar animação
+    if (previousPlayingRef.current === isPlaying && spinAnimationRef.current) {
+      return;
+    }
+
     stopSpin('instant');
     const startRotation = rotationRef.current;
-    node.style.transform = `rotate(${startRotation}deg)`;
-    spinAnimationRef.current = node.animate(
-      [
-        { transform: `rotate(${startRotation}deg)` },
-        { transform: `rotate(${startRotation + 360}deg)` },
-      ],
-      { duration: 3000, iterations: Infinity, easing: 'linear' }
-    );
+    startSpinWithAcceleration(startRotation);
     previousPlayingRef.current = isPlaying;
     return () => stopSpin('instant');
-  }, [canAnimate, isPlaying, visualSnapshot.identity]);
+  }, [canAnimate, isPlaying]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {

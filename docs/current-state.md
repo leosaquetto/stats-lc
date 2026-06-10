@@ -129,6 +129,27 @@ Compare regressao usando o mesmo viewport, rede e estado de cache.
   hidratacao completa deve continuar usando a superficie de historico com
   resolucao de album quando aplicavel.
 
+### Animacao do Vinil (Atualizado 2026-06-10)
+
+- O vinil usa Web Animations API com aceleracao/desaceleracao fisicas realistas.
+- **Aceleracao**: 2s com 1.5 rotacoes ate atingir 20 RPM (velocidade constante).
+  Easing `cubic-bezier(0.33, 0, 0.2, 1)` simula torque inicial forte do motor.
+- **Desaceleracao**: 4s com 3.5 rotacoes ate parar completamente. Easing
+  `cubic-bezier(0.25, 0.46, 0.45, 0.94)` simula atrito fisico constante.
+- **Rotacao constante**: 3s/volta (20 RPM) enquanto tocando, com easing linear.
+- **Troca de track**: Ao trocar track enquanto tocando, o vinil **continua
+  girando suavemente** sem reaceleracao. A transicao visual (~1.2s) acontece
+  naturalmente enquanto a rotacao fisica permanece constante. Apenas a imagem da
+  capa troca; a rotacao e independente da identidade visual.
+- O tonearm (0.72s) e intencionalmente mais rapido que o vinil - comportamento
+  realista de toca-discos reais onde o braco desce antes do prato atingir
+  velocidade maxima.
+- Animacoes respeitam `prefers-reduced-motion` e sao canceladas quando o
+  componente nao esta visivel (Intersection Observer).
+- Implementacao: `startSpinWithAcceleration()` encadeia fase de aceleracao com
+  fase de rotacao constante via `onfinish` callback. O useEffect de rotacao
+  depende apenas de `isPlaying` e `canAnimate`, nao de `visualSnapshot.identity`.
+
 ### Lapidacao de Home e orbitais de 2026-06-09
 
 - O contador `TOTAL HOJE` usa o `featuredStats` opcional do mesmo polling
@@ -153,6 +174,21 @@ Compare regressao usando o mesmo viewport, rede e estado de cache.
 - Stats Alike valida o tipo de cada top, preserva artista/IDs externos, aceita
   titulo em duas linhas e usa cache de tops `v2` para descartar classificacoes
   antigas incorretas.
+
+### Melhorias de UI e animacao de 2026-06-10
+
+- **Seus Destaques**: indicadores (dots) afastados para mt-4 (antes -mt-2) e
+  agora respondem a swipe horizontal para trocar entre artistas/musicas/albuns
+  (threshold 30px). Efeito 3D jukebox nos albuns com `rotateY` baseado na
+  posicao do scroll (±8°) e `transform-style: preserve-3d`. Flashing nos cards
+  eliminado suavizando transicoes de opacity (farFade de 0.56→0.4, threshold
+  2.5, fator 0.12). Animacao entre secoes mais fluida (0.32s, easing
+  `[0.25, 0.1, 0.25, 1]`).
+- **Sombras dos cards**: Cards de "Seus Destaques" e "Atividade do Circulo"
+  usam sombra suave a partir do canto superior `shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]`.
+  Numeros do ranking com drop-shadow simples `drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]`.
+  Cards de atividade ao vivo incluem glow laranja sutil quando tocando
+  `0_16px_48px_rgba(249,115,22,0.18)`.
 
 ### Atividade do Circulo e troca do vinil de 2026-06-10
 

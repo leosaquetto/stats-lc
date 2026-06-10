@@ -192,7 +192,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 
 	                  <div className={clsx(
 	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-[border-color,box-shadow,opacity,transform] duration-300",
-	                    isPlaying ? "border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.4),0_16px_48px_rgba(249,115,22,0.24)]" : "border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.4)] group-hover:border-orange-500/40"
+	                    isPlaying ? "border-white/10 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25),0_16px_48px_rgba(249,115,22,0.18)]" : "border-white/10 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)] group-hover:border-orange-500/40"
 	                  )}>
 	                    <div className="absolute inset-0 z-0">
 	                        <div
