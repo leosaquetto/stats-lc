@@ -334,12 +334,17 @@ const didLivePlaybackChange = (previous: any, next: any) => {
 };
 
 const getLiveAssetUrls = (users: any[]) => {
-  const urls = new Set<string>();
+  const avatars: string[] = [];
+  const trackImages: string[] = [];
+
   users.forEach((user) => {
     const avatar = user?.avatar || user?.profile?.image;
+    if (typeof avatar === 'string' && avatar.trim().length > 5) {
+      avatars.push(avatar);
+    }
+
     const track = user?.nowPlaying?.track || {};
     [
-      avatar,
       track?.albumImage,
       track?.album?.image,
       track?.album?.images?.[0]?.url,
@@ -353,10 +358,14 @@ const getLiveAssetUrls = (users: any[]) => {
       track?.album_image,
       track?.cover,
     ].forEach((url) => {
-      if (typeof url === 'string' && url.trim().length > 5) urls.add(url);
+      if (typeof url === 'string' && url.trim().length > 5) {
+        trackImages.push(url);
+      }
     });
   });
-  return [...urls];
+
+  // Avatars first, then track images (deduped)
+  return [...new Set([...avatars, ...trackImages])];
 };
 
 const getLiveArtworkUrl = (user: any) => {
@@ -1299,15 +1308,27 @@ export const useStatsStore = create<StatsState>()(
                   ? liveUser.nowPlaying
                   : existingUserWithLive.nowPlaying;
 
-                const mergedUser = {
-                  ...existingUser,              // Keep all existing data
-                  platform: liveUser.platform || existingUser.platform,
-                  avatar: liveUser.avatar || existingUser.avatar,
-                  name: shouldUseIncomingDisplayName(existingUser, liveUser)
-                    ? liveUser.name
-                    : existingUser.name,
-                  // Preserve: topItems, recent, catalogSummary, errors, stats
-                };
+                // Compute merged values
+                const nextPlatform = liveUser.platform || existingUser.platform;
+                const nextAvatar = liveUser.avatar || existingUser.avatar;
+                const nextName = shouldUseIncomingDisplayName(existingUser, liveUser)
+                  ? liveUser.name
+                  : existingUser.name;
+
+                // Reuse existing reference if identity fields unchanged
+                const mergedUser =
+                  existingUser.platform === nextPlatform &&
+                  existingUser.avatar === nextAvatar &&
+                  existingUser.name === nextName
+                    ? existingUser
+                    : {
+                        ...existingUser,              // Keep all existing data
+                        platform: nextPlatform,
+                        avatar: nextAvatar,
+                        name: nextName,
+                        // Preserve: topItems, recent, catalogSummary, errors, stats
+                      };
+
                 const mergedUserWithLive = {
                   ...mergedUser,
                   nowPlaying: incomingNowPlaying,

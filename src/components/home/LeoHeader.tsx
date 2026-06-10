@@ -752,7 +752,10 @@ const ArenaRankingBubble = ({
   const initialScale = isHiddenInitial ? 0 : baseScale;
 
   return (
-    <div
+    <motion.div
+      layout
+      layoutId={`arena-bubble-${user.id}`}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       data-arena-bubble="true"
       data-arena-index={index}
       data-arena-base-scale={baseScale}
@@ -792,7 +795,7 @@ const ArenaRankingBubble = ({
           coreUtils.formatNumber(user.plays)
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -1638,7 +1641,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
 	                            >
                               <div
                                 ref={arenaTrailRef}
-                                key={`arena-trail-${track.id || track.name || 'track'}`}
+                                key="arena-trail"
                                 data-home-horizontal-scroll="true"
                                 className="relative h-[58px] overflow-visible py-2 pr-0"
                                 style={{ width: `${arenaSummaryWidth}px` }}

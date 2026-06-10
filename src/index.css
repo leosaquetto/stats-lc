@@ -1,5 +1,32 @@
 @import "tailwindcss";
 
+@keyframes shimmer-orange {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes shimmer-border {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes border-glow-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Figtree", sans-serif;
@@ -145,7 +172,7 @@
 .liquid-glass-overlay {
   background:
     radial-gradient(circle at 50% 10%, rgba(249,115,22,0.10), transparent 38%),
-    rgba(0,0,0,0.62);
+    rgba(0,0,0,0.80);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   backdrop-filter: blur(18px) saturate(140%);
 }
@@ -181,24 +208,23 @@
 }
 
 .bottom-track-stats-body-backdrop {
-  background: rgba(0,0,0,0.22);
-  -webkit-backdrop-filter: blur(56px) saturate(180%) brightness(78%);
-  backdrop-filter: blur(56px) saturate(180%) brightness(78%);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: transparent;
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 0;
   box-shadow:
-    0 12px 40px -12px rgba(0,0,0,0.70),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 8px 32px rgba(0,0,0,0.24),
+    0 16px 64px rgba(0,0,0,0.16);
   overflow: hidden;
 }
 
 .bottom-track-stats-controls-glass-layer {
-  background: rgba(0,0,0,0.22);
-  -webkit-backdrop-filter: blur(40px);
-  backdrop-filter: blur(40px);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow:
-    0 12px 40px -12px rgba(0,0,0,0.62),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 0;
+  box-shadow: none;
 }
 
 .bottom-track-stats-modal .leo-glass-badge {
@@ -206,12 +232,11 @@
 }
 
 .bottom-track-stats-surface {
-  background: rgba(0,0,0,0.46);
+  background: rgba(0,0,0,0.30);
   border: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.052);
-  -webkit-backdrop-filter: blur(72px) saturate(168%);
-  backdrop-filter: blur(72px) saturate(168%);
+  box-shadow: none;
+  -webkit-backdrop-filter: saturate(168%);
+  backdrop-filter: saturate(168%);
 }
 
 .stats-lc-soft-white-glass {
@@ -221,6 +246,21 @@
     inset 0 1px 0 rgba(255,255,255,0.052);
   -webkit-backdrop-filter: blur(72px) saturate(168%);
   backdrop-filter: blur(72px) saturate(168%);
+}
+
+.bottom-track-controls-button {
+  background: rgba(0,0,0,0.46);
+  border-color: rgba(255,255,255,0.08);
+  -webkit-backdrop-filter: blur(72px) saturate(168%);
+  backdrop-filter: blur(72px) saturate(168%);
+}
+
+.bottom-track-recent-picker {
+  background: rgba(0,0,0,0.52);
+  border-color: rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-backdrop-filter: blur(96px) saturate(180%);
+  backdrop-filter: blur(96px) saturate(180%);
 }
 
 .stats-lc-frosted-modal-glass {

@@ -501,6 +501,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
       className="fixed inset-0 z-[80] flex items-end justify-center liquid-glass-overlay px-0 sm:px-4"
       onClick={onClose}
     >
@@ -508,8 +509,8 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         initial={{ y: '100%', opacity: 0.92 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0.92 }}
-        transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-        className="liquid-glass-modal relative flex h-[86dvh] max-h-[610px] w-full max-w-2xl flex-col overflow-hidden rounded-t-[34px] border border-white/10 bg-black/70 shadow-2xl"
+        transition={{ type: 'spring', damping: 35, stiffness: 400, mass: 0.8 }}
+        className="liquid-glass-modal relative flex h-[86dvh] max-h-[610px] w-full max-w-2xl flex-col overflow-hidden rounded-t-[34px] border border-white/10 bg-black/70 shadow-[0_38px_75px_-18px_rgba(0,0,0,0.38),0_0_80px_-10px_rgba(255,95,0,0.25)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="relative shrink-0 overflow-hidden p-3.5 pb-3">

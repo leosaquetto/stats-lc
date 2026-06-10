@@ -33,14 +33,14 @@ export interface MusicCardProps {
   durationMs?: number;
 }
 
-export const MusicCard = React.memo(({ 
+export const MusicCard = ({
   userId,
-  userName, 
-  songName, 
-  artistName, 
+  userName,
+  songName,
+  artistName,
   track,
-  imageUrl, 
-  isNowPlaying, 
+  imageUrl,
+  isNowPlaying,
   isFirstPlay,
   playCount,
   className,
@@ -62,22 +62,22 @@ export const MusicCard = React.memo(({
   const playUrl = spotifyLink || appleLink || (availability.hasSpotify ? `https://open.spotify.com/track/${track?.id}` : (availability.hasAppleMusic ? `https://music.apple.com/song/${track?.id}` : null));
 
   const [selectedAlbumForModal, setSelectedAlbumForModal] = useState<any | null>(null);
-  const [AlbumStatsModalComp, setAlbumStatsModalComp] = useState<any | null>(null);
 
   const handleAlbumClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      // Lazy load to avoid circular dependency and improve performance
       const { UserAlbumStatsModal } = await import('../modals/EntityStatsModal');
-      setAlbumStatsModalComp(() => UserAlbumStatsModal);
-      setSelectedAlbumForModal(track?.album || { 
-        name: track?.albumName || 'Album',
-        id: track?.albumId,
-        image: track?.albumImage || track?.album?.image || track?.image || imageUrl,
-        artistName: artistName
+      setSelectedAlbumForModal({
+        component: UserAlbumStatsModal,
+        data: track?.album || {
+          name: track?.albumName || 'Album',
+          id: track?.albumId,
+          image: track?.albumImage || track?.album?.image || track?.image || imageUrl,
+          artistName: artistName
+        }
       });
     } catch (err) {
-      console.error("Failed to lazy load UserAlbumStatsModal", err);
+      console.error("Failed to load modal", err);
     }
   };
 
@@ -194,14 +194,15 @@ export const MusicCard = React.memo(({
           />
 
           {(track?.album?.name || track?.albumName) && (
-            <div 
+            <button
+              type="button"
               onClick={handleAlbumClick}
-              className="text-[9px] font-bold text-orange-400 hover:text-orange-300 hover:underline cursor-pointer truncate max-w-[180px] mt-0.5 flex flex-row items-center gap-1 w-fit relative z-30"
+              className="text-[9px] font-bold text-orange-400 hover:text-orange-300 hover:underline cursor-pointer truncate max-w-[180px] mt-0.5 flex flex-row items-center gap-1 w-fit relative z-30 bg-transparent border-0 p-0"
               title="Ver detalhes do álbum"
             >
-              <Disc className="h-2.5 w-2.5 text-orange-500 shrink-0" />
-              <span className="truncate">{track?.album?.name || track?.albumName}</span>
-            </div>
+              <Disc className="h-2.5 w-2.5 text-orange-500 shrink-0 pointer-events-none" />
+              <span className="truncate pointer-events-none">{track?.album?.name || track?.albumName}</span>
+            </button>
           )}
           
           {isNowPlaying && progressMs !== undefined && durationMs !== undefined && durationMs > 0 && (
@@ -239,26 +240,16 @@ export const MusicCard = React.memo(({
       </motion.div>
 
       <AnimatePresence>
-        {selectedAlbumForModal && AlbumStatsModalComp && (
-          <AlbumStatsModalComp
+        {selectedAlbumForModal && (
+          <selectedAlbumForModal.component
             user={{ id: userId, name: userName }}
-            entity={selectedAlbumForModal}
+            entity={selectedAlbumForModal.data}
             onClose={() => setSelectedAlbumForModal(null)}
           />
         )}
       </AnimatePresence>
     </>
   );
-}, (prev, next) => (
-  prev.userId === next.userId &&
-  prev.songName === next.songName &&
-  prev.isNowPlaying === next.isNowPlaying &&
-  prev.isFirstPlay === next.isFirstPlay &&
-  prev.footer === next.footer &&
-  prev.imageUrl === next.imageUrl &&
-  prev.progressMs === next.progressMs &&
-  prev.durationMs === next.durationMs &&
-  prev.playCount === next.playCount
-));
+};
 
 MusicCard.displayName = 'MusicCard';

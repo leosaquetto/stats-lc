@@ -2535,7 +2535,7 @@ export default function HomeScreen() {
           />
 
           <AnimatePresence>
-            <React.Suspense key="home-detail-modals" fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
+            <React.Suspense key="home-detail-modals" fallback={null}>
               {viewingFullHistoryUser && (
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
