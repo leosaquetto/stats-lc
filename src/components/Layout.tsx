@@ -347,16 +347,26 @@ const getSaoPauloDayKey = (value: any) => {
   return `${map.year}-${map.month}-${map.day}`;
 };
 
-const formatAlbumReleaseDate = (value: any) => {
+const getReleaseDateDayKey = (value: any) => {
   const time = parseDateMs(value);
   if (!time) return '';
   const date = new Date(time);
   if (!Number.isFinite(date.getTime())) return '';
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatAlbumReleaseDate = (value: any) => {
+  const releaseDayKey = getReleaseDateDayKey(value);
+  if (!releaseDayKey) return '';
+  const date = new Date(`${releaseDayKey}T00:00:00.000Z`);
   const currentYear = new Date().getFullYear();
-  const releaseYear = Number(getSaoPauloDayKey(value).slice(0, 4)) || date.getFullYear();
+  const releaseYear = Number(releaseDayKey.slice(0, 4)) || date.getUTCFullYear();
   const options: Intl.DateTimeFormatOptions = releaseYear === currentYear
-    ? { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short' }
-    : { timeZone: 'America/Sao_Paulo', day: '2-digit', month: 'short', year: 'numeric' };
+    ? { timeZone: 'UTC', day: '2-digit', month: 'short' }
+    : { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' };
   return date.toLocaleDateString('pt-BR', options).replace('.', '.');
 };
 
@@ -932,7 +942,7 @@ const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (l
       type="button"
       onClick={(event) => onChoose(link, event.currentTarget)}
       aria-label={`Opções do ${link.label}`}
-      className="flex h-10 w-10 items-center justify-center rounded-full border-0 bg-white/[0.045] text-white/72 transition-transform active:scale-95"
+      className="stats-lc-soft-white-glass flex h-10 w-10 items-center justify-center rounded-full border-0 text-white/72 transition-transform active:scale-95"
     >
       {icon}
     </button>
@@ -1192,7 +1202,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
   const isReleaseDayFirstListen = React.useMemo(() => {
     if (!albumReleaseRawDate || !circleFirstListen?.playedAt) return false;
-    return getSaoPauloDayKey(albumReleaseRawDate) === getSaoPauloDayKey(circleFirstListen.playedAt);
+    return getReleaseDateDayKey(albumReleaseRawDate) === getSaoPauloDayKey(circleFirstListen.playedAt);
   }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
@@ -1809,19 +1819,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       {typeof document !== 'undefined' && createPortal(
           <motion.div
             className={clsx(
-              "fixed inset-0 z-[999] flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] pt-20",
+              "fixed inset-0 z-[1205] flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] pt-20",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
             )}
             aria-hidden={!isModalVisible}
             initial={false}
             animate={{ opacity: isModalVisible ? 1 : 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            style={{ willChange: 'opacity', visibility: 'visible' }}
+            style={{ visibility: 'visible' }}
           >
             <button
               type="button"
               className={clsx(
-                "absolute inset-0 touch-none cursor-default bg-black/[0.58] backdrop-blur-[10px]",
+                "absolute inset-0 touch-none cursor-default bg-transparent",
                 isModalVisible ? "pointer-events-auto" : "pointer-events-none"
               )}
               aria-label="Fechar stats da música"
@@ -1834,6 +1844,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 }
                 closeStatsModal();
               }}
+            />
+            <div
+              className={clsx(
+                "bottom-track-stats-body-backdrop pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom,0px)+96px)] left-3 right-3 z-0 mx-auto max-w-[430px] rounded-[30px]",
+                panel === 'lyrics'
+                  ? "h-[min(72dvh,540px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
+                  : "h-[min(62dvh,446px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
+              )}
+              aria-hidden="true"
             />
             <motion.section
               initial={false}
@@ -1938,7 +1957,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               onClick={(event) => event.stopPropagation()}
               className={clsx(
-                "bottom-track-stats-modal glass-aura relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.65)] [contain:layout]",
+                "bottom-track-stats-modal relative z-10 w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4 [contain:layout]",
                 isModalVisible ? "pointer-events-auto" : "pointer-events-none",
                 panel === 'lyrics'
                   ? "h-[min(72dvh,540px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
@@ -1952,6 +1971,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               style={{ touchAction: panel === 'stats' ? 'none' : 'pan-y', willChange: 'transform, opacity' }}
             >
+              <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -top-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
               {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
                 <motion.div
                   className="absolute inset-x-0 -top-[58px] z-30 flex items-center justify-center gap-3"
@@ -1972,7 +1992,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       type="button"
                       aria-label="Abrir música anterior do seu histórico"
                       onClick={() => selectPlaybackChoice(olderPlaybackIndex)}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-black/44 text-white/82 shadow-[0_12px_34px_rgba(0,0,0,0.34)] backdrop-blur-2xl transition-[opacity,transform,color] active:scale-95"
+                      className="stats-lc-soft-white-glass flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
                     </button>
@@ -1985,8 +2005,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     aria-label="Abrir lista das suas recentes"
                     onClick={() => setRecentPickerOpen(value => !value)}
                     className={clsx(
-                      "flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 shadow-[0_14px_36px_rgba(0,0,0,0.36)] backdrop-blur-2xl transition-[background-color,transform,color] active:scale-95",
-                      recentPickerOpen ? "bg-orange-500/24 text-orange-100" : "bg-black/50 text-white/84"
+                      "stats-lc-soft-white-glass flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 transition-[background-color,transform,color,box-shadow] active:scale-95",
+                      recentPickerOpen ? "bg-orange-500/24 text-orange-100 shadow-[0_0_22px_rgba(249,115,22,0.20),0_14px_36px_rgba(0,0,0,0.30)]" : "text-white/84"
                     )}
                   >
                     <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
@@ -1997,7 +2017,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       type="button"
                       aria-label="Voltar para música mais recente"
                       onClick={() => selectPlaybackChoice(newerPlaybackIndex)}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-black/44 text-white/82 shadow-[0_12px_34px_rgba(0,0,0,0.34)] backdrop-blur-2xl transition-[opacity,transform,color] active:scale-95"
+                      className="stats-lc-soft-white-glass flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
                     </button>
@@ -2010,7 +2030,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
                     data-recent-picker="true"
-                    className="absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] bg-black/76 p-2 shadow-[0_22px_60px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
+                    className="stats-lc-soft-white-glass absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] p-2"
                     initial={{ opacity: 0, y: -8, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -2057,9 +2077,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </AnimatePresence>
               <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 h-1 w-10 -translate-x-1/2 rounded-full bg-white/22" aria-hidden="true" />
 
-              <motion.div className="will-change-transform" style={{ x: historySwipeX }}>
+              <motion.div className="relative z-10 will-change-transform" style={{ x: historySwipeX }}>
               <div className="flex items-center gap-3 pt-2">
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px] bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+                <div className="stats-lc-soft-white-glass relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
                   ) : (
@@ -2101,7 +2121,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
                       isReleaseDayFirstListen
                         ? "bg-orange-500/18 text-orange-100 shadow-[0_0_16px_rgba(249,115,22,0.2)]"
-                        : "bg-white/[0.045] text-white/38"
+                        : "stats-lc-soft-white-glass text-white/38"
                     )}
                     title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
                   >
@@ -2124,21 +2144,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 transition={{ duration: 0.14, ease: 'easeOut' }}
               >
               <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
+                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
                   <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
                   <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Artista</span>
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
                     <ModalMetricValue ready={panelHydration.metrics} value={entityStats.artist} />
                   </strong>
                 </div>
-                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
+                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
                   <ListMusic className="mb-2 h-4 w-4 text-orange-300" />
                   <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Faixa</span>
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
                     <ModalMetricValue ready={trackMetricReady} value={entityStats.track} fallbackValue={knownUserTrackCount} />
                   </strong>
                 </div>
-                <div className="min-w-0 rounded-[22px] bg-white/[0.045] p-3">
+                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
                   <Disc3 className="mb-2 h-4 w-4 text-orange-300" />
                   <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Álbum</span>
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
@@ -2262,7 +2282,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         style={{ zIndex: visibleSocialRanking.length - index }}
                       >
                         <div className={clsx(
-                          "h-[29px] w-[29px] overflow-hidden rounded-full bg-black shadow-[0_5px_12px_rgba(0,0,0,0.28)]",
+                          "stats-lc-soft-white-glass h-[29px] w-[29px] overflow-hidden rounded-full",
                           "ring-0"
                         )}>
                           <SmartImage
@@ -2274,7 +2294,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           />
                         </div>
                         <span className={clsx(
-                          "absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full bg-black/42 px-1.5 py-[2px] text-center text-[7px] font-black leading-none shadow-[0_7px_14px_rgba(0,0,0,0.25)] backdrop-blur-md",
+                          "stats-lc-soft-white-glass absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none",
                           "text-white"
                         )}>
                           {item.count}
@@ -2358,10 +2378,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onClick={handleLyrics}
                     disabled={lyricsLoading || lyricsMatch?.hasLyrics === false}
                     className={clsx(
-                      "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                      "stats-lc-soft-white-glass flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
-                        ? "cursor-not-allowed bg-white/[0.035] text-white/28"
-                        : "border-0 bg-white/[0.045] text-white/72 hover:text-white"
+                        ? "cursor-not-allowed text-white/28"
+                        : "border-0 text-white/72 hover:text-white"
                     )}
                   >
                     {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
@@ -2415,9 +2435,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       style={{
                         right: trackLinkSheetAnchor.right,
                         bottom: trackLinkSheetAnchor.bottom,
-                        background: 'rgba(7, 9, 12, 0.68)',
-                        backdropFilter: 'blur(148px) saturate(145%)',
-                        WebkitBackdropFilter: 'blur(148px) saturate(145%)',
+                        background: 'rgba(255,255,255,0.062)',
+                        backdropFilter: 'blur(30px) saturate(145%)',
+                        WebkitBackdropFilter: 'blur(30px) saturate(145%)',
                         border: 'none',
                         transformOrigin: 'bottom right',
                       }}
@@ -2474,7 +2494,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.98 }}
                     transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-                    className="absolute inset-x-8 bottom-5 z-40 rounded-full bg-black/72 px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82 shadow-[0_16px_38px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+                    className="stats-lc-soft-white-glass absolute inset-x-8 bottom-5 z-40 rounded-full px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82"
                   >
                     {toastMessage}
                   </motion.div>
@@ -2531,7 +2551,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       lyricsPointerStartRef.current = null;
                     }}
                     onScroll={updateLyricsScrollMask}
-                    className="min-h-[min(34dvh,260px)] max-h-[clamp(280px,50dvh,430px)] overflow-y-auto overscroll-contain pl-3 pr-4 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:pl-4 sm:pr-5 sm:text-[16px]"
+                    className="stats-lc-soft-white-glass min-h-[min(34dvh,260px)] max-h-[clamp(280px,50dvh,430px)] overflow-y-auto overscroll-contain rounded-[26px] py-4 pl-3 pr-4 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:pl-4 sm:pr-5 sm:text-[16px]"
                   >
                     <div className="whitespace-pre-line">{cleanedLyricsText}</div>
                     <p className="mt-7 pb-1 leading-snug text-white/78">
@@ -2540,12 +2560,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </p>
                   </div>
                 ) : lyricsMatch?.hasLyrics === false ? (
-                  <div className="flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-3 px-5 text-center text-white/52">
+                  <div className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-3 rounded-[26px] px-5 text-center text-white/52">
                     <FileText className="h-7 w-7 text-orange-300/70" />
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">letra indisponível</span>
                   </div>
                 ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
-                  <div className="flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-4 px-5 text-center">
+                  <div className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-4 rounded-[26px] px-5 text-center">
                     <FileText className="h-8 w-8 text-orange-300" />
                     <div>
                       <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
@@ -2557,7 +2577,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       href={lyricsMatch.match.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-full bg-white/[0.08] px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/72"
+                      className="stats-lc-soft-white-glass rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/72"
                     >
                       abrir no Genius
                     </a>
@@ -2566,7 +2586,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <button
                     type="button"
                     onClick={handleLyrics}
-                    className="flex h-[clamp(280px,50dvh,430px)] w-full flex-col items-center justify-center gap-3 text-white/52"
+                    className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] w-full flex-col items-center justify-center gap-3 rounded-[26px] text-white/52"
                   >
                     <FileText className="h-7 w-7 text-orange-300" />
                     <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>

@@ -246,7 +246,7 @@ export const TrackLeaderboardModal = ({
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="glass premium-gradient w-full max-w-sm max-h-[85vh] rounded-[38px] border-white/15 bg-black/45 shadow-[0_28px_70px_-18px_rgba(0,0,0,0.9)] backdrop-blur-3xl flex flex-col overflow-hidden relative"
+        className="stats-lc-frosted-modal-glass w-full max-w-sm max-h-[85vh] rounded-[38px] border border-white/[0.10] flex flex-col overflow-hidden relative"
         onClick={e => e.stopPropagation()}
       >
         <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.05] to-transparent pointer-events-none" />
@@ -257,7 +257,7 @@ export const TrackLeaderboardModal = ({
 
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 z-50 h-10 w-10 glass rounded-2xl flex items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all border border-white/5"
+          className="stats-lc-soft-white-glass absolute top-6 right-6 z-50 h-10 w-10 rounded-2xl flex items-center justify-center text-white/56 hover:text-white/90 active:scale-90 transition-all border border-white/[0.08]"
         >
           <X className="h-5 w-5" />
         </button>
@@ -365,7 +365,7 @@ export const TrackLeaderboardModal = ({
              </AnimatePresence>
            </div>
            
-           <div className="flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full bg-white/5 border border-white/5">
+           <div className="stats-lc-soft-white-glass flex items-center gap-1.5 mt-4 px-3 py-1 rounded-full border border-white/[0.08]">
              <Trophy className="h-2.5 w-2.5 text-orange-500" />
              <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.3em]">Arena Rankings</span>
            </div>
@@ -388,7 +388,7 @@ export const TrackLeaderboardModal = ({
                         "shrink-0 rounded-full border px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] transition-all",
                         selected
                           ? "border-orange-500/50 bg-orange-500/15 text-orange-300"
-                          : "border-white/10 bg-white/[0.03] text-white/40 hover:text-white/70"
+                          : "stats-lc-soft-white-glass border-white/[0.08] text-white/46 hover:text-white/74"
                       )}
                     >
                       {artist?.name || artist?.artistName || 'Artista'}
@@ -397,7 +397,7 @@ export const TrackLeaderboardModal = ({
                 })}
               </div>
             )}
-            <div className="flex bg-white/[0.03] p-1 rounded-2xl border border-white/5 shrink-0">
+            <div className="stats-lc-soft-white-glass flex p-1 rounded-2xl border border-white/[0.08] shrink-0">
                {[
                  { id: 'track', label: 'Faixa' },
                  { id: 'artist', label: 'Artista' },
@@ -440,8 +440,8 @@ export const TrackLeaderboardModal = ({
                         transition={{ delay: Math.min(i * 0.05, 0.3), duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                         className={cn(
                           "flex items-center justify-between p-3.5 rounded-[22px] border transition-all",
-                          isWinner ? "bg-orange-500/10 border-orange-500/20 shadow-[0_8px_16px_rgba(255,159,10,0.05)]" : "bg-white/[0.02] border-white/5",
-                          isLeo && !isWinner && "border-white/20 bg-white/5"
+                          isWinner ? "bg-orange-500/10 border-orange-500/20 shadow-[0_8px_16px_rgba(255,159,10,0.05)]" : "stats-lc-soft-white-glass border-white/[0.08]",
+                          isLeo && !isWinner && "border-white/20"
                         )}
                       >
                         <div className="flex items-center gap-3">
@@ -516,7 +516,7 @@ export const TrackLeaderboardModal = ({
                     href={`https://open.spotify.com/track/${track.spotifyId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 h-11 rounded-xl bg-white/5 hover:bg-[#1DB954]/10 border border-white/5 hover:border-[#1DB954]/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
+                    className="stats-lc-soft-white-glass flex-1 h-11 rounded-xl hover:bg-[#1DB954]/10 border border-white/[0.08] hover:border-[#1DB954]/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
                    >
                      <img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100 transition-opacity" alt="" />
                      <span className="text-[9px] font-black text-white/30 group-hover:text-[#1DB954] uppercase tracking-widest transition-colors">Spotify</span>
@@ -527,7 +527,7 @@ export const TrackLeaderboardModal = ({
                     href={`https://music.apple.com/song/${track.appleMusicId}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 h-11 rounded-xl bg-white/5 hover:bg-pink-500/10 border border-white/5 hover:border-pink-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
+                    className="stats-lc-soft-white-glass flex-1 h-11 rounded-xl hover:bg-pink-500/10 border border-white/[0.08] hover:border-pink-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all no-underline shrink-0 group"
                    >
                      <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" className="h-3.5 w-3.5 invert opacity-30 group-hover:opacity-100 transition-opacity" alt="" />
                      <span className="text-[9px] font-black text-white/30 group-hover:text-pink-500 uppercase tracking-widest transition-colors">Apple</span>
@@ -537,10 +537,10 @@ export const TrackLeaderboardModal = ({
             </div>
         </div>
 
-        <div className="p-6 pt-2 pb-8 bg-gradient-to-t from-black/75 via-black/55 to-transparent shrink-0">
+        <div className="p-6 pt-2 pb-8 bg-gradient-to-t from-white/[0.07] via-white/[0.03] to-transparent shrink-0">
           <button 
             onClick={onClose}
-            className="w-full h-12 rounded-2xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-[0.2em] text-white/40 active:scale-95 transition-all hover:bg-white/10"
+            className="stats-lc-soft-white-glass w-full h-12 rounded-2xl border border-white/[0.08] text-[9px] font-black uppercase tracking-[0.2em] text-white/50 active:scale-95 transition-all hover:text-white/74"
           >
             Sair da Arena
           </button>
