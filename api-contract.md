@@ -45,6 +45,7 @@ Represents **catalog availability** for the track.
 - Cache/debug metadata is intentionally kept out of normal endpoint payloads and is exposed only via `/api/health` and optional debug surfaces.
 - Live now-playing calls may opt into an internal `cacheProfile: "live"` with a shorter fresh/stale window. This is still handled inside `statsfmFetch` and does not change normal endpoint payloads.
 - `/api/group-live` has an internal 1.9-second endpoint deadline and may return partial members with `live_deadline_exceeded` warnings instead of blocking the full poll.
+- `/api/group-activity` is the cached background fallback for the Circle Activity reel. It reads one row per member from full stream history, hydrates track-only rows, limits concurrency to three, and always marks returned activities as non-live.
 - Optional dominant-color work is intentionally outside the `/api/group-live` and `/api/group` critical paths. Clients keep existing/local colors while richer endpoints refresh them.
 - `/api/group` uses a 180-second CDN fresh window with a 900-second stale-while-revalidate window.
 - Successful API responses expose `X-Request-Id`, `Server-Timing`, and `X-App-Timing`. `X-App-Timing` is the platform-safe fallback when `Server-Timing` is stripped.

@@ -547,6 +547,21 @@ export type SimultaneousListeningQuery = {
   signal?: AbortSignal;
 };
 
+export type GroupActivityMember = {
+  key: string;
+  userId: string;
+  activity: any | null;
+  generatedAt: string;
+  warnings?: string[];
+};
+
+export type GroupActivityResponse = {
+  ok: boolean;
+  generatedAt: string;
+  members: GroupActivityMember[];
+  partial?: boolean;
+};
+
 let groupRequestInFlight: Promise<GroupStats> | null = null;
 const liveRequestInFlight = new Map<string, Promise<GroupStats>>();
 
@@ -808,6 +823,37 @@ export const statsService = {
     return fetchFromApi<any>('/api/latest-discovery', {
       user: coreUtils.getUserApiParam(userId),
     }, false, 0, true, { signal });
+  },
+
+  async getGroupActivity(signal?: AbortSignal): Promise<GroupActivityResponse> {
+    const response = await fetchFromApi<GroupActivityResponse>(
+      '/api/group-activity',
+      {},
+      false,
+      0,
+      true,
+      { signal }
+    );
+
+    return {
+      ...response,
+      members: Array.isArray(response?.members)
+        ? response.members.map(member => ({
+            ...member,
+            activity: member.activity
+              ? {
+                  ...normalizeRecentStream(member.activity),
+                  isNow: false,
+                  timestamp:
+                    member.activity.timestamp
+                    || member.activity.playedAt
+                    || member.activity.endTime
+                    || null,
+                }
+              : null,
+          }))
+        : [],
+    };
   },
 
   /**

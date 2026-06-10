@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useId, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
@@ -14,9 +14,18 @@ interface VinylRecordProps {
   albumImage: string;
   dominantColor: string;
   isPlaying: boolean;
+  playbackKey?: string;
   hideTonearm?: boolean;
   onPlaybackIntent?: (isPlaying: boolean) => void;
 }
+
+type VinylVisualSnapshot = {
+  albumImage: string;
+  dominantColor: string;
+  identity: string;
+  playbackKey: string;
+  revision: number;
+};
 
 const hashString = (value: string) => {
   let hash = 0;
@@ -86,32 +95,105 @@ const usePrefersReducedMotion = () => {
 
 const getRotationFromTransform = (transform: string) => {
   if (!transform || transform === 'none') return null;
-  const matrix = transform.match(/^matrix\(([^)]+)\)$/);
-  if (!matrix) return null;
-  const [a, b] = matrix[1].split(',').map((value) => Number.parseFloat(value.trim()));
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
-  return (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+  try {
+    const matrix = new DOMMatrixReadOnly(transform);
+    return (Math.atan2(matrix.m12, matrix.m11) * 180 / Math.PI + 360) % 360;
+  } catch {
+    return null;
+  }
+};
+
+const decodeVinylImage = (source: string) => new Promise<void>((resolve, reject) => {
+  const image = new Image();
+  image.decoding = 'async';
+  image.onload = () => {
+    if (!image.decode) {
+      resolve();
+      return;
+    }
+    image.decode().then(resolve).catch(reject);
+  };
+  image.onerror = () => reject(new Error(`Unable to load vinyl artwork: ${source}`));
+  image.src = source;
+});
+
+const getVisualIdentity = (playbackKey: string | undefined, albumImage: string) => (
+  `${playbackKey || 'playback-unknown'}::${albumImage || 'vinyl-placeholder'}`
+);
+
+const getTransitionMotion = (prefersReducedMotion: boolean) => {
+  if (prefersReducedMotion) {
+    return {
+      initial: { opacity: 0 },
+      animate: { opacity: 1 },
+      exit: { opacity: 0 },
+      transition: { duration: 0.12, ease: 'linear' as const },
+    };
+  }
+
+  return {
+    initial: { x: 140, opacity: 0, scale: 0.96 },
+    animate: { x: 0, opacity: 1, scale: 1 },
+    exit: {
+      x: 150,
+      opacity: 0,
+      scale: 0.94,
+      transition: {
+        duration: 0.54,
+        ease: [0.4, 0, 0.2, 1] as const,
+      },
+    },
+    transition: {
+      duration: 0.58,
+      delay: 0.08,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
+  };
 };
 
 export const VinylRecord = ({
   albumImage,
   dominantColor,
   isPlaying,
+  playbackKey,
   hideTonearm = false,
   onPlaybackIntent
 }: VinylRecordProps) => {
   const uniqueId = useId();
   const [containerRef, isVisible] = useVinylVisibility();
-  const [displayAlbumImage, setDisplayAlbumImage] = useState(albumImage);
+  const initialIdentity = getVisualIdentity(playbackKey, albumImage);
+  const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
+    albumImage,
+    dominantColor,
+    identity: initialIdentity,
+    playbackKey: playbackKey || initialIdentity,
+    revision: 0,
+  }));
   const discRef = useRef<HTMLDivElement | null>(null);
   const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
   const previousPlayingRef = useRef(isPlaying);
+  const transitionPlayingRef = useRef(isPlaying);
+  const visualRevisionRef = useRef(0);
+  const visualRequestRef = useRef(0);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
+  const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
+  const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
+  incomingVisualRef.current = { albumImage, dominantColor, identity: incomingIdentity, playbackKey };
+  const transitionMotion = useMemo(
+    () => getTransitionMotion(!canAnimate),
+    [canAnimate]
+  );
 
-  const baseDominantColor = useMemo(() => normalizeColor(dominantColor, '#647062'), [dominantColor]);
-  const textureProfile    = useMemo(() => getTextureProfile(displayAlbumImage, baseDominantColor), [displayAlbumImage, baseDominantColor]);
+  const baseDominantColor = useMemo(
+    () => normalizeColor(visualSnapshot.dominantColor, '#647062'),
+    [visualSnapshot.dominantColor]
+  );
+  const textureProfile    = useMemo(
+    () => getTextureProfile(visualSnapshot.albumImage, baseDominantColor),
+    [visualSnapshot.albumImage, baseDominantColor]
+  );
   const textureSeed       = textureProfile.seed;
   const textureVariant: number = 0;
   const textureName       = 'classic';
@@ -131,35 +213,73 @@ export const VinylRecord = ({
   const resinAlpha        = isPlaying ? 0.38 : 0.32;
 
   useEffect(() => {
-    if (albumImage === displayAlbumImage) return;
+    if (incomingIdentity === visualSnapshot.identity) return;
+
+    const requestId = ++visualRequestRef.current;
+    let cancelled = false;
+    const commitSnapshot = () => {
+      if (cancelled || requestId !== visualRequestRef.current) return;
+      const nextVisual = incomingVisualRef.current;
+      if (nextVisual.identity !== incomingIdentity) return;
+
+      visualRevisionRef.current += 1;
+      setVisualSnapshot({
+        albumImage: nextVisual.albumImage,
+        dominantColor: nextVisual.dominantColor,
+        identity: nextVisual.identity,
+        playbackKey: nextVisual.playbackKey || nextVisual.identity,
+        revision: visualRevisionRef.current,
+      });
+    };
 
     if (!albumImage) {
-      setDisplayAlbumImage('');
-      return;
+      commitSnapshot();
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) setDisplayAlbumImage(albumImage);
-    }, 700);
-
     preloadSmartImages([albumImage])
-      .catch(() => undefined)
-      .then(() => {
-        if (!cancelled) setDisplayAlbumImage(albumImage);
+      .then(() => decodeVinylImage(albumImage))
+      .then(commitSnapshot)
+      .catch(() => {
+        // Keep the previous decoded artwork instead of flashing an unloaded cover.
       });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(fallbackTimer);
     };
-  }, [albumImage, displayAlbumImage]);
+  }, [albumImage, incomingIdentity, visualSnapshot.identity]);
+
+  useEffect(() => {
+    if (
+      visualSnapshot.identity !== incomingIdentity
+      || visualSnapshot.dominantColor === dominantColor
+    ) return;
+
+    setVisualSnapshot(snapshot => ({
+      ...snapshot,
+      dominantColor,
+    }));
+  }, [dominantColor, incomingIdentity, visualSnapshot.dominantColor, visualSnapshot.identity]);
+
+  useLayoutEffect(() => {
+    const wasPlaying = transitionPlayingRef.current;
+    transitionPlayingRef.current = isPlaying;
+    if (wasPlaying || !isPlaying || incomingIdentity !== visualSnapshot.identity) return;
+
+    visualRevisionRef.current += 1;
+    setVisualSnapshot(snapshot => ({
+      ...snapshot,
+      revision: visualRevisionRef.current,
+    }));
+  }, [incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
     const node = discRef.current;
     if (!node) return;
     node.style.transform = `rotate(${rotationRef.current}deg)`;
-  }, [displayAlbumImage]);
+  }, [visualSnapshot.revision]);
 
   useEffect(() => {
     const node = discRef.current;
@@ -218,9 +338,8 @@ export const VinylRecord = ({
       { duration: 3000, iterations: Infinity, easing: 'linear' }
     );
     previousPlayingRef.current = isPlaying;
-
     return () => stopSpin('instant');
-  }, [canAnimate, isPlaying, displayAlbumImage]);
+  }, [canAnimate, isPlaying, visualSnapshot.revision]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -293,18 +412,20 @@ export const VinylRecord = ({
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={false} mode="sync">
       <motion.div
-        key={displayAlbumImage || 'vinyl-placeholder'}
+        key={`${visualSnapshot.playbackKey}:${visualSnapshot.revision}`}
         className="absolute inset-0 z-10"
-        initial={canAnimate ? { x: 74, opacity: 0, scale: 0.985 } : false}
-        animate={{ x: 0, opacity: 1, scale: 1 }}
-        exit={canAnimate ? { x: 86, opacity: 0, scale: 0.975 } : { opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 210, damping: 26, mass: 0.78 }}
+        initial={transitionMotion.initial}
+        animate={transitionMotion.animate}
+        exit={transitionMotion.exit}
+        transition={transitionMotion.transition}
       >
+      <div className={`relative h-full w-full ${!isPlaying && canAnimate ? "vinyl-record-idle" : ""}`}>
+      <div className="pointer-events-none absolute left-1/2 top-1/2 h-[4%] w-[4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/70" />
       <div
         ref={(node) => {
           if (node) discRef.current = node;
         }}
-        className={`h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10 ${!isPlaying && canAnimate ? "vinyl-record-idle" : ""}`}
+        className="relative h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10"
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
@@ -325,8 +446,8 @@ export const VinylRecord = ({
           isolation: 'isolate',
           backdropFilter: 'blur(1.2px) saturate(1.18)',
           WebkitBackdropFilter: 'blur(1.2px) saturate(1.18)',
-          maskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
-          WebkitMaskImage: 'radial-gradient(circle at center, transparent 4.5%, rgba(0,0,0,0.3) 4.8%, black 5.5%)',
+          maskImage: 'radial-gradient(circle at center, transparent 2%, rgba(0,0,0,0.55) 2.14%, black 2.35%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, transparent 2%, rgba(0,0,0,0.55) 2.14%, black 2.35%)',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transformOrigin: 'center center',
@@ -499,10 +620,10 @@ export const VinylRecord = ({
         {/* ── CAPA DO ÁLBUM ──────────────────────────────────────── */}
         <div className="absolute inset-[24%] rounded-full overflow-hidden z-20 flex items-center justify-center bg-stone-900">
             <div className="w-full h-full absolute inset-0 flex items-center justify-center">
-              {displayAlbumImage ? (
+              {visualSnapshot.albumImage ? (
                 <div className="w-full h-full relative">
                   <SmartImage
-                    src={displayAlbumImage}
+                    src={visualSnapshot.albumImage}
                     className="w-full h-full object-cover"
                     fallback="💿"
                     rounded="full"
@@ -510,15 +631,6 @@ export const VinylRecord = ({
                   <div
                     className="absolute inset-0 rounded-full pointer-events-none"
                     style={{ background: 'transparent' }}
-                  />
-                  <div
-                    className="absolute left-1/2 top-1/2 z-30 h-[9.5%] w-[9.5%] -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-                    style={{
-                      background: `
-                        radial-gradient(circle at 42% 38%, rgba(255,255,255,0.22) 0%, rgba(48,42,48,0.84) 30%, rgba(28,24,28,0.9) 62%, rgba(22,20,22,0.72) 100%)
-                      `,
-                      boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.14), inset 0 -2px 4px rgba(0,0,0,0.44), 0 0 0 0.65px rgba(255,255,255,0.12)',
-                    }}
                   />
                 </div>
               ) : (
@@ -548,6 +660,7 @@ export const VinylRecord = ({
           </AnimatePresence>
         </div>
 
+      </div>
       </div>
       </motion.div>
       </AnimatePresence>

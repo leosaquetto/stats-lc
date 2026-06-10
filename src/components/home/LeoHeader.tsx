@@ -1248,10 +1248,9 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   });
   const isActuallyLive = backendIsLive && livePlayback.shouldSpinVinyl;
   const playbackSignatureSource = nowPlaying as any;
-  const backendPlaybackSignature = useMemo(() => `${getPlaybackKey(user.id, nowPlaying, null)}:${nowPlaying?.isNow === true ? 'live' : 'idle'}`, [
+  const vinylPlaybackKey = useMemo(() => getPlaybackKey(user.id, nowPlaying, null), [
     user.id,
     nowPlaying?.track?.id,
-    nowPlaying?.isNow,
     playbackSignatureSource?.playbackKey,
     playbackSignatureSource?.streamId,
     playbackSignatureSource?.stream?.id,
@@ -1259,6 +1258,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
     playbackSignatureSource?.endTime,
     nowPlaying?.timestamp,
   ]);
+  const backendPlaybackSignature = `${vinylPlaybackKey}:${nowPlaying?.isNow === true ? 'live' : 'idle'}`;
   const [playbackOverride, setPlaybackOverride] = useState<{ signature: string; isPlaying: boolean } | null>(null);
   useEffect(() => {
     if (playbackOverride && playbackOverride.signature !== backendPlaybackSignature) {
@@ -1418,6 +1418,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                 albumImage={albumImage || ""}
                 dominantColor={dominantColor || ""}
                 isPlaying={visualIsLive}
+                playbackKey={vinylPlaybackKey}
                 onPlaybackIntent={handleVinylPlaybackIntent}
               />
             </div>
