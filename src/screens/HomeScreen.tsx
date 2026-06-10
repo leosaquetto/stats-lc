@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
-import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { FriendActivityReel } from '../components/home/FriendActivityReel';
@@ -195,128 +195,287 @@ const HomeHighlightPeriodControls = ({
   selectedSubValues,
   onActiveTabChange,
   onSelectedSubValuesChange,
-  children,
 }: {
   activeTab: ReplayFilterPeriod;
   selectedSubValues: ReplaySelectedSubValues;
   onActiveTabChange: (tab: ReplayFilterPeriod) => void;
   onSelectedSubValuesChange: (values: ReplaySelectedSubValues) => void;
-  children?: React.ReactNode;
 }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: Math.max(1, currentYear - 2024 + 1) }, (_, index) => 2024 + index);
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
-    { key: 'today', label: 'hoje' },
-    { key: 'week', label: 'semana' },
-    { key: 'month', label: 'mês' },
-    { key: 'year', label: 'ano' },
-    { key: 'all', label: 'tudo' }
+    { key: 'today', label: 'Hoje' },
+    { key: 'week', label: 'Semana' },
+    { key: 'month', label: 'Mês' },
+    { key: 'year', label: 'Ano' },
+    { key: 'all', label: 'Total' }
   ];
+  const activeLabel = getReplayFilterLabel(activeTab, selectedSubValues);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isOpen]);
+
+  const handlePeriodSelect = (tab: ReplayFilterPeriod) => {
+    onActiveTabChange(tab);
+    if (tab === 'today' || tab === 'all') {
+      setIsOpen(false);
+    }
+  };
 
   return (
-    <div data-home-horizontal-scroll="true" className="flex items-center gap-1 overflow-x-auto no-scrollbar rounded-[26px] border border-white/[0.06] bg-black/22 p-1">
-      {children && (
-        <>
-          {children}
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
-        </>
-      )}
+    <div ref={menuRef} className="relative z-40 shrink-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/30 px-3 text-orange-100 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-[background-color,border-color,transform] active:scale-[0.96]"
+        aria-label={`Filtro de período: ${activeLabel}`}
+        aria-expanded={isOpen}
+      >
+        <Clock3 className="h-4 w-4 shrink-0" />
+        <span className="max-w-[76px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76">
+          {activeLabel}
+        </span>
+        <ChevronDown className={cn("h-3 w-3 shrink-0 text-white/56 transition-transform", isOpen && "rotate-180")} />
+      </button>
 
-      {periodTabs.map((tab) => (
-        <button
-          key={tab.key}
-          type="button"
-          onClick={() => onActiveTabChange(tab.key)}
-          className={cn(
-            "shrink-0 rounded-[20px] px-3 py-2 text-[10px] font-black lowercase transition-[background-color,color,box-shadow,transform] active:scale-[0.98]",
-            activeTab === tab.key
-              ? "bg-white/16 text-white shadow-[0_10px_24px_rgba(0,0,0,0.28)]"
-              : "text-white/42 hover:bg-white/[0.045] hover:text-white/68"
-          )}
-        >
-          {tab.label}
-        </button>
-      ))}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 top-11 z-50 w-[248px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+          >
+            <div className="grid grid-cols-2 gap-1">
+              {periodTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handlePeriodSelect(tab.key)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-[background-color,color,transform] active:scale-[0.98]",
+                    activeTab === tab.key
+                      ? "bg-orange-500/16 text-orange-100"
+                      : "text-white/46 hover:bg-white/[0.05] hover:text-white/76"
+                  )}
+                >
+                  <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-      {activeTab === 'week' && (
-        <>
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
-          {[
-            { key: 'last-7' as ReplayWeekMode, label: '7 dias' },
-            { key: 'current' as ReplayWeekMode, label: 'semana atual' }
-          ].map((option) => {
-            const isSelected = selectedSubValues.weekMode === option.key;
-            return (
-              <button
-                key={option.key}
-                type="button"
-                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, weekMode: option.key })}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] transition-colors",
-                  isSelected ? "bg-orange-500/14 text-orange-100" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
-                )}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </>
-      )}
+            {activeTab === 'week' && (
+              <div className="mt-2 border-t border-white/[0.06] pt-2">
+                <div className="grid grid-cols-2 gap-1">
+                  {[
+                    { key: 'last-7' as ReplayWeekMode, label: '7 dias' },
+                    { key: 'current' as ReplayWeekMode, label: 'Semana atual' }
+                  ].map((option) => {
+                    const isSelected = selectedSubValues.weekMode === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => {
+                          onSelectedSubValuesChange({ ...selectedSubValues, weekMode: option.key });
+                          setIsOpen(false);
+                        }}
+                        className={cn(
+                          "rounded-[14px] px-2.5 py-2 text-left text-[9px] font-black uppercase tracking-[0.08em] transition-colors",
+                          isSelected ? "bg-white/12 text-white" : "text-white/42 hover:bg-white/[0.05] hover:text-white/70"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-      {activeTab === 'month' && (
-        <>
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
-          {availableMonths.map((month, index) => {
-            const value = String(index).padStart(2, '0');
-            const isSelected = selectedSubValues.month === value;
-            const isFuture = index > currentMonth;
-            return (
-              <button
-                key={month}
-                type="button"
-                disabled={isFuture}
-                onClick={() => !isFuture && onSelectedSubValuesChange({ ...selectedSubValues, month: value })}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-2 text-[10px] font-black lowercase transition-colors disabled:cursor-not-allowed",
-                  isSelected ? "bg-orange-500/13 text-white" : isFuture ? "text-white/12" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
-                )}
-              >
-                {month}
-              </button>
-            );
-          })}
-        </>
-      )}
+            {activeTab === 'month' && (
+              <div className="mt-2 border-t border-white/[0.06] pt-2">
+                <div className="grid grid-cols-4 gap-1">
+                  {availableMonths.map((month, index) => {
+                    const value = String(index).padStart(2, '0');
+                    const isSelected = selectedSubValues.month === value;
+                    const isFuture = index > currentMonth;
+                    return (
+                      <button
+                        key={month}
+                        type="button"
+                        disabled={isFuture}
+                        onClick={() => {
+                          if (isFuture) return;
+                          onSelectedSubValuesChange({ ...selectedSubValues, month: value });
+                          setIsOpen(false);
+                        }}
+                        className={cn(
+                          "rounded-[13px] px-2 py-1.5 text-[9px] font-black lowercase transition-colors disabled:cursor-not-allowed",
+                          isSelected ? "bg-white/13 text-white" : isFuture ? "text-white/13" : "text-white/44 hover:bg-white/[0.05] hover:text-white/72"
+                        )}
+                      >
+                        {month}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-      {activeTab === 'year' && (
-        <>
-          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/10" />
-          {years.map((year) => {
-            const isSelected = selectedSubValues.year === String(year);
-            return (
-              <button
-                key={year}
-                type="button"
-                onClick={() => onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) })}
-                className={cn(
-                  "shrink-0 rounded-full px-3.5 py-2 text-[11px] font-black transition-colors",
-                  isSelected ? "bg-orange-500/13 text-white" : "text-white/34 hover:bg-white/[0.035] hover:text-white/58"
-                )}
-              >
-                {year}
-              </button>
-            );
-          })}
-        </>
-      )}
-
+            {activeTab === 'year' && (
+              <div className="mt-2 border-t border-white/[0.06] pt-2">
+                <div className="grid grid-cols-3 gap-1">
+                  {years.map((year) => {
+                    const isSelected = selectedSubValues.year === String(year);
+                    return (
+                      <button
+                        key={year}
+                        type="button"
+                        onClick={() => {
+                          onSelectedSubValuesChange({ ...selectedSubValues, year: String(year) });
+                          setIsOpen(false);
+                        }}
+                        className={cn(
+                          "rounded-[13px] px-2 py-1.5 text-[10px] font-black transition-colors",
+                          isSelected ? "bg-white/13 text-white" : "text-white/44 hover:bg-white/[0.05] hover:text-white/72"
+                        )}
+                      >
+                        {year}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 type HomeHighlightKind = 'artists' | 'tracks' | 'albums';
+
+const HomeHighlightCategoryControl = ({
+  groups,
+  activeGroup,
+  onChange,
+}: {
+  groups: Array<{ key: HomeHighlightKind; tabLabel: string; icon: any }>;
+  activeGroup: { key: HomeHighlightKind; tabLabel: string; icon: any };
+  onChange: (kind: HomeHighlightKind) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const ActiveIcon = activeGroup.icon;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [isOpen]);
+
+  return (
+    <div ref={menuRef} className="relative z-40 shrink-0">
+      <button
+        type="button"
+        onClick={() => setIsOpen((value) => !value)}
+        className="flex h-9 items-center gap-1.5 rounded-full border border-orange-500/18 bg-orange-500/12 px-3 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)] transition-[background-color,border-color,transform] active:scale-[0.96]"
+        aria-label={`Categoria de destaque: ${activeGroup.tabLabel}`}
+        aria-expanded={isOpen}
+      >
+        <ActiveIcon className="h-4 w-4 shrink-0" />
+        <span className="max-w-[82px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/78">
+          {activeGroup.tabLabel}
+        </span>
+        <ChevronDown className={cn("h-3 w-3 shrink-0 text-white/56 transition-transform", isOpen && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 6, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 top-11 z-50 w-[182px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+          >
+            {groups.map((group) => {
+              const Icon = group.icon;
+              const isActive = group.key === activeGroup.key;
+              return (
+                <button
+                  key={group.key}
+                  type="button"
+                  onClick={() => {
+                    onChange(group.key);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-[background-color,color,transform] active:scale-[0.98]",
+                    isActive
+                      ? "bg-orange-500/16 text-orange-100"
+                      : "text-white/46 hover:bg-white/[0.05] hover:text-white/76"
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  {group.tabLabel}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+const HIGHLIGHT_VISUAL_CONFIG = {
+  artists: {
+    primary: { width: 136, height: 182 },
+    secondary: { width: 94, height: 126 },
+    primaryRadius: "rounded-[25px]",
+    secondaryRadius: "rounded-[22px]",
+    ringScale: "h-[230px] w-[230px]",
+    dashScale: "h-[172px] w-[172px]",
+  },
+  tracks: {
+    primary: { width: 158, height: 158 },
+    secondary: { width: 112, height: 112 },
+    primaryRadius: "rounded-[32px]",
+    secondaryRadius: "rounded-[26px]",
+    ringScale: "h-[220px] w-[220px]",
+    dashScale: "h-[164px] w-[164px]",
+  },
+  albums: {
+    primary: { width: 170, height: 170 },
+    secondary: { width: 118, height: 118 },
+    primaryRadius: "rounded-[24px]",
+    secondaryRadius: "rounded-[20px]",
+    ringScale: "h-[236px] w-[236px]",
+    dashScale: "h-[178px] w-[178px]",
+  },
+} as const;
 
 const HomeOrbitalHighlights = ({
   totalMinutes,
@@ -342,10 +501,12 @@ const HomeOrbitalHighlights = ({
   const shouldReduceMotion = useReducedMotion();
   const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
+  const highlightScrollRefs = useRef<Partial<Record<HomeHighlightKind, HTMLDivElement | null>>>({});
+  const highlightScrollRafRef = useRef<number | null>(null);
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
-    { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 5) },
-    { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 5) },
-    { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, 5) }
+    { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
+    { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 12) },
+    { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, 10) }
   ].filter((group) => group.items.length > 0), [albums, artists, tracks]);
 
   useEffect(() => {
@@ -358,6 +519,67 @@ const HomeOrbitalHighlights = ({
   const stageHeight = "h-[238px] sm:h-[258px]";
   const activeGroup = groups.find((group) => group.key === activeKind) || groups[0];
   const periodLabel = getReplayFilterLabel(activeTab, selectedSubValues);
+  const applyHighlightCardStyles = useCallback((kind: HomeHighlightKind) => {
+    const node = highlightScrollRefs.current[kind];
+    if (!node) return;
+    const config = HIGHLIGHT_VISUAL_CONFIG[kind];
+    const containerRect = node.getBoundingClientRect();
+    const anchorLeft = containerRect.left + 8;
+    const step = config.secondary.width + 8;
+    const cards = Array.from(node.querySelectorAll<HTMLElement>('[data-highlight-card="true"]'));
+
+    cards.forEach((card) => {
+      const cardRect = card.getBoundingClientRect();
+      const distance = cardRect.left - anchorLeft;
+      const slot = distance / step;
+      const rightSlot = Math.max(0, slot);
+      const sizeProgress = shouldReduceMotion
+        ? (rightSlot < 0.55 ? 1 : Math.max(0.22, 1 - rightSlot * 0.32))
+        : Math.max(0.18, 1 - rightSlot * 0.28);
+      const width = config.secondary.width + (config.primary.width - config.secondary.width) * sizeProgress;
+      const height = config.secondary.height + (config.primary.height - config.secondary.height) * sizeProgress;
+      const leftFade = distance < -14 ? Math.max(0, Math.min(1, 1 + distance / 92)) : 1;
+      const farFade = Math.max(0.56, 1 - Math.max(0, rightSlot - 3) * 0.18);
+      const opacity = leftFade * farFade;
+      const leftShift = distance < -14 ? Math.max(-28, distance * 0.18) : 0;
+      const textProgress = Math.max(0, Math.min(1, sizeProgress));
+
+      card.style.width = `${width}px`;
+      card.style.height = `${height}px`;
+      card.style.opacity = String(opacity);
+      card.style.transform = `translate3d(${leftShift}px, 0, 0)`;
+      card.style.zIndex = String(Math.round(100 - Math.abs(slot) * 8));
+      card.style.pointerEvents = opacity < 0.32 ? 'none' : '';
+      card.style.setProperty('--highlight-rank-size', `${24 + (50 - 24) * textProgress}px`);
+      card.style.setProperty('--highlight-title-size', `${9.5 + (15 - 9.5) * textProgress}px`);
+      card.style.setProperty('--highlight-meta-size', `${7.5 + (9 - 7.5) * textProgress}px`);
+      card.style.setProperty('--highlight-detail-size', `${6.5 + (8 - 6.5) * textProgress}px`);
+      card.style.setProperty('--highlight-content-inset', `${8 + (12 - 8) * textProgress}px`);
+    });
+  }, [shouldReduceMotion]);
+
+  const scheduleHighlightCardStyles = useCallback((kind: HomeHighlightKind) => {
+    if (typeof window === 'undefined') return;
+    if (highlightScrollRafRef.current != null) return;
+    highlightScrollRafRef.current = window.requestAnimationFrame(() => {
+      highlightScrollRafRef.current = null;
+      applyHighlightCardStyles(kind);
+    });
+  }, [applyHighlightCardStyles]);
+
+  useEffect(() => {
+    const node = highlightScrollRefs.current[activeKind];
+    if (node) node.scrollLeft = 0;
+    scheduleHighlightCardStyles(activeKind);
+  }, [activeKind, activeGroup?.items.length, scheduleHighlightCardStyles]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightScrollRafRef.current != null) {
+        window.cancelAnimationFrame(highlightScrollRafRef.current);
+      }
+    };
+  }, []);
   const metricLabel = (item: any, kind: HomeHighlightKind) => {
     if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
     return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
@@ -374,34 +596,9 @@ const HomeOrbitalHighlights = ({
   });
 
   const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
-    const orderedItems = items.slice(0, 5);
+    const orderedItems = items;
     if (orderedItems.length === 0) return null;
-    const visualConfig = {
-      artists: {
-        primaryImageSize: "h-[182px] w-[136px] sm:h-[194px] sm:w-[146px]",
-        secondaryImageSize: "h-[126px] w-[94px] sm:h-[134px] sm:w-[100px]",
-        primaryRadius: "rounded-[25px]",
-        secondaryRadius: "rounded-[22px]",
-        ringScale: "h-[230px] w-[230px]",
-        dashScale: "h-[172px] w-[172px]",
-      },
-      tracks: {
-        primaryImageSize: "h-[158px] w-[158px] sm:h-[168px] sm:w-[168px]",
-        secondaryImageSize: "h-[112px] w-[112px] sm:h-[120px] sm:w-[120px]",
-        primaryRadius: "rounded-[32px]",
-        secondaryRadius: "rounded-[26px]",
-        ringScale: "h-[220px] w-[220px]",
-        dashScale: "h-[164px] w-[164px]",
-      },
-      albums: {
-        primaryImageSize: "h-[170px] w-[170px] sm:h-[182px] sm:w-[182px]",
-        secondaryImageSize: "h-[118px] w-[118px] sm:h-[126px] sm:w-[126px]",
-        primaryRadius: "rounded-[24px]",
-        secondaryRadius: "rounded-[20px]",
-        ringScale: "h-[236px] w-[236px]",
-        dashScale: "h-[178px] w-[178px]",
-      },
-    }[kind];
+    const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
 
     return (
       <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
@@ -413,70 +610,89 @@ const HomeOrbitalHighlights = ({
         />
         <div className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl" />
 
-        <div data-home-horizontal-scroll="true" className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5">
+        <div
+          ref={(node) => {
+            highlightScrollRefs.current[kind] = node;
+            if (node && typeof window !== 'undefined') {
+              window.requestAnimationFrame(() => applyHighlightCardStyles(kind));
+            }
+          }}
+          data-home-horizontal-scroll="true"
+          className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5"
+          onScroll={() => scheduleHighlightCardStyles(kind)}
+          onPointerUp={() => scheduleHighlightCardStyles(kind)}
+          onTouchEnd={() => scheduleHighlightCardStyles(kind)}
+        >
           {orderedItems.map((item, index) => {
-            const isPrimary = index === 0;
             return (
-              <motion.button
+              <button
                 key={`${kind}-rank-${item.id || item.name || index}`}
                 type="button"
                 onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
+                data-highlight-card="true"
                 data-entity-stats-trigger={kind}
                 data-entity-stats-active={isCentered ? 'true' : undefined}
-                data-entity-stats-primary={isPrimary ? 'true' : undefined}
-                data-entity-stats-satellite={!isPrimary ? index + 1 : undefined}
+                data-entity-stats-primary={index === 0 ? 'true' : undefined}
+                data-entity-stats-satellite={index > 0 ? index + 1 : undefined}
                 className={cn(
-                  "relative shrink-0 overflow-hidden bg-black text-left shadow-[0_18px_38px_rgba(0,0,0,0.45)] transition-transform active:scale-[0.98]",
-                  isPrimary ? visualConfig.primaryImageSize : visualConfig.secondaryImageSize,
-                  isPrimary ? visualConfig.primaryRadius : visualConfig.secondaryRadius,
+                  "relative shrink-0 overflow-hidden bg-black text-left shadow-[0_18px_38px_rgba(0,0,0,0.45)] transition-[width,height,opacity,transform,border-radius] duration-200 ease-out active:scale-[0.98]",
+                  visualConfig.primaryRadius,
                   kind === 'albums' && "ring-1 ring-white/12",
                   onItemClick && isCentered && "cursor-pointer"
                 )}
-                initial={{ opacity: 0, y: 12, scale: isPrimary ? 0.94 : 0.9 }}
-                animate={{ opacity: isPrimary ? 1 : 0.88, y: 0, scale: 1 }}
-                transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1], delay: index * 0.035 }}
+                style={{
+                  width: index === 0 ? visualConfig.primary.width : visualConfig.secondary.width,
+                  height: index === 0 ? visualConfig.primary.height : visualConfig.secondary.height,
+                  opacity: index === 0 ? 1 : 0.88,
+                }}
               >
                 <motion.div
                   className="relative h-full w-full"
-                  animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, isPrimary ? -3 : -1.5, 0] } : {}}
+                  animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, index === 0 ? -3 : -1.5, 0] } : {}}
                   transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
-                    duration: isPrimary ? 8.5 : 7 + index * 0.3,
+                    duration: index === 0 ? 8.5 : 7 + index * 0.3,
                     repeat: Infinity,
                     ease: 'easeInOut',
                   } : {}}
                 >
                   <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
-                  <span className={cn(
-                    "absolute z-20 font-black leading-none text-white drop-shadow-[0_10px_22px_rgba(0,0,0,0.62)]",
-                    isPrimary ? "left-3 top-2 text-[50px]" : "left-2 top-1.5 text-[24px]"
-                  )}>
+                  <span
+                    className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_10px_22px_rgba(0,0,0,0.62)]"
+                    style={{ fontSize: 'var(--highlight-rank-size, 24px)' }}
+                  >
                     {index + 1}
                   </span>
-                  <div className={cn("absolute bottom-2 z-20 min-w-0", isPrimary ? "left-3 right-3" : "left-2 right-2")}>
+                  <div
+                    className="absolute bottom-2 z-20 min-w-0"
+                    style={{
+                      left: 'var(--highlight-content-inset, 8px)',
+                      right: 'var(--highlight-content-inset, 8px)',
+                    }}
+                  >
                     {detailLabel(item, kind) && (
-                      <span className={cn(
-                        "mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62",
-                        isPrimary ? "text-[8px]" : "text-[6.5px]"
-                      )}>
+                      <span
+                        className="mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62"
+                        style={{ fontSize: 'var(--highlight-detail-size, 6.5px)' }}
+                      >
                         {detailLabel(item, kind)}
                       </span>
                     )}
-                    <span className={cn(
-                      "block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]",
-                      isPrimary ? "text-[15px]" : "text-[9.5px]"
-                    )}>
+                    <span
+                      className="block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]"
+                      style={{ fontSize: 'var(--highlight-title-size, 9.5px)' }}
+                    >
                       {getReplayItemTitle(item)}
                     </span>
-                    <span className={cn(
-                      "mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88",
-                      isPrimary ? "text-[9px]" : "text-[7.5px]"
-                    )}>
+                    <span
+                      className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
+                      style={{ fontSize: 'var(--highlight-meta-size, 7.5px)' }}
+                    >
                       {metricLabel(item, kind)}
                     </span>
                   </div>
                 </motion.div>
-              </motion.button>
+              </button>
             );
           })}
         </div>
@@ -488,14 +704,13 @@ const HomeOrbitalHighlights = ({
 
   return (
     <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
-      <div className="relative overflow-visible rounded-[34px] border border-white/[0.055] bg-white/[0.018] px-3.5 pb-2.5 pt-4 shadow-[0_28px_70px_rgba(0,0,0,0.28)]">
+      <div className="relative overflow-visible rounded-[34px] bg-white/[0.018] px-3.5 pb-2.5 pt-4 shadow-[0_28px_70px_rgba(0,0,0,0.28)]">
         <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-orange-400/30 to-transparent" />
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
             <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.28em] text-white/86">Seus Destaques</h2>
             <span className="shrink-0 rounded-full bg-orange-500/12 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200">{periodLabel}</span>
-            <span className="hidden truncate text-[8px] font-black uppercase tracking-[0.14em] text-white/34 min-[430px]:block">{activeGroup.title}</span>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5">
             <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
@@ -504,34 +719,21 @@ const HomeOrbitalHighlights = ({
           </div>
         </div>
 
-        <HomeHighlightPeriodControls
-          activeTab={activeTab}
-          selectedSubValues={selectedSubValues}
-          onActiveTabChange={onActiveTabChange}
-          onSelectedSubValuesChange={onSelectedSubValuesChange}
-        >
-          {groups.length > 1 && groups.map((group) => {
-              const Icon = group.icon;
-              const isActive = group.key === activeGroup.key;
-              return (
-                <button
-                  key={group.key}
-                  type="button"
-                  onClick={() => setActiveKind(group.key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-1.5 rounded-[22px] border px-2.5 py-2 text-[8.5px] font-black uppercase tracking-[0.12em] transition-[background-color,border-color,color,transform] active:scale-[0.98]",
-                    isActive
-                      ? "border-orange-500/24 bg-orange-500/13 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)]"
-                      : "border-white/[0.055] bg-black/18 text-white/36 hover:text-white/64"
-                  )}
-                  aria-pressed={isActive}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {group.tabLabel}
-                </button>
-              );
-            })}
-        </HomeHighlightPeriodControls>
+        <div className="mb-1.5 flex items-center gap-2">
+          {groups.length > 1 && (
+            <HomeHighlightCategoryControl
+              groups={groups}
+              activeGroup={activeGroup}
+              onChange={setActiveKind}
+            />
+          )}
+          <HomeHighlightPeriodControls
+            activeTab={activeTab}
+            selectedSubValues={selectedSubValues}
+            onActiveTabChange={onActiveTabChange}
+            onSelectedSubValuesChange={onSelectedSubValuesChange}
+          />
+        </div>
 
         <div
           data-home-horizontal-scroll="true"

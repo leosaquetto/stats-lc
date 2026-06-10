@@ -2261,14 +2261,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </div>
                     <div
                       className={clsx(
-                        "relative min-w-0 py-1",
+                        "relative min-w-0 overflow-x-auto overflow-y-hidden py-1 no-scrollbar",
                         shouldShowSocialRankingBadge ? "flex-1" : "w-full max-w-[220px]"
                       )}
+                      data-home-horizontal-scroll="true"
                     >
-                      <span className={clsx(
-                        "block text-balance text-[9px] font-bold leading-[1.12] text-white/58",
-                        shouldShowSocialRankingBadge ? "w-full" : "max-w-[220px]"
-                      )}>
+                      <span
+                        className="block max-h-[2.3em] min-w-full whitespace-normal text-[9px] font-bold leading-[1.12] text-white/58"
+                        style={{ width: socialInsight.length > 56 ? '22rem' : '100%' }}
+                      >
                         {socialInsight}
                       </span>
                     </div>

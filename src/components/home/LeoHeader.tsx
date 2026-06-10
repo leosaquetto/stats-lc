@@ -774,7 +774,7 @@ const ArenaRankingBubble = ({
           <div className="pointer-events-none absolute inset-[-3px] z-0 rounded-full bg-[#ff5f00]/34 blur-[2px] shadow-[0_0_16px_rgba(255,95,0,0.44)]" />
         )}
         <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
-          <SmartImage src={user.avatar} className="h-full w-full object-cover" fallback="" rounded="full" />
+          <SmartImage src={user.avatar} cacheKey={`leoheader-arena-avatar:${user.id}`} className="h-full w-full object-cover" fallback="" rounded="full" />
         </div>
       </div>
 
@@ -1477,6 +1477,7 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
                     <SmartImage
                       src={profileAvatar}
                       fallbackSrc={profileAvatarFallback}
+                      cacheKey={`leoheader-avatar:${user.id}`}
                       className="h-full w-full"
                       fallback=""
                       rounded="full"

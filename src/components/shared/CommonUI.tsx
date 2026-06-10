@@ -88,6 +88,7 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
 
 const loadedImageSrcs = new Set<string>();
 const preloadingImageSrcs = new Map<string, Promise<void>>();
+const stableImageSrcByKey = new Map<string, string>();
 
 export const preloadSmartImages = (sources: Array<string | undefined | null>) => {
   if (typeof window === 'undefined') return Promise.resolve();
@@ -131,7 +132,7 @@ export const preloadSmartImages = (sources: Array<string | undefined | null>) =>
   })).then(() => undefined);
 };
 
-export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, className?: string, fallback?: string, rounded?: string }) => {
+export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, cacheKey?: string, className?: string, fallback?: string, rounded?: string }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showFallback, setShowFallback] = useState(false);
@@ -139,17 +140,26 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
   const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
   const prefersReducedMotion = usePrefersReducedMotion();
-  const lastGoodSrcRef = useRef('');
+  const lastGoodSrcRef = useRef(cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '');
   const imageRef = useRef<HTMLImageElement>(null);
 
   const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
+  const cachedStableSrc = cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '';
   const resolvedSrc = overrideSrc || inputSrc;
-  const displaySrc = resolvedSrc || lastGoodSrcRef.current;
+  const displaySrc = resolvedSrc || lastGoodSrcRef.current || cachedStableSrc;
   const hasDisplayableSrc = !!displaySrc && !displaySrc.includes("private.webp") && !error;
 
   useEffect(() => {
     setOverrideSrc('');
   }, [inputSrc]);
+
+  useEffect(() => {
+    if (!cacheKey) return;
+    const cached = stableImageSrcByKey.get(cacheKey);
+    if (cached && !lastGoodSrcRef.current) {
+      lastGoodSrcRef.current = cached;
+    }
+  }, [cacheKey]);
 
   useEffect(() => {
     setError(false);
@@ -168,11 +178,12 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
 
     if (image.complete && image.naturalWidth > 0) {
       lastGoodSrcRef.current = displaySrc;
+      if (cacheKey) stableImageSrcByKey.set(cacheKey, displaySrc);
       loadedImageSrcs.add(displaySrc);
       setLoading(false);
       setShowFallback(false);
     }
-  }, [displaySrc, error]);
+  }, [cacheKey, displaySrc, error]);
 
   // Get initials from fallback name (max 2 chars)
   const getInitials = (name: string) => {
@@ -184,8 +195,8 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
     return name.slice(0, 2).toUpperCase();
   };
 
-  const shouldShowFallback = !hasDisplayableSrc && showFallback;
   const previousDisplaySrc = lastGoodSrcRef.current;
+  const shouldShowFallback = !hasDisplayableSrc && showFallback && !previousDisplaySrc;
   const shouldKeepPreviousImage = loading && !!previousDisplaySrc && previousDisplaySrc !== displaySrc;
 
   return (
@@ -234,6 +245,7 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
           ref={imageRef}
           onLoad={() => {
             lastGoodSrcRef.current = displaySrc;
+            if (cacheKey) stableImageSrcByKey.set(cacheKey, displaySrc);
             loadedImageSrcs.add(displaySrc);
             setLoading(false);
           }}
@@ -242,6 +254,13 @@ export const SmartImage = ({ src, fallbackSrc, className, fallback = "👤", rou
               setOverrideSrc(fallbackSrc);
               setError(false);
               setLoading(true);
+              setShowFallback(false);
+              return;
+            }
+            if (lastGoodSrcRef.current && displaySrc !== lastGoodSrcRef.current) {
+              setOverrideSrc(lastGoodSrcRef.current);
+              setError(false);
+              setLoading(false);
               setShowFallback(false);
               return;
             }

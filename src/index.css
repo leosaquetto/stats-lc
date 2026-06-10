@@ -381,13 +381,13 @@
 }
 
 @keyframes stats-lc-ambient-drift-primary {
-  0%, 100% { opacity: 0.58; transform: translate3d(-2%, -1%, 0) scale(1); }
-  50% { opacity: 0.82; transform: translate3d(3%, 2%, 0) scale(1.045); }
+  0%, 100% { opacity: 0.64; transform: translate3d(-4%, -2%, 0) scale(1); }
+  50% { opacity: 0.9; transform: translate3d(5%, 3.5%, 0) scale(1.075); }
 }
 
 @keyframes stats-lc-ambient-drift-secondary {
-  0%, 100% { opacity: 0.36; transform: translate3d(2%, 2%, 0) scale(1.02); }
-  50% { opacity: 0.62; transform: translate3d(-3%, -1.5%, 0) scale(1.075); }
+  0%, 100% { opacity: 0.44; transform: translate3d(4%, 3%, 0) scale(1.025); }
+  50% { opacity: 0.72; transform: translate3d(-5%, -3%, 0) scale(1.105); }
 }
 
 @keyframes progress-fill {
@@ -444,11 +444,11 @@
 }
 
 .stats-lc-ambient-drift-primary {
-  animation: stats-lc-ambient-drift-primary 24s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-primary 16s ease-in-out infinite;
 }
 
 .stats-lc-ambient-drift-secondary {
-  animation: stats-lc-ambient-drift-secondary 32s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-secondary 22s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
