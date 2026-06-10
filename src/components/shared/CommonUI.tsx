@@ -204,15 +204,38 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   }, [cacheKey]);
 
   useEffect(() => {
+    if (!displaySrc) {
+      setError(false);
+      setShowFallback(false);
+      setLoading(false);
+      return;
+    }
+
+    // Se imagem já está carregada, não dispara loading
+    if (loadedImageSrcs.has(displaySrc)) {
+      setError(false);
+      setShowFallback(false);
+      setLoading(false);
+      return;
+    }
+
+    // Se está em cache global, não dispara loading
+    if (cacheKey && stableImageSrcByKey.get(cacheKey) === displaySrc) {
+      setError(false);
+      setShowFallback(false);
+      setLoading(false);
+      return;
+    }
+
     setError(false);
     setShowFallback(false);
-    setLoading(!!displaySrc && !loadedImageSrcs.has(displaySrc));
+    setLoading(true);
 
-    if (!displaySrc || displaySrc.includes("private.webp")) {
+    if (displaySrc.includes("private.webp")) {
       const timer = setTimeout(() => setShowFallback(true), 400);
       return () => clearTimeout(timer);
     }
-  }, [displaySrc]);
+  }, [displaySrc, cacheKey]);
 
   useEffect(() => {
     const image = imageRef.current;

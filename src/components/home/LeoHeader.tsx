@@ -798,6 +798,10 @@ const ArenaRankingBubble = ({
 
 export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
+
+  // Estabiliza avatar string para evitar re-renders desnecessários
+  const userAvatarString = typeof user.avatar === 'string' ? user.avatar : '';
+
   const shouldReduceMotion = useReducedMotion();
   const arenaTrailRef = useRef<HTMLDivElement | null>(null);
   const arenaDomCacheRef = useRef<ArenaDomCache | null>(null);
@@ -806,16 +810,27 @@ export const LeoHeader = memo(({ user, streamsToday, onTrackClick, onAvatarClick
   const arenaDragStartRef = useRef<{ pointerId: number; x: number; value: number; moved: boolean } | null>(null);
   const arenaSuppressClickUntilRef = useRef(0);
 
+  const previousAvatarValue = useRef<string>('');
+  const previousUserId = useRef<string>('');
+
   const profileAvatarOriginal = useMemo(() => {
-    const nextAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
-    const stableAvatar = stableHeaderAvatarByUserId.get(user.id);
-    if (stableAvatar) return stableAvatar;
+    const nextAvatar = coreUtils.getUserAvatar(user.id, userAvatarString);
+
+    // Se o ID e o valor do avatar não mudaram, retorna o valor estável
+    if (previousUserId.current === user.id && previousAvatarValue.current === nextAvatar) {
+      return stableHeaderAvatarByUserId.get(user.id) || nextAvatar;
+    }
+
+    previousUserId.current = user.id;
+    previousAvatarValue.current = nextAvatar;
+
     if (nextAvatar) {
       stableHeaderAvatarByUserId.set(user.id, nextAvatar);
       return nextAvatar;
     }
-    return '';
-  }, [user.id, user.avatar]);
+
+    return stableHeaderAvatarByUserId.get(user.id) || '';
+  }, [user.id, userAvatarString]);
   const profileAvatar = useMemo(() => getStaticAvatarCandidate(profileAvatarOriginal), [profileAvatarOriginal]);
   const profileAvatarFallback = profileAvatar !== profileAvatarOriginal ? profileAvatarOriginal : undefined;
   const groupStatsForUser = useStatsStore(s => s.groupStats);

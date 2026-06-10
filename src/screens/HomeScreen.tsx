@@ -1438,17 +1438,29 @@ export default function HomeScreen() {
     setShowInitialModal(false);
   }, [allMembers, featuredUserId, location.pathname, setFeaturedUserId]);
 
+  const primaryUserRef = useRef<typeof allMembers[0] | null>(null);
+
   const primaryUser = useMemo(() => {
-    if (!groupStats) return null;
-    // Prioriza allMembers para permitir usuário oculto como featuredUserId
-    return (
+    if (!groupStats) {
+      primaryUserRef.current = null;
+      return null;
+    }
+
+    const candidate = (
       allMembers.find(m => m.id === featuredUserId) ||
       members.find(m => m.id === featuredUserId) ||
       members[0] ||
       allMembers[0] ||
       null
     );
-  }, [allMembers, featuredUserId, groupStats, members]);
+
+    // Só atualiza ref se o ID mudou
+    if (!primaryUserRef.current || primaryUserRef.current.id !== candidate?.id) {
+      primaryUserRef.current = candidate;
+    }
+
+    return primaryUserRef.current;
+  }, [featuredUserId, groupStats]);
   const FEATURED_ID = primaryUser?.id || '';
   const liveTodayStats = primaryUser?.id ? liveStreamsTodayByUserId[primaryUser.id] : undefined;
   const currentSaoPauloDay = getSaoPauloDayKey(new Date());
@@ -2386,12 +2398,12 @@ export default function HomeScreen() {
           <div 
             className="flex flex-col gap-3"
           >
-            <motion.div 
+            <motion.div
               key={primaryUser.id}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               className="flex flex-col gap-3 overflow-visible"
             >
               <div 
