@@ -1484,10 +1484,22 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                 className="absolute inset-0 rounded-[inherit]"
                 style={{
                   background: dominantColor
-                    ? `linear-gradient(135deg, rgba(0,0,0,0.76) 0%, ${withAlpha(dominantColor, 0.24)} 52%, rgba(0,0,0,0.2) 100%)`
-                    : 'linear-gradient(135deg, rgba(0,0,0,0.76) 0%, rgba(88,28,135,0.22) 52%, rgba(0,0,0,0.2) 100%)'
+                    ? `#050505 linear-gradient(135deg, rgba(0,0,0,0.76) 0%, ${withAlpha(dominantColor, 0.24)} 52%, rgba(0,0,0,0.2) 100%)`
+                    : '#050505 linear-gradient(135deg, rgba(0,0,0,0.76) 0%, rgba(88,28,135,0.22) 52%, rgba(0,0,0,0.2) 100%)'
                 }}
               >
+                {albumImage && (
+                  <div
+                    className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.42]"
+                    style={{
+                      backgroundImage: `url("${albumImage}")`,
+                      backgroundPosition: 'center',
+                      backgroundSize: 'cover',
+                      filter: 'blur(64px) saturate(1.9) contrast(1.34) brightness(0.62)',
+                      mixBlendMode: 'color',
+                    }}
+                  />
+                )}
                 <div
                   className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none mix-blend-screen"
                   style={{
@@ -1504,7 +1516,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                       : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.28) 0%, transparent 58%)"
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/6 to-transparent backdrop-blur-[1px]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-black/22 to-black/40 backdrop-blur-[1px]" />
               </motion.div>
             ) : (
               <motion.div
@@ -1513,6 +1525,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                  animate={{ opacity: 1 }}
                  exit={{ opacity: 0 }}
                  className="absolute inset-0 overflow-hidden"
+                 style={{ backgroundColor: '#050505' }}
               >
                  <div
                    className="absolute inset-0 pointer-events-none"
@@ -1522,6 +1535,18 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                        : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.055) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.08) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.72) 0%, rgba(15,12,12,0.38) 52%, rgba(0,0,0,0.64) 100%)',
                    }}
                  />
+                 {track && albumImage && (
+                   <div
+                     className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.24]"
+                     style={{
+                       backgroundImage: `url("${albumImage}")`,
+                       backgroundPosition: 'center',
+                       backgroundSize: 'cover',
+                       filter: 'blur(68px) saturate(1.75) contrast(1.28) brightness(0.58)',
+                       mixBlendMode: 'color',
+                     }}
+                   />
+                 )}
                  <div
                    className="stats-lc-ambient-drift-primary absolute -inset-[36%] pointer-events-none"
                    style={{

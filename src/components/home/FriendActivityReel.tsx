@@ -144,7 +144,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   return (
     <div
       ref={reelRef}
-      className="flex flex-col gap-4 my-6"
+      className="relative z-10 flex flex-col gap-4 my-6"
       data-circle-activity-count={topFriends.length}
     >
       <div className="flex items-center justify-between">
@@ -187,12 +187,12 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
               >
                 <div className="relative">
                   {isPlaying && (
-                    <div className="absolute -inset-1 rounded-[26px] border border-orange-500/18 bg-orange-500/[0.035]" />
+                    <div className="absolute -inset-1 rounded-[26px] bg-orange-500/[0.025]" />
                   )}
 
 	                  <div className={clsx(
-	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden border bg-white/[0.03] transition-[border-color,box-shadow,opacity,transform] duration-300 shadow-lg",
-	                    isPlaying ? "border-white/10 shadow-[0_16px_40px_rgba(249,115,22,0.12)]" : "border-white/10 group-hover:border-orange-500/40"
+	                    "relative aspect-[4/5] rounded-[22px] overflow-hidden bg-white/[0.018] transition-[box-shadow,opacity,transform] duration-300 shadow-lg",
+	                    isPlaying ? "shadow-[0_16px_40px_rgba(249,115,22,0.1)]" : ""
 	                  )}>
 	                    <div className="absolute inset-0 z-0">
 	                        <div
@@ -200,7 +200,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                        >
 	                          <SmartImage
 	                            src={trackImage}
-	                            className="h-full w-full object-cover opacity-45 transition-[opacity,transform] duration-500 group-hover:scale-[1.06] group-hover:opacity-60"
+	                            className="h-full w-full object-cover opacity-38 transition-[opacity,transform] duration-500 group-hover:scale-[1.06] group-hover:opacity-52"
 	                            rounded="none"
 	                            fallback=""
 	                          />

@@ -228,10 +228,13 @@ const trimCacheByMeta = <T>(
 const FRIEND_PREFETCH_DELAY_MS = 1500;
 const LIVE_CACHE_PERSIST_INTERVAL_MS = 30 * 1000;
 const LIVE_FETCH_MIN_INTERVAL_MS = 6000;
+const LIVE_RECENT_RECOVERY_INTERVAL_MS = 12 * 1000;
+const LIVE_RECENT_RECOVERY_GRACE_MS = 10 * 1000;
 const TRACK_STATS_CACHE_TTL_MS = 12 * 1000;
 let friendPrefetchTimer: ReturnType<typeof setTimeout> | null = null;
 let friendPrefetchController: AbortController | null = null;
 let lastLiveCachePersistAt = 0;
+const lastLiveRecentRecoveryAtByUserId = new Map<string, number>();
 const trackStatsRequestInFlight = new Map<string, Promise<void>>();
 const trackStatsFetchedAt = new Map<string, number>();
 
@@ -266,6 +269,38 @@ const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
   if (existing?.isNow === true && incoming?.isNow !== true && hasNewerTimestamp) return true;
   if (incomingTrackId && existingTrackId && incomingTrackId !== existingTrackId && hasNewerTimestamp) return true;
   return hasNewerTimestamp;
+};
+
+const getPlaybackTimestamp = (playback?: any) => {
+  const timestamp = playback?.timestamp || playback?.playedAt || playback?.endTime;
+  const parsed = timestamp ? Date.parse(timestamp) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getPlaybackDurationMs = (playback?: any) =>
+  Number(playback?.durationMs || playback?.track?.durationMs || 0);
+
+const isPlaybackPastDuration = (playback?: any, now = Date.now()) => {
+  const timestamp = getPlaybackTimestamp(playback);
+  const durationMs = getPlaybackDurationMs(playback);
+  return timestamp > 0 && durationMs > 0 && now > timestamp + durationMs + LIVE_RECENT_RECOVERY_GRACE_MS;
+};
+
+const buildRecoveredNowPlaying = (existing: any, recent: any, now = Date.now()) => {
+  const recentTimestamp = getPlaybackTimestamp(recent);
+  const existingTimestamp = getPlaybackTimestamp(existing);
+  const durationMs = getPlaybackDurationMs(recent);
+  if (!recentTimestamp || recentTimestamp <= existingTimestamp + 1500) return null;
+  if (durationMs > 0 && now > recentTimestamp + durationMs + LIVE_RECENT_RECOVERY_GRACE_MS) return null;
+
+  const timestamp = recent.timestamp || recent.playedAt || recent.endTime;
+  return {
+    ...recent,
+    isNow: true,
+    timestamp,
+    playbackKey: recent.playbackKey || timestamp,
+    platformCandidate: recent.platformCandidate || recent.serviceCandidate,
+  };
 };
 
 const shouldUseIncomingDisplayName = (existingUser: any, incomingUser: any) => {
@@ -1258,6 +1293,24 @@ export const useStatsStore = create<StatsState>()(
           const requestedFeaturedUserId = get().featuredUserId;
           const liveData = await statsService.getGroupLiveData(force, requestedFeaturedUserId || undefined);
           const currentGroupStats = get().groupStats;
+
+          if (requestedFeaturedUserId) {
+            const liveFeaturedUser = liveData.members?.find(member => member.id === requestedFeaturedUserId);
+            const recoveryNow = Date.now();
+            const lastRecoveryAt = lastLiveRecentRecoveryAtByUserId.get(requestedFeaturedUserId) || 0;
+            if (
+              liveFeaturedUser?.nowPlaying &&
+              isPlaybackPastDuration(liveFeaturedUser.nowPlaying, recoveryNow) &&
+              recoveryNow - lastRecoveryAt >= LIVE_RECENT_RECOVERY_INTERVAL_MS
+            ) {
+              lastLiveRecentRecoveryAtByUserId.set(requestedFeaturedUserId, recoveryNow);
+              const latestRecent = await statsService.fetchLatestRecentFresh(requestedFeaturedUserId);
+              const recoveredNowPlaying = buildRecoveredNowPlaying(liveFeaturedUser.nowPlaying, latestRecent, recoveryNow);
+              if (recoveredNowPlaying) {
+                liveFeaturedUser.nowPlaying = recoveredNowPlaying;
+              }
+            }
+          }
 
           if (requestedFeaturedUserId && liveData.featuredStats) {
             const incomingStats = liveData.featuredStats;

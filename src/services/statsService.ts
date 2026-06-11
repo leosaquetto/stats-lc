@@ -610,6 +610,21 @@ export const statsService = {
     }
   },
 
+  async fetchLatestRecentFresh(userId: string): Promise<any | null> {
+    try {
+      const userParam = coreUtils.getUserApiParam(userId);
+      const res = await fetchFromApi<any>('/api/recent', {
+        user: userParam,
+        limit: 1,
+        offset: 0,
+        resolveAlbums: 1,
+      }, false, 0, false);
+      return res?.items?.[0] ? normalizeRecentStream(res.items[0]) : null;
+    } catch {
+      return null;
+    }
+  },
+
   /**
    * Busca estatísticas de uma entidade para todo o grupo de uma vez
    */

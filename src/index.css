@@ -518,6 +518,12 @@
   76% { opacity: 0.64; transform: translate3d(-4%, 9%, 0) scale(1.1); }
 }
 
+@keyframes stats-lc-artwork-drift {
+  0%, 100% { transform: translate3d(-5%, -3%, 0) scale(1.25); }
+  38% { transform: translate3d(6%, 4%, 0) scale(1.31); }
+  72% { transform: translate3d(-2%, 7%, 0) scale(1.27); }
+}
+
 @keyframes progress-fill {
   from { transform: scaleX(var(--progress-start, 0)); }
   to { transform: scaleX(1); }
@@ -579,9 +585,17 @@
   animation: stats-lc-ambient-drift-secondary 14s ease-in-out infinite;
 }
 
+.stats-lc-artwork-drift {
+  animation: stats-lc-artwork-drift 16s ease-in-out infinite;
+  backface-visibility: hidden;
+  transform: translate3d(0, 0, 0) scale(1.25);
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stats-lc-ambient-drift-primary,
-  .stats-lc-ambient-drift-secondary {
+  .stats-lc-ambient-drift-secondary,
+  .stats-lc-artwork-drift {
     animation: none;
   }
 }
@@ -603,6 +617,7 @@ body[data-bottom-track-modal-open="true"] .vinyl-record-idle,
 body[data-bottom-track-modal-open="true"] .vinyl-record-aura,
 body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-primary,
 body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-secondary,
+body[data-bottom-track-modal-open="true"] .stats-lc-artwork-drift,
 body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
   animation-play-state: paused;
 }

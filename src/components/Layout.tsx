@@ -1969,7 +1969,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           style={isBubbleLive ? {
             WebkitBackdropFilter: 'blur(24px) saturate(190%)',
             backdropFilter: 'blur(24px) saturate(190%)',
-            boxShadow: `0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 58%, rgba(255,255,255,0.18)), 0 0 26px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
+            boxShadow: '0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10)',
           } : {
             WebkitBackdropFilter: 'blur(24px) saturate(190%)',
             backdropFilter: 'blur(24px) saturate(190%)',
@@ -1978,23 +1978,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
-          <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
           {shouldAnimateBubble ? (
             <motion.span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-full"
               style={{
-                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 68%, transparent) 0%, transparent 80%)`,
+                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
+                filter: 'saturate(1.65) contrast(1.08)',
               }}
-              animate={{ opacity: [0.42, 0.92, 0.42], scale: [0.92, 1.14, 0.92] }}
-              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+              animate={{ opacity: [0.3, 0.82, 0.3] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
             />
           ) : isBubbleLive ? (
             <span
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 rounded-full"
               style={{
-                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 38%, transparent) 0%, transparent 80%)`,
+                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 72%, rgba(255,255,255,0.08)) 0%, color-mix(in srgb, ${bubbleAccentColor} 46%, rgba(0,0,0,0.34)) 100%)`,
+                filter: 'saturate(1.5) contrast(1.05)',
               }}
             />
           ) : (

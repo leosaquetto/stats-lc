@@ -211,6 +211,9 @@ export default function App() {
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
   const setOffline = useStatsStore(s => s.setOffline);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
+  const hasActivePlayback = useStatsStore(s =>
+    Object.values(s.liveNowPlayingByUserId).some(nowPlaying => nowPlaying?.isNow === true)
+  );
   const [initialBootSettled, setInitialBootSettled] = useState(false);
 
   useEffect(() => {
@@ -314,7 +317,7 @@ export default function App() {
   }, [initialBootSettled]);
 
   useEffect(() => {
-    const safePollingFrequency = Math.max(8, pollingFrequency);
+    const safePollingFrequency = hasActivePlayback ? 8 : Math.max(8, pollingFrequency);
     const intervalTime = safePollingFrequency * 1000;
 
     const interval = setInterval(() => {
@@ -334,7 +337,7 @@ export default function App() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchGroupLive, pollingFrequency]);
+  }, [fetchGroupLive, hasActivePlayback, pollingFrequency]);
 
   useEffect(() => {
     let cleanup = () => {};

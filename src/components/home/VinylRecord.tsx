@@ -209,7 +209,8 @@ export const VinylRecord = ({
   );
   const textureSeed       = textureProfile.seed;
   const textureVariant: number = 0;
-  const textureName       = 'classic';
+  const isMulticolorVinyl = seededValue(textureSeed, 401) >= 0.75;
+  const textureName       = isMulticolorVinyl ? 'multicolor' : 'classic';
   const safeDominantColor = useMemo(() => {
     const saturation = getSaturation(baseDominantColor);
     const brightness = getPerceivedBrightness(baseDominantColor);
@@ -223,7 +224,7 @@ export const VinylRecord = ({
   }, [baseDominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
-  const resinAlpha        = isPlaying ? 0.38 : 0.32;
+  const resinAlpha        = isPlaying ? 0.3 : 0.25;
 
   useEffect(() => {
     if (incomingIdentity === visualSnapshot.identity) return;
@@ -571,20 +572,20 @@ export const VinylRecord = ({
         ref={(node) => {
           if (node) discRef.current = node;
         }}
-        className="relative h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center border border-white/10"
+        className="relative h-full w-full overflow-hidden rounded-full shadow-2xl flex items-center justify-center"
         style={{
           background: `
             radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.18) 18%, transparent 19%),
-            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.42 : 0.22)} 0%, transparent 46%),
+            radial-gradient(circle at 33% 25%, ${withAlpha(lightColor, textureVariant === 0 ? 0.18 : 0.14)} 0%, transparent 46%),
             radial-gradient(circle at 72% 80%, ${withAlpha(darkColor, textureVariant === 1 ? 0.22 : 0.06)} 0%, transparent 50%),
-            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.08) 0%, transparent 34%),
+            radial-gradient(circle at 58% 7%, rgba(255,255,255,0.035) 0%, transparent 34%),
             conic-gradient(
               from ${118 + textureVariant * 34}deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : resinAlpha)} 0deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.18 : 0.22)} 46deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.12 : 0.1)} 46deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.26 : resinAlpha - 0.06)} 118deg,
               ${withAlpha(darkColor, 0.08)} 174deg,
-              ${withAlpha(lightColor, textureVariant === 2 ? 0.2 : 0.24)} 232deg,
+              ${withAlpha(lightColor, textureVariant === 2 ? 0.12 : 0.11)} 232deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.26 : resinAlpha - 0.06)} 304deg,
               ${withAlpha(safeDominantColor, textureVariant === 2 ? 0.28 : resinAlpha)} 360deg
             )
@@ -607,6 +608,24 @@ export const VinylRecord = ({
             : 'none'
         }}
       >
+        {visualSnapshot.albumImage && (
+          <div
+            className="absolute rounded-full pointer-events-none z-[10]"
+            style={{
+              inset: isMulticolorVinyl ? '-18%' : '-42%',
+              backgroundImage: `url("${visualSnapshot.albumImage}")`,
+              backgroundPosition: 'center',
+              backgroundSize: 'cover',
+              filter: isMulticolorVinyl
+                ? 'blur(22px) saturate(2.6) contrast(1.18)'
+                : 'blur(76px) saturate(2.5) contrast(1.2)',
+              mixBlendMode: 'color',
+              opacity: isMulticolorVinyl
+                ? (shouldSpin ? 0.9 : 0.72)
+                : (shouldSpin ? 0.82 : 0.68),
+            }}
+          />
+        )}
         {/* Camada base translúcida do vinil. */}
         <div
           className="absolute inset-0 rounded-full pointer-events-none z-[11]"
@@ -628,7 +647,7 @@ export const VinylRecord = ({
               radial-gradient(circle at center, transparent 0 31%, rgba(255,255,255,0.05) 32%, rgba(255,255,255,0.015) 72%, transparent 100%)
             `,
             mixBlendMode: 'screen',
-            opacity: shouldSpin ? 0.86 : 0.72,
+            opacity: shouldSpin ? 0.68 : 0.56,
           }}
         />
 
@@ -638,7 +657,7 @@ export const VinylRecord = ({
           style={{
             background: 'conic-gradient(from 35deg, transparent 0deg, rgba(255,255,255,0.12) 12deg, transparent 28deg, transparent 180deg, rgba(255,255,255,0.12) 192deg, transparent 208deg)',
             mixBlendMode: 'screen',
-            opacity: shouldSpin ? 0.95 : 0.7,
+            opacity: shouldSpin ? 0.78 : 0.58,
             transition: 'opacity 0.5s ease',
           }}
         />
