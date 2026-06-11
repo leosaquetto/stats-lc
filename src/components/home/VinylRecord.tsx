@@ -188,6 +188,9 @@ export const VinylRecord = ({
   const visualRequestRef = useRef(0);
   const playbackSequenceRef = useRef(0);
   const albumSwapInFlightRef = useRef(false);
+  const phaseRef = useRef(phase);
+  const spinEnabledRef = useRef(spinEnabled);
+  const tonearmStateRef = useRef(tonearmState);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
   const shouldAnimateSpin = !prefersReducedMotion;
@@ -228,6 +231,18 @@ export const VinylRecord = ({
   const resinAlpha        = isPlaying ? 0.3 : 0.25;
 
   useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    spinEnabledRef.current = spinEnabled;
+  }, [spinEnabled]);
+
+  useEffect(() => {
+    tonearmStateRef.current = tonearmState;
+  }, [tonearmState]);
+
+  useEffect(() => {
     if (incomingIdentity === visualSnapshot.identity) return;
 
     const requestId = ++visualRequestRef.current;
@@ -249,8 +264,13 @@ export const VinylRecord = ({
 
     const runAlbumSwap = async () => {
       albumSwapInFlightRef.current = true;
+      const preserveLiveMotion = isPlaying && (
+        phaseRef.current === 'playing'
+        || spinEnabledRef.current
+        || tonearmStateRef.current === 'playing'
+      );
 
-      if (canAnimate) {
+      if (canAnimate && !preserveLiveMotion) {
         setPhase('swapping-album');
         setTonearmState('lifted');
         setSpinEnabled(false);
@@ -269,6 +289,14 @@ export const VinylRecord = ({
       }
 
       commitSnapshot();
+
+      if (preserveLiveMotion) {
+        setPhase('playing');
+        setTonearmState('playing');
+        setSpinEnabled(true);
+        albumSwapInFlightRef.current = false;
+        return;
+      }
 
       if (!canAnimate) {
         setPhase(isPlaying ? 'playing' : 'idle');
@@ -481,7 +509,7 @@ export const VinylRecord = ({
     startSpinWithAcceleration(startRotation);
     previousPlayingRef.current = shouldSpin;
     return () => stopSpin('instant');
-  }, [phase, shouldAnimateSpin, shouldSpin, visualSnapshot.identity]);
+  }, [phase, shouldAnimateSpin, shouldSpin]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -558,7 +586,7 @@ export const VinylRecord = ({
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={canAnimate} mode="sync">
       <motion.div
-        key={visualSnapshot.identity}
+        key={isPlaying ? 'live-continuous-record' : visualSnapshot.identity}
         data-vinyl-visual={visualSnapshot.identity}
         className="absolute inset-0 z-10 touch-none"
         style={{ touchAction: 'none' }}

@@ -16,6 +16,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
   const [isDragging, setIsDragging] = useState(false);
   const levelRef = useRef(0.5);
   const isDraggingRef = useRef(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const tonearmState = state ?? (isPlaying ? 'playing' : 'rest');
 
   const pivotX = 60;
@@ -100,16 +101,20 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
     setLevel(nextLevel);
   }, [tonearmState]);
 
-  const updateFromPointer = (event: ReactPointerEvent<SVGGElement>) => {
-    const rect = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+  const updateFromClientPoint = (clientX: number, clientY: number, svgElement: SVGSVGElement | null) => {
+    const rect = svgElement?.getBoundingClientRect();
     if (!rect || !rect.width || !rect.height) return;
 
-    const pointerX = ((event.clientX - rect.left) / rect.width) * 100;
-    const pointerY = ((event.clientY - rect.top) / rect.height) * 100;
+    const pointerX = ((clientX - rect.left) / rect.width) * 100;
+    const pointerY = ((clientY - rect.top) / rect.height) * 100;
     const pointerAngle = Math.atan2(pointerY - pivotY, pointerX - pivotX) * 180 / Math.PI;
     const nextLevel = clamp01((pointerAngle - restAngle) / (playAngle - restAngle));
     levelRef.current = nextLevel;
     setLevel(nextLevel);
+  };
+
+  const updateFromPointer = (event: ReactPointerEvent<SVGGElement>) => {
+    updateFromClientPoint(event.clientX, event.clientY, event.currentTarget.ownerSVGElement);
   };
 
   const commitPointerLevel = () => {
@@ -122,12 +127,42 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
     }
   };
 
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const moveWindowDrag = (event: PointerEvent) => {
+      if (!isDraggingRef.current) return;
+      updateFromClientPoint(event.clientX, event.clientY, svgRef.current);
+    };
+
+    const finishWindowDrag = () => {
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+      setIsDragging(false);
+      commitPointerLevel();
+    };
+
+    window.addEventListener('pointermove', moveWindowDrag);
+    window.addEventListener('pointerup', finishWindowDrag);
+    window.addEventListener('pointercancel', finishWindowDrag);
+
+    return () => {
+      window.removeEventListener('pointermove', moveWindowDrag);
+      window.removeEventListener('pointerup', finishWindowDrag);
+      window.removeEventListener('pointercancel', finishWindowDrag);
+    };
+  }, [isDragging, isPlaying]);
+
   return (
     <AnimatePresence>
       <motion.svg
+        ref={svgRef}
         className="pointer-events-none absolute inset-0"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
+        data-tonearm-state={tonearmState}
+        data-tonearm-level={level.toFixed(3)}
+        data-tonearm-dragging={isDragging ? 'true' : 'false'}
         style={{ zIndex: 80, overflow: 'visible' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -184,6 +219,14 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
             setLevel(nextLevel);
           }}
         >
+          <rect
+            x="0"
+            y="0"
+            width="100"
+            height="46"
+            fill="transparent"
+            pointerEvents="all"
+          />
           <g transform={`translate(${pivotX} ${pivotY}) rotate(34)`}>
             <circle
               cx="0"
