@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useMemo, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
 import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
@@ -188,6 +188,7 @@ export const VinylRecord = ({
   const visualRequestRef = useRef(0);
   const playbackSequenceRef = useRef(0);
   const albumSwapInFlightRef = useRef(false);
+  const manualPlaybackStartRef = useRef(false);
   const phaseRef = useRef(phase);
   const spinEnabledRef = useRef(spinEnabled);
   const tonearmStateRef = useRef(tonearmState);
@@ -241,6 +242,21 @@ export const VinylRecord = ({
   useEffect(() => {
     tonearmStateRef.current = tonearmState;
   }, [tonearmState]);
+
+  const handleTonearmPlaybackChange = useCallback((nextIsPlaying: boolean) => {
+    manualPlaybackStartRef.current = nextIsPlaying;
+
+    if (nextIsPlaying) {
+      tonearmStateRef.current = 'playing';
+      phaseRef.current = 'playing';
+      spinEnabledRef.current = true;
+      setTonearmState('playing');
+      setPhase('playing');
+      setSpinEnabled(true);
+    }
+
+    onPlaybackIntent?.(nextIsPlaying);
+  }, [onPlaybackIntent]);
 
   useEffect(() => {
     if (incomingIdentity === visualSnapshot.identity) return;
@@ -351,6 +367,14 @@ export const VinylRecord = ({
 
       if (incomingIdentity !== visualSnapshot.identity) return;
       if (albumSwapInFlightRef.current) return;
+
+      if (manualPlaybackStartRef.current) {
+        manualPlaybackStartRef.current = false;
+        setTonearmState('playing');
+        setPhase('playing');
+        setSpinEnabled(true);
+        return;
+      }
 
       setPhase('booting');
       setSpinEnabled(false);
@@ -860,7 +884,7 @@ export const VinylRecord = ({
       </AnimatePresence>
       </>
 
-      {!hideTonearm && <VinylTonearm state={tonearmState} isPlaying={isPlaying} onUserPlaybackChange={onPlaybackIntent} />}
+      {!hideTonearm && <VinylTonearm state={tonearmState} isPlaying={isPlaying} onUserPlaybackChange={handleTonearmPlaybackChange} />}
 
     </div>
   );

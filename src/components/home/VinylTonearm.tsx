@@ -260,14 +260,8 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
           </g>
 
           <motion.g
-            animate={tonearmState === 'playing' && !isDragging
-              ? { rotate: [0, 0.68, -0.38, 0.42, 0], opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
-              : { rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
-            }
-            transition={tonearmState === 'playing' && !isDragging
-              ? { duration: 5.1, times: [0, 0.22, 0.52, 0.78, 1], repeat: Infinity, ease: 'easeInOut' }
-              : { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] }
-            }
+            animate={{ rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }}
+            transition={{ duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] }}
           >
           <motion.line
             x1={pivotX}

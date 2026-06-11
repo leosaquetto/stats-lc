@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Moon } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Moon, Rabbit } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -320,6 +320,17 @@ const formatBadgeDate = (timestamp: string | number) => {
   if (!time) return '';
   const date = new Date(time);
   if (!Number.isFinite(date.getTime())) return '';
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+
+  if (dateStart === todayStart.getTime()) {
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (dateStart === yesterdayStart.getTime()) return 'ONTEM';
+
   const currentYear = new Date().getFullYear();
   const year = date.getFullYear();
 
@@ -375,8 +386,8 @@ const formatAlbumReleaseDate = (value: any) => {
   const currentYear = new Date().getFullYear();
   const releaseYear = Number(releaseDayKey.slice(0, 4)) || date.getUTCFullYear();
   const options: Intl.DateTimeFormatOptions = releaseYear === currentYear
-    ? { timeZone: 'UTC', day: '2-digit', month: 'short' }
-    : { timeZone: 'UTC', day: '2-digit', month: 'short', year: 'numeric' };
+    ? { timeZone: 'UTC', day: 'numeric', month: 'short' }
+    : { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' };
   return date.toLocaleDateString('pt-BR', options).replace(/\sde\s/g, ' ').replace('.', '.');
 };
 
@@ -1131,6 +1142,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const panelRequestKeyRef = React.useRef('');
   const lyricsRequestKeyRef = React.useRef('');
   const modalOpenTokenRef = React.useRef(0);
+  const modalOpenedAtRef = React.useRef(Date.now());
 
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const panelUser = React.useMemo(() => {
@@ -1599,6 +1611,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       .sort((a, b) => b.count - a.count);
   }, [members, trackId, userTrackStats]);
   const hasPreviousTrackHistory = panelHydration.history && !!trackHistory.firstPlayedAt;
+  const historyReferencePlayedAt = trackHistory.lastPlayedAt
+    || trackHistory.firstPlayedAt
+    || entryTimestampMs(activePlayback?.timestamp)
+    || modalOpenedAtRef.current;
+  const firstPlayedBadgeAt = trackHistory.firstPlayedAt || historyReferencePlayedAt;
+  const lastPlayedBadgeAt = trackHistory.lastPlayedAt || historyReferencePlayedAt;
+  const historyYear = trackHistory.bestYear || String(new Date(historyReferencePlayedAt).getFullYear());
+  const historyYearCount = trackHistory.bestYearCount || 1;
   const visibleSocialRanking = hasHydratedTrackRanking ? ranking : [];
   const shouldShowSocialRankingBadge = visibleSocialRanking.length > 1;
   const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0]?.toLowerCase() || '';
@@ -1689,7 +1709,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       setIsOpen(false);
       setPanel('stats');
       setExternalPlayback(null);
-    }, 240);
+    }, 520);
   }, [historySwipeX]);
 
   const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
@@ -1713,6 +1733,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const handleOpenStats = React.useCallback((nextPanel: 'stats' | 'lyrics' = 'stats') => {
     const openToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = openToken;
+    modalOpenedAtRef.current = Date.now();
     ignoreBackdropClickUntilRef.current = window.performance.now() + 260;
 
     // Always reset to current track (index 0) when opening modal
@@ -2105,10 +2126,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 closeStatsModal();
               }}
             />
-            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] pt-20 pointer-events-none">
+            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+140px)] pt-12 pointer-events-none">
             <motion.section
               ref={modalRef}
-              initial={{ opacity: 0, y: 50, scale: 0.94 }}
+              initial={{ opacity: 1, y: '100vh', scale: 0.9 }}
               onPointerDownCapture={(event) => {
                 if (!isModalVisible) return;
                 if (selectedTrackLink) return;
@@ -2204,15 +2225,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
               data-animation-done={isAnimationDone}
               animate={{
-                opacity: isModalVisible ? 1 : 0,
-                y: isModalVisible ? 0 : 50,
-                scale: isModalVisible ? 1 : 0.94,
+                opacity: 1,
+                y: isModalVisible ? 0 : '100vh',
+                scale: isModalVisible ? 1 : 0.96,
               }}
               transition={{
                 type: 'spring',
-                stiffness: isModalVisible ? 300 : 380,
-                damping: isModalVisible ? 28 : 35,
-                mass: 0.9,
+                stiffness: isModalVisible ? 190 : 260,
+                damping: isModalVisible ? 24 : 30,
+                mass: isModalVisible ? 0.92 : 0.88,
               }}
               onAnimationComplete={() => {
                 if (isModalVisible) {
@@ -2223,18 +2244,27 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               style={{
                 touchAction: 'none',
-                willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform, opacity',
+                willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform',
                 transform: isModalVisible && isAnimationDone ? 'none' : undefined,
               }}
             >
-              <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -top-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
+              <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -bottom-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
               {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
                 <motion.div
-                  className="absolute inset-x-0 -top-[58px] z-30 flex items-center justify-center gap-3"
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute inset-x-0 -bottom-[58px] z-30 flex items-center justify-center gap-3"
+                  initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                  animate={isModalVisible && isAnimationDone
+                    ? { opacity: 1, y: 0, scale: 1 }
+                    : { opacity: 0, y: 18, scale: 0.94 }
+                  }
+                  exit={{ opacity: 0, y: 18, scale: 0.94 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 280,
+                    damping: 25,
+                    mass: 0.72,
+                    delay: isModalVisible && isAnimationDone ? 0.1 : 0,
+                  }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
                     modalPointerStartRef.current = null;
@@ -2475,15 +2505,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
 
               {panelHydration.history && trackHistory && (
-                <div className="mt-2 flex w-full flex-wrap items-center gap-1.5 px-px">
+                <div className="mt-2 grid w-full grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] items-center gap-1.5">
                   <span
                     className={clsx(
-                      "inline-flex shrink-0 items-center gap-1 rounded-full text-[7px] font-black leading-none tracking-[0.09em]",
+                      "inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em]",
                       isReleaseDayFirstListen
                         ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
                         : "bottom-track-stats-surface text-white"
                     )}
-                    style={{ height: '25px', paddingLeft: isReleaseDayFirstListen && circleFirstListeners.length > 0 ? '4px' : '8px', paddingRight: '8px' }}
                     title="Primeiro stream"
                   >
                     {isReleaseDayFirstListen && (
@@ -2498,12 +2527,46 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         />
                       </span>
                     )}
-                    {isReleaseDayFirstListen && circleFirstListeners.length > 0 && (
-                      <div className="relative z-10 flex -space-x-1">
-                        {circleFirstListeners.slice(0, 3).map((listener, idx) => (
-                          <div
+                    <Sparkles className={clsx(
+                      "h-2.5 w-2.5 relative z-10",
+                      !isReleaseDayFirstListen && "text-orange-300"
+                    )} fill="currentColor" />
+                    <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(firstPlayedBadgeAt)}</span>
+                  </span>
+                  <span
+                    className="inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
+                    title="Último stream"
+                  >
+                    <Moon className="h-2.5 w-2.5 relative z-10 text-orange-300" fill="currentColor" />
+                    <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(lastPlayedBadgeAt)}</span>
+                  </span>
+                  {historyYear && (
+                    <span
+                      className="inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
+                      title="Ano recorde"
+                    >
+                      <span className="relative z-10 inline-flex items-center justify-center rounded bg-orange-300 px-0.5 py-0.5 font-black tracking-[-0.04em]" style={{ fontSize: '7.5px', color: 'rgba(0,0,0,0.75)' }}>{historyYearCount}×</span>
+                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{historyYear}</span>
+                    </span>
+                  )}
+                  {firstDayGroup.length > 0 && (
+                    <span
+                      className="relative inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-0.5 overflow-hidden whitespace-nowrap rounded-full bg-orange-400/70 px-1.5 text-[7px] font-black leading-none tracking-[0.04em] text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)]"
+                      title="Primeiros ouvintes do círculo"
+                    >
+                      <span
+                        className="pointer-events-none absolute inset-0 opacity-50"
+                        style={{
+                          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
+                          backgroundSize: '200% 100%',
+                          animation: 'shimmer-orange 2.5s ease-in-out infinite',
+                        }}
+                      />
+                      <span className="relative z-10 flex -space-x-1.5">
+                        {firstDayGroup.slice(0, 3).map((listener, idx) => (
+                          <span
                             key={listener.user?.id || idx}
-                            className="h-5 w-5 overflow-hidden rounded-full bg-white/[0.05]"
+                            className="h-4 w-4 overflow-hidden rounded-full bg-white/[0.08]"
                           >
                             <SmartImage
                               src={listener.user?.avatar}
@@ -2511,32 +2574,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                               rounded="full"
                               fallback={listener.user?.name || '?'}
                             />
-                          </div>
+                          </span>
                         ))}
-                      </div>
-                    )}
-                    <Sparkles className={clsx(
-                      "h-2.5 w-2.5 relative z-10",
-                      !isReleaseDayFirstListen && "text-orange-300"
-                    )} fill="currentColor" />
-                    <span className="relative z-10">{formatBadgeDate(trackHistory.firstPlayedAt)}</span>
-                  </span>
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
-                    style={{ height: '25px', paddingLeft: '8px', paddingRight: '8px' }}
-                    title="Último stream"
-                  >
-                    <Moon className="h-2.5 w-2.5 relative z-10 text-orange-300" fill="currentColor" />
-                    <span className="relative z-10">{formatBadgeDate(trackHistory.lastPlayedAt)}</span>
-                  </span>
-                  {trackHistory.bestYear && trackHistory.bestYear !== String(new Date().getFullYear()) && (
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
-                      style={{ height: '25px' }}
-                      title="Ano recorde"
-                    >
-                      <span className="relative z-10 inline-flex items-center justify-center rounded bg-orange-300 pl-1 pr-0.5 py-0.5 font-black" style={{ fontSize: '7.5px', color: 'rgba(0,0,0,0.75)' }}>{trackHistory.bestYearCount}×</span>
-                      <span className="relative z-10">{trackHistory.bestYear}</span>
+                      </span>
+                      <Rabbit className="relative z-10 h-3.5 w-3.5 shrink-0 text-orange-100" strokeWidth={2.5} />
+                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(circleFirstListen?.playedAt || firstPlayedBadgeAt)}</span>
                     </span>
                   )}
                 </div>

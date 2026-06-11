@@ -275,6 +275,58 @@ function getAssertiveProgressAccent(color: string | null) {
   return normalized;
 }
 
+function getColorDistance(left: string, right: string) {
+  const parse = (value: string) => {
+    const hex = normalizeColor(value).replace('#', '');
+    return [
+      parseInt(hex.substring(0, 2), 16),
+      parseInt(hex.substring(2, 4), 16),
+      parseInt(hex.substring(4, 6), 16)
+    ];
+  };
+  const [lr, lg, lb] = parse(left);
+  const [rr, rg, rb] = parse(right);
+  return Math.sqrt((lr - rr) ** 2 + (lg - rg) ** 2 + (lb - rb) ** 2);
+}
+
+function getDistinctAmbientColors(palette: ArtworkPalette | null, fallbackColor: string | null) {
+  const base = normalizeColor(palette?.vinylColor || fallbackColor, '#ff5f00');
+  const candidates = (palette?.candidates || [])
+    .filter(candidate => candidate.saturation >= 0.16 && candidate.brightness >= 38 && candidate.brightness <= 224)
+    .map(candidate => normalizeColor(candidate.hex));
+  const selected = [base];
+
+  for (const minimumDistance of [96, 72, 48]) {
+    for (const candidate of candidates) {
+      if (selected.length >= 3) break;
+      if (selected.every(color => getColorDistance(color, candidate) >= minimumDistance)) {
+        selected.push(candidate);
+      }
+    }
+  }
+
+  const fallbackCandidates = [
+    palette?.progressColor,
+    adjustBrightness(base, 0.34),
+    mixHexColors(base, '#ff5f00', 0.42),
+    adjustBrightness(base, -0.32)
+  ].filter((color): color is string => Boolean(color));
+
+  for (const candidate of fallbackCandidates) {
+    if (selected.length >= 3) break;
+    const normalized = normalizeColor(candidate);
+    if (selected.every(color => getColorDistance(color, normalized) >= 34)) {
+      selected.push(normalized);
+    }
+  }
+
+  while (selected.length < 3) {
+    selected.push(adjustBrightness(base, selected.length === 1 ? 0.28 : -0.28));
+  }
+
+  return selected as [string, string, string];
+}
+
 type PlaybackSnapshot = {
   playbackKey: string;
   trackId: string;
@@ -1117,6 +1169,12 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
 
   const dominantColor = artworkPalette?.vinylColor || fallbackArtworkPalette?.vinylColor || null;
   const progressColor = artworkPalette?.progressColor || fallbackArtworkPalette?.progressColor || getTonalProgressAccent(dominantColor);
+  const [ambientColorA, ambientColorB, ambientColorC] = useMemo(
+    () => getDistinctAmbientColors(artworkPalette, dominantColor),
+    [artworkPalette, dominantColor]
+  );
+  const idleAmbientColorB = useMemo(() => adjustBrightness(ambientColorB, -0.3), [ambientColorB]);
+  const idleAmbientColorC = useMemo(() => adjustBrightness(ambientColorC, -0.18), [ambientColorC]);
 
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
@@ -1503,50 +1561,41 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
         )}
         style={{
+          backgroundColor: '#020202',
           willChange: 'transform, opacity',
           maskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 58%, rgba(0,0,0,0.84) 72%, rgba(0,0,0,0.46) 90%, transparent 100%)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 58%, rgba(0,0,0,0.84) 72%, rgba(0,0,0,0.46) 90%, transparent 100%)'
         }}
         >
-          <AnimatePresence>
+          <AnimatePresence mode="sync" initial={false}>
             {visualIsLive ? (
               <motion.div
                 key="live-bg"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
                 className="absolute inset-0 rounded-[inherit]"
-                style={{
-                  background: dominantColor
-                    ? `#020202 linear-gradient(135deg, rgba(0,0,0,0.74) 0%, ${withAlpha(dominantColor, 0.32)} 48%, rgba(0,0,0,0.24) 100%)`
-                    : '#020202 linear-gradient(135deg, rgba(0,0,0,0.74) 0%, rgba(88,28,135,0.26) 48%, rgba(0,0,0,0.24) 100%)'
-                }}
               >
                 <div
                   className="stats-lc-artwork-drift absolute -inset-[18%] scale-125 opacity-[0.7]"
                   style={{
-                    background: dominantColor
-                      ? `radial-gradient(circle at 62% 34%, ${withAlpha(dominantColor, 0.46)} 0%, ${withAlpha(dominantColor, 0.2)} 26%, transparent 56%), radial-gradient(circle at 28% 66%, ${withAlpha(adjustBrightness(dominantColor, 0.22), 0.28)} 0%, ${withAlpha(adjustBrightness(dominantColor, 0.22), 0.12)} 24%, transparent 54%)`
-                      : 'radial-gradient(circle at 62% 34%, rgba(249,115,22,0.36) 0%, rgba(249,115,22,0.16) 26%, transparent 56%), radial-gradient(circle at 28% 66%, rgba(168,85,247,0.24) 0%, rgba(168,85,247,0.1) 24%, transparent 54%)',
+                    background: `radial-gradient(circle at 62% 34%, ${withAlpha(ambientColorA, 0.46)} 0%, ${withAlpha(ambientColorA, 0.2)} 18%, transparent 40%), radial-gradient(circle at 28% 66%, ${withAlpha(ambientColorB, 0.28)} 0%, ${withAlpha(ambientColorB, 0.12)} 16%, transparent 38%)`,
                   }}
                 />
                 <div
-                  className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none mix-blend-screen"
+                  className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none"
                   style={{
-                    background: dominantColor
-                    ? `radial-gradient(circle at 68% 38%, ${withAlpha(dominantColor, 0.78)} 0%, transparent 62%)`
-                      : "radial-gradient(circle at 68% 38%, rgba(168,85,247,0.66) 0%, transparent 62%)"
+                    background: `radial-gradient(circle at 68% 38%, ${withAlpha(ambientColorB, 0.62)} 0%, ${withAlpha(ambientColorB, 0.18)} 22%, transparent 40%)`
                   }}
                 />
                 <div
-                  className="stats-lc-ambient-drift-secondary absolute -inset-[20%] pointer-events-none mix-blend-screen"
+                  className="stats-lc-ambient-drift-secondary absolute -inset-[20%] pointer-events-none"
                   style={{
-                    background: dominantColor
-                    ? `radial-gradient(circle at 18% 58%, ${withAlpha(dominantColor, 0.56)} 0%, transparent 56%)`
-                      : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.48) 0%, transparent 56%)"
+                    background: `radial-gradient(circle at 18% 58%, ${withAlpha(ambientColorC, 0.5)} 0%, ${withAlpha(ambientColorC, 0.16)} 20%, transparent 36%)`
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/16 via-black/22 to-black/44" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/14 to-black/34" />
               </motion.div>
             ) : (
               <motion.div
@@ -1554,14 +1603,14 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                  initial={{ opacity: 0 }}
                  animate={{ opacity: 1 }}
                  exit={{ opacity: 0 }}
+                 transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
                  className="absolute inset-0 overflow-hidden"
-                 style={{ backgroundColor: '#020202' }}
               >
                  <div
                    className="absolute inset-0 pointer-events-none"
                    style={{
                      background: track
-                       ? 'linear-gradient(135deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.04) 48%, rgba(0,0,0,0.26) 100%)'
+                       ? 'transparent'
                        : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.065) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.11) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.66) 0%, rgba(15,12,12,0.28) 52%, rgba(0,0,0,0.58) 100%)',
                    }}
                  />
@@ -1569,31 +1618,26 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                    <div
                      className="stats-lc-artwork-drift absolute -inset-[18%] scale-125 opacity-[0.56]"
                      style={{
-                       background: dominantColor
-                         ? `radial-gradient(circle at 58% 36%, ${withAlpha(dominantColor, 0.34)} 0%, ${withAlpha(dominantColor, 0.14)} 26%, transparent 56%), radial-gradient(circle at 32% 68%, ${withAlpha(adjustBrightness(dominantColor, 0.18), 0.22)} 0%, ${withAlpha(adjustBrightness(dominantColor, 0.18), 0.1)} 24%, transparent 54%)`
-                         : 'radial-gradient(circle at 58% 36%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.035) 26%, transparent 56%), radial-gradient(circle at 32% 68%, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.05) 24%, transparent 54%)',
+                       background: `radial-gradient(circle at 58% 36%, ${withAlpha(ambientColorA, 0.34)} 0%, ${withAlpha(ambientColorA, 0.14)} 26%, transparent 56%), radial-gradient(circle at 32% 68%, ${withAlpha(idleAmbientColorB, 0.22)} 0%, ${withAlpha(idleAmbientColorB, 0.1)} 24%, transparent 54%)`,
                      }}
                    />
                  )}
                  <div
                    className="stats-lc-ambient-drift-primary absolute -inset-[36%] pointer-events-none"
                    style={{
-                     background: track && dominantColor
-                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.38)} 0%, transparent 54%)`
+                     background: track
+                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(idleAmbientColorB, 0.34)} 0%, transparent 54%)`
                        : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.075) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.12) 0%, transparent 56%)',
                    }}
                  />
                  <div
                    className="stats-lc-ambient-drift-secondary absolute -inset-[38%] pointer-events-none"
                    style={{
-                     background: track && dominantColor
-                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(dominantColor, 0.28)} 0%, transparent 50%)`
+                     background: track
+                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(idleAmbientColorC, 0.26)} 0%, transparent 50%)`
                        : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.055) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.12) 0%, transparent 54%)',
                    }}
                  />
-                 {/* Vinheta escura nas bordas */}
-                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent" />
-                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/25" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -1601,22 +1645,27 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
         </div>
         {track && (
           <div className={cn(
-            "absolute -top-[58px] shrink-0 z-40 pointer-events-none",
-            visualIsLive ? "-right-[190px] h-[360px] w-[360px]" : "-right-[150px] h-[330px] w-[330px]"
+            "absolute -right-[190px] -top-[58px] h-[360px] w-[360px] shrink-0 z-40 pointer-events-none transition-[filter] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
           )}
           style={{
             filter: visualIsLive
-              ? 'drop-shadow(0 8px 14px rgba(0,0,0,0.32))'
-              : 'drop-shadow(0 7px 12px rgba(0,0,0,0.28))'
+              ? 'drop-shadow(0 8px 14px rgba(0,0,0,0.16))'
+              : 'drop-shadow(0 7px 12px rgba(0,0,0,0.14))'
           }}>
-            <div className="w-full h-full overflow-visible">
+            <div
+              className="w-full h-full overflow-visible transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+              style={{
+                transform: visualIsLive ? 'scale(1)' : 'scale(0.916667)',
+                transformOrigin: '50% 50%',
+              }}
+            >
               <div
                 className="pointer-events-none absolute inset-[3%] rounded-full"
                 style={{
-                  background: 'radial-gradient(circle at 50% 54%, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.28) 54%, rgba(0,0,0,0.42) 72%, transparent 82%)',
+                  background: 'radial-gradient(circle at 50% 54%, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.14) 54%, rgba(0,0,0,0.21) 72%, transparent 82%)',
                   boxShadow: visualIsLive
-                    ? '0 16px 28px rgba(0,0,0,0.46), 0 0 0 1px rgba(255,255,255,0.08), 0 0 34px rgba(0,0,0,0.34)'
-                    : '0 12px 22px rgba(0,0,0,0.38), 0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(0,0,0,0.26)'
+                    ? '0 16px 28px rgba(0,0,0,0.23), 0 0 0 1px rgba(255,255,255,0.08), 0 0 34px rgba(0,0,0,0.17)'
+                    : '0 12px 22px rgba(0,0,0,0.19), 0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(0,0,0,0.13)'
                 }}
               />
               <VinylRecord
