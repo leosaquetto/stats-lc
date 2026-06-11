@@ -309,8 +309,13 @@ export const VinylRecord = ({
     const runPlaybackSequence = async () => {
       if (!isPlaying) {
         setPhase('idle');
-        setTonearmState('rest');
+        setTonearmState(canAnimate ? 'lifted' : 'rest');
         setSpinEnabled(false);
+        if (canAnimate) {
+          await wait(360);
+        }
+        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
+        setTonearmState('rest');
         return;
       }
 
@@ -429,6 +434,7 @@ export const VinylRecord = ({
             fill: 'forwards'
           }
         );
+        (deceleration as any)._isDecel = true;
         spinAnimationRef.current = deceleration;
         deceleration.onfinish = () => {
           rotationRef.current = endRotation % 360;
@@ -444,7 +450,13 @@ export const VinylRecord = ({
       node.style.transform = `rotate(${rotationRef.current}deg)`;
     };
 
+    const isDecelerating = spinAnimationRef.current && (spinAnimationRef.current as any)._isDecel && (spinAnimationRef.current.effect as any)?.target === node;
+
     if (!node || !canAnimate || !shouldSpin) {
+      if (isDecelerating && canAnimate) {
+        previousPlayingRef.current = shouldSpin;
+        return;
+      }
       const shouldDecelerate = previousPlayingRef.current && !shouldSpin;
       stopSpin(shouldDecelerate ? 'decelerate' : 'instant');
       previousPlayingRef.current = shouldSpin;

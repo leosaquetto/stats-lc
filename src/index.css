@@ -205,10 +205,20 @@
   backface-visibility: hidden;
 }
 
+.bottom-track-stats-modal[data-animation-done="true"] {
+  transform: none !important;
+  will-change: auto !important;
+}
+
+.bottom-track-lyrics-modal[data-animation-done="true"] {
+  transform: none !important;
+  will-change: auto !important;
+}
+
 .bottom-track-stats-body-backdrop {
   background: rgba(0,0,0,0.20);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
-  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
   border: 0;
   box-shadow:
     0 0 0 1px rgba(255,255,255,0.06),
@@ -247,18 +257,37 @@
 }
 
 .bottom-track-controls-button {
-  background: rgba(0,0,0,0.20);
-  border: 0;
-  -webkit-backdrop-filter: blur(120px) saturate(168%);
-  backdrop-filter: blur(120px) saturate(168%);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.2s, border-color 0.2s, transform 0.14s;
+}
+
+.bottom-track-controls-button:active {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .bottom-track-recent-picker {
-  background: rgba(0,0,0,0.52);
-  border-color: rgba(255,255,255,0.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-  -webkit-backdrop-filter: blur(96px) saturate(180%);
-  backdrop-filter: blur(96px) saturate(180%);
+  background: #121212 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.bottom-track-lyrics-modal {
+  background: rgba(0,0,0,0.20) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 -8px 32px rgba(0,0,0,0.24) !important;
+  border-radius: 30px 30px 0 0 !important;
 }
 
 .stats-lc-frosted-modal-glass {
@@ -477,15 +506,15 @@
 }
 
 @keyframes stats-lc-ambient-drift-primary {
-  0%, 100% { opacity: 0.68; transform: translate3d(-6%, -3%, 0) scale(1); }
-  45% { opacity: 0.96; transform: translate3d(7%, 4.5%, 0) scale(1.105); }
-  70% { opacity: 0.82; transform: translate3d(3%, -4%, 0) scale(1.045); }
+  0%, 100% { opacity: 0.68; transform: translate3d(-10%, -6%, 0) scale(1); }
+  45% { opacity: 0.96; transform: translate3d(12%, 8%, 0) scale(1.15); }
+  70% { opacity: 0.82; transform: translate3d(5%, -8%, 0) scale(1.08); }
 }
 
 @keyframes stats-lc-ambient-drift-secondary {
-  0%, 100% { opacity: 0.5; transform: translate3d(5%, 4%, 0) scale(1.02); }
-  48% { opacity: 0.8; transform: translate3d(-7%, -4%, 0) scale(1.13); }
-  76% { opacity: 0.64; transform: translate3d(-2%, 5%, 0) scale(1.06); }
+  0%, 100% { opacity: 0.5; transform: translate3d(8%, 7%, 0) scale(1.03); }
+  48% { opacity: 0.8; transform: translate3d(-12%, -7%, 0) scale(1.2); }
+  76% { opacity: 0.64; transform: translate3d(-4%, 9%, 0) scale(1.1); }
 }
 
 @keyframes progress-fill {
@@ -542,11 +571,11 @@
 }
 
 .stats-lc-ambient-drift-primary {
-  animation: stats-lc-ambient-drift-primary 14s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-primary 10s ease-in-out infinite;
 }
 
 .stats-lc-ambient-drift-secondary {
-  animation: stats-lc-ambient-drift-secondary 19s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-secondary 14s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -575,4 +604,30 @@ body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-primary,
 body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-secondary,
 body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
   animation-play-state: paused;
+}
+
+@keyframes eq-bar-1 {
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(0.9); }
+}
+
+@keyframes eq-bar-2 {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes eq-bar-3 {
+  0%, 100% { transform: scaleY(0.15); }
+  50% { transform: scaleY(0.8); }
+}
+
+@keyframes arena-bubble-enter {
+  0% {
+    transform: translate3d(var(--initial-x, 0px), -50%, 0) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(var(--final-x, 0px), -50%, 0) scale(var(--final-scale, 1));
+    opacity: var(--final-opacity, 1);
+  }
 }

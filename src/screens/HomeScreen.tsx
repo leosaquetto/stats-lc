@@ -800,19 +800,21 @@ const HomeOrbitalHighlights = ({
     const node = highlightScrollRefs.current[kind];
     if (!node) return;
     const config = HIGHLIGHT_VISUAL_CONFIG[kind];
-    const containerRect = node.getBoundingClientRect();
-    const anchorLeft = containerRect.left + 8;
     const step = config.secondary.width + 8;
     const cards = Array.from(node.querySelectorAll<HTMLElement>('[data-highlight-card="true"]'));
     let nearestIndex = 0;
     let nearestDistance = Number.POSITIVE_INFINITY;
 
-    const currentScrollOffset = node.scrollLeft;
+    const scrollLeft = node.scrollLeft;
+    const primaryWidth = config.primary.width;
+    const secondaryWidth = config.secondary.width;
+    const gap = 8;
+
     const parallaxNodes = highlightParallaxRefs.current[kind];
     if (parallaxNodes) {
-      const parallaxRing = shouldReduceMotion ? 0 : currentScrollOffset * -0.03;
-      const parallaxDash = shouldReduceMotion ? 0 : currentScrollOffset * -0.05;
-      const parallaxGlow = shouldReduceMotion ? 0 : currentScrollOffset * -0.02;
+      const parallaxRing = shouldReduceMotion ? 0 : scrollLeft * -0.03;
+      const parallaxDash = shouldReduceMotion ? 0 : scrollLeft * -0.05;
+      const parallaxGlow = shouldReduceMotion ? 0 : scrollLeft * -0.02;
       if (parallaxNodes.ring) {
         parallaxNodes.ring.style.transform = `translate(-50%, -50%) translateX(${parallaxRing}px)`;
       }
@@ -825,8 +827,12 @@ const HomeOrbitalHighlights = ({
     }
 
     cards.forEach((card, index) => {
-      const cardRect = card.getBoundingClientRect();
-      const distance = cardRect.left - anchorLeft;
+      // Calculate distances mathematically to prevent layout thrashing
+      const layoutLeft = index === 0
+        ? 0
+        : primaryWidth + gap + (index - 1) * (secondaryWidth + gap);
+
+      const distance = layoutLeft - scrollLeft - 8;
       const slot = distance / step;
       const slotDistance = Math.abs(slot);
       if (slotDistance < nearestDistance) {
@@ -837,33 +843,30 @@ const HomeOrbitalHighlights = ({
       const sizeProgress = shouldReduceMotion
         ? (rightSlot < 0.55 ? 1 : Math.max(0.22, 1 - rightSlot * 0.32))
         : Math.max(0.18, 1 - rightSlot * 0.28);
-      const width = config.secondary.width + (config.primary.width - config.secondary.width) * sizeProgress;
-      const height = config.secondary.height + (config.primary.height - config.secondary.height) * sizeProgress;
+
+      const targetWidth = secondaryWidth + (primaryWidth - secondaryWidth) * sizeProgress;
+      const baseWidth = index === 0 ? primaryWidth : secondaryWidth;
+      const scale = targetWidth / baseWidth;
+
       const leftFade = distance < -14 ? Math.max(0, Math.min(1, 1 + distance / 92)) : 1;
       const farFade = Math.max(0.4, 1 - Math.max(0, rightSlot - 2.5) * 0.12);
       const opacity = leftFade * farFade;
       const leftShift = distance < -14 ? Math.max(-28, distance * 0.18) : 0;
 
-      // Blur progressivo APENAS nos muito distantes (reduzir blur)
       const blurAmount = shouldReduceMotion ? 0 : Math.min(2, Math.max(0, Math.abs(rightSlot - 0.5) - 3) * 1.5);
 
-      // Aplicar transformações no CARD como um todo (não nos elementos internos)
-      card.style.width = `${width}px`;
-      card.style.height = `${height}px`;
       card.style.opacity = String(opacity);
-      card.style.transform = `translate3d(${leftShift}px, 0, 0)`;
       card.style.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : '';
       card.style.zIndex = String(Math.round(100 - Math.abs(slot) * 8));
       card.style.pointerEvents = opacity < 0.25 ? 'none' : '';
 
-      // REMOVER animações de texto individuais - causar "stop motion"
-      // Manter tamanhos fixos para fluidez
-
-      // Efeito 3D jukebox para álbuns
       if (kind === 'albums') {
         const rotationAngle = Math.max(-8, Math.min(8, (slot - 0.5) * -4));
         card.style.setProperty('--highlight-rotate-y', `${rotationAngle}deg`);
+        card.style.transform = `translate3d(${leftShift}px, 0, 0) scale(${scale}) rotateY(${rotationAngle}deg)`;
         card.style.transformStyle = 'preserve-3d';
+      } else {
+        card.style.transform = `translate3d(${leftShift}px, 0, 0) scale(${scale})`;
       }
     });
 

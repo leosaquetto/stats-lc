@@ -7,7 +7,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Moon } from 'lucide-react';
-import { motion, AnimatePresence, animate as animateMotion, useMotionValue } from 'motion/react';
+import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
@@ -36,19 +36,16 @@ const preloadRouteModules = (path: string) => {
 const EqualizerIcon = () => {
   return (
     <div className="flex items-end gap-[1.5px] h-3 w-3.5 shrink-0 select-none pb-[1px]" aria-hidden="true">
-      <motion.span
-        animate={{ scaleY: [0.2, 0.9, 0.2] }}
-        transition={{ repeat: Infinity, duration: 0.8, ease: "easeInOut", repeatType: "mirror" }}
+      <span
+        style={{ animation: 'eq-bar-1 0.8s ease-in-out infinite' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
-      <motion.span
-        animate={{ scaleY: [0.35, 1, 0.35] }}
-        transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut", repeatType: "mirror", delay: 0.15 }}
+      <span
+        style={{ animation: 'eq-bar-2 0.6s ease-in-out infinite 0.15s' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
-      <motion.span
-        animate={{ scaleY: [0.15, 0.8, 0.15] }}
-        transition={{ repeat: Infinity, duration: 0.7, ease: "easeInOut", repeatType: "mirror", delay: 0.3 }}
+      <span
+        style={{ animation: 'eq-bar-3 0.7s ease-in-out infinite 0.3s' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
     </div>
@@ -787,7 +784,7 @@ const loadBottomTrackStatsPanelData = async ({
 }): Promise<BottomTrackStatsPanelSnapshot> => {
   const cacheKey = getBottomTrackStatsLookupKey(user, trackId, albumId, trackArtists, members);
   const cached = readExpiringCache(bottomTrackStatsCache, cacheKey);
-  if (cached && mode === 'full') return cached;
+  if (cached && (mode === 'fast' || cached.hydration.social)) return cached;
 
   const inFlightMap = mode === 'fast' ? bottomTrackStatsFastInFlight : bottomTrackStatsInFlight;
   const running = inFlightMap.get(cacheKey);
@@ -859,7 +856,8 @@ const loadBottomTrackStatsPanelData = async ({
         social: mode === 'full',
       },
     };
-    if (mode === 'full') {
+    const existing = bottomTrackStatsCache.get(cacheKey);
+    if (mode === 'full' || !existing || !existing.data.hydration.social) {
       bottomTrackStatsCache.set(cacheKey, { data: snapshot, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
     }
     return snapshot;
@@ -1100,6 +1098,18 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [isModalVisible, setIsModalVisible] = React.useState(false);
+  const [isLyricsOpen, setIsLyricsOpen] = React.useState(false);
+  const [isAnimationDone, setIsAnimationDone] = React.useState(false);
+  const [isLyricsAnimationDone, setIsLyricsAnimationDone] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isLyricsOpen) {
+      setIsLyricsAnimationDone(false);
+    }
+  }, [isLyricsOpen]);
+
+  const modalRef = React.useRef<HTMLElement | null>(null);
+  const dragControls = useDragControls();
   const [lyricsMatch, setLyricsMatch] = React.useState<LyricsMatch | null>(null);
   const [lyricsText, setLyricsText] = React.useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = React.useState(false);
@@ -1426,7 +1436,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
     setLyricsMatch(null);
-    if (panel !== 'lyrics') setLyricsLoading(false);
+    if (!isLyricsOpen) setLyricsLoading(false);
 
     const idleId = window.setTimeout(() => {
       window.requestAnimationFrame(() => {
@@ -1442,7 +1452,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       cancelled = true;
       window.clearTimeout(idleId);
     };
-  }, [artistName, currentLyricsRequestKey, isOpen, panel, track?.name]);
+  }, [artistName, currentLyricsRequestKey, isOpen, isLyricsOpen, track?.name]);
 
   React.useEffect(() => {
     if (!track?.name || isOpen) return;
@@ -1451,6 +1461,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }, 900);
     return () => window.clearTimeout(timer);
   }, [artistName, isOpen, track?.name, trackId]);
+
+  // Prefetch track stats in background when the song changes and the modal is closed
+  React.useEffect(() => {
+    if (!panelUser?.id || !trackId || isOpen) return;
+    const timer = window.setTimeout(() => {
+      loadBottomTrackStatsPanelData({
+        user: panelUser,
+        trackId,
+        albumId,
+        trackArtists,
+        members,
+        currentTimestamp: undefined,
+        knownTrackCount: knownUserTrackCount,
+        mode: 'full',
+      }).catch(() => undefined);
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [albumId, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
 
   React.useEffect(() => {
     if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
@@ -1522,7 +1550,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           });
         }).catch(() => undefined);
       });
-    }, 280);
+    }, 0);
 
     const fullTimer = window.setTimeout(() => {
       loadBottomTrackStatsPanelData({
@@ -1542,7 +1570,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           panelDataKeyRef.current = panelCacheKey;
         });
       });
-    }, 680);
+    }, 180);
 
     return () => {
       cancelled = true;
@@ -1636,19 +1664,23 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     if (element) scheduleLyricsScrollMask();
   }, [scheduleLyricsScrollMask]);
 
+
+
   const closeStatsModal = React.useCallback(() => {
     const closeToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = closeToken;
     setIsModalVisible(false);
+    setIsLyricsOpen(false);
     setSelectedTrackLink(null);
     setRecentPickerOpen(false);
+    setIsAnimationDone(false);
     animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
     window.setTimeout(() => {
       if (modalOpenTokenRef.current !== closeToken) return;
       setIsOpen(false);
       setPanel('stats');
       setExternalPlayback(null);
-    }, 220);
+    }, 240);
   }, [historySwipeX]);
 
   const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
@@ -1686,7 +1718,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         social: false,
       });
     }
-    setPanel(nextPanel);
+    setPanel('stats');
+    if (nextPanel === 'lyrics') {
+      setIsLyricsOpen(true);
+    } else {
+      setIsLyricsOpen(false);
+    }
     setRecentPickerOpen(false);
     setIsModalVisible(true);
     setIsOpen(true);
@@ -1739,7 +1776,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   const handleLyrics = React.useCallback(async () => {
     if (!track?.name) return;
-    setPanel('lyrics');
+    setIsLyricsOpen(true);
     const requestKey = currentLyricsRequestKey;
     lyricsRequestKeyRef.current = requestKey;
     const cachedFullLyrics = readExpiringCache(lyricsFullCache, getLyricsCacheKey(track.name, artistName));
@@ -1801,7 +1838,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [animateHistorySwipe, closeStatsModal, handleLyrics, historySwipeX, newerPlaybackIndex, olderPlaybackIndex, panel, playbackIndex, selectedTrackLink]);
 
   React.useEffect(() => {
-    if (!isOpen || panel !== 'lyrics' || !track?.name) return;
+    if (!isOpen || !isLyricsOpen || !track?.name) return;
 
     let cancelled = false;
     const requestKey = currentLyricsRequestKey;
@@ -1831,7 +1868,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return () => {
       cancelled = true;
     };
-  }, [artistName, currentLyricsRequestKey, isOpen, panel, track?.name]);
+  }, [artistName, currentLyricsRequestKey, isOpen, isLyricsOpen, track?.name]);
 
   const copyLyrics = React.useCallback(async () => {
     if (!track?.name) return;
@@ -1927,87 +1964,100 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
           <span className="pointer-events-none absolute inset-x-3 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
-          {isBubbleLive && (
+          {shouldAnimateBubble ? (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-full"
+              style={{
+                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 68%, transparent) 0%, transparent 80%)`,
+              }}
+              animate={{ opacity: [0.42, 0.92, 0.42], scale: [0.92, 1.14, 0.92] }}
+              transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          ) : isBubbleLive ? (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-[2px] rounded-full"
+              className="pointer-events-none absolute inset-0 rounded-full"
               style={{
-                border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 66%, rgba(255,255,255,0.18))`,
-                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 20%, transparent) 0%, transparent 66%)`,
+                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 38%, transparent) 0%, transparent 80%)`,
               }}
             />
-          )}
-          {shouldAnimateBubble ? (
-            <>
-              <motion.span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-[1px] rounded-full"
-                style={{
-                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 62%, transparent) 0%, color-mix(in srgb, ${bubbleAccentColor} 32%, transparent) 42%, transparent 72%)`,
-                  boxShadow: `0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 72%, transparent), 0 0 30px color-mix(in srgb, ${bubbleAccentColor} 62%, transparent)`,
-                }}
-                animate={{ opacity: [0.48, 0.92, 0.5], scale: [0.9, 1.16, 0.96] }}
-                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-              />
-              <motion.span
-                aria-hidden="true"
-                key={`${trackId || trackTitle}-bubble-glow`}
-                className="pointer-events-none absolute inset-[4px] rounded-full"
-                style={{
-                  border: `1px solid color-mix(in srgb, ${bubbleAccentColor} 78%, rgba(255,255,255,0.28))`,
-                }}
-                animate={{ opacity: [0.62, 1, 0.66], scale: [0.98, 1.08, 1] }}
-                transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-              />
-            </>
           ) : (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-[4px] rounded-full border border-white/16"
+              className="pointer-events-none absolute inset-0 rounded-full bg-white/[0.03]"
             />
           )}
-          {bubbleArtistImage ? (
-            <motion.div
-              className="relative z-10 h-[54px] w-[54px] overflow-hidden rounded-full shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-              animate={shouldAnimateBubble ? { scale: [0.97, 1.13, 1] } : { scale: 1 }}
-              transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
-            >
-              <SmartImage src={bubbleArtistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
-            </motion.div>
-          ) : (
-            <motion.div
-              className="relative z-10 flex h-[54px] w-[54px] items-center justify-center rounded-full"
-              animate={shouldAnimateBubble ? { scale: [0.97, 1.13, 1] } : { scale: 1 }}
-              transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
-            >
-              <Music2 className="h-8 w-8 text-white/72" />
-            </motion.div>
-          )}
+          <motion.div
+            className="relative z-10 h-[54px] w-[54px]"
+            animate={shouldAnimateBubble ? { scale: [0.97, 1.09, 0.97] } : { scale: 1 }}
+            transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
+          >
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.div
+                key={bubbleArtistImage || 'fallback'}
+                className="absolute inset-0 h-full w-full rounded-full overflow-hidden flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+                style={{ backfaceVisibility: 'hidden' }}
+                initial={{
+                  opacity: 0,
+                  scale: 0.3,
+                  rotate: -120,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  rotate: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.3,
+                  rotate: 120,
+                }}
+                transition={{
+                  duration: 0.64,
+                  ease: [0.34, 1.56, 0.64, 1],
+                }}
+              >
+                {bubbleArtistImage ? (
+                  <SmartImage src={bubbleArtistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+                ) : (
+                  <Music2 className="h-8 w-8 text-white/72" />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         </motion.button>
       </div>
 
-      {typeof document !== 'undefined' && createPortal(
-          <motion.div
+      {typeof document !== 'undefined' && isOpen && createPortal(
+          <div
             className={clsx(
-              "fixed inset-0 z-[1205] flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] pt-20",
+              "fixed inset-0 z-[1205]",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
             )}
             aria-hidden={!isModalVisible}
-            initial={false}
-            animate={{ opacity: isModalVisible ? 1 : 0 }}
-            transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
-            style={{ visibility: 'visible' }}
+            style={{ visibility: isOpen ? 'visible' : 'hidden' }}
           >
-            <button
-              type="button"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isModalVisible ? 1 : 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
               className={clsx(
-                "absolute inset-0 touch-none cursor-default bg-transparent",
-                isModalVisible ? "pointer-events-auto" : "pointer-events-none"
+                "absolute inset-0 bg-black/45 backdrop-blur-[6px]",
+                isModalVisible ? "pointer-events-auto cursor-default" : "pointer-events-none"
               )}
               aria-label="Fechar stats da música"
-              tabIndex={isModalVisible ? 0 : -1}
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
+                if (isLyricsOpen) {
+                  setIsLyricsOpen(false);
+                  return;
+                }
+                if (selectedTrackLink) {
+                  setSelectedTrackLink(null);
+                  return;
+                }
                 if (recentPickerOpen) {
                   setRecentPickerOpen(false);
                   return;
@@ -2015,17 +2065,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 closeStatsModal();
               }}
             />
-            <div
-              className={clsx(
-                "bottom-track-stats-body-backdrop pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom,0px)+96px)] left-3 right-3 z-0 mx-auto max-w-[430px] rounded-[30px]",
-                panel === 'lyrics'
-                  ? "h-[min(72dvh,540px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
-                  : "h-[min(62dvh,446px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
-              )}
-              aria-hidden="true"
-            />
+            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+96px)] pt-20 pointer-events-none">
             <motion.section
-              initial={false}
+              ref={modalRef}
+              initial={{ opacity: 0, y: 50, scale: 0.94 }}
               onPointerDownCapture={(event) => {
                 if (!isModalVisible) return;
                 if (selectedTrackLink) return;
@@ -2039,16 +2082,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   return;
                 }
                 if (target.closest('button,a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
-                if (panel === 'lyrics') {
-                  lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY };
-                } else if (panel === 'stats') {
-                  modalPointerStartRef.current = { x: event.clientX, y: event.clientY };
-                }
+                modalPointerStartRef.current = { x: event.clientX, y: event.clientY };
               }}
               onPointerMoveCapture={(event) => {
                 if (!isModalVisible) return;
                 const start = modalPointerStartRef.current;
-                if (!start || selectedTrackLink || panel !== 'stats') return;
+                if (!start || selectedTrackLink) return;
                 const deltaX = event.clientX - start.x;
                 const deltaY = event.clientY - start.y;
                 if (Math.abs(deltaX) < 8 || Math.abs(deltaX) < Math.abs(deltaY) * 1.08) return;
@@ -2058,12 +2097,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               onPointerUpCapture={(event) => {
                 if (!isModalVisible) return;
-                if (panel === 'lyrics') {
-                  const start = lyricsPointerStartRef.current;
-                  lyricsPointerStartRef.current = null;
-                  handleLyricsDragEnd(start, event.clientX, event.clientY);
-                  return;
-                }
                 const start = modalPointerStartRef.current;
                 modalPointerStartRef.current = null;
                 handleStatsDragEnd(start, event.clientX, event.clientY);
@@ -2082,14 +2115,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   return;
                 }
                 if (target.closest('a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
-                if (panel === 'lyrics') {
-                  lyricsPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
-                } else if (panel === 'stats') {
-                  modalPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
-                }
+                modalPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
               }}
               onTouchMoveCapture={(event) => {
-                if (!isModalVisible || panel !== 'stats') return;
+                if (!isModalVisible) return;
                 const start = modalPointerStartRef.current;
                 const touch = event.touches[0];
                 if (!start || !touch || selectedTrackLink) return;
@@ -2107,12 +2136,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 if (!isModalVisible) return;
                 const touch = event.changedTouches[0];
                 if (!touch) return;
-                if (panel === 'lyrics') {
-                  const start = lyricsPointerStartRef.current;
-                  lyricsPointerStartRef.current = null;
-                  handleLyricsDragEnd(start, touch.clientX, touch.clientY);
-                  return;
-                }
                 const start = modalPointerStartRef.current;
                 modalPointerStartRef.current = null;
                 if (handleStatsDragEnd(start, touch.clientX, touch.clientY)) {
@@ -2125,21 +2148,44 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 lyricsPointerStartRef.current = null;
                 animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
               }}
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                const target = event.target as HTMLElement;
+                if (recentPickerOpen && !target.closest('[data-recent-picker],[data-recent-toggle]')) {
+                  setRecentPickerOpen(false);
+                }
+                if (selectedTrackLink && !target.closest('[data-action-sheet]')) {
+                  setSelectedTrackLink(null);
+                }
+              }}
               className={clsx(
-                "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-4",
-                isModalVisible ? "pointer-events-auto" : "pointer-events-none",
-                panel === 'lyrics'
-                  ? "z-[9999] h-[min(78dvh,600px)] max-h-[calc(100dvh-80px)]"
-                  : "z-10 h-[min(62dvh,446px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-150px)]"
+                "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-0 pointer-events-auto",
+                "z-10 h-auto"
               )}
+              data-animation-done={isAnimationDone}
               animate={{
                 opacity: isModalVisible ? 1 : 0,
-                y: isModalVisible ? 0 : 28,
-                scale: isModalVisible ? 1 : 0.975,
+                y: isModalVisible ? 0 : 50,
+                scale: isModalVisible ? 1 : 0.94,
               }}
-              transition={{ duration: 0.28, ease: [0.25, 0.1, 0.25, 1] }}
-              style={{ touchAction: panel === 'stats' ? 'none' : 'pan-y', willChange: 'transform, opacity' }}
+              transition={{
+                type: 'spring',
+                stiffness: isModalVisible ? 300 : 380,
+                damping: isModalVisible ? 28 : 35,
+                mass: 0.9,
+              }}
+              onAnimationComplete={() => {
+                if (isModalVisible) {
+                  setIsAnimationDone(true);
+                } else {
+                  setIsAnimationDone(false);
+                }
+              }}
+              style={{
+                touchAction: 'none',
+                willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform, opacity',
+                transform: isModalVisible && isAnimationDone ? 'none' : undefined,
+              }}
             >
               <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -top-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
               {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
@@ -2176,7 +2222,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onClick={() => setRecentPickerOpen(value => !value)}
                     className={clsx(
                       "bottom-track-controls-button flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 transition-[background-color,transform,color] active:scale-95",
-                      recentPickerOpen ? "bg-orange-500/24 text-orange-100" : "text-white/84"
+                      recentPickerOpen ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_4px_12px_rgba(249,115,22,0.35)]" : "text-white/84"
                     )}
                   >
                     <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
@@ -2196,15 +2242,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                 </motion.div>
               )}
-              <AnimatePresence>
+              <div className="bottom-track-stats-body-backdrop relative w-full overflow-hidden rounded-[30px] p-4">
+                <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
                     data-recent-picker="true"
                     className="bottom-track-recent-picker absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] p-2"
-                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    initial={{ opacity: 0, y: -12, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    exit={{ opacity: 0, y: -12, scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 28 }}
                     onPointerDown={(event) => {
                       event.stopPropagation();
                       modalPointerStartRef.current = null;
@@ -2318,15 +2365,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             </div>
           </div>
 
-              <AnimatePresence initial={false}>
-              {panel === 'stats' ? (
-              <motion.div
-                key="stats"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
-              >
+
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
                   <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
@@ -2692,35 +2731,222 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </div>
 
               <AnimatePresence>
-                {selectedTrackLink && (
+                {toastMessage && (
                   <motion.div
-                    className="absolute inset-0 z-30 rounded-[34px]"
-                    initial={false}
-                    onClick={() => setSelectedTrackLink(null)}
+                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+                    className="stats-lc-soft-white-glass absolute inset-x-8 bottom-5 z-40 rounded-full px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82"
                   >
-                    <motion.div
-                      initial={{ scale: 0.82 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0.88 }}
-                      transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
-                      drag="y"
-                      dragConstraints={{ top: 0, bottom: 0 }}
-                      dragElastic={0.16}
-                      onDragEnd={(_, info) => {
-                        if (info.offset.y > 44 || info.velocity.y > 420) setSelectedTrackLink(null);
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                      className="glass-aura absolute w-max max-w-[calc(100%_-_16px)] overflow-hidden rounded-[14px] px-1 py-1"
-                      style={{
-                        right: trackLinkSheetAnchor.right,
-                        bottom: trackLinkSheetAnchor.bottom,
-                        background: 'rgba(255,255,255,0.062)',
-                        backdropFilter: 'blur(30px) saturate(145%)',
-                        WebkitBackdropFilter: 'blur(30px) saturate(145%)',
-                        border: 'none',
-                        transformOrigin: 'bottom right',
-                      }}
-                    >
+                    {toastMessage}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+            </div>
+          </motion.section>
+          </div>
+
+            {/* Separate Lyrics Modal Overlay */}
+            <AnimatePresence>
+              {isLyricsOpen && (
+                <>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                    className="fixed inset-0 z-[1208] bg-black/40 backdrop-blur-[4px] pointer-events-auto"
+                    onClick={() => setIsLyricsOpen(false)}
+                  />
+                  <motion.div
+                    className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
+                    data-animation-done={isLyricsAnimationDone}
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.9 }}
+                    onAnimationComplete={() => {
+                      if (isLyricsOpen) {
+                        setIsLyricsAnimationDone(true);
+                      }
+                    }}
+                    drag="y"
+                    dragListener={false}
+                    dragControls={dragControls}
+                    dragConstraints={{ top: 0, bottom: 450 }}
+                    dragElastic={{ top: 0.05, bottom: 0.85 }}
+                    onDragEnd={(_, info) => {
+                      if (info.offset.y > 100 || info.velocity.y > 450) {
+                        setIsLyricsOpen(false);
+                      }
+                    }}
+                    style={{
+                      height: '82dvh',
+                      touchAction: 'none',
+                      willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
+                      transform: isLyricsOpen && isLyricsAnimationDone ? 'none' : undefined,
+                    }}
+                  >
+                  {/* Drag Handle Area */}
+                  <div
+                    onPointerDown={(e) => dragControls.start(e)}
+                    className="w-full cursor-grab active:cursor-grabbing pb-4 flex flex-col items-center shrink-0 select-none"
+                  >
+                    <div className="pointer-events-none h-1 w-10 rounded-full bg-white/22" aria-hidden="true" />
+                  </div>
+
+                  {/* Header content inside Lyrics Modal */}
+                  <div className="flex items-center gap-3 pt-1 shrink-0 select-none">
+                    <div className="stats-lc-soft-white-glass relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px]">
+                      {artwork ? (
+                        <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <Music2 className="h-9 w-9 text-white/36" />
+                        </div>
+                      )}
+                      <img
+                        src="/genius_colored.svg"
+                        alt=""
+                        className="absolute bottom-1 right-1 h-5 w-5 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]"
+                      />
+                    </div>
+                    <div className="min-w-0 pt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
+                          Letra
+                        </span>
+                        <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-yellow-100/70">
+                          Genius
+                        </span>
+                      </div>
+                      <div className="mt-1 flex min-w-0 max-w-full items-start gap-1.5">
+                        <ModalScrollingTrackTitle title={parsedTrackTitle.displayTitle || trackTitle} wide={parsedTrackTitle.badges.length === 0} />
+                        <TrackTitleBadges badges={parsedTrackTitle.badges} className="pt-0.5" />
+                      </div>
+                      <p className="mt-1 text-xs font-semibold leading-tight text-white/48">
+                        <ArtistNamesInline artists={trackArtists} fallback={artistName} />
+                      </p>
+                      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
+                        <ModalScrollingAlbumName albumName={albumName} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lyrics scrollable area (removed soft-white-glass background) */}
+                  <div className="mt-4 flex-1 select-none overflow-hidden flex flex-col min-h-0">
+                    {lyricsLoading ? (
+                      <div className="flex flex-1 items-center justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
+                      </div>
+                    ) : cleanedLyricsText ? (
+                      <div
+                        ref={setLyricsScrollElement}
+                        data-lyrics-scroll="true"
+                        onScroll={updateLyricsScrollMask}
+                        className="flex-1 overflow-y-auto overscroll-contain py-4 pl-1 pr-2 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:text-[16px] custom-scrollbar"
+                      >
+                        <AnimatePresence mode="popLayout">
+                          <motion.div
+                            key={track?.id || trackTitle}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -12 }}
+                            transition={{ duration: 0.28, ease: "easeOut" }}
+                          >
+                            <div className="whitespace-pre-line">{cleanedLyricsText}</div>
+                            <p className="mt-7 pb-1 leading-snug text-white/78">
+                              <span className="font-black text-white/92">Autoria:</span>{' '}
+                              <span className="font-normal">{writerNames || 'Autoria indisponível'}</span>
+                            </p>
+                          </motion.div>
+                        </AnimatePresence>
+                      </div>
+                    ) : lyricsMatch?.hasLyrics === false ? (
+                      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center text-white/52">
+                        <FileText className="h-7 w-7 text-orange-300/70" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.16em]">letra indisponível</span>
+                      </div>
+                    ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
+                      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 text-center">
+                        <FileText className="h-8 w-8 text-orange-300" />
+                        <div>
+                          <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
+                          <p className="mt-2 text-[11px] font-bold leading-snug text-white/45">
+                            O Genius bloqueou a extração completa agora, mas o link oficial está pronto.
+                          </p>
+                        </div>
+                        <a
+                          href={lyricsMatch.match.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="stats-lc-soft-white-glass rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/72"
+                        >
+                          abrir no Genius
+                        </a>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleLyrics}
+                        className="flex flex-1 w-full flex-col items-center justify-center gap-3 text-white/52"
+                      >
+                        <FileText className="h-7 w-7 text-orange-300" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
+                      </button>
+                    )}
+                    <div className="mt-3 shrink-0 pb-2 flex select-none items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/42">
+                      <span>Powered by</span>
+                      {lyricsMatch?.match?.url ? (
+                        <a
+                          href={lyricsMatch.match.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-start gap-0.5 text-white/46 transition-colors hover:text-white/70"
+                          aria-label="Abrir Genius"
+                        >
+                          <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert transition-opacity group-hover:opacity-80" />
+                          <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
+                        </a>
+                      ) : (
+                        <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert" />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Separate Link Action Sheet Portal Overlay */}
+            <AnimatePresence>
+              {selectedTrackLink && (
+                <div
+                  data-action-sheet-overlay="true"
+                  className="fixed inset-0 z-[1215] pointer-events-auto"
+                  onClick={() => setSelectedTrackLink(null)}
+                >
+                  <motion.div
+                    data-action-sheet="true"
+                    initial={{ opacity: 0, scale: 0.82 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.88 }}
+                    transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
+                    onClick={(event) => event.stopPropagation()}
+                    className="fixed w-max max-w-[calc(100%_-_16px)] overflow-hidden rounded-[18px] p-1.5"
+                    style={{
+                      right: trackLinkSheetAnchor.right,
+                      bottom: trackLinkSheetAnchor.bottom,
+                      background: 'rgba(0,0,0,0.20)',
+                      backdropFilter: 'blur(20px) saturate(120%)',
+                      WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+                      boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.24)',
+                      border: 'none',
+                      transformOrigin: 'bottom right',
+                    }}
+                  >
                     <div className="space-y-1">
                       <a
                         href={selectedTrackLink.appUrl || selectedTrackLink.url}
@@ -2761,143 +2987,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         </button>
                       )}
                     </div>
-                    </motion.div>
                   </motion.div>
-                )}
-              </AnimatePresence>
-
-              <AnimatePresence>
-                {toastMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12, scale: 0.96 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                    transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-                    className="stats-lc-soft-white-glass absolute inset-x-8 bottom-5 z-40 rounded-full px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82"
-                  >
-                    {toastMessage}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
-                {lyricsMatch?.hasLyrics === false ? 'letra indisponível' : 'arraste para cima para ver a letra'}
-              </p>
-              </motion.div>
-              ) : (
-              <motion.div
-                key="lyrics"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.14, ease: 'easeOut' }}
-                onPointerDown={(event) => {
-                  const target = event.target as HTMLElement;
-                  if (target.closest('button,a,input,textarea,select,[data-lyrics-scroll]')) return;
-                  lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY };
-                }}
-                onPointerUp={(event) => {
-                  const start = lyricsPointerStartRef.current;
-                  lyricsPointerStartRef.current = null;
-                  handleLyricsDragEnd(start, event.clientX, event.clientY);
-                }}
-                onPointerCancel={() => {
-                  lyricsPointerStartRef.current = null;
-                }}
-                className="mt-4 select-none"
-              >
-                {lyricsLoading ? (
-                  <div className="flex h-[clamp(280px,50dvh,430px)] items-center justify-center">
-                    <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
-                  </div>
-                ) : cleanedLyricsText ? (
-                  <div
-                    ref={setLyricsScrollElement}
-                    data-lyrics-scroll="true"
-                    onPointerDown={(event) => {
-                      event.stopPropagation();
-                      lyricsPointerStartRef.current = { x: event.clientX, y: event.clientY, fromScroll: true };
-                    }}
-                    onPointerMove={(event) => event.stopPropagation()}
-                    onPointerUp={(event) => {
-                      event.stopPropagation();
-                      const start = lyricsPointerStartRef.current;
-                      lyricsPointerStartRef.current = null;
-                      handleLyricsDragEnd(start, event.clientX, event.clientY);
-                    }}
-                    onPointerCancel={(event) => {
-                      event.stopPropagation();
-                      lyricsPointerStartRef.current = null;
-                    }}
-                    onScroll={updateLyricsScrollMask}
-                    className="stats-lc-soft-white-glass min-h-[min(34dvh,260px)] max-h-[clamp(280px,50dvh,430px)] overflow-y-auto overscroll-contain rounded-[26px] py-4 pl-3 pr-4 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:pl-4 sm:pr-5 sm:text-[16px]"
-                  >
-                    <div className="whitespace-pre-line">{cleanedLyricsText}</div>
-                    <p className="mt-7 pb-1 leading-snug text-white/78">
-                      <span className="font-black text-white/92">Autoria:</span>{' '}
-                      <span className="font-normal">{writerNames || 'Autoria indisponível'}</span>
-                    </p>
-                  </div>
-                ) : lyricsMatch?.hasLyrics === false ? (
-                  <div className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-3 rounded-[26px] px-5 text-center text-white/52">
-                    <FileText className="h-7 w-7 text-orange-300/70" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em]">letra indisponível</span>
-                  </div>
-                ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
-                  <div className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] flex-col items-center justify-center gap-4 rounded-[26px] px-5 text-center">
-                    <FileText className="h-8 w-8 text-orange-300" />
-                    <div>
-                      <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
-                      <p className="mt-2 text-[11px] font-bold leading-snug text-white/45">
-                        O Genius bloqueou a extração completa agora, mas o link oficial está pronto.
-                      </p>
-                    </div>
-                    <a
-                      href={lyricsMatch.match.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="stats-lc-soft-white-glass rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/72"
-                    >
-                      abrir no Genius
-                    </a>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleLyrics}
-                    className="stats-lc-soft-white-glass flex h-[clamp(280px,50dvh,430px)] w-full flex-col items-center justify-center gap-3 rounded-[26px] text-white/52"
-                  >
-                    <FileText className="h-7 w-7 text-orange-300" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
-                  </button>
-                )}
-                <div className="mt-3 flex select-none items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/42">
-                  <span>Powered by</span>
-                  {lyricsMatch?.match?.url ? (
-                    <a
-                      href={lyricsMatch.match.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex items-start gap-0.5 text-white/46 transition-colors hover:text-white/70"
-                      aria-label="Abrir Genius"
-                    >
-                      <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert transition-opacity group-hover:opacity-80" />
-                      <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
-                    </a>
-                  ) : (
-                    <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert" />
-                  )}
                 </div>
-                <p className="mt-3 text-center text-[8px] font-black uppercase tracking-[0.16em] text-white/24">
-                  arraste para baixo para voltar
-                </p>
-              </motion.div>
               )}
-              </AnimatePresence>
-              </motion.div>
-            </motion.section>
-          </motion.div>,
-      document.body
+            </AnimatePresence>
+          </div>,
+        document.body
       )}
     </>
   );
@@ -3087,24 +3182,24 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 toggleSyncInfo();
               }}
               className={clsx(
-                "pointer-events-auto flex items-center mb-1 select-none group relative transition-colors duration-300 overflow-hidden text-left",
+                "pointer-events-auto flex items-center mb-1 select-none group relative transition-all duration-300 overflow-hidden text-left cursor-pointer",
                 shouldShowExpanded
-                  ? "bg-transparent border-none shadow-none min-h-10 gap-2 w-[min(95vw,456px)]"
-                  : "leo-soft-badge cursor-pointer rounded-full h-7 pl-2.5 pr-2 gap-1.5"
+                  ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
+                  : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"
               )}
               title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
             >
               <motion.div 
                 className={clsx(
-                  "flex items-center min-w-0",
+                  "flex items-center min-w-0 w-full",
                   shouldShowExpanded ? "gap-2" : "gap-1"
                 )}
               >
                 <motion.div 
                   className={clsx(
-                    "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300",
+                    "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300 w-full",
                     shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar w-full py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
+                      ? "overflow-x-auto no-scrollbar py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
                       : "-space-x-1.5"
                   )}
                   onPointerDown={(event) => {
@@ -3149,8 +3244,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         } : {}}
                         transition={{ duration: 2, ease: "easeInOut" }}
                         className={clsx(
-                          "flex items-center gap-2 shrink-0 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
-                          shouldShowExpanded && "leo-soft-badge w-[clamp(104px,25vw,142px)] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]",
+                          "flex items-center gap-2 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
+                          shouldShowExpanded
+                            ? "leo-soft-badge flex-1 shrink min-w-[50px] max-w-[130px] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]"
+                            : "shrink-0",
                           isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
                         )}
                       >

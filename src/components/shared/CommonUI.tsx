@@ -173,21 +173,26 @@ export const preloadSmartImages = (sources: Array<string | undefined | null>) =>
 };
 
 export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, cacheKey?: string, className?: string, fallback?: string, rounded?: string }) => {
-  const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [showFallback, setShowFallback] = useState(false);
-  const [overrideSrc, setOverrideSrc] = useState('');
-  const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
-  const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const lastGoodSrcRef = useRef(cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '');
-  const imageRef = useRef<HTMLImageElement>(null);
-
   const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
   const cachedStableSrc = cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '';
+  const lastGoodSrcRef = useRef(cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '');
+  const [overrideSrc, setOverrideSrc] = useState('');
+
   const resolvedSrc = overrideSrc || inputSrc;
   const displaySrc = resolvedSrc || lastGoodSrcRef.current || cachedStableSrc;
   const previousDisplaySrc = lastGoodSrcRef.current || cachedStableSrc;
+
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(() => {
+    if (!displaySrc) return false;
+    return !loadedImageSrcs.has(displaySrc);
+  });
+  const [showFallback, setShowFallback] = useState(false);
+  const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
+  const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const imageRef = useRef<HTMLImageElement>(null);
+
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
   const hasDisplayableSrc = !!imageSrc && !imageSrc.includes("private.webp");
 

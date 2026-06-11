@@ -821,9 +821,16 @@ const ArenaRankingBubble = ({
       style={{
         zIndex: total + 2 - index,
         opacity: isHiddenInitial ? 0 : 1,
-        transform: `translate3d(${initialX}px, -50%, 0) scale(${shouldReduceMotion ? initialScale : initialScale})`,
-        transformOrigin: isHiddenInitial ? 'right center' : undefined,
+        transform: `translate3d(${initialX}px, -50%, 0) scale(${initialScale})`,
+        transformOrigin: isHiddenInitial ? 'right center' : 'center center',
         willChange: shouldReduceMotion ? undefined : 'transform, opacity',
+        ...(!shouldReduceMotion && {
+          animation: `arena-bubble-enter 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s backwards`,
+          ['--initial-x' as any]: '0px',
+          ['--final-x' as any]: `${initialX}px`,
+          ['--final-scale' as any]: initialScale,
+          ['--final-opacity' as any]: isHiddenInitial ? 0 : 1,
+        })
       }}
     >
       <div className="relative z-10 h-11 w-11 overflow-visible rounded-full shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
@@ -1399,15 +1406,15 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute -inset-x-8 -top-[calc(6rem+env(safe-area-inset-top,0px))] bottom-[-128px] overflow-hidden transition-[box-shadow,opacity,transform] duration-500 pointer-events-none",
+          "absolute -inset-x-8 -top-[calc(10rem+env(safe-area-inset-top,0px))] bottom-[-180px] overflow-hidden transition-[box-shadow,opacity,transform] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
         )}
         style={{
           willChange: 'transform, opacity',
-          maskImage: 'linear-gradient(to bottom, black 0%, black 76%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 76%, transparent 100%)'
+          maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)'
         }}
         >
           <AnimatePresence>
@@ -1484,8 +1491,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
         </div>
         {track && (
           <div className={cn(
-            "absolute top-[-58px] shrink-0 z-20 pointer-events-auto",
-            visualIsLive ? "right-[-190px] h-[360px] w-[360px]" : "right-[-150px] h-[330px] w-[330px]"
+            "absolute -top-[58px] shrink-0 z-20 pointer-events-auto",
+            visualIsLive ? "-right-[190px] h-[360px] w-[360px]" : "-right-[150px] h-[330px] w-[330px]"
           )}>
             <div className="w-full h-full overflow-visible">
               <VinylRecord
@@ -1801,6 +1808,13 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                                         opacity: 1,
                                         transform: `translate3d(${ARENA_BADGE_RIGHT_MORE_LEFT}px, -50%, 0) scale(1)`,
                                         transformOrigin: 'left center',
+                                        ...(!shouldReduceMotion && {
+                                          animation: `arena-bubble-enter 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) ${visibleArenaCount * 0.05}s backwards`,
+                                          ['--initial-x' as any]: '0px',
+                                          ['--final-x' as any]: `${ARENA_BADGE_RIGHT_MORE_LEFT}px`,
+                                          ['--final-scale' as any]: 1,
+                                          ['--final-opacity' as any]: 1,
+                                        })
                                       }}
                                       aria-hidden="true"
                                     >
