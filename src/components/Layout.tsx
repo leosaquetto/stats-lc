@@ -101,9 +101,9 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
           <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
           <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
 
-          <div className="relative grid min-h-[64px] grid-cols-4 gap-0 px-2 py-2">
+          <div className="relative grid h-[54px] grid-cols-4 gap-0 px-1.5 py-1.5">
             <motion.div
-              className="pointer-events-none absolute bottom-2 left-2 top-2 w-[calc((100%_-_1rem)/4)] rounded-[9999px] bg-white/[0.04]"
+              className="pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 w-[calc((100%_-_0.75rem)/4)] rounded-[9999px] bg-white/[0.15]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
               transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             />
@@ -122,8 +122,8 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                   className="relative flex flex-col items-center justify-center gap-1 outline-none touch-manipulation select-none"
                 >
                   <motion.div
-                    className="relative z-10 flex flex-col items-center gap-1"
-                    animate={{ y: isActive ? -1 : 0, scale: isActive ? 1.02 : 1 }}
+                    className="relative z-10 flex items-center justify-center"
+                    animate={{ scale: isActive ? 1.02 : 1 }}
                     whileTap={{ scale: 0.94 }}
                     transition={{ type: "spring", stiffness: 400, damping: 22 }}
                   >
@@ -132,21 +132,12 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                         className={clsx(
                           "transition-[color,filter,opacity,transform] duration-200 ease-out",
                           isActive
-                            ? "h-[25px] w-[25px] text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.35)]"
-                            : "h-[24px] w-[24px] text-white/45 hover:text-white/75"
+                            ? "h-[25px] w-[25px] text-white"
+                            : "h-[24px] w-[24px] text-white/50 hover:text-white/80"
                         )}
-                        strokeWidth={isActive ? 2.3 : 1.7}
+                        strokeWidth={isActive ? 2.4 : 1.7}
                       />
                     </div>
-
-                    <span className={clsx(
-                      "text-[9px] font-bold tracking-[0.12em] transition-[color,opacity,transform] duration-200 leading-none mt-0.5",
-                      isActive
-                        ? "text-orange-500 font-extrabold"
-                        : "text-white/40 font-medium"
-                    )}>
-                      {item.label}
-                    </span>
                   </motion.div>
                 </Link>
               );
@@ -3315,7 +3306,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           )}
         </AnimatePresence>
 
-        <div className="flex w-full max-w-[480px] items-end justify-center gap-2 px-3">
+        <div className="flex w-full max-w-[480px] items-center justify-center gap-2 px-3">
           {/* Navigation - Liquid Glass Capsule */}
           <div className="min-w-0 flex-1">
             <BottomNavigation pathname={location.pathname} />
