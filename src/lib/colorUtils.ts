@@ -3,9 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Cache para cores dominantes extraídas
+// Cache para cores extraídas
 const colorCache = new Map<string, string>();
+const paletteCache = new Map<string, ArtworkPalette>();
 const MAX_CACHE_SIZE = 100;
+
+export interface ArtworkPaletteCandidate {
+  hex: string;
+  score: number;
+  population: number;
+  saturation: number;
+  brightness: number;
+  hue: number;
+}
+
+export interface ArtworkPalette {
+  vinylColor: string;
+  progressColor: string;
+  candidates: ArtworkPaletteCandidate[];
+}
+
+type Rgb = { r: number; g: number; b: number };
 
 /**
  * Normalize color input to #rrggbb format
@@ -108,7 +126,139 @@ export function getSaturation(color: string): number {
   return delta / max;
 }
 
-function getSmartCanvasColor(img: HTMLImageElement): string | null {
+function parseHexColor(color: string): Rgb {
+  const hex = normalizeColor(color).replace('#', '');
+  return {
+    r: parseInt(hex.substring(0, 2), 16),
+    g: parseInt(hex.substring(2, 4), 16),
+    b: parseInt(hex.substring(4, 6), 16)
+  };
+}
+
+function rgbToHsl({ r, g, b }: Rgb): { hue: number; saturation: number; lightness: number } {
+  const nr = r / 255;
+  const ng = g / 255;
+  const nb = b / 255;
+  const max = Math.max(nr, ng, nb);
+  const min = Math.min(nr, ng, nb);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  let hue = 0;
+  let saturation = 0;
+
+  if (delta !== 0) {
+    saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    switch (max) {
+      case nr:
+        hue = ((ng - nb) / delta + (ng < nb ? 6 : 0)) * 60;
+        break;
+      case ng:
+        hue = ((nb - nr) / delta + 2) * 60;
+        break;
+      default:
+        hue = ((nr - ng) / delta + 4) * 60;
+        break;
+    }
+  }
+
+  return { hue, saturation, lightness };
+}
+
+function getHue(color: string): number {
+  return rgbToHsl(parseHexColor(color)).hue;
+}
+
+function hueDistance(a: number, b: number): number {
+  const distance = Math.abs(a - b) % 360;
+  return Math.min(distance, 360 - distance);
+}
+
+function createCandidate(
+  color: string,
+  score: number,
+  population: number
+): ArtworkPaletteCandidate {
+  const normalized = normalizeColor(color, '#647062');
+  return {
+    hex: normalized,
+    score,
+    population,
+    saturation: getSaturation(normalized),
+    brightness: getPerceivedBrightness(normalized),
+    hue: getHue(normalized)
+  };
+}
+
+function isVividCandidate(candidate: ArtworkPaletteCandidate): boolean {
+  return candidate.saturation >= 0.16 && candidate.brightness >= 38 && candidate.brightness <= 228;
+}
+
+function getTonalProgressColor(color: string): string {
+  const normalized = normalizeColor(color, '#647062');
+  const brightness = getPerceivedBrightness(normalized);
+
+  if (brightness < 88) return adjustBrightness(normalized, 0.48);
+  if (brightness < 138) return adjustBrightness(normalized, 0.3);
+  if (brightness > 214) return adjustBrightness(normalized, -0.24);
+  return adjustBrightness(normalized, brightness < 176 ? 0.18 : -0.18);
+}
+
+function createFallbackPalette(color: string = '#647062'): ArtworkPalette {
+  const vinylColor = normalizeColor(color, '#647062');
+  return {
+    vinylColor,
+    progressColor: getTonalProgressColor(vinylColor),
+    candidates: [createCandidate(vinylColor, 1, 1)]
+  };
+}
+
+function chooseProgressCandidate(
+  vinyl: ArtworkPaletteCandidate,
+  candidates: ArtworkPaletteCandidate[]
+): ArtworkPaletteCandidate {
+  const viable = candidates.filter((candidate) => {
+    if (candidate.hex === vinyl.hex) return false;
+    if (candidate.brightness < 22 || candidate.brightness > 238) return false;
+
+    const hueDelta = candidate.saturation >= 0.12 && vinyl.saturation >= 0.12
+      ? hueDistance(candidate.hue, vinyl.hue)
+      : 0;
+    const brightnessDelta = Math.abs(candidate.brightness - vinyl.brightness);
+    const saturationDelta = Math.abs(candidate.saturation - vinyl.saturation);
+
+    return hueDelta >= 24 || brightnessDelta >= 36 || saturationDelta >= 0.2;
+  });
+
+  const scoreProgress = (candidate: ArtworkPaletteCandidate) => {
+    const hueDelta = candidate.saturation >= 0.12 && vinyl.saturation >= 0.12
+      ? hueDistance(candidate.hue, vinyl.hue)
+      : 0;
+    const brightnessDelta = Math.abs(candidate.brightness - vinyl.brightness);
+
+    return (
+      candidate.score * 0.85 +
+      candidate.population * 120 +
+      candidate.saturation * 120 +
+      Math.min(hueDelta, 105) * 2.2 +
+      Math.min(brightnessDelta, 88) * 1.15
+    );
+  };
+
+  const vivid = viable
+    .filter(isVividCandidate)
+    .sort((a, b) => scoreProgress(b) - scoreProgress(a))[0];
+
+  if (vivid) return vivid;
+
+  const realNeutral = viable
+    .sort((a, b) => scoreProgress(b) - scoreProgress(a))[0];
+
+  if (realNeutral) return realNeutral;
+
+  return createCandidate(getTonalProgressColor(vinyl.hex), vinyl.score * 0.4, 0);
+}
+
+function getAverageCanvasColor(img: HTMLImageElement): string | null {
   const canvas = document.createElement('canvas');
   const size = 96;
   canvas.width = size;
@@ -118,11 +268,40 @@ function getSmartCanvasColor(img: HTMLImageElement): string | null {
 
   ctx.drawImage(img, 0, 0, size, size);
   const { data } = ctx.getImageData(0, 0, size, size);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let weight = 0;
+
+  for (let i = 0; i < data.length; i += 16) {
+    const alpha = data[i + 3] / 255;
+    if (alpha < 0.65) continue;
+
+    const brightness = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+    if (brightness > 244 || brightness < 14) continue;
+
+    r += data[i] * alpha;
+    g += data[i + 1] * alpha;
+    b += data[i + 2] * alpha;
+    weight += alpha;
+  }
+
+  if (weight <= 0) return null;
+  return normalizeColor([r / weight, g / weight, b / weight]);
+}
+
+function getSmartCanvasPalette(img: HTMLImageElement): ArtworkPalette | null {
+  const canvas = document.createElement('canvas');
+  const size = 112;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return null;
+
+  ctx.drawImage(img, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
   const buckets = new Map<string, { r: number; g: number; b: number; score: number; count: number }>();
-  let fallbackR = 0;
-  let fallbackG = 0;
-  let fallbackB = 0;
-  let fallbackScore = 0;
+  let totalWeight = 0;
 
   for (let i = 0; i < data.length; i += 4) {
     const alpha = data[i + 3] / 255;
@@ -131,65 +310,83 @@ function getSmartCanvasColor(img: HTMLImageElement): string | null {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const saturation = max === 0 ? 0 : (max - min) / max;
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    const hsvSaturation = Math.max(r, g, b) === 0 ? 0 : (Math.max(r, g, b) - Math.min(r, g, b)) / Math.max(r, g, b);
+    const hsl = rgbToHsl({ r, g, b });
 
-    // Album covers often have large white/black fields; skip them so the UI
-    // follows the artwork accent instead of the paper/background.
-    if (brightness > 235 || brightness < 24 || saturation < 0.08) continue;
+    // Covers often have large paper/black fields. Keep real neutrals, but skip
+    // extreme voids so they do not drown out small but intentional artwork color.
+    if (brightness > 246 || brightness < 16) continue;
+    if (brightness > 236 && hsvSaturation < 0.14) continue;
+    if (brightness < 24 && hsvSaturation < 0.18) continue;
 
-    const warmthBoost = r > b && r > g ? 1.18 : 1;
-    const score = alpha * (0.7 + saturation * 1.8) * (brightness > 205 ? 0.72 : 1) * warmthBoost;
-    const qR = Math.round(r / 24) * 24;
-    const qG = Math.round(g / 24) * 24;
-    const qB = Math.round(b / 24) * 24;
+    const isVivid = hsvSaturation >= 0.16 && brightness >= 36 && brightness <= 228;
+    const quantizeBy = isVivid ? 18 : 26;
+    const qR = Math.round(r / quantizeBy) * quantizeBy;
+    const qG = Math.round(g / quantizeBy) * quantizeBy;
+    const qB = Math.round(b / quantizeBy) * quantizeBy;
     const key = `${qR},${qG},${qB}`;
     const bucket = buckets.get(key) || { r: 0, g: 0, b: 0, score: 0, count: 0 };
+    const lightnessPenalty = hsl.lightness > 0.88 || hsl.lightness < 0.12 ? 0.68 : 1;
+    let score = alpha * lightnessPenalty;
+
+    if (isVivid) {
+      score *= 1.05 + hsvSaturation * 3.2;
+    } else {
+      score *= 0.42 + hsvSaturation * 1.3;
+    }
 
     bucket.r += r * score;
     bucket.g += g * score;
     bucket.b += b * score;
     bucket.score += score;
-    bucket.count += 1;
+    bucket.count += alpha;
     buckets.set(key, bucket);
-
-    fallbackR += r * score;
-    fallbackG += g * score;
-    fallbackB += b * score;
-    fallbackScore += score;
+    totalWeight += alpha;
   }
 
   const candidates = [...buckets.values()]
-    .filter(bucket => bucket.score > 0 && bucket.count >= 2)
-    .sort((a, b) => b.score - a.score);
+    .filter(bucket => bucket.score > 0 && bucket.count >= 1.2)
+    .map((bucket) => {
+      const hex = normalizeColor([
+        bucket.r / bucket.score,
+        bucket.g / bucket.score,
+        bucket.b / bucket.score
+      ]);
+      const candidate = createCandidate(hex, bucket.score, totalWeight > 0 ? bucket.count / totalWeight : 0);
+      const areaBoost = 0.62 + Math.sqrt(Math.max(candidate.population, 0.004)) * 2;
+      const saturationBoost = candidate.saturation >= 0.16 ? 1 + candidate.saturation * 1.35 : 0.72 + candidate.saturation;
+      return {
+        ...candidate,
+        score: candidate.score * areaBoost * saturationBoost
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 14);
 
-  const chosen = candidates[0];
-  if (chosen) {
-    return normalizeColor([
-      chosen.r / chosen.score,
-      chosen.g / chosen.score,
-      chosen.b / chosen.score
-    ]);
+  if (candidates.length === 0) {
+    const averageColor = getAverageCanvasColor(img);
+    return averageColor ? createFallbackPalette(averageColor) : null;
   }
 
-  if (fallbackScore > 0) {
-    return normalizeColor([fallbackR / fallbackScore, fallbackG / fallbackScore, fallbackB / fallbackScore]);
-  }
+  const vividCandidates = candidates.filter(isVividCandidate);
+  const vinyl = (vividCandidates.length > 0 ? vividCandidates : candidates)[0];
+  const progress = chooseProgressCandidate(vinyl, candidates);
 
-  return null;
+  return {
+    vinylColor: vinyl.hex,
+    progressColor: progress.hex,
+    candidates
+  };
 }
 
 /**
- * Get a stable accent color from the artwork using local canvas sampling.
- * Includes caching to avoid reprocessing the same images
- * @returns Promise<string> - Hex color (#rrggbb)
+ * Get a stable artwork palette using local canvas sampling.
+ * Includes caching to avoid reprocessing the same images.
  */
-export function getDominantColor(imageSrc: string): Promise<string> {
-  // Check cache first
-  if (colorCache.has(imageSrc)) {
-    return Promise.resolve(colorCache.get(imageSrc)!);
+export function getArtworkPalette(imageSrc: string): Promise<ArtworkPalette> {
+  if (paletteCache.has(imageSrc)) {
+    return Promise.resolve(paletteCache.get(imageSrc)!);
   }
 
   return new Promise((resolve) => {
@@ -199,76 +396,82 @@ export function getDominantColor(imageSrc: string): Promise<string> {
 
     img.onload = async () => {
       try {
-        const smartColor = getSmartCanvasColor(img);
-        if (smartColor) {
-          cacheColor(imageSrc, smartColor);
-          resolve(smartColor);
+        const palette = getSmartCanvasPalette(img);
+        if (palette) {
+          cachePalette(imageSrc, palette);
+          cacheColor(imageSrc, palette.vinylColor);
+          resolve(palette);
           return;
         }
       } catch (e) {
         if ((import.meta as any).env?.DEV) {
-          console.warn('[colorUtils] Smart canvas color failed, using average fallback:', e);
+          console.warn('[colorUtils] Smart canvas palette failed, using average fallback:', e);
         }
       }
 
-      // Canvas sampling fallback
       try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve('#ea580c');
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, img.width, img.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        let r = 0, g = 0, b = 0;
-        let count = 0;
-
-        for (let i = 0; i < data.length; i += 16 * 4) {
-          const brightness = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
-          if (data[i + 3] > 128 && brightness > 24 && brightness < 235) {
-            r += data[i];
-            g += data[i + 1];
-            b += data[i + 2];
-            count++;
-          }
-        }
-
-        if (count > 0) {
-          r = Math.floor(r / count);
-          g = Math.floor(g / count);
-          b = Math.floor(b / count);
-          const hexColor = normalizeColor([r, g, b]);
-          cacheColor(imageSrc, hexColor);
-          resolve(hexColor);
+        const averageColor = getAverageCanvasColor(img);
+        if (averageColor) {
+          const palette = createFallbackPalette(averageColor);
+          cachePalette(imageSrc, palette);
+          cacheColor(imageSrc, palette.vinylColor);
+          resolve(palette);
         } else {
-          resolve('#ea580c');
+          const palette = createFallbackPalette();
+          cachePalette(imageSrc, palette);
+          cacheColor(imageSrc, palette.vinylColor);
+          resolve(palette);
         }
       } catch (e) {
-        resolve('#ea580c');
+        const palette = createFallbackPalette();
+        cachePalette(imageSrc, palette);
+        cacheColor(imageSrc, palette.vinylColor);
+        resolve(palette);
       }
     };
 
     img.onerror = () => {
-      resolve('#ea580c');
+      const palette = createFallbackPalette();
+      cachePalette(imageSrc, palette);
+      cacheColor(imageSrc, palette.vinylColor);
+      resolve(palette);
     };
   });
+}
+
+/**
+ * Get a stable accent color from the artwork using local canvas sampling.
+ * Includes caching to avoid reprocessing the same images.
+ * @returns Promise<string> - Hex color (#rrggbb)
+ */
+export function getDominantColor(imageSrc: string): Promise<string> {
+  if (colorCache.has(imageSrc)) {
+    return Promise.resolve(colorCache.get(imageSrc)!);
+  }
+
+  return getArtworkPalette(imageSrc).then(palette => palette.vinylColor);
+}
+
+function cacheEntry<T>(cache: Map<string, T>, imageSrc: string, value: T): void {
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const firstKey = cache.keys().next().value;
+    if (firstKey) cache.delete(firstKey);
+  }
+  cache.set(imageSrc, value);
 }
 
 /**
  * Cache a color with LRU eviction
  */
 function cacheColor(imageSrc: string, color: string): void {
-  // LRU: se o cache está cheio, remove o mais antigo
-  if (colorCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = colorCache.keys().next().value;
-    colorCache.delete(firstKey);
-  }
-  colorCache.set(imageSrc, color);
+  cacheEntry(colorCache, imageSrc, color);
+}
+
+/**
+ * Cache a palette with LRU eviction
+ */
+function cachePalette(imageSrc: string, palette: ArtworkPalette): void {
+  cacheEntry(paletteCache, imageSrc, palette);
 }
 
 /**

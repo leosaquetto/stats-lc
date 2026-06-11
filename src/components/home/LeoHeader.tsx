@@ -19,7 +19,7 @@ import { VinylRecord } from './VinylRecord';
 import { statsService } from '../../services/statsService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getDominantColor, withAlpha, ensureVisibility, getSaturation, getPerceivedBrightness, normalizeColor } from '../../lib/colorUtils';
+import { getArtworkPalette, withAlpha, getPerceivedBrightness, normalizeColor, adjustBrightness, type ArtworkPalette } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 import { attachLiveNowPlayingToMember, getCanonicalMembers, getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { parseTrackTitleBadges } from '../../lib/trackTitleBadges';
@@ -136,7 +136,7 @@ interface LiveTrackProgressProps {
   isNowPlaying: boolean;
   platform: "spotify" | "appleMusic" | "unknown";
   compact?: boolean;
-  dominantColor?: string | null;
+  progressColor?: string | null;
 }
 
 function formatTrackTime(ms: number) {
@@ -203,13 +203,45 @@ const MAX_COMPLETION_RECHECKS = 6;
 
 function normalizePlaybackAccent(color: string | null) {
   if (!color) return null;
-  const normalized = normalizeColor(color, '#ff5f00');
-  const saturation = getSaturation(normalized);
+  return normalizeColor(color, '#647062');
+}
+
+function getTonalProgressAccent(color: string | null) {
+  if (!color) return null;
+  const normalized = normalizeColor(color, '#8b947e');
   const brightness = getPerceivedBrightness(normalized);
-  if (saturation < 0.16) {
-    if (brightness > 168) return '#f2eee6';
-    if (brightness < 58) return '#ff5f00';
+
+  if (brightness < 88) return adjustBrightness(normalized, 0.48);
+  if (brightness < 138) return adjustBrightness(normalized, 0.3);
+  if (brightness > 214) return adjustBrightness(normalized, -0.24);
+  return adjustBrightness(normalized, brightness < 176 ? 0.18 : -0.18);
+}
+
+function createFallbackArtworkPalette(color: string | null): ArtworkPalette | null {
+  const vinylColor = normalizePlaybackAccent(color);
+  const progressColor = getTonalProgressAccent(vinylColor);
+  if (!vinylColor || !progressColor) return null;
+
+  return {
+    vinylColor,
+    progressColor,
+    candidates: []
+  };
+}
+
+function getVisibleProgressAccent(color: string | null | undefined) {
+  if (!color) return null;
+  const normalized = normalizeColor(color, '#8b947e');
+  const brightness = getPerceivedBrightness(normalized);
+
+  if (brightness < 96) {
+    return adjustBrightness(normalized, Math.min(0.46, ((108 - brightness) / 255) * 1.55));
   }
+
+  if (brightness > 224) {
+    return adjustBrightness(normalized, -0.16);
+  }
+
   return normalized;
 }
 
@@ -523,9 +555,10 @@ export const LiveTrackProgress = memo(({
   isNowPlaying,
   platform,
   compact = false,
-  dominantColor
+  progressColor
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
+  const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
 
   // SVG Platform Logos (inline)
   const SpotifyLogo = () => (
@@ -668,18 +701,12 @@ export const LiveTrackProgress = memo(({
               }}
               style={{
                 transformOrigin: 'left center',
-                background: dominantColor
-                  ? (() => {
-                      const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
-                      return `linear-gradient(90deg, ${visibleColor}, ${withAlpha(visibleColor, 0.85)})`;
-                    })()
+                background: visibleProgressColor
+                  ? `linear-gradient(90deg, ${visibleProgressColor}, ${withAlpha(visibleProgressColor, 0.85)})`
                   : 'linear-gradient(90deg, #647062, #8b947e)',
                 filter: 'brightness(1.3) saturate(1.2)',
-                boxShadow: dominantColor
-                  ? (() => {
-                      const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
-                      return `0 0 12px ${withAlpha(visibleColor, 0.6)}`;
-                    })()
+                boxShadow: visibleProgressColor
+                  ? `0 0 12px ${withAlpha(visibleProgressColor, 0.6)}`
                   : '0 0 12px rgba(100,112,98,0.45)'
               }}
             >
@@ -687,11 +714,8 @@ export const LiveTrackProgress = memo(({
               <div
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
                 style={{
-                  boxShadow: dominantColor
-                    ? (() => {
-                        const visibleColor = ensureVisibility(dominantColor, 120, 0.4);
-                        return `0 0 10px ${withAlpha(visibleColor, 1)}, 0 0 20px ${withAlpha(visibleColor, 0.5)}`;
-                      })()
+                  boxShadow: visibleProgressColor
+                    ? `0 0 10px ${withAlpha(visibleProgressColor, 1)}, 0 0 20px ${withAlpha(visibleProgressColor, 0.5)}`
                     : '0 0 10px rgba(100,112,98,0.9), 0 0 20px rgba(100,112,98,0.35)',
                   filter: 'brightness(1.2)'
                 }}
@@ -1004,28 +1028,55 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     return user.platform || coreUtils.getUserPlaybackPlatform(user.id);
   }, [user.id, user.platform, track]);
 
-  const providedDominantColor = normalizePlaybackAccent(typeof nowPlaying?.dominantColor === 'string' ? nowPlaying.dominantColor : null);
-  const [dominantColor, setDominantColor] = useState<string | null>(providedDominantColor);
+  const nowPlayingAccentColor = (nowPlaying as any)?.accentColor;
+  const trackDominantColor = (track as any)?.dominantColor;
+  const trackAccentColor = (track as any)?.accentColor;
+  const providedArtworkColor = useMemo(() => {
+    const colorCandidates = [
+      nowPlaying?.dominantColor,
+      nowPlayingAccentColor,
+      trackDominantColor,
+      trackAccentColor,
+    ];
+    const color = colorCandidates.find((candidate): candidate is string => typeof candidate === 'string' && candidate.trim().length > 0);
+    return normalizePlaybackAccent(color || null);
+  }, [
+    nowPlaying?.dominantColor,
+    nowPlayingAccentColor,
+    trackDominantColor,
+    trackAccentColor,
+  ]);
+  const fallbackArtworkPalette = useMemo(() => createFallbackArtworkPalette(providedArtworkColor), [providedArtworkColor]);
+  const [artworkPalette, setArtworkPalette] = useState<ArtworkPalette | null>(fallbackArtworkPalette);
 
   useEffect(() => {
-    if (providedDominantColor) {
-      setDominantColor(providedDominantColor);
-      return;
+    let isMounted = true;
+
+    if (fallbackArtworkPalette) {
+      setArtworkPalette(fallbackArtworkPalette);
     }
 
-	    if (!albumImage) return;
+    if (!albumImage) {
+      return () => {
+        isMounted = false;
+      };
+    }
 
-    let isMounted = true;
-	    getDominantColor(albumImage).then(color => {
-	      if (isMounted) setDominantColor(normalizePlaybackAccent(color));
-	    }).catch(() => {
-	      // Keep the previous resolved color instead of flashing the generic fallback.
-	    });
+    getArtworkPalette(albumImage).then(palette => {
+      if (isMounted) setArtworkPalette(palette);
+    }).catch(() => {
+      if (isMounted && fallbackArtworkPalette) {
+        setArtworkPalette(fallbackArtworkPalette);
+      }
+    });
 
     return () => {
        isMounted = false;
     };
-  }, [albumImage, providedDominantColor]);
+  }, [albumImage, fallbackArtworkPalette]);
+
+  const dominantColor = artworkPalette?.vinylColor || fallbackArtworkPalette?.vinylColor || null;
+  const progressColor = artworkPalette?.progressColor || fallbackArtworkPalette?.progressColor || getTonalProgressAccent(dominantColor);
 
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
@@ -1696,7 +1747,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                             isNowPlaying={isActuallyLive}
                             platform={platform.primary}
                             compact
-                        dominantColor={dominantColor || undefined}
+                        progressColor={progressColor || undefined}
                          />
                       </div>
 
