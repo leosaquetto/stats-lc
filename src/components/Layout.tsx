@@ -3266,164 +3266,159 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
-        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2",
+        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 pointer-events-none",
         shouldGateHome && "hidden"
       )}>
-        {/* Sync Info Footer - aparece apenas quando scrollar */}
-        <AnimatePresence>
-          {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
-            <motion.div
-              initial={{ y: 50, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 25,
-                mass: 0.8
-              }}
-              onClick={() => {
-                if (syncDidDragRef.current) {
-                  syncDidDragRef.current = false;
-                  return;
-                }
-                toggleSyncInfo();
-              }}
-              className={clsx(
-                "pointer-events-auto flex items-center mb-1 select-none group relative transition-all duration-300 overflow-hidden text-left cursor-pointer",
-                shouldShowExpanded
-                  ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
-                  : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"
-              )}
-              title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
-            >
-              <motion.div 
-                className={clsx(
-                  "flex items-center min-w-0 w-full",
-                  shouldShowExpanded ? "gap-2" : "gap-1"
-                )}
-              >
-                <motion.div 
-                  className={clsx(
-                    "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300 w-full",
-                    shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
-                      : "-space-x-1.5"
-                  )}
-                  onPointerDown={(event) => {
+        <div className="relative mx-auto flex w-full max-w-[480px] items-end justify-center gap-2 px-3">
+          <AnimatePresence>
+            {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
+              <motion.div
+                initial={{ y: 18, opacity: 0, scale: 0.98 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: 18, opacity: 0, scale: 0.98 }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 25,
+                  mass: 0.8
+                }}
+                onClick={() => {
+                  if (syncDidDragRef.current) {
                     syncDidDragRef.current = false;
-                    syncPointerStartRef.current = {
-                      x: event.clientX,
-                      y: event.clientY,
-                      scrollLeft: event.currentTarget.scrollLeft,
-                    };
-                  }}
-                  onPointerMove={(event) => {
-                    const start = syncPointerStartRef.current;
-                    if (!start) return;
-                    const deltaX = Math.abs(event.clientX - start.x);
-                    const deltaY = Math.abs(event.clientY - start.y);
-                    const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
-                    if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
-                      syncDidDragRef.current = true;
-                    }
-                  }}
-                  onPointerUp={() => {
-                    syncPointerStartRef.current = null;
-                  }}
-                  onPointerCancel={() => {
-                    syncPointerStartRef.current = null;
-                  }}
+                    return;
+                  }
+                  toggleSyncInfo();
+                }}
+                className={clsx(
+                  "pointer-events-auto absolute bottom-full left-1/2 mb-2 flex max-w-[min(95vw,456px)] -translate-x-1/2 items-center select-none group overflow-hidden text-left cursor-pointer",
+                  shouldShowExpanded
+                    ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
+                    : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"
+                )}
+                title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
+              >
+                <motion.div
+                  className={clsx(
+                    "flex items-center min-w-0 w-full",
+                    shouldShowExpanded ? "gap-2" : "gap-1"
+                  )}
                 >
-                  {activeMembersSorted.map((user, index) => {
-                    const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
-                    const userTrack = user.nowPlaying?.track;
-                    const uSongName = userTrack?.name || "Nenhuma música";
-                    const uArtistName = userTrack?.artists
-                      ? (typeof userTrack.artists[0] === 'string' ? userTrack.artists[0] : (userTrack.artists[0] as any)?.name || "Artista")
-                      : "Artista";
-                    const isBubbleHighlighted = highlightedBubbles[user.id];
+                  <motion.div
+                    className={clsx(
+                      "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300 w-full",
+                      shouldShowExpanded
+                        ? "overflow-x-auto no-scrollbar py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
+                        : "-space-x-1.5"
+                    )}
+                    onPointerDown={(event) => {
+                      syncDidDragRef.current = false;
+                      syncPointerStartRef.current = {
+                        x: event.clientX,
+                        y: event.clientY,
+                        scrollLeft: event.currentTarget.scrollLeft,
+                      };
+                    }}
+                    onPointerMove={(event) => {
+                      const start = syncPointerStartRef.current;
+                      if (!start) return;
+                      const deltaX = Math.abs(event.clientX - start.x);
+                      const deltaY = Math.abs(event.clientY - start.y);
+                      const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
+                      if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
+                        syncDidDragRef.current = true;
+                      }
+                    }}
+                    onPointerUp={() => {
+                      syncPointerStartRef.current = null;
+                    }}
+                    onPointerCancel={() => {
+                      syncPointerStartRef.current = null;
+                    }}
+                  >
+                    {activeMembersSorted.map((user, index) => {
+                      const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+                      const userTrack = user.nowPlaying?.track;
+                      const uSongName = userTrack?.name || "Nenhuma música";
+                      const uArtistName = userTrack?.artists
+                        ? (typeof userTrack.artists[0] === 'string' ? userTrack.artists[0] : (userTrack.artists[0] as any)?.name || "Artista")
+                        : "Artista";
+                      const isBubbleHighlighted = highlightedBubbles[user.id];
 
-                    return (
-                      <motion.div 
-                        key={user.id}
-                        animate={isBubbleHighlighted ? {
-                          scale: [1, 1.2, 1],
-                        } : {}}
-                        transition={{ duration: 2, ease: "easeInOut" }}
-                        className={clsx(
-                          "flex items-center gap-2 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
-                          shouldShowExpanded
-                            ? "leo-soft-badge flex-1 shrink min-w-[50px] max-w-[130px] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]"
-                            : "shrink-0",
-                          isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
-                        )}
-                      >
-                        {/* Avatar container with Equalizer Overlay (only when expanded) */}
-                        <motion.div 
-                          className="relative shrink-0"
+                      return (
+                        <motion.div
+                          key={user.id}
                           animate={isBubbleHighlighted ? {
-                            scale: [1, 1.08, 1]
+                            scale: [1, 1.2, 1],
                           } : {}}
                           transition={{ duration: 2, ease: "easeInOut" }}
-                          style={{ borderRadius: "9999px" }}
+                          className={clsx(
+                            "flex items-center gap-2 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
+                            shouldShowExpanded
+                              ? "leo-soft-badge flex-1 shrink min-w-[50px] max-w-[130px] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]"
+                              : "shrink-0",
+                            isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
+                          )}
                         >
-                          <div className={clsx(
-                            "h-6.5 w-6.5 rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-transform duration-300",
-                            !shouldShowExpanded && "scale-[0.77]"
-                          )}>
-                            <SmartImage 
-                              src={userAvatar} 
-                              className="h-full w-full object-cover" 
-                              rounded="full" 
-                              fallback={user.name?.charAt(0) || "👤"}
-                            />
-                          </div>
-                          
-                          {/* Status Indicator (Equalizer) - overlay on bottom right (ONLY WHEN EXPANDED) */}
-                          {shouldShowExpanded && user.nowPlaying?.isNow && (
-                            <div className="absolute -bottom-1 -right-1 z-10 flex scale-[0.6] items-center justify-center transition-[opacity,transform] duration-300">
-                              <EqualizerIcon />
+                          <motion.div
+                            className="relative shrink-0"
+                            animate={isBubbleHighlighted ? {
+                              scale: [1, 1.08, 1]
+                            } : {}}
+                            transition={{ duration: 2, ease: "easeInOut" }}
+                            style={{ borderRadius: "9999px" }}
+                          >
+                            <div className={clsx(
+                              "h-6.5 w-6.5 rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-transform duration-300",
+                              !shouldShowExpanded && "scale-[0.77]"
+                            )}>
+                              <SmartImage
+                                src={userAvatar}
+                                className="h-full w-full object-cover"
+                                rounded="full"
+                                fallback={user.name?.charAt(0) || "👤"}
+                              />
                             </div>
-                          )}
+
+                            {shouldShowExpanded && user.nowPlaying?.isNow && (
+                              <div className="absolute -bottom-1 -right-1 z-10 flex scale-[0.6] items-center justify-center transition-[opacity,transform] duration-300">
+                                <EqualizerIcon />
+                              </div>
+                            )}
+                          </motion.div>
+
+                          <AnimatePresence initial={false}>
+                            {shouldShowExpanded && (
+                              <motion.div
+                                initial={{ opacity: 0, x: -5 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -5 }}
+                                transition={{ duration: 0.25 }}
+                                className="flex min-w-0 flex-1 flex-col overflow-hidden text-left"
+                              >
+                                <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
+                                  {uSongName}
+                                </span>
+                                <span className="text-[8.5px] font-medium text-white/40 truncate leading-none mt-0.5 tracking-tight">
+                                  {uArtistName}
+                                </span>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </motion.div>
-
-                        {/* Music info */}
-                        <AnimatePresence initial={false}>
-                          {shouldShowExpanded && (
-                            <motion.div
-                              initial={{ opacity: 0, x: -5 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -5 }}
-                              transition={{ duration: 0.25 }}
-                              className="flex min-w-0 flex-1 flex-col overflow-hidden text-left"
-                            >
-                              <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
-                                {uSongName}
-                              </span>
-                              <span className="text-[8.5px] font-medium text-white/40 truncate leading-none mt-0.5 tracking-tight">
-                                {uArtistName}
-                              </span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    );
-                  })}
-                </motion.div>
-
-                {/* Global Equalizer in Minimized mode when someone is playing */}
-                {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
-                  <motion.div className="opacity-80">
-                    <EqualizerIcon />
+                      );
+                    })}
                   </motion.div>
-                )}
-              </motion.div>
-          </motion.div>
-          )}
-        </AnimatePresence>
 
-        <div className="flex w-full max-w-[480px] items-center justify-center gap-2 px-3">
+                  {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
+                    <motion.div className="opacity-80">
+                      <EqualizerIcon />
+                    </motion.div>
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Navigation - Liquid Glass Capsule */}
           <div className="min-w-0 flex-1">
             <BottomNavigation pathname={location.pathname} />
