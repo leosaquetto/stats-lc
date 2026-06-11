@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import { UserStats, GroupStats, LyricsMatch, LyricsFullResponse } from '../types/stats';
+import { UserStats, GroupStats, LyricsMatch, LyricsFullResponse, TrackStoryResponse } from '../types/stats';
 import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
@@ -435,7 +435,7 @@ const fetchFromApi = async <T>(
 
   const cacheKey = getApiCacheKey(endpoint, finalParams, sendsForceParam);
   const now = Date.now();
-  const shouldUseResponseCache = endpoint !== '/api/group-live';
+  const shouldUseResponseCache = endpoint !== '/api/group-live' && endpoint !== '/api/track-story';
 
   if (!forceRefresh && useDedupe && shouldUseResponseCache) {
     const cached = apiResponseCache.get(cacheKey);
@@ -643,6 +643,36 @@ export const statsService = {
       }
       return acc;
     }, {});
+  },
+
+  async fetchTrackStory(
+    userId: string,
+    trackId: string,
+    options: {
+      albumId?: string;
+      artistIds?: string[];
+      releaseDate?: string | number;
+      signal?: AbortSignal;
+    } = {}
+  ): Promise<TrackStoryResponse | null> {
+    if (!userId || !trackId) return null;
+    const userParam = coreUtils.getUserApiParam(userId);
+    const artistIds = (options.artistIds || []).map(String).filter(Boolean);
+
+    try {
+      return await fetchFromApi<TrackStoryResponse>('/api/track-story', {
+        user: userParam,
+        track: trackId,
+        ...(options.albumId ? { album: options.albumId } : {}),
+        ...(artistIds.length > 0 ? { artists: artistIds.join(',') } : {}),
+        ...(options.releaseDate ? { releaseDate: String(options.releaseDate) } : {}),
+      }, false, 1, true, { signal: options.signal });
+    } catch (e) {
+      if ((import.meta as any).env?.DEV) {
+        console.warn(`[statsService] Track story unavailable for ${trackId}`, e);
+      }
+      return null;
+    }
   },
 
   /**

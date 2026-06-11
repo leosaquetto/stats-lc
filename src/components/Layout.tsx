@@ -16,8 +16,9 @@ import { AnimatedNumber, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
-import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
+import type { LyricsFullResponse, LyricsMatch, TrackStoryResponse } from '../types/stats';
 import { preloadRouteModule } from '../lib/routePreloads';
+import { BottomTrackStorySections } from './bottom-track/TrackStorySections';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -639,9 +640,12 @@ const createPreloadedBottomTrackStatsPanelData = (knownTrackCount?: number, acti
 };
 
 const BOTTOM_TRACK_STATS_CACHE_TTL = 15 * 60 * 1000;
+const BOTTOM_TRACK_STORY_RETRY_DELAY = 1500;
 const bottomTrackStatsCache = new Map<string, { expiresAt: number; data: BottomTrackStatsPanelSnapshot }>();
 const bottomTrackStatsInFlight = new Map<string, Promise<BottomTrackStatsPanelSnapshot>>();
 const bottomTrackStatsFastInFlight = new Map<string, Promise<BottomTrackStatsPanelSnapshot>>();
+const bottomTrackStoryCache = new Map<string, { expiresAt: number; data: TrackStoryResponse }>();
+const bottomTrackStoryInFlight = new Map<string, Promise<TrackStoryResponse | null>>();
 const lyricsMatchCache = new Map<string, { expiresAt: number; data: LyricsMatch }>();
 const lyricsFullCache = new Map<string, { expiresAt: number; data: LyricsFullResponse }>();
 const lyricsInFlight = new Map<string, Promise<LyricsMatch | LyricsFullResponse>>();
@@ -771,6 +775,64 @@ const getBottomTrackStatsLookupKey = (
   trackArtists.map((artist) => artist.id).filter(Boolean).sort().join('|'),
   members.map((member) => member.id).filter(Boolean).sort().join('|'),
 );
+
+const getBottomTrackStoryCacheKey = (
+  userId: string,
+  trackId: string,
+  albumId: string,
+  artistIds: string[],
+  releaseDate: any,
+) => `${userId}:${trackId}:${albumId}:${artistIds.filter(Boolean).sort().join('|')}:${releaseDate || ''}`;
+
+const getTrackStoryProofScore = (story: TrackStoryResponse | null) => {
+  if (!story?.ok) return -1;
+  const counts = story.coverage?.counts;
+  const artistProofs = counts ? Object.values(counts.artists || {}).filter(Boolean).length : 0;
+  return (counts?.track ? 4 : 0)
+    + (counts?.album ? 2 : 0)
+    + artistProofs
+    + (!story.coverage?.historyPartial ? 4 : 0)
+    + (!story.coverage?.socialPartial ? 3 : 0)
+    + (!story.coverage?.topPartial ? 1 : 0)
+    + (!story.coverage?.partial ? 20 : 0);
+};
+
+const pickBetterTrackStory = (current: TrackStoryResponse | null, candidate: TrackStoryResponse | null) => (
+  getTrackStoryProofScore(candidate) >= getTrackStoryProofScore(current) ? candidate : current
+);
+
+const loadBottomTrackStory = ({
+  userId,
+  trackId,
+  albumId,
+  artistIds,
+  releaseDate,
+}: {
+  userId: string;
+  trackId: string;
+  albumId: string;
+  artistIds: string[];
+  releaseDate?: any;
+}) => {
+  const cacheKey = getBottomTrackStoryCacheKey(userId, trackId, albumId, artistIds, releaseDate);
+  const cached = readExpiringCache(bottomTrackStoryCache, cacheKey);
+  if (cached && !cached.coverage?.partial) return Promise.resolve(cached);
+  if (cached?.coverage?.partial) bottomTrackStoryCache.delete(cacheKey);
+
+  const running = bottomTrackStoryInFlight.get(cacheKey);
+  if (running) return running;
+
+  const promise = statsService.fetchTrackStory(userId, trackId, { albumId, artistIds, releaseDate })
+    .then((story) => {
+      if (story?.ok && !story.coverage?.partial) {
+        bottomTrackStoryCache.set(cacheKey, { data: story, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      }
+      return story;
+    })
+    .finally(() => bottomTrackStoryInFlight.delete(cacheKey));
+  bottomTrackStoryInFlight.set(cacheKey, promise);
+  return promise;
+};
 
 const loadBottomTrackStatsPanelData = async ({
   user,
@@ -1027,7 +1089,15 @@ const ModalScrollingTrackTitle = ({ title, wide = false }: { title: string; wide
   );
 };
 
-const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (link: TrackLink, button: HTMLButtonElement) => void }) => {
+const TrackLinkIconButton = ({
+  link,
+  onChoose,
+  isAppleMusicUser = false,
+}: {
+  link: TrackLink;
+  onChoose: (link: TrackLink, button: HTMLButtonElement) => void;
+  isAppleMusicUser?: boolean;
+}) => {
   const icon = link.kind === 'statsfm'
     ? <StatsFmMark className="h-4 w-4 text-current" />
     : link.kind === 'spotify'
@@ -1041,7 +1111,13 @@ const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (l
       type="button"
       onClick={(event) => onChoose(link, event.currentTarget)}
       aria-label={`Opções do ${link.label}`}
-      className="stats-lc-soft-white-glass flex h-10 w-10 items-center justify-center rounded-full border-0 text-white/72 transition-transform active:scale-95"
+      className={clsx(
+        "stats-lc-soft-white-glass flex h-10 w-10 items-center justify-center rounded-full border-0 text-white/72 transition-transform active:scale-95",
+        link.kind === 'statsfm' && (isAppleMusicUser ? "bottom-track-action-statsam" : "bottom-track-action-statsfm"),
+        link.kind === 'spotify' && "bottom-track-action-spotify",
+        link.kind === 'apple' && "bottom-track-action-apple",
+        link.kind === 'genius' && "bottom-track-action-genius"
+      )}
     >
       {icon}
     </button>
@@ -1128,6 +1204,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [toastMessage, setToastMessage] = React.useState('');
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
   const [panelHydration, setPanelHydration] = React.useState<BottomTrackStatsHydrationState>(emptyBottomTrackStatsHydration);
+  const [trackStory, setTrackStory] = React.useState<TrackStoryResponse | null>(null);
+  const [trackStoryLoading, setTrackStoryLoading] = React.useState(false);
+  const [trackStoryResolved, setTrackStoryResolved] = React.useState(false);
   const [playbackIndex, setPlaybackIndex] = React.useState(0);
   const [recentPickerOpen, setRecentPickerOpen] = React.useState(false);
   const [resolvedOwnRecent, setResolvedOwnRecent] = React.useState<any[]>([]);
@@ -1241,11 +1320,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return livePlayback;
   }, [externalPlayback, livePlayback]);
   const hasExternalPlayback = !!externalPlayback?.track?.name;
-  const activePlaybackLabel = hasExternalPlayback
-    ? formatPlaybackTimeLabel(activePlayback?.timestamp)
-    : playbackIndex > 0
-      ? formatPlaybackTimeLabel(activePlayback?.timestamp)
-      : '';
+  const activePlaybackLabel = activePlayback?.timestamp ? formatPlaybackTimeLabel(activePlayback.timestamp) : '';
   const recentPickerItems = React.useMemo(() => {
     const current = liveTrack
       ? [{
@@ -1358,6 +1433,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, []);
   const membersSignature = React.useMemo(() => members.map((member) => member.id).filter(Boolean).sort().join('|'), [members]);
   const trackArtistsSignature = React.useMemo(() => trackArtists.map((artist) => artist.id || artist.name).filter(Boolean).sort().join('|'), [trackArtists]);
+  const trackStoryArtistIds = React.useMemo(
+    () => trackArtists.map((artist) => artist.id).filter(Boolean),
+    [trackArtistsSignature]
+  );
+  const trackStoryCacheKey = React.useMemo(
+    () => getBottomTrackStoryCacheKey(panelUserId || '', trackId, albumId, trackStoryArtistIds, albumReleaseRawDate),
+    [albumId, albumReleaseRawDate, panelUserId, trackId, trackStoryArtistIds]
+  );
   const panelCacheKey = React.useMemo(
     () => getBottomTrackStatsLookupKey(panelUser, trackId, albumId, trackArtists, members),
     [albumId, membersSignature, panelUserId, trackArtistsSignature, trackId]
@@ -1367,8 +1450,49 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     if (!trackId || members.length === 0) return false;
     return members.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${trackId}`));
   }, [members, trackId, userTrackStats]);
-  const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
+  const {
+    entityStats: fallbackEntityStats,
+    artistStats: fallbackArtistStats,
+    circleFirstListen,
+    circleFirstListeners,
+    hasFriendHistory,
+    trackHistory: fallbackTrackHistory,
+  } = panelData;
+  const trackStoryComplete = !!trackStory && !trackStory.coverage?.partial;
+  const storyCountCoverage = trackStory?.coverage?.counts;
+  const storyArtistsReady = trackArtists.length > 0 && trackArtists.every((artist) => storyCountCoverage?.artists?.[artist.id]);
+  const storyBestYear = trackStory?.history?.bestYear || null;
+  const entityStats = React.useMemo(() => ({
+    artist: storyCountCoverage?.artists?.[trackStory?.counts?.artists?.[0]?.id || '']
+      ? trackStory?.counts?.artists?.[0]?.count ?? fallbackEntityStats.artist
+      : fallbackEntityStats.artist,
+    track: storyCountCoverage?.track ? trackStory?.counts?.track ?? fallbackEntityStats.track : fallbackEntityStats.track,
+    album: storyCountCoverage?.album ? trackStory?.counts?.album ?? fallbackEntityStats.album : fallbackEntityStats.album,
+  }), [fallbackEntityStats.album, fallbackEntityStats.artist, fallbackEntityStats.track, trackStory]);
+  const artistStats = React.useMemo(() => {
+    if (!trackStory?.counts?.artists?.length) return fallbackArtistStats;
+    return trackArtists.map((artist) => {
+      const storyArtist = trackStory.counts.artists.find((item) => item.id === artist.id);
+      const fallbackArtist = fallbackArtistStats.find((item) => item.id === artist.id);
+      return {
+        ...artist,
+        count: trackStory.coverage?.counts?.artists?.[artist.id]
+          ? storyArtist?.count ?? fallbackArtist?.count ?? 0
+          : fallbackArtist?.count ?? 0,
+      };
+    });
+  }, [fallbackArtistStats, trackArtists, trackStory]);
+  const trackHistory = React.useMemo(() => {
+    if (!trackStory?.history || trackStory.coverage?.historyPartial) return fallbackTrackHistory;
+    return {
+      firstPlayedAt: parseDateMs(trackStory.history.firstPlayedAt),
+      lastPlayedAt: parseDateMs(trackStory.history.lastPlayedAt),
+      bestYear: storyBestYear ? String(storyBestYear.year) : '',
+      bestYearCount: storyBestYear?.count || 0,
+    };
+  }, [fallbackTrackHistory, storyBestYear, trackStory]);
   const isReleaseDayFirstListen = React.useMemo(() => {
+    if (trackStory && !trackStory.coverage?.historyPartial) return trackStory.social.heardOnRelease;
     if (!albumReleaseRawDate || !circleFirstListen?.playedAt) return false;
     const releaseDayKey = getReleaseDateDayKey(albumReleaseRawDate);
     const playedDayKey = getSaoPauloDayKey(circleFirstListen.playedAt);
@@ -1382,7 +1506,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     const previousReleaseDayKey = releaseDate.toISOString().slice(0, 10);
 
     return previousReleaseDayKey === playedDayKey;
-  }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
+  }, [albumReleaseRawDate, circleFirstListen?.playedAt, trackStory]);
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
       .map((writer) => writer.trim())
@@ -1483,24 +1607,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return () => window.clearTimeout(timer);
   }, [artistName, isOpen, track?.name, trackId]);
 
-  // Prefetch track stats in background when the song changes and the modal is closed
-  React.useEffect(() => {
-    if (!panelUser?.id || !trackId || isOpen) return;
-    const timer = window.setTimeout(() => {
-      loadBottomTrackStatsPanelData({
-        user: panelUser,
-        trackId,
-        albumId,
-        trackArtists,
-        members,
-        currentTimestamp: undefined,
-        knownTrackCount: knownUserTrackCount,
-        mode: 'full',
-      }).catch(() => undefined);
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [albumId, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
-
   React.useEffect(() => {
     if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
     const timer = window.setTimeout(() => {
@@ -1552,6 +1658,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       history: !!activePlayback?.timestamp,
       social: false,
     });
+    if (!trackStoryResolved || trackStoryComplete) return;
+
     const fastTimer = window.setTimeout(() => {
       window.requestAnimationFrame(() => {
         loadBottomTrackStatsPanelData({
@@ -1598,7 +1706,94 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       window.clearTimeout(fastTimer);
       window.clearTimeout(fullTimer);
     };
-  }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, trackArtistsSignature, trackId]);
+  }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, trackArtistsSignature, trackId, trackStoryComplete, trackStoryResolved]);
+
+  React.useEffect(() => {
+    if (!panelUser?.id || !trackId) {
+      setTrackStory(null);
+      setTrackStoryLoading(false);
+      setTrackStoryResolved(false);
+      return;
+    }
+
+    const cached = readExpiringCache(bottomTrackStoryCache, trackStoryCacheKey);
+    if (cached && !cached.coverage?.partial) {
+      setTrackStory(cached);
+      setTrackStoryLoading(false);
+      setTrackStoryResolved(true);
+      return;
+    }
+    if (cached?.coverage?.partial) bottomTrackStoryCache.delete(trackStoryCacheKey);
+
+    setTrackStory(null);
+    setTrackStoryResolved(false);
+    if (!isOpen) {
+      setTrackStoryLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setTrackStoryLoading(true);
+    let retryTimer = 0;
+    const requestStory = () => loadBottomTrackStory({
+        userId: panelUser.id,
+        trackId,
+        albumId,
+        artistIds: trackStoryArtistIds,
+        releaseDate: albumReleaseRawDate,
+      });
+    const timer = window.setTimeout(() => {
+      requestStory()
+        .then((firstStory) => {
+          if (cancelled) return;
+          React.startTransition(() => setTrackStory(firstStory));
+          if (firstStory?.ok && !firstStory.coverage?.partial) {
+            setTrackStoryResolved(true);
+            setTrackStoryLoading(false);
+            return;
+          }
+
+          retryTimer = window.setTimeout(() => {
+            requestStory()
+              .then((retryStory) => {
+                if (cancelled) return;
+                React.startTransition(() => {
+                  setTrackStory((current) => pickBetterTrackStory(current, retryStory));
+                });
+              })
+              .catch(() => undefined)
+              .finally(() => {
+                if (!cancelled) {
+                  setTrackStoryResolved(true);
+                  setTrackStoryLoading(false);
+                }
+              });
+          }, BOTTOM_TRACK_STORY_RETRY_DELAY);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          retryTimer = window.setTimeout(() => {
+            requestStory()
+              .then((retryStory) => {
+                if (!cancelled) setTrackStory(retryStory);
+              })
+              .catch(() => undefined)
+              .finally(() => {
+                if (!cancelled) {
+                  setTrackStoryResolved(true);
+                  setTrackStoryLoading(false);
+                }
+              });
+          }, BOTTOM_TRACK_STORY_RETRY_DELAY);
+        });
+    }, 260);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
+  }, [albumId, albumReleaseRawDate, isOpen, panelUser?.id, trackId, trackStoryArtistIds, trackStoryCacheKey]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -1610,7 +1805,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       .filter(item => item.count > 0)
       .sort((a, b) => b.count - a.count);
   }, [members, trackId, userTrackStats]);
-  const hasPreviousTrackHistory = panelHydration.history && !!trackHistory.firstPlayedAt;
+  const trackMetricReady = !!storyCountCoverage?.track || panelHydration.metrics || typeof knownUserTrackCount === 'number';
+  const historyReady = (!!trackStory && !trackStory.coverage?.historyPartial) || panelHydration.history;
+  const hasPreviousTrackHistory = historyReady && !!trackHistory.firstPlayedAt;
   const historyReferencePlayedAt = trackHistory.lastPlayedAt
     || trackHistory.firstPlayedAt
     || entryTimestampMs(activePlayback?.timestamp)
@@ -1643,7 +1840,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     : hasFriendHistory
       ? 'O círculo já ouviu, mas sem data confiável.'
       : 'Só você ouviu essa faixa por enquanto.';
-  const trackMetricReady = panelHydration.metrics || typeof knownUserTrackCount === 'number';
   const socialAvatarEntries = React.useMemo(() => {
     return firstDayGroup.length > 0 ? firstDayGroup : [{ user: panelUser, playedAt: 0 }];
   }, [firstDayGroup, panelUser]);
@@ -2441,9 +2637,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
                   <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Artista</span>
+                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">
+                    {trackArtists.length > 1 ? 'Artistas' : 'Artista'}
+                  </span>
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
-                    <ModalMetricValue ready={panelHydration.metrics} value={entityStats.artist} />
+                    <ModalMetricValue
+                      ready={!!storyCountCoverage?.artists?.[trackStory?.counts?.artists?.[0]?.id || ''] || panelHydration.metrics}
+                      value={entityStats.artist}
+                    />
                   </strong>
                 </div>
                 <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
@@ -2457,13 +2658,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <Disc3 className="mb-2 h-4 w-4 text-orange-300" />
                   <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Álbum</span>
                   <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
-                    <ModalMetricValue ready={panelHydration.metrics} value={entityStats.album} />
+                    <ModalMetricValue ready={!!storyCountCoverage?.album || panelHydration.metrics} value={entityStats.album} />
                   </strong>
                 </div>
               </div>
 
               {trackArtists.length > 1 && (
-                panelHydration.artistStats && artistStats.length > 1 ? (
+                (storyArtistsReady || panelHydration.artistStats) && artistStats.length > 1 ? (
                 <div className="mt-3 flex w-full gap-2 overflow-x-auto no-scrollbar px-px pb-1" data-home-horizontal-scroll="true">
                   {artistStats.map((artist) => (
                     <div
@@ -2504,7 +2705,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 )
               )}
 
-              {panelHydration.history && trackHistory && (
+              {historyReady && trackHistory && (
                 <div className="mt-2 grid w-full grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] items-center gap-1.5">
                   <span
                     className={clsx(
@@ -2546,7 +2747,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       title="Ano recorde"
                     >
                       <span className="relative z-10 inline-flex items-center justify-center rounded bg-orange-300 px-0.5 py-0.5 font-black tracking-[-0.04em]" style={{ fontSize: '7.5px', color: 'rgba(0,0,0,0.75)' }}>{historyYearCount}×</span>
-                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{historyYear}</span>
+                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">
+                        {historyYear}
+                        {storyBestYear ? ` | ${storyBestYear.previousYearCount}/${storyBestYear.nextYearCount}` : ''}
+                      </span>
                     </span>
                   )}
                   {firstDayGroup.length > 0 && (
@@ -2584,7 +2788,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              {panelHydration.history ? (
+              {historyReady ? (
                 hasPreviousTrackHistory ? (
                 <motion.div
                   className="mt-3"
@@ -2627,6 +2831,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Ano recorde</span>
                       <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">
                         {trackHistory.bestYearCount}x em {trackHistory.bestYear}
+                        {storyBestYear ? ` | ${storyBestYear.previousYearCount}/${storyBestYear.nextYearCount}` : ''}
                       </span>
                     </div>
                     )}
@@ -2659,6 +2864,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
+              {(!trackStory || trackStory.coverage?.socialPartial) && (
               <motion.div
                 className="mt-3 flex w-full items-center gap-2 overflow-x-auto no-scrollbar px-px pb-1"
                 data-home-horizontal-scroll="true"
@@ -2772,6 +2978,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   </div>
                 )}
               </motion.div>
+              )}
+
+              <BottomTrackStorySections
+                story={trackStory}
+                members={members}
+                loading={trackStoryLoading}
+              />
 
               <div className="mt-4 flex items-center gap-2">
                 {track?.name && (
@@ -2795,7 +3008,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 {(trackLinks.length > 0 || shouldReserveGeniusLink) && (
                   <div className="flex shrink-0 items-center gap-1.5">
                     {trackLinks.map((link) => (
-                      <TrackLinkIconButton key={link.label} link={link} onChoose={chooseTrackLink} />
+                      <TrackLinkIconButton key={link.label} link={link} onChoose={chooseTrackLink} isAppleMusicUser={isAppleMusicUser} />
                     ))}
                     {lyricsMatch?.match?.url ? (
                       <TrackLinkIconButton
@@ -2806,6 +3019,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           appUrl: lyricsMatch.match.url,
                         }}
                         onChoose={chooseTrackLink}
+                        isAppleMusicUser={isAppleMusicUser}
                       />
                     ) : shouldReserveGeniusLink ? (
                       <span className="h-10 w-10 shrink-0 rounded-full bg-white/[0.035] opacity-0" aria-hidden="true" />
