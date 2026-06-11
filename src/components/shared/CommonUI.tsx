@@ -183,7 +183,10 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const previousDisplaySrc = lastGoodSrcRef.current || cachedStableSrc;
 
   const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(() => inputSrc ? loadedImageSrcs.has(inputSrc) === false : true);
+  const [loading, setLoading] = useState(() => {
+    if (!displaySrc) return false;
+    return !loadedImageSrcs.has(displaySrc);
+  });
   const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
   const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');

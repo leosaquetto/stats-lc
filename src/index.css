@@ -41,7 +41,6 @@
   :root {
     --brand: #ff5f00;
     --stroke: rgba(255,255,255,0.10);
-    --apple-glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.12' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.22'/%3E%3C/svg%3E");
   }
 
   html,
@@ -85,87 +84,10 @@
 
 .stable-bottom-bar {
   isolation: isolate;
-  contain: layout style;
+  contain: layout paint style;
   transform: translateZ(0);
   backface-visibility: hidden;
   will-change: transform;
-  overflow: visible;
-}
-
-.apple-glass-surface,
-.apple-glass-panel {
-  position: relative;
-  overflow: visible;
-  isolation: isolate;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  background:
-    radial-gradient(140% 155% at 50% 0%, rgba(255,255,255,0.10) 0%, transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.032) 38%, rgba(255,255,255,0.012) 100%),
-    var(--apple-glass-noise),
-    rgba(8, 8, 10, 0.24);
-  background-size: 100% 100%, 100% 100%, 140px 140px, auto;
-  background-blend-mode: screen, screen, soft-light, normal;
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  backdrop-filter: blur(20px) saturate(190%);
-  box-shadow:
-    0 20px 48px -24px rgba(0,0,0,0.82),
-    0 3px 12px rgba(0,0,0,0.22),
-    inset 0 1px 0 rgba(255,255,255,0.13),
-    inset 0 -1px 0 rgba(255,255,255,0.04);
-}
-
-.apple-glass-panel {
-  background:
-    radial-gradient(140% 160% at 50% 0%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 18%, rgba(255,255,255,0.08)) 0%, transparent 62%),
-    linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.032) 36%, rgba(255,255,255,0.012) 100%),
-    var(--apple-glass-noise),
-    color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 7%, rgba(8, 8, 10, 0.22));
-  background-size: 100% 100%, 100% 100%, 140px 140px, auto;
-  background-blend-mode: screen, screen, soft-light, normal;
-  box-shadow:
-    0 24px 64px -28px rgba(0,0,0,0.82),
-    0 10px 28px rgba(0,0,0,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.14),
-    inset 0 -1px 0 rgba(255,255,255,0.035);
-}
-
-.apple-glass-surface::before,
-.apple-glass-panel::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 38%, rgba(255,255,255,0.03) 100%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.95;
-}
-
-.apple-glass-overlay {
-  background:
-    radial-gradient(150% 150% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 24%, transparent) 0%, transparent 58%),
-    rgba(8, 8, 10, 0.18);
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  backdrop-filter: blur(20px) saturate(190%);
-}
-
-.bottom-track-modal-overlay {
-  background:
-    radial-gradient(150% 150% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 24%, transparent) 0%, transparent 56%),
-    rgba(8, 8, 10, 0.22);
-}
-
-.bottom-track-lyrics-overlay {
-  background:
-    radial-gradient(140% 140% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 18%, transparent) 0%, transparent 60%),
-    rgba(8, 8, 10, 0.10);
-  -webkit-backdrop-filter: blur(20px) saturate(130%);
-  backdrop-filter: blur(20px) saturate(130%);
 }
 
 @utility glass {
@@ -294,12 +216,15 @@
 }
 
 .bottom-track-stats-body-backdrop {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: rgba(0,0,0,0.20);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
   border: 0;
-  box-shadow: none;
-  overflow: visible;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 8px 32px rgba(0,0,0,0.24),
+    0 16px 64px rgba(0,0,0,0.16);
+  overflow: hidden;
 }
 
 .bottom-track-stats-controls-glass-layer {
@@ -346,21 +271,23 @@
 }
 
 .bottom-track-recent-picker {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
+  background: #121212 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.6),
+    0 4px 12px rgba(0, 0, 0, 0.4) !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  overflow: visible;
 }
 
 .bottom-track-lyrics-modal {
-  background: transparent !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
+  background: rgba(0,0,0,0.20) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 -8px 32px rgba(0,0,0,0.24) !important;
   border-radius: 30px 30px 0 0 !important;
-  overflow: visible !important;
 }
 
 .stats-lc-frosted-modal-glass {
@@ -404,19 +331,6 @@
 
 /* Fallback for browsers without backdrop-filter support */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .apple-glass-surface,
-  .apple-glass-panel {
-    background: rgba(12, 12, 14, 0.88);
-  }
-  .apple-glass-overlay {
-    background: rgba(0,0,0,0.30);
-  }
-  .bottom-track-modal-overlay {
-    background: rgba(0,0,0,0.34);
-  }
-  .bottom-track-lyrics-overlay {
-    background: rgba(0,0,0,0.16);
-  }
   .liquid-glass,
   .liquid-glass-card,
   .liquid-glass-modal {

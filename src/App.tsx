@@ -4,7 +4,7 @@
  */
 
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { Component, lazy, Suspense, useEffect, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
+import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStatsStore } from './store/useStatsStore';
@@ -209,14 +209,9 @@ function AppRoutes() {
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
-  const liveNowPlayingByUserId = useStatsStore(s => s.liveNowPlayingByUserId);
   const setOffline = useStatsStore(s => s.setOffline);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
   const [initialBootSettled, setInitialBootSettled] = useState(false);
-  const hasIdlePlayback = useMemo(
-    () => !Object.values(liveNowPlayingByUserId).some((nowPlaying: any) => nowPlaying?.isNow === true),
-    [liveNowPlayingByUserId]
-  );
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -319,9 +314,8 @@ export default function App() {
   }, [initialBootSettled]);
 
   useEffect(() => {
-    const livePollingFrequency = Math.max(8, pollingFrequency);
-    const idlePollingFrequency = Math.min(10, livePollingFrequency);
-    const intervalTime = (hasIdlePlayback ? idlePollingFrequency : livePollingFrequency) * 1000;
+    const safePollingFrequency = Math.max(8, pollingFrequency);
+    const intervalTime = safePollingFrequency * 1000;
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
@@ -340,7 +334,7 @@ export default function App() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchGroupLive, hasIdlePlayback, pollingFrequency]);
+  }, [fetchGroupLive, pollingFrequency]);
 
   useEffect(() => {
     let cleanup = () => {};
