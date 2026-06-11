@@ -86,6 +86,21 @@ export interface TrackStoryCountRow {
   durationMs?: number;
   minutes?: number;
   position?: number;
+  playedAt?: number;
+}
+
+export type TrackStorySpecialCode = 'shiny' | 'hiddenGem' | 'special' | 'late' | 'seasonal';
+
+export interface TrackStorySpecialCard {
+  code: TrackStorySpecialCode;
+  label: string;
+  tone: string;
+  detail: string;
+  value?: string | number | {
+    previousPlayedAt: string | null;
+    returnedAt: string | null;
+    gapDays: number;
+  } | null;
 }
 
 export interface TrackStoryResponse {
@@ -128,13 +143,7 @@ export interface TrackStoryResponse {
     heardOnRelease: boolean;
     heardFirst: boolean;
   };
-  specialCards: Array<{
-    code: string;
-    label: string;
-    tone: string;
-    detail: string;
-    value?: string | number | null;
-  }>;
+  specialCards: TrackStorySpecialCard[];
   coverage: {
     partial: boolean;
     counts?: {
