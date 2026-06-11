@@ -868,11 +868,17 @@ const ArenaRankingBubble = ({
 
       <div
         className={cn(
-          "absolute -bottom-1.5 -right-1.5 z-40 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none shadow-[0_6px_14px_rgba(0,0,0,0.34)] backdrop-blur-md sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
-          isSelected
-            ? "bg-[#ff5f00]/58 text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34),0_6px_14px_rgba(0,0,0,0.34)]"
-            : "leo-soft-badge text-white/86"
+          "absolute -bottom-1.5 -right-1.5 z-40 flex h-5 min-w-[22px] items-center justify-center overflow-hidden rounded-full px-1.5 text-[8px] font-black leading-none shadow-none backdrop-blur-none sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
+          isSelected ? "text-orange-50" : "text-white/86"
         )}
+        style={{
+          background: isSelected
+            ? 'linear-gradient(180deg, rgba(255,95,0,0.20) 0%, rgba(255,95,0,0.04) 52%, rgba(255,95,0,0.22) 100%)'
+            : 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.08) 52%, rgba(0,0,0,0.46) 100%)',
+          boxShadow: isSelected
+            ? '0 0 0 1px rgba(255,255,255,0.08), 0 8px 14px rgba(0,0,0,0.16)'
+            : '0 0 0 1px rgba(255,255,255,0.045), 0 8px 14px rgba(0,0,0,0.12)',
+        }}
       >
         {showFirstListenStar ? (
           <Star className="h-2.5 w-2.5 fill-white text-white" strokeWidth={2.4} />
@@ -1803,20 +1809,27 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                                       data-arena-left-more-back="true"
                                       key={`arena-more-left-back-${leftHiddenArenaCount}`}
                                       className={cn(
-                                        "pointer-events-none absolute left-0 top-1/2 z-0 flex h-10 min-w-10 origin-right items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:h-11 sm:min-w-11",
-                                        "leo-soft-badge text-white/86"
+                                        "pointer-events-none absolute left-0 top-1/2 z-0 flex h-10 min-w-10 origin-right items-center justify-center overflow-hidden rounded-full px-2 text-[10px] font-black leading-none shadow-none backdrop-blur-none sm:h-11 sm:min-w-11",
+                                        "text-white/86"
                                       )}
-                                      style={{ opacity: 0, transform: `translate3d(${ARENA_BADGE_LEFT_MORE_LEFT}px, -50%, 0) scale(1)` }}
+                                      style={{
+                                        background: 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.05) 52%, rgba(0,0,0,0.46) 100%)',
+                                        boxShadow: '0 0 0 1px rgba(255,255,255,0.04)',
+                                        opacity: 0,
+                                        transform: `translate3d(${ARENA_BADGE_LEFT_MORE_LEFT}px, -50%, 0) scale(1)`,
+                                      }}
                                       aria-hidden="true"
                                     />
                                     <div
                                       data-arena-left-more="true"
                                       key={`arena-more-left-${leftHiddenArenaCount}`}
                                       className={cn(
-                                        "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 origin-right items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:h-11 sm:min-w-11",
-                                        "leo-soft-badge text-white/86"
+                                        "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 origin-right items-center justify-center overflow-hidden rounded-full px-2 text-[10px] font-black leading-none shadow-none backdrop-blur-none sm:h-11 sm:min-w-11",
+                                        "text-white/86"
                                       )}
                                       style={{
+                                        background: 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.05) 52%, rgba(0,0,0,0.46) 100%)',
+                                        boxShadow: '0 0 0 1px rgba(255,255,255,0.04)',
                                         opacity: 0,
                                         transform: `translate3d(${ARENA_BADGE_LEFT_MORE_LEFT}px, -50%, 0) scale(0)`,
                                       }}
@@ -1842,20 +1855,28 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                                       data-arena-right-more-next="true"
                                       key={`arena-more-next-${rightHiddenArenaCount}`}
                                       className={cn(
-                                        "pointer-events-none absolute left-0 top-1/2 z-0 flex h-10 min-w-10 origin-left items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:h-11 sm:min-w-11",
-                                        "leo-soft-badge text-white/86"
+                                        "pointer-events-none absolute left-0 top-1/2 z-0 flex h-10 min-w-10 origin-left items-center justify-center overflow-hidden rounded-full px-2 text-[10px] font-black leading-none shadow-none backdrop-blur-none sm:h-11 sm:min-w-11",
+                                        "text-white/86"
                                       )}
-                                      style={{ opacity: 0, transform: `translate3d(${ARENA_BADGE_RIGHT_NEXT_LEFT}px, -50%, 0) scale(0)`, transformOrigin: 'left center' }}
+                                      style={{
+                                        background: 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.05) 52%, rgba(0,0,0,0.46) 100%)',
+                                        boxShadow: '0 0 0 1px rgba(255,255,255,0.04)',
+                                        opacity: 0,
+                                        transform: `translate3d(${ARENA_BADGE_RIGHT_NEXT_LEFT}px, -50%, 0) scale(0)`,
+                                        transformOrigin: 'left center',
+                                      }}
                                       aria-hidden="true"
                                     />
                                     <div
                                       data-arena-right-more="true"
                                       key={`arena-more-${rightHiddenArenaCount}`}
                                       className={cn(
-                                        "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 origin-left items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:h-11 sm:min-w-11",
-                                        "leo-soft-badge text-white/86"
+                                        "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 origin-left items-center justify-center overflow-hidden rounded-full px-2 text-[10px] font-black leading-none shadow-none backdrop-blur-none sm:h-11 sm:min-w-11",
+                                        "text-white/86"
                                       )}
                                       style={{
+                                        background: 'linear-gradient(180deg, rgba(0,0,0,0.46) 0%, rgba(0,0,0,0.05) 52%, rgba(0,0,0,0.46) 100%)',
+                                        boxShadow: '0 0 0 1px rgba(255,255,255,0.04)',
                                         opacity: 1,
                                         transform: `translate3d(${ARENA_BADGE_RIGHT_MORE_LEFT}px, -50%, 0) scale(1)`,
                                         transformOrigin: 'left center',

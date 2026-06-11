@@ -558,7 +558,7 @@ export const VinylRecord = ({
   return (
     <div
       ref={containerRef}
-      className="relative w-full aspect-square flex items-center justify-center"
+      className="relative w-full aspect-square flex items-center justify-center overflow-visible"
       data-vinyl-variant={textureName}
       data-vinyl-playback-key={visualSnapshot.playbackKey}
       data-vinyl-playing={shouldSpin ? "true" : "false"}
@@ -582,11 +582,11 @@ export const VinylRecord = ({
 
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={canAnimate} mode="sync">
-      <motion.div
+        <motion.div
         key={visualSnapshot.identity}
         data-vinyl-visual={visualSnapshot.identity}
-        className="absolute inset-0 z-10 touch-none"
-        style={{ touchAction: 'none' }}
+        className="absolute inset-0 z-10 touch-none transform-gpu"
+        style={{ touchAction: 'none', overflow: 'visible', willChange: 'transform', transform: 'translateZ(0)' }}
         initial={transitionMotion.initial}
         animate={transitionMotion.animate}
         exit={transitionMotion.exit}

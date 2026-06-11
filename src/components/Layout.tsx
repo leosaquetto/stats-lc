@@ -95,13 +95,14 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
   const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
 
   return (
-    <nav className="w-full pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
-      <div className="relative rounded-[9999px]">
-        <div className="glass-aura relative rounded-[9999px] overflow-hidden">
+    <nav className="pointer-events-auto mx-auto w-full">
+      <div className="relative overflow-visible rounded-[9999px] px-[1px] py-[1px]">
+        <div className="apple-glass-surface relative overflow-visible rounded-[9999px]">
           <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+          <div className="absolute inset-x-10 top-1 h-6 rounded-full bg-white/[0.045] blur-xl pointer-events-none" />
+          <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.04] via-white/[0.012] to-transparent pointer-events-none" />
 
-          <div className="relative grid h-[54px] grid-cols-4 gap-0 px-1.5 py-1.5">
+          <div className="relative grid h-[56px] grid-cols-4 gap-0 px-1.5 py-1.5">
             <motion.div
               className="pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 w-[calc((100%_-_0.75rem)/4)] rounded-[9999px] bg-white/[0.15]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
@@ -1052,9 +1053,9 @@ const ModalSkeleton = ({ className = "" }: { className?: string }) => (
 const BOTTOM_TRACK_GLASS_SCOPE_CSS = `
 [data-bottom-track-glass-root="true"] .bottom-track-stats-controls-glass-layer {
   background:
-    radial-gradient(110% 160% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 16%, transparent) 0%, transparent 72%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
+    radial-gradient(110% 160% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 18%, transparent) 0%, transparent 72%);
+  -webkit-backdrop-filter: blur(20px) saturate(175%);
+  backdrop-filter: blur(20px) saturate(175%);
   box-shadow: none;
 }
 
@@ -1062,55 +1063,78 @@ const BOTTOM_TRACK_GLASS_SCOPE_CSS = `
 [data-bottom-track-glass-root="true"] .bottom-track-stats-surface,
 [data-bottom-track-glass-root="true"] .bottom-track-recent-picker {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.085) 0%, rgba(255,255,255,0.028) 100%),
-    color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 8%, rgba(10,10,12,0.22));
-  border: 1px solid rgba(255,255,255,0.08) !important;
+    radial-gradient(130% 165% at 50% 0%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 14%, rgba(255,255,255,0.08)) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.032) 38%, rgba(255,255,255,0.014) 100%),
+    var(--apple-glass-noise),
+    color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 7%, rgba(10,10,12,0.18));
+  background-size: 100% 100%, 100% 100%, 140px 140px, auto;
+  background-blend-mode: screen, screen, soft-light, normal;
+  border: 1px solid rgba(255,255,255,0.06) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(255,255,255,0.03),
     0 12px 32px rgba(0,0,0,0.16);
-  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
-  backdrop-filter: blur(24px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(185%) !important;
+  backdrop-filter: blur(20px) saturate(185%) !important;
+  overflow: visible;
 }
 
 [data-bottom-track-glass-root="true"] .bottom-track-controls-button {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%),
-    rgba(8,8,10,0.18);
+    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 100%),
+    var(--apple-glass-noise),
+    rgba(8,8,10,0.16);
+  background-size: 100% 100%, 140px 140px, auto;
+  background-blend-mode: screen, soft-light, normal;
   border: 1px solid rgba(255,255,255,0.08);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(255,255,255,0.03),
     0 8px 24px rgba(0,0,0,0.18);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(185%);
+  backdrop-filter: blur(20px) saturate(185%);
 }
 
 [data-bottom-track-glass-root="true"] .bottom-track-controls-button:active {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.045) 100%),
-    rgba(8,8,10,0.24);
+    linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 100%),
+    var(--apple-glass-noise),
+    rgba(8,8,10,0.20);
   border-color: rgba(255,255,255,0.12);
 }
 
 [data-bottom-track-glass-root="true"] .bottom-track-lyrics-modal {
-  background: transparent !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
+  background:
+    radial-gradient(140% 165% at 50% 0%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 14%, rgba(255,255,255,0.08)) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.03) 38%, rgba(255,255,255,0.012) 100%),
+    var(--apple-glass-noise),
+    color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 6%, rgba(10,10,12,0.16)) !important;
+  background-size: 100% 100%, 100% 100%, 140px 140px, auto;
+  background-blend-mode: screen, screen, soft-light, normal;
+  border: 1px solid rgba(255,255,255,0.07) !important;
   box-shadow:
-    0 -12px 38px rgba(0,0,0,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
-  backdrop-filter: blur(24px) saturate(130%) !important;
+    0 -16px 42px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(255,255,255,0.03) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(130%) !important;
+  backdrop-filter: blur(20px) saturate(130%) !important;
 }
 
 [data-bottom-track-glass-root="true"] .bottom-track-lyrics-modal .stats-lc-soft-white-glass {
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.082) 0%, rgba(255,255,255,0.026) 100%),
-    rgba(10,10,12,0.18);
-  border: 1px solid rgba(255,255,255,0.08) !important;
+    radial-gradient(120% 155% at 50% 0%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 12%, rgba(255,255,255,0.06)) 0%, transparent 62%),
+    linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.028) 38%, rgba(255,255,255,0.012) 100%),
+    var(--apple-glass-noise),
+    rgba(10,10,12,0.14);
+  background-size: 100% 100%, 100% 100%, 140px 140px, auto;
+  background-blend-mode: screen, screen, soft-light, normal;
+  border: 1px solid rgba(255,255,255,0.06) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    inset 0 -1px 0 rgba(255,255,255,0.03),
     0 10px 26px rgba(0,0,0,0.14);
-  -webkit-backdrop-filter: blur(22px) saturate(130%) !important;
-  backdrop-filter: blur(22px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(130%) !important;
+  backdrop-filter: blur(20px) saturate(130%) !important;
 }
 `;
 
@@ -1393,23 +1417,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }) as React.CSSProperties,
     [dominantColor]
   );
-  const statsModalBackdropStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 100%, color-mix(in srgb, ${dominantColor} 24%, transparent) 0%, transparent 58%), rgba(8,8,10,0.30)`,
-    backdropFilter: 'blur(24px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-  }), [dominantColor]);
-  const statsPanelGlassStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 0%, color-mix(in srgb, ${dominantColor} 18%, transparent) 0%, transparent 62%), linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.024) 100%), rgba(9,9,11,0.22)`,
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)',
-    backdropFilter: 'blur(24px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-  }), [dominantColor]);
-  const lyricsOverlayStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 100%, color-mix(in srgb, ${dominantColor} 18%, transparent) 0%, transparent 60%), rgba(8,8,10,0.16)`,
-    backdropFilter: 'blur(24px) saturate(130%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(130%)',
-  }), [dominantColor]);
   const clearGlassPanelTransform = React.useCallback((node: HTMLElement | null) => {
     if (!node || typeof window === 'undefined') return;
     window.requestAnimationFrame(() => {
@@ -2037,7 +2044,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   return (
     <>
-      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[66px] w-[66px] shrink-0" aria-hidden={false}>
+      <div className="relative h-[66px] w-[66px] shrink-0 overflow-visible" aria-hidden={false}>
         <motion.button
           type="button"
           onClick={handleBubblePress}
@@ -2137,10 +2144,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.24, ease: "easeOut" }}
               className={clsx(
-                "absolute inset-0",
+                "apple-glass-overlay bottom-track-modal-overlay absolute inset-0",
                 isModalVisible ? "pointer-events-auto cursor-default" : "pointer-events-none"
               )}
-              style={statsModalBackdropStyle}
               aria-label="Fechar stats da música"
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
@@ -2345,12 +2351,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   )}
                 </motion.div>
               )}
-              <div className="bottom-track-stats-body-backdrop relative w-full overflow-hidden rounded-[30px] p-4" style={statsPanelGlassStyle}>
+              <div className="bottom-track-stats-body-backdrop apple-glass-panel relative w-full overflow-visible rounded-[30px] p-4">
                 <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
                     data-recent-picker="true"
-                    className="bottom-track-recent-picker absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] p-2"
+                    className="bottom-track-recent-picker apple-glass-panel absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-visible rounded-[24px] p-2"
                     initial={{ opacity: 0, y: -12, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -12, scale: 0.95 }}
@@ -2861,13 +2867,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="fixed inset-0 z-[1208] pointer-events-auto"
-                    style={lyricsOverlayStyle}
+                    className="apple-glass-overlay bottom-track-lyrics-overlay fixed inset-0 z-[1208] pointer-events-auto"
                     onClick={() => setIsLyricsOpen(false)}
                   />
                   <motion.div
                     ref={lyricsModalRef}
-                    className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
+                    className="apple-glass-panel bottom-track-lyrics-modal fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col overflow-visible rounded-t-[30px] border-0 p-4"
                     data-animation-done={isLyricsAnimationDone}
                     initial={{ y: '100%' }}
                     animate={{ y: 0 }}
@@ -2894,7 +2899,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       touchAction: 'none',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
                       transform: isLyricsOpen && isLyricsAnimationDone ? 'none' : undefined,
-                      background: 'transparent',
                     }}
                   >
                   {/* Drag Handle Area */}
@@ -3043,15 +3047,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     exit={{ opacity: 0, scale: 0.88 }}
                     transition={{ type: 'spring', stiffness: 360, damping: 34, mass: 0.9 }}
                     onClick={(event) => event.stopPropagation()}
-                    className="fixed w-max max-w-[calc(100%_-_16px)] overflow-hidden rounded-[18px] p-1.5"
+                    className="apple-glass-panel fixed w-max max-w-[calc(100%_-_16px)] overflow-visible rounded-[18px] p-1.5"
                     style={{
                       right: trackLinkSheetAnchor.right,
                       bottom: trackLinkSheetAnchor.bottom,
-                      background: 'rgba(0,0,0,0.20)',
-                      backdropFilter: 'blur(20px) saturate(120%)',
-                      WebkitBackdropFilter: 'blur(20px) saturate(120%)',
-                      boxShadow: '0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.24)',
-                      border: 'none',
                       transformOrigin: 'bottom right',
                     }}
                   >
@@ -3266,10 +3265,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
-        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 pointer-events-none",
+        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 overflow-visible px-3 pb-[env(safe-area-inset-bottom,16px)] pointer-events-none",
         shouldGateHome && "hidden"
       )}>
-        <div className="relative mx-auto flex w-full max-w-[480px] items-end justify-center gap-2 px-3">
+        <div className="relative mx-auto flex w-full max-w-[480px] items-end justify-center gap-2 overflow-visible">
           <AnimatePresence>
             {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
               <motion.div

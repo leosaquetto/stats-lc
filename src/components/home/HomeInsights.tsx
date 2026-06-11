@@ -1,5 +1,5 @@
 import React from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -101,17 +101,17 @@ const buildMatchReason = (match: any): string => {
 
   const totalCommon = commonTracks.length + commonArtists.length;
   if (totalCommon > 1) {
-    return `${totalCommon} coincidências entre faixas e artistas nos rankings desta semana.`;
+    return `${totalCommon} itens em comum nesta semana.`;
   }
 
   if (commonTracks.length > 0) {
     const trackName = commonTracks[0];
-    return `Os dois repetiram '${trackName}' nesta semana.`;
+    return `Faixa em comum: ${trackName}.`;
   }
 
   if (commonArtists.length > 0) {
     const artistName = commonArtists[0];
-    return `${artistName} conecta os dois rankings desta semana.`;
+    return `Artista em comum: ${artistName}.`;
   }
 
   return '';
@@ -127,10 +127,10 @@ const getDominantAlbumInsight = (member: any): string => {
   const userName = member.name || 'usuário';
 
   if (count > 0) {
-    return `Álbum mais repetido por ${userName} nesta semana: ${coreUtils.formatNumber(count)} plays.`;
+    return `${coreUtils.formatNumber(count)} plays nesta semana.`;
   }
 
-  return `Álbum que domina o topo semanal de ${userName}.`;
+  return `Álbum no topo semanal de ${userName}.`;
 };
 
 const getRivalryInsight = (leader: any, runnerUp: any): string => {
@@ -146,14 +146,14 @@ const getRivalryInsight = (leader: any, runnerUp: any): string => {
   }
 
   if (diff <= 5) {
-      return `Disputa colada hoje: só ${coreUtils.formatNumber(diff)} plays separam os dois.`;
+      return `${coreUtils.formatNumber(diff)} plays separam os dois.`;
   }
 
   if (diff <= 25) {
-    return `Briga aberta hoje: ${coreUtils.formatNumber(diff)} plays de diferença.`;
+    return `${coreUtils.formatNumber(diff)} plays de diferença.`;
   }
 
-  return `${leaderName} abriu vantagem de ${coreUtils.formatNumber(diff)} plays hoje.`;
+  return `${leaderName} abriu ${coreUtils.formatNumber(diff)} plays.`;
 };
 
 const getMostActiveInsight = (member: any): string => {
@@ -164,14 +164,14 @@ const getMostActiveInsight = (member: any): string => {
   if (streams === 0) return 'Ativo hoje.';
 
   if (streams === 1) {
-    return 'Deu o play inicial de hoje.';
+    return 'Primeiro play do dia.';
   }
 
   if (streams < 10) {
-    return `Lidera hoje com ${coreUtils.formatNumber(streams)} plays.`;
+    return `${coreUtils.formatNumber(streams)} plays hoje.`;
   }
 
-  return `Ouviu mais músicas hoje no círculo, com ${coreUtils.formatNumber(streams)} plays.`;
+  return `Lidera hoje com ${coreUtils.formatNumber(streams)} plays.`;
 };
 
 const getMonthLeaderInsight = (member: any): string => {
@@ -182,7 +182,7 @@ const getMonthLeaderInsight = (member: any): string => {
 
   if (streams === 0) return `Lidera ${monthName}.`;
 
-  return `Lidera ${monthName} com ${coreUtils.formatNumber(streams)} plays.`;
+  return `${coreUtils.formatNumber(streams)} plays em ${monthName}.`;
 };
 
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
@@ -192,7 +192,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const [activeInsightIndex, setActiveInsightIndex] = React.useState(cachedInsightIndex);
-  const [direction, setDirection] = React.useState(1);
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
 
   const activeMembers = React.useMemo(
@@ -266,7 +265,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         key: 'active',
         tone: 'orange',
         icon: <Zap className="h-3.5 w-3.5 text-orange-300" />,
-        title: 'Mais Ativo Hoje',
+        title: 'Mais ativo',
         headline: firstName(mostActive.name),
         detail: getMostActiveInsight(mostActive),
         users: [mostActive],
@@ -278,7 +277,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         key: 'match',
         tone: 'red',
         icon: <Heart className="h-3.5 w-3.5 fill-red-300 text-red-300" />,
-        title: 'Match da Semana',
+        title: 'Match semanal',
         headline: `${firstName(match.u1.name)} + ${firstName(match.u2.name)}`,
         detail: buildMatchReason(match),
         users: [match.u1, match.u2],
@@ -288,7 +287,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         key: 'month',
         tone: 'yellow',
         icon: <Trophy className="h-3.5 w-3.5 text-yellow-200" />,
-        title: 'Líder do Mês',
+        title: 'Líder do mês',
         headline: firstName(topMonth.name),
         detail: getMonthLeaderInsight(topMonth),
         users: [topMonth],
@@ -300,7 +299,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         key: 'album',
         tone: 'blue',
         icon: <Disc3 className="h-3.5 w-3.5 text-sky-200" />,
-        title: 'Álbum Dominante',
+        title: 'Álbum do topo',
         headline: album.name || firstName(albumUser.name),
         detail: getDominantAlbumInsight(albumUser),
         users: [albumUser],
@@ -312,9 +311,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         key: 'pulse',
         tone: 'violet',
         icon: <Clock className="h-3.5 w-3.5 text-violet-200" />,
-        title: runnerUp ? 'Disputa do Dia' : 'Última Sintonia',
+        title: runnerUp ? 'Disputa hoje' : 'Última atividade',
         headline: runnerUp ? `${firstName(mostActive?.name)} vs ${firstName(runnerUp.name)}` : firstName(lateUser?.name),
-        detail: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'Última atividade registrada.',
+        detail: runnerUp ? getRivalryInsight(mostActive, runnerUp) : lateUser?.nowPlaying?.track?.name || 'Sem playback recente.',
         users: runnerUp && mostActive ? [mostActive, runnerUp] : lateUser ? [lateUser] : [],
         action: runnerUp && mostActive ? () => onFriendClick(mostActive) : lateUser ? () => onFriendClick(lateUser) : undefined,
         type: runnerUp ? 'rivalry' : 'late'
@@ -324,7 +323,6 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   const advanceInsight = React.useCallback(() => {
     if (insights.length < 2) return;
-    setDirection(1);
     setActiveInsightIndex((current) => {
       const nextIndex = (current + 1) % insights.length;
       cachedInsightIndex = nextIndex;
@@ -338,21 +336,20 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
     onAdvance: advanceInsight,
   });
 
-  const goToInsight = React.useCallback((index: number, nextDirection?: number) => {
+  const goToInsight = React.useCallback((index: number) => {
     if (insights.length === 0) return;
     const nextIndex = (index + insights.length) % insights.length;
-    setDirection(nextDirection || (index >= activeInsightIndex ? 1 : -1));
     cachedInsightIndex = nextIndex;
     setActiveInsightIndex(nextIndex);
     restartRotation();
   }, [activeInsightIndex, insights.length, restartRotation]);
 
   const handlePrev = React.useCallback(() => {
-    goToInsight(activeInsightIndex - 1, -1);
+    goToInsight(activeInsightIndex - 1);
   }, [activeInsightIndex, goToInsight]);
 
   const handleNext = React.useCallback(() => {
-    goToInsight(activeInsightIndex + 1, 1);
+    goToInsight(activeInsightIndex + 1);
   }, [activeInsightIndex, goToInsight]);
 
   React.useEffect(() => {
@@ -382,12 +379,13 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
   if (activeMembers.length < 2 || insights.length === 0) return null;
 
-  const activeInsight = insights[activeInsightIndex % insights.length];
-  const satelliteInsights = insights
-    .map((insight, index) => ({ insight, index }))
-    .filter(({ index }) => index !== activeInsightIndex % insights.length)
-    .slice(0, 4);
-  const shouldAnimateOrbit = !shouldReduceMotion && isInsightsVisible;
+  const visibleInsightIndices = React.useMemo(() => {
+    if (insights.length === 0) return [];
+    if (insights.length === 1) return [activeInsightIndex % insights.length];
+    const firstIndex = activeInsightIndex % insights.length;
+    const secondIndex = (firstIndex + 1) % insights.length;
+    return [firstIndex, secondIndex];
+  }, [activeInsightIndex, insights]);
 
   const getToneClasses = (tone: HomeInsightTone) => {
     switch (tone) {
@@ -437,14 +435,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const renderInsightMedia = (insight: HomeInsight, size: 'main' | 'satellite') => {
     const tone = getToneClasses(insight.tone);
     const isMain = size === 'main';
-    const imageSize = isMain ? 'h-11 w-11' : 'h-10 w-10';
-    const userImageSize = isMain ? 'h-11 w-11' : 'h-8 w-8';
-    const iconSize = isMain ? 'h-11 w-11' : 'h-10 w-10';
+    const imageSize = isMain ? 'h-10 w-10' : 'h-9 w-9';
+    const userImageSize = isMain ? 'h-10 w-10' : 'h-8 w-8';
+    const iconSize = isMain ? 'h-10 w-10' : 'h-9 w-9';
     const users = insight.users.slice(0, 2);
 
     if (insight.image) {
       return (
-        <div className={`${imageSize} shrink-0 overflow-hidden ${insight.type === 'album' ? 'rounded-[18px]' : 'rounded-full'} bg-white/[0.06] ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
+        <div className={`${imageSize} shrink-0 overflow-hidden ${insight.type === 'album' ? 'rounded-[16px]' : 'rounded-full'} bg-white/[0.04] ring-1 ${tone.ring} shadow-[0_10px_24px_rgba(0,0,0,0.28)]`}>
           <SmartImage src={insight.image} cacheKey={`home-insight-media:${insight.key}`} rounded={insight.type === 'album' ? '2xl' : 'full'} className="h-full w-full object-cover" fallback="" />
         </div>
       );
@@ -452,9 +450,9 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
 
     if (users.length > 0) {
       return (
-        <div className={`flex ${isMain ? '-space-x-4' : '-space-x-2'} shrink-0`}>
+        <div className={`flex ${isMain ? '-space-x-3' : '-space-x-2'} shrink-0`}>
           {users.map((user) => (
-            <div key={user.id} className={`${userImageSize} overflow-hidden rounded-full bg-black ring-2 ${tone.ring} shadow-[0_14px_34px_rgba(0,0,0,0.42)]`}>
+            <div key={user.id} className={`${userImageSize} overflow-hidden rounded-full bg-white/[0.04] ring-1 ${tone.ring} shadow-[0_10px_24px_rgba(0,0,0,0.28)]`}>
               <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} cacheKey={`home-insight-user:${user.id}`} rounded="full" className="h-full w-full object-cover" fallback="" />
             </div>
           ))}
@@ -493,86 +491,52 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[286px] select-none overflow-hidden rounded-[30px] px-1 py-2"
+        className="relative h-[228px] select-none overflow-visible rounded-[28px] px-0 py-1.5"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
         {...interactionProps}
       >
-        <div className="pointer-events-none absolute inset-0 rounded-[30px] bg-[radial-gradient(circle_at_50%_48%,rgba(249,115,22,0.13),rgba(0,0,0,0)_42%),linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0))]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[268px] w-[268px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[206px] w-[206px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-400/[0.18]" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-300/[0.13]" />
-        <motion.div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[206px] w-[206px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-          animate={shouldAnimateOrbit ? { rotate: 360 } : { rotate: 0 }}
-          transition={{ duration: 34, repeat: Infinity, ease: 'linear' }}
-        >
-          <span className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-orange-400/65 shadow-[0_0_18px_rgba(249,115,22,0.55)]" />
-          <span className="absolute left-5 top-6 h-1.5 w-1.5 rounded-full bg-white/24" />
-        </motion.div>
-
-        <div className="absolute inset-0 z-10 flex items-center justify-center">
-          <AnimatePresence initial={false} mode="popLayout" custom={direction}>
-            <motion.button
-              type="button"
-              key={activeInsight.key}
-              onClick={() => activeInsight.action?.()}
-              custom={direction}
-              initial={{ opacity: 0, scale: 0.94, x: direction * 34 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.94, x: direction * -34 }}
-              transition={{ type: 'spring', stiffness: 240, damping: 25, mass: 0.72 }}
-              className={`glass-aura relative flex h-[170px] w-[244px] max-w-[calc(100%-92px)] flex-col overflow-hidden rounded-[28px] border p-3.5 text-left shadow-[0_22px_70px_rgba(0,0,0,0.46)] ${getToneClasses(activeInsight.tone).border}`}
-              style={{ boxShadow: `0 22px 70px rgba(0,0,0,0.46), 0 0 46px ${getToneClasses(activeInsight.tone).glow}` }}
-            >
-            <div className={`pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/28 to-transparent`} />
-            <div className="flex min-w-0 items-center gap-2">
-              {renderInsightMedia(activeInsight, 'main')}
-              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${getToneClasses(activeInsight.tone).bg} ${getToneClasses(activeInsight.tone).text}`}>
-                {activeInsight.icon}
-              </span>
-              <span className={`min-w-0 truncate text-[7px] font-black uppercase tracking-[0.18em] ${getToneClasses(activeInsight.tone).text}`}>
-                {activeInsight.title}
-              </span>
-            </div>
-            <h3 className="mt-3 line-clamp-2 text-[20px] font-black leading-[0.98] text-white">
-              {activeInsight.headline}
-            </h3>
-            <p className="mt-2 line-clamp-2 text-[10.5px] font-semibold leading-snug text-white/58">
-              {activeInsight.detail}
-            </p>
-            </motion.button>
-          </AnimatePresence>
-        </div>
-
-        <div className="absolute inset-0 z-[6]">
-          {satelliteInsights.map(({ insight, index }, offset) => {
+        <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_50%_40%,rgba(249,115,22,0.12),rgba(0,0,0,0)_44%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]" />
+        <div className="absolute inset-0 z-10 grid grid-cols-2 gap-2 px-0.5">
+          {visibleInsightIndices.map((index, slot) => {
+            const insight = insights[index];
             const tone = getToneClasses(insight.tone);
-            const positionClass = [
-              'left-7 top-5',
-              'right-7 top-8',
-              'left-8 bottom-6',
-              'right-8 bottom-7',
-            ][offset] || 'right-7 bottom-7';
             return (
               <motion.button
+                key={insight.key}
                 type="button"
-                key={`${insight.key}-${index}`}
-                onClick={() => goToInsight(index)}
-                initial={false}
-                animate={shouldAnimateOrbit ? {
-                  y: offset % 2 === 0 ? [0, -5, 0] : [0, 5, 0],
-                  x: offset < 2 ? [0, 3, 0] : [0, -3, 0],
-                  scale: [1, 1.035, 1],
-                } : { y: 0, x: 0, scale: 1 }}
-                transition={shouldAnimateOrbit ? { duration: 8 + offset, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18 }}
-              className={`absolute flex h-[54px] w-[54px] items-center justify-center rounded-full border bg-black/58 shadow-[0_16px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl ${positionClass} ${tone.border}`}
-              aria-label={`Abrir insight ${insight.title}`}
-            >
-                {renderInsightMedia(insight, 'satellite')}
-                <span className={`pointer-events-none absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full ${tone.bg}`} />
+                onClick={() => insight.action?.()}
+                initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                transition={{ type: 'spring', stiffness: 240, damping: 28, mass: 0.72 }}
+                className={cn(
+                  "apple-glass-panel relative flex h-[192px] min-w-0 flex-col overflow-visible rounded-[24px] border border-white/8 p-3 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)]",
+                  slot === 0 ? "translate-y-0" : "translate-y-2"
+                )}
+                style={{
+                  boxShadow: `0 18px 48px rgba(0,0,0,0.34), 0 0 28px ${tone.glow}`,
+                }}
+              >
+                <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/24 to-transparent" />
+                <div className="flex min-w-0 items-center gap-2">
+                  {renderInsightMedia(insight, 'main')}
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${tone.bg} ${tone.text}`}>
+                    {insight.icon}
+                  </span>
+                </div>
+                <div className="mt-3 flex min-w-0 flex-col gap-1">
+                  <span className={`text-[8px] font-black uppercase tracking-[0.22em] ${tone.text}`}>
+                    {insight.title}
+                  </span>
+                  <h3 className="line-clamp-2 text-[18px] font-black leading-[1] tracking-[-0.03em] text-white">
+                    {insight.headline}
+                  </h3>
+                  <p className="line-clamp-2 text-[10px] font-medium leading-snug text-white/58">
+                    {insight.detail}
+                  </p>
+                </div>
               </motion.button>
             );
           })}

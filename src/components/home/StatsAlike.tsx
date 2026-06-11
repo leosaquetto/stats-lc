@@ -508,7 +508,7 @@ export const StatsAlike = React.memo(() => {
         <div className="pointer-events-none absolute right-[18%] top-[31%] h-1 w-1 rounded-full bg-white/35 shadow-[0_0_14px_rgba(255,255,255,0.4)]" />
         <div className="pointer-events-none absolute bottom-[18%] left-[28%] h-1 w-1 rounded-full bg-orange-400/40 shadow-[0_0_14px_rgba(249,115,22,0.55)]" />
 
-        <div className="relative w-full h-full max-w-lg mb-8">
+      <div className="relative w-full h-full max-w-lg mb-4">
           {alikeConnections.map((conn, idx) => {
             const position = (idx - activeIndex + alikeConnections.length) % alikeConnections.length;
             
@@ -615,7 +615,7 @@ const AlikeOrbitalItem = ({
     track: 'Música em Comum',
     album: 'Álbum em Comum'
   };
-  const labelBadgeClass = "flex h-9 min-w-[190px] items-center justify-center rounded-full border border-white/10 bg-white/[0.055] px-5 shadow-[0_14px_32px_rgba(0,0,0,0.28)]";
+  const labelBadgeClass = "flex h-8 min-w-[176px] items-center justify-center rounded-full border border-white/8 bg-white/[0.045] px-4 shadow-[0_10px_24px_rgba(0,0,0,0.22)] backdrop-blur-md";
   const labelTextClass = "block text-center text-[9px] font-black uppercase leading-none tracking-[0.16em] text-white/56";
 
   if (isEmpty) {
@@ -633,7 +633,7 @@ const AlikeOrbitalItem = ({
           </span>
         </motion.div>
 
-        <div className="glass-aura relative flex min-h-[178px] flex-col items-center justify-center rounded-[30px] px-8 py-7 text-center shadow-2xl">
+        <div className="glass-aura relative flex min-h-[154px] flex-col items-center justify-center rounded-[28px] px-7 py-6 text-center shadow-[0_18px_42px_rgba(0,0,0,0.32)] backdrop-blur-xl">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match Top 50</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
@@ -646,6 +646,12 @@ const AlikeOrbitalItem = ({
   const artistName = type === 'track' || type === 'album'
     ? getTopItemArtistName(item)
     : '';
+  const matchDenominator = Math.max(userPlaycount || 0, friendPlaycount || 0, 1);
+  const rankGap = Math.abs(userPosition - friendPosition);
+  const matchPercent = Math.max(
+    58,
+    Math.min(99, Math.round(100 - (rankGap * 4.5) - ((Math.abs(userPlaycount - friendPlaycount) / matchDenominator) * 18)))
+  );
 
   return (
     <div className={cn(
@@ -664,12 +670,14 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[30px] p-8 shadow-2xl transition-all duration-700 backdrop-blur-xl",
-        Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
+        "relative rounded-[26px] p-5 shadow-2xl transition-all duration-700 backdrop-blur-xl",
+        Math.abs(userPosition - friendPosition) >= 15
+          ? "bg-red-500/[0.055] shadow-[0_0_24px_rgba(239,68,68,0.08)]"
+          : "bg-white/[0.035] shadow-[0_16px_30px_rgba(0,0,0,0.22)]"
       )}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           {/* User (You) */}
-          <div className="relative h-16 w-16 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(featuredUserId, featuredUserAvatar)} 
               cacheKey={`stats-alike-featured:${featuredUserId}`}
@@ -677,24 +685,21 @@ const AlikeOrbitalItem = ({
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
-            <div className="absolute -bottom-2 -right-3 bg-orange-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(249,115,22,0.32)] z-20">
+            <div className="absolute -bottom-2 -right-2 bg-orange-500 rounded-full px-2 h-[22px] min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(249,115,22,0.32)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(userPlaycount)}</span>
             </div>
-            <div className="absolute -top-2 -left-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
+            <div className="absolute -top-2 -left-2 bg-black/58 rounded-full w-[26px] h-[26px] flex items-center justify-center border border-white/8 shadow-lg z-20">
                <span className="text-[10px] font-black text-white/90">#{userPosition}</span>
             </div>
             <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-md opacity-50" />
           </div>
 
-          <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-
-          {/* Central Item Image */}
-          <div className="relative h-32 w-32 flex-shrink-0 group">
+          <div className="relative h-[132px] w-[132px] flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               cacheKey={`stats-alike-item:${type}:${item.id || item.name}`}
               className={cn(
-                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all duration-700",
+                "h-full w-full object-cover shadow-[0_12px_28px_rgba(0,0,0,0.5)] transition-all duration-700",
                 type === 'artist' ? 'rounded-full' : 'rounded-2xl',
                 isCentered && "group-hover:scale-110",
                 isCentered && (Math.abs(userPosition - friendPosition) >= 15 ? "group-hover:border-red-500/50" : "group-hover:border-orange-500/50")
@@ -715,10 +720,8 @@ const AlikeOrbitalItem = ({
             )}
           </div>
 
-          <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
-
           {/* Alike Friend */}
-          <div className="relative h-16 w-16 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(alikeUser.id, alikeUser.avatar)} 
               cacheKey={`stats-alike-friend:${alikeUser.id}`}
@@ -726,10 +729,10 @@ const AlikeOrbitalItem = ({
               className="h-full w-full object-cover rounded-full shadow-lg"
               fallback=""
             />
-            <div className="absolute -bottom-2 -left-3 bg-blue-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(59,130,246,0.28)] z-20">
+            <div className="absolute -bottom-2 -left-2 bg-blue-500 rounded-full px-2 h-[22px] min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(59,130,246,0.28)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(friendPlaycount)}</span>
             </div>
-            <div className="absolute -top-2 -right-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
+            <div className="absolute -top-2 -right-2 bg-black/58 rounded-full w-[26px] h-[26px] flex items-center justify-center border border-white/8 shadow-lg z-20">
                <span className="text-[10px] font-black text-white/90">#{friendPosition}</span>
             </div>
             <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-md opacity-50" />
@@ -744,22 +747,32 @@ const AlikeOrbitalItem = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex flex-col items-center text-center max-w-[270px]"
+            className="flex flex-col items-center text-center max-w-[276px]"
           >
-            <span className="line-clamp-2 px-2 text-[18px] font-black leading-tight tracking-tight text-white">
+            <span className="line-clamp-2 px-2 text-[17px] font-black leading-tight tracking-tight text-white">
               {item.name}
             </span>
+            <span
+              className={cn(
+                "mt-2 inline-flex items-center justify-center rounded-full px-3.5 py-1 text-[9px] font-black uppercase tracking-[0.18em] shadow-[0_10px_22px_rgba(0,0,0,0.26)]",
+                Math.abs(userPosition - friendPosition) >= 15
+                  ? "bg-red-400/14 text-red-100 backdrop-blur-md"
+                  : "bg-orange-400/14 text-orange-100 backdrop-blur-md"
+              )}
+            >
+              Match {matchPercent}%
+            </span>
             {artistName && (
-              <span className="mt-1 line-clamp-1 px-2 text-[10px] font-semibold text-white/48">
+              <span className="mt-2 line-clamp-1 px-2 text-[10px] font-semibold text-white/52">
                 {artistName}
               </span>
             )}
-            <div className="flex flex-wrap justify-center items-center gap-1.5 mt-1">
-              <span className="text-[10px] font-bold text-white/46 uppercase tracking-widest bg-white/5 px-2.5 py-1 rounded-md whitespace-nowrap">
+            <div className="flex flex-wrap justify-center items-center gap-1.5 mt-2">
+              <span className="text-[10px] font-bold text-white/46 uppercase tracking-widest bg-white/5 px-2.5 py-1 rounded-full whitespace-nowrap">
                 Match com {alikeUser.name}
               </span>
               {Math.abs(userPosition - friendPosition) >= 15 && (
-                <span className="text-[9px] font-bold text-red-400 bg-red-400/10 border border-red-400/20 shadow-md uppercase tracking-widest px-2 py-0.5 rounded-md whitespace-nowrap flex items-center gap-1">
+                <span className="text-[9px] font-bold text-red-400 bg-red-400/10 border border-red-400/20 shadow-md uppercase tracking-widest px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-1">
                   <Flame className="w-2.5 h-2.5" />
                   Conflito
                 </span>

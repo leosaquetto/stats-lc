@@ -125,10 +125,10 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
   return (
     <AnimatePresence>
       <motion.svg
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 transform-gpu"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        style={{ zIndex: 80, overflow: 'visible' }}
+        style={{ zIndex: 80, overflow: 'visible', willChange: 'transform', transform: 'translateZ(0)' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -217,6 +217,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
           </g>
 
           <motion.g
+            className="transform-gpu"
             animate={tonearmState === 'playing' && !isDragging
               ? { rotate: [0, 1.4, -0.65, 0.82, 0], opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
               : { rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
@@ -225,6 +226,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
               ? { duration: 5.1, times: [0, 0.22, 0.52, 0.78, 1], repeat: Infinity, ease: 'easeInOut' }
               : { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] }
             }
+            style={{ willChange: 'transform, opacity', transform: 'translateZ(0)' }}
           >
           <motion.line
             x1={pivotX}
