@@ -184,6 +184,8 @@ export const VinylRecord = ({
   const spinAnimationRef = useRef<Animation | null>(null);
   const rotationRef = useRef(0);
   const previousPlayingRef = useRef(false);
+  const isTransitioningRef = useRef(false);
+  const latestPlaybackIntentRef = useRef(isPlaying);
   const visualRevisionRef = useRef(0);
   const visualRequestRef = useRef(0);
   const playbackSequenceRef = useRef(0);
@@ -198,6 +200,10 @@ export const VinylRecord = ({
     () => getTransitionMotion(!canAnimate),
     [canAnimate]
   );
+
+  useEffect(() => {
+    latestPlaybackIntentRef.current = isPlaying;
+  }, [isPlaying]);
 
   const baseDominantColor = useMemo(
     () => normalizeColor(visualSnapshot.dominantColor, '#647062'),
@@ -359,18 +365,80 @@ export const VinylRecord = ({
   useEffect(() => {
     const node = discRef.current;
     if (!node) return;
-    // Só aplica transform se não houver animação ativa
-    if (!spinAnimationRef.current) {
-      node.style.transform = `rotate(${rotationRef.current}deg)`;
-    }
+    if (!spinAnimationRef.current) node.style.transform = `rotate(${rotationRef.current}deg)`;
   }, [visualSnapshot.revision]);
 
   useEffect(() => {
     const node = discRef.current;
 
-    const startSpinWithAcceleration = (startRotation: number) => {
-      if (!node) return;
+    const clearActiveAnimation = () => {
+      const animation = spinAnimationRef.current;
+      if (!animation) return;
+      animation.cancel();
+      spinAnimationRef.current = null;
+    };
 
+    const captureCurrentRotation = () => {
+      if (!node) return rotationRef.current;
+      const currentRotation = getRotationFromTransform(window.getComputedStyle(node).transform);
+      if (currentRotation != null) rotationRef.current = currentRotation;
+      return rotationRef.current;
+    };
+
+    const beginSteadySpin = (startRotation: number) => {
+      if (!node) return;
+      const steady = node.animate(
+        [
+          { transform: `rotate(${startRotation}deg)` },
+          { transform: `rotate(${startRotation + 360}deg)` }
+        ],
+        {
+          duration: steadyRotationDuration,
+          iterations: Infinity,
+          easing: 'linear'
+        }
+      );
+      spinAnimationRef.current = steady;
+      isTransitioningRef.current = false;
+      previousPlayingRef.current = true;
+    };
+
+    const beginSpinDown = (startRotation: number) => {
+      if (!node) return;
+      const decelerationTime = phase === 'swapping-album' ? 720 : 4000;
+      const baseVelocity = 360 / steadyRotationDuration;
+      const decelerationRotations = (baseVelocity * decelerationTime / 2) / 360;
+      const endRotation = startRotation + (360 * decelerationRotations);
+      const deceleration = node.animate(
+        [
+          { transform: `rotate(${startRotation}deg)` },
+          { transform: `rotate(${endRotation}deg)` },
+        ],
+        {
+          duration: decelerationTime,
+          easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          fill: 'forwards'
+        }
+      );
+      spinAnimationRef.current = deceleration;
+      isTransitioningRef.current = true;
+
+      void deceleration.finished.then(() => {
+        if (spinAnimationRef.current !== deceleration) return;
+        rotationRef.current = endRotation % 360;
+        node.style.transform = `rotate(${rotationRef.current}deg)`;
+        spinAnimationRef.current = null;
+        isTransitioningRef.current = false;
+        previousPlayingRef.current = false;
+
+        if (latestPlaybackIntentRef.current) {
+          beginSpinUp(rotationRef.current);
+        }
+      }).catch(() => {});
+    };
+
+    const beginSpinUp = (startRotation: number) => {
+      if (!node) return;
       const accelAnimation = node.animate(
         [
           { transform: `rotate(${startRotation}deg)` },
@@ -382,104 +450,63 @@ export const VinylRecord = ({
           easing: 'cubic-bezier(0.42, 0, 0.58, 1)'
         }
       );
-
-      accelAnimation.onfinish = () => {
-        rotationRef.current = (startRotation + (360 * accelerationRotations)) % 360;
-
-        if (!node) return;
-        spinAnimationRef.current = node.animate(
-          [
-            { transform: `rotate(${rotationRef.current}deg)` },
-            { transform: `rotate(${rotationRef.current + 360}deg)` }
-          ],
-          {
-            duration: steadyRotationDuration,
-            iterations: Infinity,
-            easing: 'linear'
-          }
-        );
-      };
-
       spinAnimationRef.current = accelAnimation;
-    };
+      isTransitioningRef.current = true;
 
-    const stopSpin = (mode: 'instant' | 'decelerate' = 'instant') => {
-      const animation = spinAnimationRef.current;
-      if (!node) return;
-
-      const currentRotation = getRotationFromTransform(window.getComputedStyle(node).transform);
-      if (currentRotation != null) rotationRef.current = currentRotation;
-
-      if (animation) {
-        animation.cancel();
+      void accelAnimation.finished.then(() => {
+        if (spinAnimationRef.current !== accelAnimation) return;
+        rotationRef.current = (startRotation + (360 * accelerationRotations)) % 360;
+        node.style.transform = `rotate(${rotationRef.current}deg)`;
         spinAnimationRef.current = null;
-      }
+        isTransitioningRef.current = false;
 
-      if (mode === 'decelerate' && canAnimate) {
-        const baseVelocity = 360 / steadyRotationDuration;
-        const decelerationTime = phase === 'swapping-album' ? 720 : 4000;
-
-        // Distância percorrida durante desaceleração ≈ velocidade média × tempo ÷ 2
-        const decelerationRotations = (baseVelocity * decelerationTime / 2) / 360;
-        const endRotation = rotationRef.current + (360 * decelerationRotations);
-
-        const deceleration = node.animate(
-          [
-            { transform: `rotate(${rotationRef.current}deg)` },
-            { transform: `rotate(${endRotation}deg)` },
-          ],
-          {
-            duration: decelerationTime,
-            easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-            fill: 'forwards'
-          }
-        );
-        (deceleration as any)._isDecel = true;
-        spinAnimationRef.current = deceleration;
-        deceleration.onfinish = () => {
-          rotationRef.current = endRotation % 360;
-          node.style.transform = `rotate(${rotationRef.current}deg)`;
-          if (spinAnimationRef.current === deceleration) {
-            spinAnimationRef.current = null;
-          }
-        };
-        return;
-      }
-
-      // Pause should freeze the physical disc at the captured angle.
-      node.style.transform = `rotate(${rotationRef.current}deg)`;
+        if (latestPlaybackIntentRef.current) {
+          beginSteadySpin(rotationRef.current);
+        } else {
+          beginSpinDown(rotationRef.current);
+        }
+      }).catch(() => {});
     };
 
-    const isDecelerating = spinAnimationRef.current && (spinAnimationRef.current as any)._isDecel && (spinAnimationRef.current.effect as any)?.target === node;
-
-    if (!node || !canAnimate || !shouldSpin) {
-      if (isDecelerating && canAnimate) {
-        previousPlayingRef.current = shouldSpin;
-        return;
-      }
-      const shouldDecelerate = previousPlayingRef.current && !shouldSpin;
-      stopSpin(shouldDecelerate ? 'decelerate' : 'instant');
+    if (!node || !canAnimate) {
+      clearActiveAnimation();
+      isTransitioningRef.current = false;
       previousPlayingRef.current = shouldSpin;
+      if (node) {
+        node.style.transform = `rotate(${rotationRef.current}deg)`;
+      }
       return;
     }
 
-    // Limpar animações obsoletas antes de verificar se deve iniciar nova
-    if (spinAnimationRef.current && previousPlayingRef.current !== shouldSpin) {
-      spinAnimationRef.current.cancel();
-      spinAnimationRef.current = null;
-    }
-
-    // Se já está tocando e o estado não mudou, não reiniciar animação
-    if (previousPlayingRef.current === shouldSpin && spinAnimationRef.current) {
+    if (isTransitioningRef.current) {
+      latestPlaybackIntentRef.current = isPlaying;
       return;
     }
 
-    stopSpin('instant');
-    const startRotation = rotationRef.current;
-    startSpinWithAcceleration(startRotation);
-    previousPlayingRef.current = shouldSpin;
-    return () => stopSpin('instant');
-  }, [canAnimate, phase, shouldSpin, visualSnapshot.identity]);
+    if (!shouldSpin) {
+      if (previousPlayingRef.current) {
+        const currentRotation = captureCurrentRotation();
+        clearActiveAnimation();
+        beginSpinDown(currentRotation);
+      } else {
+        clearActiveAnimation();
+        node.style.transform = `rotate(${rotationRef.current}deg)`;
+        previousPlayingRef.current = false;
+      }
+      return;
+    }
+
+    if (previousPlayingRef.current && spinAnimationRef.current) {
+      return;
+    }
+
+    clearActiveAnimation();
+    beginSpinUp(captureCurrentRotation());
+
+    return () => {
+      clearActiveAnimation();
+    };
+  }, [canAnimate, isPlaying, phase, shouldSpin, visualSnapshot.identity]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
