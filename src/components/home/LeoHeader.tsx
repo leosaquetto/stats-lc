@@ -19,7 +19,7 @@ import { VinylRecord } from './VinylRecord';
 import { statsService } from '../../services/statsService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getArtworkPalette, withAlpha, getPerceivedBrightness, normalizeColor, adjustBrightness, type ArtworkPalette } from '../../lib/colorUtils';
+import { getArtworkPalette, withAlpha, getPerceivedBrightness, normalizeColor, adjustBrightness, getSaturation, type ArtworkPalette } from '../../lib/colorUtils';
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 import { attachLiveNowPlayingToMember, getCanonicalMembers, getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { parseTrackTitleBadges } from '../../lib/trackTitleBadges';
@@ -240,6 +240,36 @@ function getVisibleProgressAccent(color: string | null | undefined) {
 
   if (brightness > 228) {
     return adjustBrightness(normalized, -0.12);
+  }
+
+  return normalized;
+}
+
+function mixHexColors(baseColor: string, overlayColor: string, overlayWeight: number) {
+  const safeWeight = Math.max(0, Math.min(1, overlayWeight));
+  const parse = (value: string) => {
+    const hex = normalizeColor(value).replace('#', '');
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16)
+    };
+  };
+  const base = parse(baseColor);
+  const overlay = parse(overlayColor);
+  const channel = (from: number, to: number) => Math.round(from * (1 - safeWeight) + to * safeWeight);
+
+  return normalizeColor([channel(base.r, overlay.r), channel(base.g, overlay.g), channel(base.b, overlay.b)]);
+}
+
+function getAssertiveProgressAccent(color: string | null) {
+  if (!color) return null;
+  const normalized = normalizeColor(color, '#ff5f00');
+  const saturation = getSaturation(normalized);
+  const brightness = getPerceivedBrightness(normalized);
+
+  if (saturation < 0.22 || brightness > 196) {
+    return mixHexColors(normalized, '#ff5f00', saturation < 0.16 ? 0.5 : 0.34);
   }
 
   return normalized;
@@ -559,14 +589,18 @@ export const LiveTrackProgress = memo(({
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
+  const assertiveProgressColor = useMemo(() => getAssertiveProgressAccent(visibleProgressColor), [visibleProgressColor]);
   const progressFillGradient = useMemo(() => {
-    if (!visibleProgressColor) return 'linear-gradient(90deg, #647062, #8b947e)';
-    const brightness = getPerceivedBrightness(visibleProgressColor);
+    if (!assertiveProgressColor) return 'linear-gradient(90deg, #ff5f00 0%, #ff9a45 100%)';
+    const brightness = getPerceivedBrightness(assertiveProgressColor);
+    const headColor = brightness < 150
+      ? adjustBrightness(assertiveProgressColor, 0.16)
+      : assertiveProgressColor;
     const tailColor = brightness < 150
-      ? adjustBrightness(visibleProgressColor, 0.08)
-      : adjustBrightness(visibleProgressColor, -0.08);
-    return `linear-gradient(90deg, ${visibleProgressColor}, ${tailColor})`;
-  }, [visibleProgressColor]);
+      ? adjustBrightness(assertiveProgressColor, 0.3)
+      : adjustBrightness(assertiveProgressColor, 0.08);
+    return `linear-gradient(90deg, ${headColor} 0%, ${tailColor} 100%)`;
+  }, [assertiveProgressColor]);
 
   // SVG Platform Logos (inline)
   const SpotifyLogo = () => (
@@ -695,7 +729,7 @@ export const LiveTrackProgress = memo(({
               {formatTrackTime(durationMs)}
             </span>
           </div>
-          <div className="w-full h-1 rounded-full bg-white/10 overflow-visible relative">
+          <div className="w-full h-[5px] rounded-full bg-white/[0.16] overflow-visible relative">
             <motion.div
               key={progressAnimationKey}
               className="h-full w-full rounded-full relative"
@@ -710,20 +744,20 @@ export const LiveTrackProgress = memo(({
               style={{
                 transformOrigin: 'left center',
                 background: progressFillGradient,
-                filter: 'brightness(1.08) saturate(1.06)',
-                boxShadow: visibleProgressColor
-                  ? `0 0 12px ${withAlpha(visibleProgressColor, 0.45)}`
-                  : '0 0 12px rgba(100,112,98,0.45)'
+                filter: 'brightness(1.22) saturate(1.42) contrast(1.08)',
+                boxShadow: assertiveProgressColor
+                  ? `0 0 11px ${withAlpha(assertiveProgressColor, 0.78)}, 0 0 24px ${withAlpha(assertiveProgressColor, 0.38)}`
+                  : '0 0 11px rgba(255,95,0,0.78), 0 0 24px rgba(255,95,0,0.38)'
               }}
             >
               {/* Thumb */}
               <div
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
                 style={{
-                  boxShadow: visibleProgressColor
-                    ? `0 0 9px ${withAlpha(visibleProgressColor, 0.82)}, 0 0 18px ${withAlpha(visibleProgressColor, 0.38)}`
-                    : '0 0 10px rgba(100,112,98,0.9), 0 0 20px rgba(100,112,98,0.35)',
-                  filter: 'brightness(1.08)'
+                  boxShadow: assertiveProgressColor
+                    ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.95)}, 0 0 22px ${withAlpha(assertiveProgressColor, 0.58)}`
+                    : '0 0 10px rgba(255,95,0,0.95), 0 0 22px rgba(255,95,0,0.58)',
+                  filter: 'brightness(1.18)'
                 }}
               />
             </motion.div>
@@ -1484,19 +1518,19 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                 className="absolute inset-0 rounded-[inherit]"
                 style={{
                   background: dominantColor
-                    ? `#050505 linear-gradient(135deg, rgba(0,0,0,0.76) 0%, ${withAlpha(dominantColor, 0.24)} 52%, rgba(0,0,0,0.2) 100%)`
-                    : '#050505 linear-gradient(135deg, rgba(0,0,0,0.76) 0%, rgba(88,28,135,0.22) 52%, rgba(0,0,0,0.2) 100%)'
+                    ? `#020202 linear-gradient(135deg, rgba(0,0,0,0.68) 0%, ${withAlpha(dominantColor, 0.38)} 48%, rgba(0,0,0,0.16) 100%)`
+                    : '#020202 linear-gradient(135deg, rgba(0,0,0,0.68) 0%, rgba(88,28,135,0.3) 48%, rgba(0,0,0,0.16) 100%)'
                 }}
               >
                 {albumImage && (
                   <div
-                    className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.42]"
+                    className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.58]"
                     style={{
                       backgroundImage: `url("${albumImage}")`,
                       backgroundPosition: 'center',
                       backgroundSize: 'cover',
-                      filter: 'blur(64px) saturate(1.9) contrast(1.34) brightness(0.62)',
-                      mixBlendMode: 'color',
+                      filter: 'blur(52px) saturate(2.25) contrast(1.2) brightness(0.86)',
+                      mixBlendMode: 'screen',
                     }}
                   />
                 )}
@@ -1504,19 +1538,19 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                   className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 68% 38%, ${withAlpha(dominantColor, 0.48)} 0%, transparent 64%)`
-                      : "radial-gradient(circle at 68% 38%, rgba(168,85,247,0.42) 0%, transparent 64%)"
+                      ? `radial-gradient(circle at 68% 38%, ${withAlpha(dominantColor, 0.66)} 0%, transparent 66%)`
+                      : "radial-gradient(circle at 68% 38%, rgba(168,85,247,0.56) 0%, transparent 66%)"
                   }}
                 />
                 <div
                   className="stats-lc-ambient-drift-secondary absolute -inset-[20%] pointer-events-none mix-blend-screen"
                   style={{
                     background: dominantColor
-                      ? `radial-gradient(circle at 18% 58%, ${withAlpha(dominantColor, 0.32)} 0%, transparent 58%)`
-                      : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.28) 0%, transparent 58%)"
+                      ? `radial-gradient(circle at 18% 58%, ${withAlpha(dominantColor, 0.46)} 0%, transparent 60%)`
+                      : "radial-gradient(circle at 18% 58%, rgba(234,88,12,0.38) 0%, transparent 60%)"
                   }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/18 via-black/22 to-black/40 backdrop-blur-[1px]" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/16 to-black/34" />
               </motion.div>
             ) : (
               <motion.div
@@ -1525,25 +1559,25 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                  animate={{ opacity: 1 }}
                  exit={{ opacity: 0 }}
                  className="absolute inset-0 overflow-hidden"
-                 style={{ backgroundColor: '#050505' }}
+                 style={{ backgroundColor: '#020202' }}
               >
                  <div
                    className="absolute inset-0 pointer-events-none"
                    style={{
                      background: track
-                       ? 'linear-gradient(135deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 48%, rgba(0,0,0,0.34) 100%)'
-                       : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.055) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.08) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.72) 0%, rgba(15,12,12,0.38) 52%, rgba(0,0,0,0.64) 100%)',
+                       ? 'linear-gradient(135deg, rgba(0,0,0,0.34) 0%, rgba(0,0,0,0.04) 48%, rgba(0,0,0,0.26) 100%)'
+                       : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.065) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.11) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.66) 0%, rgba(15,12,12,0.28) 52%, rgba(0,0,0,0.58) 100%)',
                    }}
                  />
                  {track && albumImage && (
                    <div
-                     className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.24]"
+                     className="stats-lc-artwork-drift absolute -inset-[22%] scale-125 opacity-[0.46]"
                      style={{
                        backgroundImage: `url("${albumImage}")`,
                        backgroundPosition: 'center',
                        backgroundSize: 'cover',
-                       filter: 'blur(68px) saturate(1.75) contrast(1.28) brightness(0.58)',
-                       mixBlendMode: 'color',
+                       filter: 'blur(56px) saturate(2.15) contrast(1.16) brightness(0.82)',
+                       mixBlendMode: 'screen',
                      }}
                    />
                  )}
@@ -1551,16 +1585,16 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                    className="stats-lc-ambient-drift-primary absolute -inset-[36%] pointer-events-none"
                    style={{
                      background: track && dominantColor
-                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.12)} 0%, transparent 55%)`
-                       : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.055) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.065) 0%, transparent 54%)',
+                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(dominantColor, 0.28)} 0%, transparent 58%)`
+                       : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.075) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.12) 0%, transparent 56%)',
                    }}
                  />
                  <div
                    className="stats-lc-ambient-drift-secondary absolute -inset-[38%] pointer-events-none"
                    style={{
                      background: track && dominantColor
-                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(dominantColor, 0.08)} 0%, transparent 50%)`
-                       : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.035) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.08) 0%, transparent 52%)',
+                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(dominantColor, 0.2)} 0%, transparent 54%)`
+                       : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.055) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.12) 0%, transparent 54%)',
                    }}
                  />
                  {/* Vinheta escura nas bordas */}
@@ -1790,15 +1824,15 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                           {showExclusiveFirstListen ? (
                             <div className={cn(
                               "leo-soft-badge flex cursor-pointer items-center rounded-full",
-                              visualIsLive ? "h-8 gap-1.5 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
+                              visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
                             )}>
                               <Star className={cn(
-                                "fill-orange-400 text-orange-400",
-                                visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5"
+                                "transition-colors duration-500",
+                                visualIsLive ? "h-3 w-3 fill-orange-400 text-orange-400" : "h-2.5 w-2.5 fill-white/40 text-white/40"
                               )} />
                               <span className={cn(
-                                "font-black uppercase tracking-[0.15em] leading-none text-white/60 whitespace-nowrap",
-                                visualIsLive ? "text-[7.5px]" : "text-[7px]"
+                                "font-black uppercase tracking-[0.18em] leading-none whitespace-nowrap transition-colors duration-500",
+                                visualIsLive ? "text-[7.5px] text-white/60" : "text-[7px] text-white/40"
                               )}>
                                 FIRST LISTEN
                               </span>
@@ -1922,19 +1956,19 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                                   <Repeat className={cn(
                                     "transition-colors duration-500",
                                     visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
-                                    isActuallyLive ? "text-orange-400" : "text-white/40"
+                                    visualIsLive ? "text-orange-400" : "text-white/40"
                                   )} />
                                   <span className={cn(
                                     "font-black tabular-nums leading-none transition-colors duration-500",
                                     visualIsLive ? "text-[10.8px]" : "text-[10.3px]",
-                                    isActuallyLive ? "text-white" : "text-white/60"
+                                    visualIsLive ? "text-white" : "text-white/60"
                                   )}>
                                     <AnimatedNumber value={playCount} />
                                   </span>
                                   <span className={cn(
                                     "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
                                     visualIsLive ? "text-[7.5px]" : "text-[7px]",
-                                    isActuallyLive ? "text-white/60" : "text-white/40"
+                                    visualIsLive ? "text-white/60" : "text-white/40"
                                   )}>
                                     REPEATS
                                   </span>
@@ -1962,14 +1996,14 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                                 className={cn(
                                   "transition-colors duration-500",
                                   visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
-                                  isActuallyLive ? "text-orange-400" : "text-white/40"
+                                  visualIsLive ? "text-orange-400" : "text-white/40"
                                 )}
                                 strokeWidth={2.4}
                               />
                               <span className={cn(
                                 "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
                                 visualIsLive ? "text-[7.5px]" : "text-[7px]",
-                                isActuallyLive ? "text-white/60" : "text-white/40"
+                                visualIsLive ? "text-white/60" : "text-white/40"
                               )}>
                                 Letra
                               </span>

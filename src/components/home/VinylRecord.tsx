@@ -190,6 +190,7 @@ export const VinylRecord = ({
   const albumSwapInFlightRef = useRef(false);
   const prefersReducedMotion = usePrefersReducedMotion();
   const canAnimate = isVisible && !prefersReducedMotion;
+  const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
   const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
   const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
@@ -301,7 +302,7 @@ export const VinylRecord = ({
       cancelled = true;
       albumSwapInFlightRef.current = false;
     };
-  }, [albumImage, canAnimate, incomingIdentity, isPlaying, visualSnapshot.identity]);
+  }, [albumImage, incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
     const sequenceId = ++playbackSequenceRef.current;
@@ -343,7 +344,7 @@ export const VinylRecord = ({
     return () => {
       cancelled = true;
     };
-  }, [canAnimate, incomingIdentity, isPlaying, visualSnapshot.identity]);
+  }, [incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
     if (
@@ -453,8 +454,8 @@ export const VinylRecord = ({
 
     const isDecelerating = spinAnimationRef.current && (spinAnimationRef.current as any)._isDecel && (spinAnimationRef.current.effect as any)?.target === node;
 
-    if (!node || !canAnimate || !shouldSpin) {
-      if (isDecelerating && canAnimate) {
+    if (!node || !shouldAnimateSpin || !shouldSpin) {
+      if (isDecelerating && shouldAnimateSpin) {
         previousPlayingRef.current = shouldSpin;
         return;
       }
@@ -480,7 +481,7 @@ export const VinylRecord = ({
     startSpinWithAcceleration(startRotation);
     previousPlayingRef.current = shouldSpin;
     return () => stopSpin('instant');
-  }, [canAnimate, phase, shouldSpin, visualSnapshot.identity]);
+  }, [phase, shouldAnimateSpin, shouldSpin, visualSnapshot.identity]);
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {

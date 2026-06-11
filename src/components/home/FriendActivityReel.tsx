@@ -198,15 +198,16 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 	                        <div
 	                          className="absolute inset-0"
 	                        >
-	                          <SmartImage
-	                            src={trackImage}
-	                            className="h-full w-full object-cover opacity-38 transition-[opacity,transform] duration-500 group-hover:scale-[1.06] group-hover:opacity-52"
-	                            rounded="none"
-	                            fallback=""
-	                          />
-	                        </div>
-	                      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-[#0a0a0a]" />
-	                    </div>
+                          <SmartImage
+                            src={trackImage}
+                            className="h-full w-full object-cover opacity-[0.58] saturate-[1.12] contrast-[1.04] transition-[opacity,filter,transform] duration-500 group-hover:scale-[1.06] group-hover:opacity-[0.7] group-hover:saturate-[1.22]"
+                            rounded="none"
+                            fallback=""
+                          />
+                        </div>
+                      <div className="absolute inset-0 bg-gradient-to-b from-black/16 via-black/10 to-black/78" />
+                      <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/22 to-transparent" />
+                    </div>
 
 	                    <div className="absolute inset-0 z-10 p-3.5 flex flex-col justify-between">
 	                      <div className="flex items-center gap-2">

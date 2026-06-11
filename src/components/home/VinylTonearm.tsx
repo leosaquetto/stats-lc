@@ -20,17 +20,17 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
 
   const pivotX = 60;
   const pivotY = -18;
-  const armReachBoost = tonearmState === 'playing' ? 1.4 : 0;
-  const armLength = 46 + armReachBoost;
+  const armReachBoost = tonearmState === 'playing' ? 2.35 : tonearmState === 'lifted' ? 1.05 : 0;
+  const armLength = 47.2 + armReachBoost;
   // SVG angles use the browser coordinate plane: 0deg points right, 90deg points down.
   // Pivot lives at the tonearm mount. Rest stays outside the record; lifted hovers near the groove.
-  const restAngle = 155;
-  const liftedAngle = 140;
-  const playAngle = 135;
+  const restAngle = 154;
+  const liftedAngle = 139;
+  const playAngle = 132.5;
   const angle = restAngle + (playAngle - restAngle) * level;
-  const liftOffset = tonearmState === 'lifted' ? -2.4 : 0;
+  const liftOffset = tonearmState === 'lifted' ? -2.2 : 0;
   const liftScale = tonearmState === 'lifted' ? 0.992 : 1;
-  const liftOpacity = tonearmState === 'rest' ? 0.48 : tonearmState === 'lifted' ? 0.82 : 1;
+  const liftOpacity = tonearmState === 'rest' ? 0.58 : tonearmState === 'lifted' ? 0.88 : 0.96;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;
   const unitX = Math.cos(angleRadians);
@@ -62,31 +62,31 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
   const finalArmShadowStart = pointAt(46.8);
   const finalArmShadowEnd = pointAt(55.1 + armReachBoost);
   const collarPoints = polygonPoints([
-    [42.8, -1.75],
-    [51.1 + armReachBoost, -1.75],
-    [51.1 + armReachBoost, 1.75],
-    [42.8, 1.75],
+    [43.2, -1.65],
+    [52.1 + armReachBoost, -1.65],
+    [52.1 + armReachBoost, 1.65],
+    [43.2, 1.65],
   ]);
   const headPoints = polygonPoints([
-    [49.2 + armReachBoost, -2.72],
-    [57.0 + armReachBoost, -2.42],
-    [56.6 + armReachBoost, 2.74],
-    [48.9 + armReachBoost, 2.42],
+    [50.0 + armReachBoost, -2.58],
+    [58.4 + armReachBoost, -2.12],
+    [57.8 + armReachBoost, 2.56],
+    [49.6 + armReachBoost, 2.22],
   ]);
   const headShadowPoints = translatedPolygonPoints([
-    [49.2 + armReachBoost, -2.72],
-    [57.0 + armReachBoost, -2.42],
-    [56.6 + armReachBoost, 2.74],
-    [48.9 + armReachBoost, 2.42],
+    [50.0 + armReachBoost, -2.58],
+    [58.4 + armReachBoost, -2.12],
+    [57.8 + armReachBoost, 2.56],
+    [49.6 + armReachBoost, 2.22],
   ], shadowXOffset, shadowYOffset);
   const headHighlight = polygonPoints([
-    [50.3 + armReachBoost, -1.48],
-    [55.6 + armReachBoost, -1.24],
-    [55.5 + armReachBoost, -0.54],
-    [50.2 + armReachBoost, -0.8],
+    [51.1 + armReachBoost, -1.28],
+    [56.7 + armReachBoost, -1.02],
+    [56.6 + armReachBoost, -0.44],
+    [51.0 + armReachBoost, -0.7],
   ]);
-  const needleStart = pointAt(56.5 + armReachBoost, -2.36);
-  const needleEnd = pointAt(57.28 + armReachBoost, -3.08);
+  const needleStart = pointAt(57.5 + armReachBoost, -2.06);
+  const needleEnd = pointAt(58.95 + armReachBoost, -2.92);
   const getTargetLevel = () => {
     if (tonearmState === 'playing') return 1;
     if (tonearmState === 'lifted') return (liftedAngle - restAngle) / (playAngle - restAngle);
@@ -136,10 +136,10 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
       >
         <defs>
           <linearGradient id={`${uniqueId}-tonearm-metal`} x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#d7dde6" />
-            <stop offset="42%" stopColor="#8793a4" />
-            <stop offset="72%" stopColor="#c7ced8" />
-            <stop offset="100%" stopColor="#1f2937" />
+            <stop offset="0%" stopColor="#949ca8" />
+            <stop offset="42%" stopColor="#596273" />
+            <stop offset="72%" stopColor="#8a92a0" />
+            <stop offset="100%" stopColor="#111827" />
           </linearGradient>
           <radialGradient id={`${uniqueId}-tonearm-head`} cx="38%" cy="25%" r="85%">
             <stop offset="0%" stopColor="#2b2c30" />
@@ -189,7 +189,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
               cx="0"
               cy="0"
               r="14.2"
-              fill="rgba(255,255,255,0.035)"
+              fill="rgba(255,255,255,0.026)"
               stroke="rgba(0,0,0,0.26)"
               strokeWidth="0.7"
             />
@@ -198,7 +198,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
               cy="0"
               r="12.2"
               fill="transparent"
-              stroke="rgba(255,255,255,0.055)"
+              stroke="rgba(255,255,255,0.04)"
               strokeWidth="0.42"
             />
             <rect
@@ -218,7 +218,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
 
           <motion.g
             animate={tonearmState === 'playing' && !isDragging
-              ? { rotate: [0, 1.4, -0.65, 0.82, 0], opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
+              ? { rotate: [0, 0.68, -0.38, 0.42, 0], opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
               : { rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }
             }
             transition={tonearmState === 'playing' && !isDragging
@@ -282,16 +282,16 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
           <motion.line
             x1={pivotX}
             y1={pivotY}
-            stroke="rgba(196,202,210,0.82)"
-            strokeWidth="1.14"
+            stroke={`url(#${uniqueId}-tonearm-metal)`}
+            strokeWidth="1.22"
             strokeLinecap="round"
             animate={{ x2: armEnd.x, y2: armEnd.y }}
             transition={transition}
           />
 
-          <motion.polygon points={collarPoints} animate={{ points: collarPoints }} transition={transition} fill="#17181c" stroke="rgba(255,255,255,0.1)" strokeWidth="0.28" />
-          <motion.polygon points={headPoints} animate={{ points: headPoints }} transition={transition} fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.12)" strokeWidth="0.32" />
-          <motion.polygon points={headHighlight} animate={{ points: headHighlight }} transition={transition} fill="rgba(255,255,255,0.08)" />
+          <motion.polygon points={collarPoints} animate={{ points: collarPoints }} transition={transition} fill="#121318" stroke="rgba(255,255,255,0.07)" strokeWidth="0.28" />
+          <motion.polygon points={headPoints} animate={{ points: headPoints }} transition={transition} fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.08)" strokeWidth="0.32" />
+          <motion.polygon points={headHighlight} animate={{ points: headHighlight }} transition={transition} fill="rgba(255,255,255,0.045)" />
           <motion.line
             x1={needleStart.x}
             y1={needleStart.y}
@@ -304,8 +304,8 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
               y2: needleEnd.y,
             }}
             transition={transition}
-            stroke="rgba(251,146,60,0.78)"
-            strokeWidth="0.42"
+            stroke="rgba(217,119,6,0.78)"
+            strokeWidth="0.36"
             strokeLinecap="round"
           />
           <motion.circle
@@ -314,7 +314,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
             r="0.16"
             animate={{ cx: needleEnd.x, cy: needleEnd.y }}
             transition={transition}
-            fill="rgba(254,215,170,0.82)"
+            fill="rgba(251,146,60,0.78)"
           />
           </motion.g>
         </g>

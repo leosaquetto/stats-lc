@@ -507,21 +507,21 @@
 }
 
 @keyframes stats-lc-ambient-drift-primary {
-  0%, 100% { opacity: 0.68; transform: translate3d(-10%, -6%, 0) scale(1); }
-  45% { opacity: 0.96; transform: translate3d(12%, 8%, 0) scale(1.15); }
-  70% { opacity: 0.82; transform: translate3d(5%, -8%, 0) scale(1.08); }
+  0%, 100% { opacity: 0.66; transform: translate3d(-16%, -10%, 0) scale(1); }
+  38% { opacity: 0.96; transform: translate3d(18%, 12%, 0) scale(1.18); }
+  72% { opacity: 0.78; transform: translate3d(7%, -14%, 0) scale(1.1); }
 }
 
 @keyframes stats-lc-ambient-drift-secondary {
-  0%, 100% { opacity: 0.5; transform: translate3d(8%, 7%, 0) scale(1.03); }
-  48% { opacity: 0.8; transform: translate3d(-12%, -7%, 0) scale(1.2); }
-  76% { opacity: 0.64; transform: translate3d(-4%, 9%, 0) scale(1.1); }
+  0%, 100% { opacity: 0.48; transform: translate3d(12%, 10%, 0) scale(1.03); }
+  46% { opacity: 0.78; transform: translate3d(-18%, -11%, 0) scale(1.22); }
+  78% { opacity: 0.6; transform: translate3d(-7%, 15%, 0) scale(1.12); }
 }
 
 @keyframes stats-lc-artwork-drift {
-  0%, 100% { transform: translate3d(-5%, -3%, 0) scale(1.25); }
-  38% { transform: translate3d(6%, 4%, 0) scale(1.31); }
-  72% { transform: translate3d(-2%, 7%, 0) scale(1.27); }
+  0%, 100% { transform: translate3d(-9%, -6%, 0) scale(1.25); }
+  36% { transform: translate3d(9%, 7%, 0) scale(1.32); }
+  72% { transform: translate3d(-4%, 12%, 0) scale(1.28); }
 }
 
 @keyframes progress-fill {
@@ -578,15 +578,15 @@
 }
 
 .stats-lc-ambient-drift-primary {
-  animation: stats-lc-ambient-drift-primary 10s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-primary 5s ease-in-out infinite;
 }
 
 .stats-lc-ambient-drift-secondary {
-  animation: stats-lc-ambient-drift-secondary 14s ease-in-out infinite;
+  animation: stats-lc-ambient-drift-secondary 6.5s ease-in-out infinite;
 }
 
 .stats-lc-artwork-drift {
-  animation: stats-lc-artwork-drift 16s ease-in-out infinite;
+  animation: stats-lc-artwork-drift 7s ease-in-out infinite;
   backface-visibility: hidden;
   transform: translate3d(0, 0, 0) scale(1.25);
   will-change: transform;

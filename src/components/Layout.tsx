@@ -1958,12 +1958,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   return (
     <>
-      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[58px] w-[58px] shrink-0" aria-hidden={false}>
+      <div className="relative mb-[calc(env(safe-area-inset-bottom)+12px)] h-[54px] w-[54px] shrink-0" aria-hidden={false}>
         <motion.button
           type="button"
           onClick={handleBubblePress}
           className={clsx(
-            "pointer-events-auto z-[1001] flex h-[58px] w-[58px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
+            "pointer-events-auto z-[1001] flex h-[54px] w-[54px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
             "absolute inset-0"
           )}
           style={isBubbleLive ? {
@@ -1979,25 +1979,49 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
           {shouldAnimateBubble ? (
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
-                filter: 'saturate(1.65) contrast(1.08)',
-              }}
-              animate={{ opacity: [0.3, 0.82, 0.3] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            />
+            <>
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-full"
+                style={{
+                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
+                  filter: 'saturate(1.65) contrast(1.08)',
+                }}
+                animate={{ opacity: [0.24, 0.68, 0.24] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+              <motion.span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-[2px] rounded-full"
+                style={{
+                  background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 34%, rgba(255,255,255,0.06) 62%, transparent 100%)',
+                  mixBlendMode: 'screen',
+                }}
+                animate={{ opacity: [0.2, 0.46, 0.2] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            </>
           ) : isBubbleLive ? (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full"
-              style={{
-                background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 72%, rgba(255,255,255,0.08)) 0%, color-mix(in srgb, ${bubbleAccentColor} 46%, rgba(0,0,0,0.34)) 100%)`,
-                filter: 'saturate(1.5) contrast(1.05)',
-              }}
-            />
+            <>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-full"
+                style={{
+                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 72%, rgba(255,255,255,0.08)) 0%, color-mix(in srgb, ${bubbleAccentColor} 46%, rgba(0,0,0,0.34)) 100%)`,
+                  filter: 'saturate(1.5) contrast(1.05)',
+                  opacity: 0.72,
+                }}
+              />
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-[2px] rounded-full"
+                style={{
+                  background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.12) 42%, transparent 100%)',
+                  mixBlendMode: 'screen',
+                  opacity: 0.42,
+                }}
+              />
+            </>
           ) : (
             <span
               aria-hidden="true"
@@ -2005,7 +2029,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             />
           )}
           <motion.div
-            className="relative z-10 flex h-[35px] w-[35px] items-center justify-center"
+            className="relative z-10 flex h-[34px] w-[34px] items-center justify-center"
             animate={shouldAnimateBubble ? { scale: [0.97, 1.09, 0.97] } : { scale: 1 }}
             transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
           >
@@ -2035,7 +2059,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 }}
               >
                 {bubbleArtistImage ? (
-                  <SmartImage src={bubbleArtistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+                  <SmartImage src={bubbleArtistImage} className="h-full w-full object-cover object-center" rounded="full" fallback="" />
                 ) : (
                   <Music2 className="h-6 w-6 text-white/72" />
                 )}
@@ -3147,7 +3171,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div
       className="app-shell relative flex w-full max-w-[480px] mx-auto flex-col overflow-x-clip overflow-y-visible font-sans"
-      style={{ ['--app-background' as string]: 'rgba(255,255,255,0.07)' }}
+      style={{ ['--app-background' as string]: '#000' }}
     >
       {/* Scroll Fade Gradients removed to prevent overlaying headers */}
 
