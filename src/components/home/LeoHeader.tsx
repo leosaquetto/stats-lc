@@ -211,10 +211,10 @@ function getTonalProgressAccent(color: string | null) {
   const normalized = normalizeColor(color, '#8b947e');
   const brightness = getPerceivedBrightness(normalized);
 
-  if (brightness < 88) return adjustBrightness(normalized, 0.48);
-  if (brightness < 138) return adjustBrightness(normalized, 0.3);
-  if (brightness > 214) return adjustBrightness(normalized, -0.24);
-  return adjustBrightness(normalized, brightness < 176 ? 0.18 : -0.18);
+  if (brightness < 84) return adjustBrightness(normalized, 0.24);
+  if (brightness < 132) return adjustBrightness(normalized, 0.12);
+  if (brightness > 226) return adjustBrightness(normalized, -0.14);
+  return normalized;
 }
 
 function createFallbackArtworkPalette(color: string | null): ArtworkPalette | null {
@@ -234,12 +234,12 @@ function getVisibleProgressAccent(color: string | null | undefined) {
   const normalized = normalizeColor(color, '#8b947e');
   const brightness = getPerceivedBrightness(normalized);
 
-  if (brightness < 96) {
-    return adjustBrightness(normalized, Math.min(0.46, ((108 - brightness) / 255) * 1.55));
+  if (brightness < 86) {
+    return adjustBrightness(normalized, Math.min(0.26, ((96 - brightness) / 255) * 1.05));
   }
 
-  if (brightness > 224) {
-    return adjustBrightness(normalized, -0.16);
+  if (brightness > 228) {
+    return adjustBrightness(normalized, -0.12);
   }
 
   return normalized;
@@ -559,6 +559,14 @@ export const LiveTrackProgress = memo(({
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
+  const progressFillGradient = useMemo(() => {
+    if (!visibleProgressColor) return 'linear-gradient(90deg, #647062, #8b947e)';
+    const brightness = getPerceivedBrightness(visibleProgressColor);
+    const tailColor = brightness < 150
+      ? adjustBrightness(visibleProgressColor, 0.08)
+      : adjustBrightness(visibleProgressColor, -0.08);
+    return `linear-gradient(90deg, ${visibleProgressColor}, ${tailColor})`;
+  }, [visibleProgressColor]);
 
   // SVG Platform Logos (inline)
   const SpotifyLogo = () => (
@@ -701,12 +709,10 @@ export const LiveTrackProgress = memo(({
               }}
               style={{
                 transformOrigin: 'left center',
-                background: visibleProgressColor
-                  ? `linear-gradient(90deg, ${visibleProgressColor}, ${withAlpha(visibleProgressColor, 0.85)})`
-                  : 'linear-gradient(90deg, #647062, #8b947e)',
-                filter: 'brightness(1.3) saturate(1.2)',
+                background: progressFillGradient,
+                filter: 'brightness(1.08) saturate(1.06)',
                 boxShadow: visibleProgressColor
-                  ? `0 0 12px ${withAlpha(visibleProgressColor, 0.6)}`
+                  ? `0 0 12px ${withAlpha(visibleProgressColor, 0.45)}`
                   : '0 0 12px rgba(100,112,98,0.45)'
               }}
             >
@@ -715,9 +721,9 @@ export const LiveTrackProgress = memo(({
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
                 style={{
                   boxShadow: visibleProgressColor
-                    ? `0 0 10px ${withAlpha(visibleProgressColor, 1)}, 0 0 20px ${withAlpha(visibleProgressColor, 0.5)}`
+                    ? `0 0 9px ${withAlpha(visibleProgressColor, 0.82)}, 0 0 18px ${withAlpha(visibleProgressColor, 0.38)}`
                     : '0 0 10px rgba(100,112,98,0.9), 0 0 20px rgba(100,112,98,0.35)',
-                  filter: 'brightness(1.2)'
+                  filter: 'brightness(1.08)'
                 }}
               />
             </motion.div>
@@ -1011,7 +1017,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
   const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
 
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
-  const backendIsLive = playback.status === "live" && nowPlaying?.isNow === true;
+  const backendIsLive = playback.status === "live";
   const platform = useMemo(() => {
     // Prioriza plataforma detectada na faixa atual se a do usuário for desconhecida
     if (user.platform?.primary && user.platform.primary !== "unknown") {
@@ -1387,7 +1393,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     playbackSignatureSource?.endTime,
     nowPlaying?.timestamp,
   ]);
-  const backendPlaybackSignature = `${vinylPlaybackKey}:${nowPlaying?.isNow === true ? 'live' : 'idle'}`;
+  const backendPlaybackSignature = `${vinylPlaybackKey}:${isActuallyLive ? 'live' : 'idle'}`;
   const [playbackOverride, setPlaybackOverride] = useState<{ signature: string; isPlaying: boolean } | null>(null);
   useEffect(() => {
     if (playbackOverride && playbackOverride.signature !== backendPlaybackSignature) {

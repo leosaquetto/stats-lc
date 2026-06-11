@@ -193,14 +193,71 @@ function isVividCandidate(candidate: ArtworkPaletteCandidate): boolean {
   return candidate.saturation >= 0.16 && candidate.brightness >= 38 && candidate.brightness <= 228;
 }
 
+function isMutedWarmCandidate(candidate: ArtworkPaletteCandidate): boolean {
+  return candidate.hue >= 14
+    && candidate.hue <= 62
+    && candidate.saturation <= 0.42
+    && candidate.brightness >= 64
+    && candidate.brightness <= 208;
+}
+
+function scoreVinylCandidate(candidate: ArtworkPaletteCandidate): number {
+  const balancedBrightness = 1 - Math.min(Math.abs(candidate.brightness - 128) / 128, 1);
+  let score = (
+    candidate.score * 0.72 +
+    candidate.population * 105 +
+    candidate.saturation * 170 +
+    balancedBrightness * 42
+  );
+
+  if (candidate.brightness < 42 || candidate.brightness > 228) score -= 52;
+  if (candidate.saturation < 0.18) score -= 44;
+  if (isMutedWarmCandidate(candidate)) score -= 68;
+
+  const richBlue = candidate.hue >= 188
+    && candidate.hue <= 255
+    && candidate.saturation >= 0.22
+    && candidate.brightness >= 34
+    && candidate.brightness <= 170;
+  const richRed = (candidate.hue >= 340 || candidate.hue <= 15)
+    && candidate.saturation >= 0.32
+    && candidate.brightness >= 44
+    && candidate.brightness <= 196;
+
+  if (richBlue) score += 34;
+  if (richRed) score += 18;
+
+  return score;
+}
+
+function chooseVinylCandidate(candidates: ArtworkPaletteCandidate[]): ArtworkPaletteCandidate {
+  const vivid = candidates.filter(isVividCandidate);
+  const pool = vivid.length > 0 ? vivid : candidates;
+  const ranked = [...pool].sort((a, b) => scoreVinylCandidate(b) - scoreVinylCandidate(a));
+  const top = ranked[0];
+
+  if (!top) return createCandidate('#647062', 1, 1);
+
+  if (isMutedWarmCandidate(top)) {
+    const alternative = ranked.find((candidate) => (
+      !isMutedWarmCandidate(candidate)
+      && candidate.saturation >= top.saturation * 0.82
+      && candidate.score >= top.score * 0.48
+    ));
+    if (alternative) return alternative;
+  }
+
+  return top;
+}
+
 function getTonalProgressColor(color: string): string {
   const normalized = normalizeColor(color, '#647062');
   const brightness = getPerceivedBrightness(normalized);
 
-  if (brightness < 88) return adjustBrightness(normalized, 0.48);
-  if (brightness < 138) return adjustBrightness(normalized, 0.3);
-  if (brightness > 214) return adjustBrightness(normalized, -0.24);
-  return adjustBrightness(normalized, brightness < 176 ? 0.18 : -0.18);
+  if (brightness < 84) return adjustBrightness(normalized, 0.28);
+  if (brightness < 132) return adjustBrightness(normalized, 0.16);
+  if (brightness > 226) return adjustBrightness(normalized, -0.14);
+  return normalized;
 }
 
 function createFallbackPalette(color: string = '#647062'): ArtworkPalette {
@@ -226,7 +283,7 @@ function chooseProgressCandidate(
     const brightnessDelta = Math.abs(candidate.brightness - vinyl.brightness);
     const saturationDelta = Math.abs(candidate.saturation - vinyl.saturation);
 
-    return hueDelta >= 24 || brightnessDelta >= 36 || saturationDelta >= 0.2;
+    return hueDelta >= 14 || brightnessDelta >= 28 || saturationDelta >= 0.16;
   });
 
   const scoreProgress = (candidate: ArtworkPaletteCandidate) => {
@@ -234,13 +291,20 @@ function chooseProgressCandidate(
       ? hueDistance(candidate.hue, vinyl.hue)
       : 0;
     const brightnessDelta = Math.abs(candidate.brightness - vinyl.brightness);
+    const sameFamilyBoost = hueDelta >= 8 && hueDelta <= 36 ? 26 : 0;
+    const contrastBoost = hueDelta > 36 && hueDelta <= 110 ? 18 : 0;
+    const farPenalty = hueDelta > 150 ? 20 : 0;
+    const richerThanVinylBoost = candidate.saturation > vinyl.saturation ? 22 : 0;
 
     return (
-      candidate.score * 0.85 +
-      candidate.population * 120 +
-      candidate.saturation * 120 +
-      Math.min(hueDelta, 105) * 2.2 +
-      Math.min(brightnessDelta, 88) * 1.15
+      candidate.score * 0.8 +
+      candidate.population * 118 +
+      candidate.saturation * 150 +
+      sameFamilyBoost +
+      contrastBoost +
+      richerThanVinylBoost +
+      Math.min(brightnessDelta, 78) * 0.95 -
+      farPenalty
     );
   };
 
@@ -369,8 +433,7 @@ function getSmartCanvasPalette(img: HTMLImageElement): ArtworkPalette | null {
     return averageColor ? createFallbackPalette(averageColor) : null;
   }
 
-  const vividCandidates = candidates.filter(isVividCandidate);
-  const vinyl = (vividCandidates.length > 0 ? vividCandidates : candidates)[0];
+  const vinyl = chooseVinylCandidate(candidates);
   const progress = chooseProgressCandidate(vinyl, candidates);
 
   return {

@@ -96,12 +96,19 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
 
   return (
     <nav className="w-full pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
-      <div className="relative rounded-[9999px]">
-        <div className="glass-aura relative rounded-[9999px] overflow-hidden">
-          <div className="absolute inset-x-6 top-[0.5px] h-[0.5px] bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
-          <div className="absolute inset-0 rounded-[9999px] bg-gradient-to-b from-white/[0.03] to-transparent pointer-events-none" />
+      <div className="relative left-[2px] rounded-[9999px]">
+        <div
+          className="relative overflow-hidden rounded-[9999px]"
+          style={{
+            background: 'rgba(20,20,20,0.50)',
+            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+            backdropFilter: 'blur(24px) saturate(190%)',
+            boxShadow: '0 12px 40px -10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.10)',
+            border: 'none',
+          }}
+        >
 
-          <div className="relative grid h-[54px] grid-cols-4 gap-0 px-1.5 py-1.5">
+          <div className="relative grid h-[54px] grid-cols-4 gap-0 px-[4px] py-1.5">
             <motion.div
               className="pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 w-[calc((100%_-_0.75rem)/4)] rounded-[9999px] bg-white/[0.15]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
@@ -132,8 +139,8 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                         className={clsx(
                           "transition-[color,filter,opacity,transform] duration-200 ease-out",
                           isActive
-                            ? "h-[25px] w-[25px] text-white"
-                            : "h-[24px] w-[24px] text-white/50 hover:text-white/80"
+                            ? "h-[22px] w-[22px] text-white"
+                            : "h-[21px] w-[21px] text-white/50 hover:text-white/80"
                         )}
                         strokeWidth={isActive ? 2.4 : 1.7}
                       />
@@ -1351,7 +1358,18 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
   const isReleaseDayFirstListen = React.useMemo(() => {
     if (!albumReleaseRawDate || !circleFirstListen?.playedAt) return false;
-    return getReleaseDateDayKey(albumReleaseRawDate) === getSaoPauloDayKey(circleFirstListen.playedAt);
+    const releaseDayKey = getReleaseDateDayKey(albumReleaseRawDate);
+    const playedDayKey = getSaoPauloDayKey(circleFirstListen.playedAt);
+    if (!releaseDayKey || !playedDayKey) return false;
+
+    if (releaseDayKey === playedDayKey) return true;
+
+    const releaseDate = new Date(`${releaseDayKey}T00:00:00.000Z`);
+    if (!Number.isFinite(releaseDate.getTime())) return false;
+    releaseDate.setUTCDate(releaseDate.getUTCDate() - 1);
+    const previousReleaseDayKey = releaseDate.toISOString().slice(0, 10);
+
+    return previousReleaseDayKey === playedDayKey;
   }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
   const writerNames = React.useMemo(() => {
     return (lyricsMatch?.writers || [])
@@ -1940,17 +1958,23 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   return (
     <>
-      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[66px] w-[66px] shrink-0" aria-hidden={false}>
+      <div className="relative mb-[calc(env(safe-area-inset-bottom)+10px)] h-[58px] w-[58px] shrink-0" aria-hidden={false}>
         <motion.button
           type="button"
           onClick={handleBubblePress}
           className={clsx(
-            "pointer-events-auto z-[1001] flex h-[66px] w-[66px] touch-manipulation items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
+            "pointer-events-auto z-[1001] flex h-[58px] w-[58px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
             "absolute inset-0"
           )}
           style={isBubbleLive ? {
-            boxShadow: `0 12px 38px -14px rgba(0,0,0,0.72), 0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 58%, rgba(255,255,255,0.18)), 0 0 26px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
-          } : undefined}
+            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+            backdropFilter: 'blur(24px) saturate(190%)',
+            boxShadow: `0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px color-mix(in srgb, ${bubbleAccentColor} 58%, rgba(255,255,255,0.18)), 0 0 26px color-mix(in srgb, ${bubbleAccentColor} 38%, transparent)`,
+          } : {
+            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
+            backdropFilter: 'blur(24px) saturate(190%)',
+            boxShadow: '0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10)',
+          }}
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
@@ -1980,7 +2004,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             />
           )}
           <motion.div
-            className="relative z-10 h-[54px] w-[54px]"
+            className="relative z-10 flex h-[35px] w-[35px] items-center justify-center"
             animate={shouldAnimateBubble ? { scale: [0.97, 1.09, 0.97] } : { scale: 1 }}
             transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
           >
@@ -2012,7 +2036,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 {bubbleArtistImage ? (
                   <SmartImage src={bubbleArtistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
                 ) : (
-                  <Music2 className="h-8 w-8 text-white/72" />
+                  <Music2 className="h-6 w-6 text-white/72" />
                 )}
               </motion.div>
             </AnimatePresence>
@@ -2321,8 +2345,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <p className="mt-1 text-xs font-semibold leading-tight text-white/48">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
-                  <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
-                    <ModalScrollingAlbumName albumName={albumName} />
+                  <div className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
+                    <div className="min-w-0 flex-1">
+                      <ModalScrollingAlbumName albumName={albumName} />
+                    </div>
                     {panel === 'stats' && albumReleaseDate && (
                       <span
                         className={clsx(
@@ -2383,7 +2409,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
               {trackArtists.length > 1 && (
                 panelHydration.artistStats && artistStats.length > 1 ? (
-                <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true">
+                <div className="mt-3 flex w-full gap-2 overflow-x-auto no-scrollbar px-px pb-1" data-home-horizontal-scroll="true">
                   {artistStats.map((artist) => (
                     <div
                       key={artist.key}
@@ -2400,7 +2426,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   ))}
                 </div>
                 ) : (
-                <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-1" data-home-horizontal-scroll="true" aria-hidden="true">
+                <div className="mt-3 flex w-full gap-2 overflow-x-auto no-scrollbar px-px pb-1" data-home-horizontal-scroll="true" aria-hidden="true">
                   {artistStatSkeletons.map((artist, index) => (
                     <div
                       key={`${artist.key || artist.id || artist.name}-${index}`}
@@ -2424,7 +2450,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
 
               {panelHydration.history && trackHistory && (
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="mt-2 flex w-full flex-wrap items-center gap-1.5 px-px">
                   <span
                     className={clsx(
                       "inline-flex shrink-0 items-center gap-1 rounded-full text-[7px] font-black leading-none tracking-[0.09em]",
@@ -2499,7 +2525,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                 >
-                  <div className={clsx("grid gap-1.5", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
+                  <div className={clsx("grid w-full gap-1.5 px-px", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
                     <div className={clsx(
                       "bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5",
                       isReleaseDayFirstListen && "relative overflow-hidden !bg-orange-400/70 ring-1 ring-orange-400/50 shadow-[0_0_20px_rgba(255,122,26,0.35)] backdrop-filter-none"
@@ -2567,7 +2593,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               )}
 
               <motion.div
-                className="mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1"
+                className="mt-3 flex w-full items-center gap-2 overflow-x-auto no-scrollbar px-px pb-1"
                 data-home-horizontal-scroll="true"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -3120,7 +3146,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div
       className="app-shell relative flex w-full max-w-[480px] mx-auto flex-col overflow-x-clip overflow-y-visible font-sans"
-      style={{ ['--app-background' as string]: '#050505' }}
+      style={{ ['--app-background' as string]: 'rgba(255,255,255,0.07)' }}
     >
       {/* Scroll Fade Gradients removed to prevent overlaying headers */}
 
