@@ -3265,12 +3265,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
-        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 overflow-visible px-3 pb-[env(safe-area-inset-bottom,16px)] pointer-events-none",
+        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-40 flex flex-col items-center overflow-visible pointer-events-none select-none pb-[env(safe-area-inset-bottom,16px)]",
         shouldGateHome && "hidden"
       )}>
-        <div className="relative mx-auto flex w-full max-w-[480px] items-end justify-center gap-2 overflow-visible">
-          <AnimatePresence>
-            {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
+        <AnimatePresence>
+          {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
+            <div className="flex w-full justify-center overflow-visible px-3 pb-2">
               <motion.div
                 initial={{ y: 18, opacity: 0, scale: 0.98 }}
                 animate={{ y: 0, opacity: 1, scale: 1 }}
@@ -3289,24 +3289,24 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   toggleSyncInfo();
                 }}
                 className={clsx(
-                  "pointer-events-auto absolute bottom-full left-1/2 mb-2 flex max-w-[min(95vw,456px)] -translate-x-1/2 items-center select-none group overflow-hidden text-left cursor-pointer",
+                  "pointer-events-auto flex max-w-[min(95vw,456px)] items-center text-left cursor-pointer overflow-visible",
                   shouldShowExpanded
-                    ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
-                    : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"
+                    ? "leo-soft-badge min-h-[44px] w-[min(95vw,456px)] rounded-full border border-white/[0.08] px-3 py-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.5)]"
+                    : "leo-soft-badge h-7 rounded-full pl-2.5 pr-2"
                 )}
                 title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
               >
                 <motion.div
                   className={clsx(
-                    "flex items-center min-w-0 w-full",
+                    "flex min-w-0 w-full items-center",
                     shouldShowExpanded ? "gap-2" : "gap-1"
                   )}
                 >
                   <motion.div
                     className={clsx(
-                      "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300 w-full",
+                      "flex min-w-0 w-full items-center transition-[background-color,opacity,transform] duration-300",
                       shouldShowExpanded
-                        ? "overflow-x-auto no-scrollbar py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
+                        ? "gap-1.5 overflow-x-auto no-scrollbar px-0.5 py-1.5 snap-x snap-mandatory"
                         : "-space-x-1.5"
                     )}
                     onPointerDown={(event) => {
@@ -3334,7 +3334,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                       syncPointerStartRef.current = null;
                     }}
                   >
-                    {activeMembersSorted.map((user, index) => {
+                    {activeMembersSorted.map((user) => {
                       const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
                       const userTrack = user.nowPlaying?.track;
                       const uSongName = userTrack?.name || "Nenhuma música";
@@ -3351,9 +3351,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                           } : {}}
                           transition={{ duration: 2, ease: "easeInOut" }}
                           className={clsx(
-                            "flex items-center gap-2 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
+                            "flex min-w-0 items-center gap-2 transition-[background-color,border-color,opacity,transform] duration-300",
                             shouldShowExpanded
-                              ? "leo-soft-badge flex-1 shrink min-w-[50px] max-w-[130px] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]"
+                              ? "leo-soft-badge snap-start flex-1 shrink min-w-[50px] max-w-[130px] rounded-full py-1.5 pl-1.5 pr-2.5 hover:bg-white/[0.12] hover:scale-[1.02] active:scale-[0.98]"
                               : "shrink-0",
                             isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
                           )}
@@ -3367,7 +3367,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                             style={{ borderRadius: "9999px" }}
                           >
                             <div className={clsx(
-                              "h-6.5 w-6.5 rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-transform duration-300",
+                              "flex h-6.5 w-6.5 items-center justify-center overflow-hidden rounded-full bg-stone-900 ring-[1px] ring-white/10 transition-transform duration-300",
                               !shouldShowExpanded && "scale-[0.77]"
                             )}>
                               <SmartImage
@@ -3394,10 +3394,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                 transition={{ duration: 0.25 }}
                                 className="flex min-w-0 flex-1 flex-col overflow-hidden text-left"
                               >
-                                <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
+                                <span className="truncate text-[10px] font-bold leading-tight tracking-tight text-white/95">
                                   {uSongName}
                                 </span>
-                                <span className="text-[8.5px] font-medium text-white/40 truncate leading-none mt-0.5 tracking-tight">
+                                <span className="mt-0.5 truncate text-[8.5px] font-medium leading-none tracking-tight text-white/40">
                                   {uArtistName}
                                 </span>
                               </motion.div>
@@ -3415,14 +3415,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   )}
                 </motion.div>
               </motion.div>
-            )}
-          </AnimatePresence>
+            </div>
+          )}
+        </AnimatePresence>
 
-          {/* Navigation - Liquid Glass Capsule */}
-          <div className="min-w-0 flex-1">
+        <div className="flex w-full max-w-[480px] items-center justify-center gap-2 overflow-visible px-3 pointer-events-auto">
+          <div className="min-w-0 flex-1 overflow-visible">
             <BottomNavigation pathname={location.pathname} />
           </div>
-          <BottomTrackStatsBubble user={playingUser} />
+          <div className="shrink-0 overflow-visible">
+            <BottomTrackStatsBubble user={playingUser} />
+          </div>
         </div>
       </div>
 

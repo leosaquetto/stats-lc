@@ -511,10 +511,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ type: 'spring', stiffness: 240, damping: 28, mass: 0.72 }}
-                className={cn(
-                  "apple-glass-panel relative flex h-[192px] min-w-0 flex-col overflow-visible rounded-[24px] border border-white/8 p-3 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)]",
-                  slot === 0 ? "translate-y-0" : "translate-y-2"
-                )}
+                className={`apple-glass-panel relative flex h-[192px] min-w-0 flex-col overflow-visible rounded-[24px] border border-white/8 p-3 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)] ${slot === 0 ? 'translate-y-0' : 'translate-y-2'}`}
                 style={{
                   boxShadow: `0 18px 48px rgba(0,0,0,0.34), 0 0 28px ${tone.glow}`,
                 }}
