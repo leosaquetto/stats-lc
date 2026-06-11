@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence, useMotionTemplate, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -728,6 +728,368 @@ const HIGHLIGHT_VISUAL_CONFIG = {
   },
 } as const;
 
+type HighlightVisualConfig = (typeof HIGHLIGHT_VISUAL_CONFIG)[HomeHighlightKind];
+
+const HIGHLIGHT_CARD_GAP_PX = 8;
+const HIGHLIGHT_SCROLL_OFFSET_PX = 8;
+const HIGHLIGHT_NEAR_RANGE_MULTIPLIER = 1.15;
+const HIGHLIGHT_FAR_RANGE_MULTIPLIER = 2.35;
+
+const getHighlightStep = (config: HighlightVisualConfig) => config.secondary.width + HIGHLIGHT_CARD_GAP_PX;
+
+const getHighlightLayoutLeft = (index: number, config: HighlightVisualConfig) => (
+  index === 0
+    ? 0
+    : config.primary.width + HIGHLIGHT_CARD_GAP_PX + (index - 1) * getHighlightStep(config)
+);
+
+const getHighlightFocusX = (index: number, config: HighlightVisualConfig) => (
+  Math.max(0, getHighlightLayoutLeft(index, config) - HIGHLIGHT_SCROLL_OFFSET_PX)
+);
+
+const buildHighlightCardMotionConfig = ({
+  index,
+  kind,
+  config,
+  shouldReduceMotion,
+}: {
+  index: number;
+  kind: HomeHighlightKind;
+  config: HighlightVisualConfig;
+  shouldReduceMotion: boolean;
+}) => {
+  const step = getHighlightStep(config);
+  const focusX = getHighlightFocusX(index, config);
+  const baseWidth = index === 0 ? config.primary.width : config.secondary.width;
+  const focusWidth = config.primary.width;
+  const nearWidth = config.secondary.width * 0.94;
+  const farWidth = config.secondary.width * 0.82;
+  const rotationLimit = shouldReduceMotion
+    ? 0
+    : kind === 'albums'
+      ? 12
+      : kind === 'tracks'
+        ? 10
+        : 9;
+  const translateXAmount = shouldReduceMotion ? 0 : Math.min(24, Math.round(step * 0.18));
+  const inputRange = [
+    focusX - step * HIGHLIGHT_FAR_RANGE_MULTIPLIER,
+    focusX - step * HIGHLIGHT_NEAR_RANGE_MULTIPLIER,
+    focusX,
+    focusX + step * HIGHLIGHT_NEAR_RANGE_MULTIPLIER,
+    focusX + step * HIGHLIGHT_FAR_RANGE_MULTIPLIER,
+  ];
+
+  return {
+    inputRange,
+    scaleOutput: shouldReduceMotion
+      ? [1, 1, 1, 1, 1]
+      : [
+          farWidth / baseWidth,
+          nearWidth / baseWidth,
+          focusWidth / baseWidth,
+          nearWidth / baseWidth,
+          farWidth / baseWidth,
+        ],
+    rotateYOutput: shouldReduceMotion
+      ? [0, 0, 0, 0, 0]
+      : [
+          -rotationLimit,
+          rotationLimit * -0.45,
+          0,
+          rotationLimit * 0.45,
+          rotationLimit,
+        ],
+    translateXOutput: shouldReduceMotion
+      ? [0, 0, 0, 0, 0]
+      : [
+          translateXAmount,
+          Math.round(translateXAmount * 0.45),
+          0,
+          Math.round(translateXAmount * -0.45),
+          -translateXAmount,
+        ],
+    opacityOutput: [0.34, 0.72, 1, 0.72, 0.34],
+    blurOutput: shouldReduceMotion ? [0, 0, 0, 0, 0] : [2.4, 0.9, 0, 0.9, 2.4],
+    zIndexOutput: [20, 64, 120, 64, 20],
+  };
+};
+
+const getHighlightMetricLabel = (item: any, kind: HomeHighlightKind) => {
+  if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
+  return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
+};
+
+const getHighlightDetailLabel = (item: any, kind: HomeHighlightKind) => {
+  if (kind === 'tracks' || kind === 'albums') return getReplayItemArtist(item);
+  return '';
+};
+
+const buildHighlightDetailItem = (item: any, kind: HomeHighlightKind) => ({
+  ...item,
+  type: kind === 'artists' ? 'artist' : kind === 'albums' ? 'album' : 'track',
+  image: getReplayItemImage(item),
+  artistName: getReplayItemArtist(item),
+});
+
+const HomeHighlightOrbitCard = ({
+  item,
+  index,
+  kind,
+  scrollX,
+  visualConfig,
+  isCentered,
+  isSectionVisible,
+  shouldReduceMotion,
+  onItemClick,
+}: {
+  item: any;
+  index: number;
+  kind: HomeHighlightKind;
+  scrollX: MotionValue<number>;
+  visualConfig: HighlightVisualConfig;
+  isCentered: boolean;
+  isSectionVisible: boolean;
+  shouldReduceMotion: boolean;
+  onItemClick?: (item: any) => void;
+}) => {
+  const cardSize = index === 0 ? visualConfig.primary : visualConfig.secondary;
+  const motionConfig = useMemo(
+    () => buildHighlightCardMotionConfig({
+      index,
+      kind,
+      config: visualConfig,
+      shouldReduceMotion,
+    }),
+    [index, kind, shouldReduceMotion, visualConfig]
+  );
+  const translateX = useTransform(scrollX, motionConfig.inputRange, motionConfig.translateXOutput);
+  const scale = useTransform(scrollX, motionConfig.inputRange, motionConfig.scaleOutput);
+  const rotateY = useTransform(scrollX, motionConfig.inputRange, motionConfig.rotateYOutput);
+  const opacity = useTransform(scrollX, motionConfig.inputRange, motionConfig.opacityOutput);
+  const blurAmount = useTransform(scrollX, motionConfig.inputRange, motionConfig.blurOutput);
+  const zIndex = useTransform(scrollX, motionConfig.inputRange, motionConfig.zIndexOutput);
+  const pointerEvents = useTransform(opacity, [0, 0.32, 0.33, 1], ['none', 'none', 'auto', 'auto']);
+  const transform = useMotionTemplate`translate3d(${translateX}px, 0px, 0px) scale(${scale}) rotateY(${rotateY}deg)`;
+  const filter = useMotionTemplate`blur(${blurAmount}px)`;
+  const isInteractive = Boolean(isCentered && onItemClick);
+  const title = getReplayItemTitle(item);
+  const detail = getHighlightDetailLabel(item, kind);
+  const metric = getHighlightMetricLabel(item, kind);
+  const handleActivate = useCallback(() => {
+    if (!isInteractive) return;
+    onItemClick?.(buildHighlightDetailItem(item, kind));
+  }, [isInteractive, item, kind, onItemClick]);
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!isInteractive) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleActivate();
+    }
+  }, [handleActivate, isInteractive]);
+
+  return (
+    <motion.div
+      data-highlight-card="true"
+      data-highlight-index={index}
+      data-entity-stats-trigger={kind}
+      data-entity-stats-active={isCentered ? 'true' : undefined}
+      data-entity-stats-primary={index === 0 ? 'true' : undefined}
+      data-entity-stats-satellite={index > 0 ? index + 1 : undefined}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      aria-label={isInteractive ? `Abrir ${title}` : undefined}
+      onClick={isInteractive ? handleActivate : undefined}
+      onKeyDown={isInteractive ? handleKeyDown : undefined}
+      className={cn(
+        "relative shrink-0 snap-start",
+        isInteractive && "cursor-pointer"
+      )}
+      style={{
+        width: cardSize.width,
+        height: cardSize.height,
+        opacity,
+        filter,
+        zIndex,
+        pointerEvents,
+        transform,
+        transformStyle: 'preserve-3d',
+        willChange: 'transform, opacity, filter',
+        backfaceVisibility: 'hidden',
+      }}
+    >
+      <motion.div
+        initial={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0, rotateX: 0 } : { opacity: 0, scale: 0.7, y: 20, rotateX: 12 }}
+        animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+        transition={{
+          type: 'spring',
+          stiffness: 280,
+          damping: 28,
+          mass: 0.6,
+          delay: index * 0.045,
+        }}
+        whileHover={isInteractive ? { scale: 1.05, transition: { duration: 0.2 } } : undefined}
+        whileTap={isInteractive ? { scale: 0.98 } : undefined}
+        className={cn(
+          "relative h-full w-full overflow-hidden bg-black text-left",
+          index === 0 ? visualConfig.primaryRadius : visualConfig.secondaryRadius,
+          kind === 'albums'
+            ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]"
+            : "shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]"
+        )}
+        style={{ transformStyle: 'preserve-3d' }}
+      >
+        <motion.div
+          className="relative h-full w-full"
+          animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, index === 0 ? -3 : -1.5, 0] } : {}}
+          transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
+            duration: index === 0 ? 8.5 : 7 + index * 0.3,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          } : {}}
+        >
+          <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={title} rounded="none" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
+          <span
+            className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+            style={{ fontSize: index === 0 ? '24px' : '20px' }}
+          >
+            {index + 1}
+          </span>
+          <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
+            {detail && (
+              <span
+                className="mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62"
+                style={{ fontSize: index === 0 ? '6.5px' : '5.5px' }}
+              >
+                {detail}
+              </span>
+            )}
+            <span
+              className="block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]"
+              style={{ fontSize: index === 0 ? '9.5px' : '8px' }}
+            >
+              {title}
+            </span>
+            <span
+              className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
+              style={{ fontSize: index === 0 ? '7.5px' : '6.5px' }}
+            >
+              {metric}
+            </span>
+          </div>
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+const HomeHighlightOrbitStage = ({
+  items,
+  kind,
+  stageHeight,
+  isCentered,
+  isSectionVisible,
+  shouldReduceMotion,
+  onItemClick,
+}: {
+  items: any[];
+  kind: HomeHighlightKind;
+  stageHeight: string;
+  isCentered: boolean;
+  isSectionVisible: boolean;
+  shouldReduceMotion: boolean;
+  onItemClick?: (item: any) => void;
+}) => {
+  const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
+  const highlightsScrollRef = useRef<HTMLDivElement | null>(null);
+  const { scrollX } = useScroll({ container: highlightsScrollRef });
+  const maxScrollX = useMemo(
+    () => Math.max(1, getHighlightFocusX(items.length - 1, visualConfig)),
+    [items.length, visualConfig]
+  );
+  const ringOffsetX = useTransform(
+    scrollX,
+    [0, maxScrollX],
+    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.03)]
+  );
+  const dashOffsetX = useTransform(
+    scrollX,
+    [0, maxScrollX],
+    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.05)]
+  );
+  const glowOffsetX = useTransform(
+    scrollX,
+    [0, maxScrollX],
+    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.02)]
+  );
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
+      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
+        <motion.div
+          className={cn("rounded-full border border-white/[0.06]", visualConfig.ringScale)}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 0.5, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          style={{ x: ringOffsetX, willChange: 'transform' }}
+        />
+      </div>
+      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
+        <motion.div
+          className={cn("rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
+          initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
+          animate={{
+            opacity: [0, 0.3, 0.5],
+            scale: 1,
+            rotate: !shouldReduceMotion && isSectionVisible && isCentered ? 360 : 0,
+          }}
+          transition={{
+            opacity: { duration: 0.6, ease: 'easeOut' },
+            scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+            rotate: !shouldReduceMotion && isSectionVisible && isCentered
+              ? { duration: 58, repeat: Infinity, ease: 'linear' }
+              : { duration: 0.5 }
+          }}
+          style={{ x: dashOffsetX, willChange: 'transform' }}
+        />
+      </div>
+      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
+        <motion.div
+          className="h-[104px] w-[104px] rounded-full bg-orange-500/[0.05] blur-2xl"
+          initial={{ opacity: 0, scale: 0.7 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          style={{ x: glowOffsetX, willChange: 'transform' }}
+        />
+      </div>
+
+      <div
+        ref={highlightsScrollRef}
+        data-home-horizontal-scroll="true"
+        className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5 snap-x snap-mandatory"
+      >
+        {items.map((item, index) => (
+          <HomeHighlightOrbitCard
+            key={`${kind}-rank-${item.id || item.name || index}`}
+            item={item}
+            index={index}
+            kind={kind}
+            scrollX={scrollX}
+            visualConfig={visualConfig}
+            isCentered={isCentered}
+            isSectionVisible={isSectionVisible}
+            shouldReduceMotion={shouldReduceMotion}
+            onItemClick={onItemClick}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const HomeOrbitalHighlights = ({
   totalMinutes,
   artists,
@@ -754,24 +1116,7 @@ const HomeOrbitalHighlights = ({
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
-  const [highlightActiveIndexes, setHighlightActiveIndexes] = useState<Record<HomeHighlightKind, number>>({
-    artists: 0,
-    tracks: 0,
-    albums: 0,
-  });
   const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
-  const highlightScrollRefs = useRef<Partial<Record<HomeHighlightKind, HTMLDivElement | null>>>({});
-  const highlightScrollRafRef = useRef<number | null>(null);
-  const highlightParallaxRefs = useRef<Partial<Record<HomeHighlightKind, {
-    ring: HTMLDivElement | null;
-    dash: HTMLDivElement | null;
-    glow: HTMLDivElement | null;
-  }>>>({});
-  const highlightActiveIndexRefs = useRef<Record<HomeHighlightKind, number>>({
-    artists: 0,
-    tracks: 0,
-    albums: 0,
-  });
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
     { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
     { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 12) },
@@ -796,143 +1141,6 @@ const HomeOrbitalHighlights = ({
   const stageHeight = "h-[238px] sm:h-[258px]";
   const activeGroup = groups.find((group) => group.key === activeKind) || groups[0];
   const periodLabel = getReplayFilterLabel(activeTab, selectedSubValues);
-  const applyHighlightCardStyles = useCallback((kind: HomeHighlightKind) => {
-    const node = highlightScrollRefs.current[kind];
-    if (!node) return;
-    const config = HIGHLIGHT_VISUAL_CONFIG[kind];
-    const step = config.secondary.width + 8;
-    const cards = Array.from(node.querySelectorAll<HTMLElement>('[data-highlight-card="true"]'));
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    const scrollLeft = node.scrollLeft;
-    const primaryWidth = config.primary.width;
-    const secondaryWidth = config.secondary.width;
-    const gap = 8;
-
-    const parallaxNodes = highlightParallaxRefs.current[kind];
-    if (parallaxNodes) {
-      const parallaxRing = shouldReduceMotion ? 0 : scrollLeft * -0.03;
-      const parallaxDash = shouldReduceMotion ? 0 : scrollLeft * -0.05;
-      const parallaxGlow = shouldReduceMotion ? 0 : scrollLeft * -0.02;
-      if (parallaxNodes.ring) {
-        parallaxNodes.ring.style.transform = `translate(-50%, -50%) translateX(${parallaxRing}px)`;
-      }
-      if (parallaxNodes.dash) {
-        parallaxNodes.dash.style.transform = `translate(-50%, -50%) translateX(${parallaxDash}px)`;
-      }
-      if (parallaxNodes.glow) {
-        parallaxNodes.glow.style.transform = `translate(-50%, -50%) translateX(${parallaxGlow}px)`;
-      }
-    }
-
-    cards.forEach((card, index) => {
-      // Calculate distances mathematically to prevent layout thrashing
-      const layoutLeft = index === 0
-        ? 0
-        : primaryWidth + gap + (index - 1) * (secondaryWidth + gap);
-
-      const distance = layoutLeft - scrollLeft - 8;
-      const slot = distance / step;
-      const slotDistance = Math.abs(slot);
-      if (slotDistance < nearestDistance) {
-        nearestDistance = slotDistance;
-        nearestIndex = index;
-      }
-      const rightSlot = Math.max(0, slot);
-      const sizeProgress = shouldReduceMotion
-        ? (rightSlot < 0.55 ? 1 : Math.max(0.22, 1 - rightSlot * 0.32))
-        : Math.max(0.18, 1 - rightSlot * 0.28);
-
-      const targetWidth = secondaryWidth + (primaryWidth - secondaryWidth) * sizeProgress;
-      const baseWidth = index === 0 ? primaryWidth : secondaryWidth;
-      const scale = targetWidth / baseWidth;
-
-      const leftFade = distance < -14 ? Math.max(0, Math.min(1, 1 + distance / 92)) : 1;
-      const farFade = Math.max(0.4, 1 - Math.max(0, rightSlot - 2.5) * 0.12);
-      const opacity = leftFade * farFade;
-      const leftShift = distance < -14 ? Math.max(-28, distance * 0.18) : 0;
-
-      const blurAmount = shouldReduceMotion ? 0 : Math.min(2, Math.max(0, Math.abs(rightSlot - 0.5) - 3) * 1.5);
-
-      card.style.opacity = String(opacity);
-      card.style.filter = blurAmount > 0 ? `blur(${blurAmount}px)` : '';
-      card.style.zIndex = String(Math.round(100 - Math.abs(slot) * 8));
-      card.style.pointerEvents = opacity < 0.25 ? 'none' : '';
-
-      if (kind === 'albums') {
-        const rotationAngle = Math.max(-8, Math.min(8, (slot - 0.5) * -4));
-        card.style.setProperty('--highlight-rotate-y', `${rotationAngle}deg`);
-        card.style.transform = `translate3d(${leftShift}px, 0, 0) scale(${scale}) rotateY(${rotationAngle}deg)`;
-        card.style.transformStyle = 'preserve-3d';
-      } else {
-        card.style.transform = `translate3d(${leftShift}px, 0, 0) scale(${scale})`;
-      }
-    });
-
-    if (highlightActiveIndexRefs.current[kind] !== nearestIndex) {
-      highlightActiveIndexRefs.current[kind] = nearestIndex;
-      setHighlightActiveIndexes((current) => (
-        current[kind] === nearestIndex ? current : { ...current, [kind]: nearestIndex }
-      ));
-    }
-  }, [shouldReduceMotion]);
-
-  const scheduleHighlightCardStyles = useCallback((kind: HomeHighlightKind) => {
-    if (typeof window === 'undefined') return;
-    if (highlightScrollRafRef.current != null) return;
-    highlightScrollRafRef.current = window.requestAnimationFrame(() => {
-      highlightScrollRafRef.current = null;
-      applyHighlightCardStyles(kind);
-    });
-  }, [applyHighlightCardStyles]);
-
-  useEffect(() => {
-    const node = highlightScrollRefs.current[activeKind];
-    if (node) node.scrollLeft = 0;
-    highlightActiveIndexRefs.current[activeKind] = 0;
-    setHighlightActiveIndexes((current) => current[activeKind] === 0 ? current : { ...current, [activeKind]: 0 });
-    scheduleHighlightCardStyles(activeKind);
-  }, [activeKind, activeGroup?.items.length, scheduleHighlightCardStyles]);
-
-  const scrollToHighlightIndex = useCallback((kind: HomeHighlightKind, index: number) => {
-    const node = highlightScrollRefs.current[kind];
-    if (!node) return;
-
-    // Haptic feedback no mobile
-    if ('vibrate' in navigator && !shouldReduceMotion) {
-      navigator.vibrate(5);
-    }
-
-    const config = HIGHLIGHT_VISUAL_CONFIG[kind];
-    const step = config.secondary.width + 8;
-    node.scrollTo({ left: Math.max(0, index * step), behavior: shouldReduceMotion ? 'auto' : 'smooth' });
-    highlightActiveIndexRefs.current[kind] = index;
-    setHighlightActiveIndexes((current) => current[kind] === index ? current : { ...current, [kind]: index });
-    scheduleHighlightCardStyles(kind);
-  }, [scheduleHighlightCardStyles, shouldReduceMotion]);
-
-  useEffect(() => {
-    return () => {
-      if (highlightScrollRafRef.current != null) {
-        window.cancelAnimationFrame(highlightScrollRafRef.current);
-      }
-    };
-  }, []);
-  const metricLabel = (item: any, kind: HomeHighlightKind) => {
-    if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
-    return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
-  };
-  const detailLabel = (item: any, kind: HomeHighlightKind) => {
-    if (kind === 'tracks' || kind === 'albums') return getReplayItemArtist(item);
-    return '';
-  };
-  const buildDetailItem = (item: any, kind: HomeHighlightKind) => ({
-    ...item,
-    type: kind === 'artists' ? 'artist' : kind === 'albums' ? 'album' : 'track',
-    image: getReplayItemImage(item),
-    artistName: getReplayItemArtist(item),
-  });
 
   const handleCategoryChange = useCallback((newKind: HomeHighlightKind) => {
     if (newKind === activeKind) return;
@@ -974,167 +1182,6 @@ const HomeOrbitalHighlights = ({
     }
     setIndicatorTouchStartX(null);
   }, [activeKind, groups, indicatorTouchStartX, handleCategoryChange, shouldReduceMotion]);
-
-  const renderHighlightOrbit = (items: any[], kind: HomeHighlightKind, isCentered = true) => {
-    const orderedItems = items;
-    if (orderedItems.length === 0) return null;
-    const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
-
-    return (
-      <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
-        <motion.div
-          ref={(node) => {
-            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
-            highlightParallaxRefs.current[kind] = { ...current, ring: node };
-          }}
-          className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.06]", visualConfig.ringScale)}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 0.5, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        />
-        <motion.div
-          ref={(node) => {
-            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
-            highlightParallaxRefs.current[kind] = { ...current, dash: node };
-          }}
-          className={cn("pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
-          initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
-          animate={{
-            opacity: [0, 0.3, 0.5],
-            scale: 1,
-            rotate: !shouldReduceMotion && isSectionVisible && isCentered ? 360 : 0,
-          }}
-          transition={{
-            opacity: { duration: 0.6, ease: 'easeOut' },
-            scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-            rotate: !shouldReduceMotion && isSectionVisible && isCentered
-              ? { duration: 58, repeat: Infinity, ease: 'linear' }
-              : { duration: 0.5 }
-          }}
-        />
-        <motion.div
-          ref={(node) => {
-            const current = highlightParallaxRefs.current[kind] || { ring: null, dash: null, glow: null };
-            highlightParallaxRefs.current[kind] = { ...current, glow: node };
-          }}
-          className="pointer-events-none absolute left-24 top-[54%] h-[104px] w-[104px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.05] blur-2xl"
-          initial={{ opacity: 0, scale: 0.7 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-        />
-
-        <div
-          ref={(node) => {
-            highlightScrollRefs.current[kind] = node;
-            if (node && typeof window !== 'undefined') {
-              window.requestAnimationFrame(() => applyHighlightCardStyles(kind));
-            }
-          }}
-          data-home-horizontal-scroll="true"
-          className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5 snap-x snap-mandatory"
-          onScroll={() => scheduleHighlightCardStyles(kind)}
-          onPointerUp={() => scheduleHighlightCardStyles(kind)}
-          onTouchEnd={() => scheduleHighlightCardStyles(kind)}
-        >
-          {orderedItems.map((item, index) => {
-            return (
-              <motion.button
-                key={`${kind}-rank-${item.id || item.name || index}`}
-                type="button"
-                onClick={() => isCentered && onItemClick?.(buildDetailItem(item, kind))}
-                data-highlight-card="true"
-                data-highlight-index={index}
-                data-entity-stats-trigger={kind}
-                data-entity-stats-active={isCentered ? 'true' : undefined}
-                data-entity-stats-primary={index === 0 ? 'true' : undefined}
-                data-entity-stats-satellite={index > 0 ? index + 1 : undefined}
-                initial={{
-                  opacity: 0,
-                  scale: 0.7,
-                  y: 20,
-                  rotateX: 12,
-                }}
-                animate={{
-                  opacity: index === 0 ? 1 : 0.88,
-                  scale: 1,
-                  y: 0,
-                  rotateX: 0,
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 280,
-                  damping: 28,
-                  mass: 0.6,
-                  delay: index * 0.045,
-                }}
-                whileHover={isCentered && onItemClick ? {
-                  scale: 1.05,
-                  zIndex: 150,
-                  transition: { duration: 0.2 }
-                } : {}}
-                whileTap={isCentered && onItemClick ? { scale: 0.98 } : {}}
-                className={cn(
-                  "relative shrink-0 overflow-hidden bg-black text-left snap-start",
-                  visualConfig.primaryRadius,
-                  kind === 'albums' ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]" : "shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]",
-                  onItemClick && isCentered && "cursor-pointer"
-                )}
-                style={{
-                  width: index === 0 ? visualConfig.primary.width : visualConfig.secondary.width,
-                  height: index === 0 ? visualConfig.primary.height : visualConfig.secondary.height,
-                  ...(kind === 'albums' && {
-                    transform: `rotateY(var(--highlight-rotate-y, 0deg))`,
-                    transformStyle: 'preserve-3d',
-                  })
-                }}
-              >
-                <motion.div
-                  className="relative h-full w-full"
-                  animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, index === 0 ? -3 : -1.5, 0] } : {}}
-                  transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
-                    duration: index === 0 ? 8.5 : 7 + index * 0.3,
-                    repeat: Infinity,
-                    ease: 'easeInOut',
-                  } : {}}
-                >
-                  <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={getReplayItemTitle(item)} rounded="none" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
-                  <span
-                    className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
-                    style={{ fontSize: index === 0 ? '24px' : '20px' }}
-                  >
-                    {index + 1}
-                  </span>
-                  <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
-                    {detailLabel(item, kind) && (
-                      <span
-                        className="mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62"
-                        style={{ fontSize: index === 0 ? '6.5px' : '5.5px' }}
-                      >
-                        {detailLabel(item, kind)}
-                      </span>
-                    )}
-                    <span
-                      className="block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]"
-                      style={{ fontSize: index === 0 ? '9.5px' : '8px' }}
-                    >
-                      {getReplayItemTitle(item)}
-                    </span>
-                    <span
-                      className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
-                      style={{ fontSize: index === 0 ? '7.5px' : '6.5px' }}
-                    >
-                      {metricLabel(item, kind)}
-                    </span>
-                  </div>
-                </motion.div>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   if (groups.length === 0) return null;
 
@@ -1264,14 +1311,22 @@ const HomeOrbitalHighlights = ({
                     x: categoryDirection * -30,
                     scale: 0.92,
                     rotateY: categoryDirection * -5,
-                  }}
+                }}
                   transition={{
                     duration: 0.45,
                     ease: [0.16, 1, 0.3, 1],
                   }}
                   style={{ transformStyle: 'preserve-3d' }}
                 >
-                  {renderHighlightOrbit(activeGroup.items, activeGroup.key, true)}
+                  <HomeHighlightOrbitStage
+                    items={activeGroup.items}
+                    kind={activeGroup.key}
+                    stageHeight={stageHeight}
+                    isCentered
+                    isSectionVisible={isSectionVisible}
+                    shouldReduceMotion={shouldReduceMotion}
+                    onItemClick={onItemClick}
+                  />
                 </motion.div>
               </AnimatePresence>
             </div>
