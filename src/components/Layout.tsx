@@ -1019,15 +1019,14 @@ const TrackLinkIconButton = ({ link, onChoose }: { link: TrackLink; onChoose: (l
         : <GeniusLogo className="h-4 w-4 text-current" />;
 
   return (
-    <motion.button
+    <button
       type="button"
       onClick={(event) => onChoose(link, event.currentTarget)}
       aria-label={`Opções do ${link.label}`}
-      whileTap={{ scale: 0.95 }}
-      className="stats-lc-soft-white-glass flex h-10 w-10 items-center justify-center rounded-full border border-white/8 text-white/72 transition-transform"
+      className="stats-lc-soft-white-glass flex h-10 w-10 items-center justify-center rounded-full border-0 text-white/72 transition-transform active:scale-95"
     >
       {icon}
-    </motion.button>
+    </button>
   );
 };
 
@@ -1048,71 +1047,6 @@ const ModalMetricValue = ({
 const ModalSkeleton = ({ className = "" }: { className?: string }) => (
   <span className={clsx("stats-lc-skeleton-shimmer block rounded-full", className)} />
 );
-
-const BOTTOM_TRACK_GLASS_SCOPE_CSS = `
-[data-bottom-track-glass-root="true"] .bottom-track-stats-controls-glass-layer {
-  background:
-    radial-gradient(110% 160% at 50% 100%, color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 16%, transparent) 0%, transparent 72%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-  box-shadow: none;
-}
-
-[data-bottom-track-glass-root="true"] .bottom-track-stats-modal .stats-lc-soft-white-glass,
-[data-bottom-track-glass-root="true"] .bottom-track-stats-surface,
-[data-bottom-track-glass-root="true"] .bottom-track-recent-picker {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.085) 0%, rgba(255,255,255,0.028) 100%),
-    color-mix(in srgb, var(--bottom-track-accent, #ff5f00) 8%, rgba(10,10,12,0.22));
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    0 12px 32px rgba(0,0,0,0.16);
-  -webkit-backdrop-filter: blur(24px) saturate(150%) !important;
-  backdrop-filter: blur(24px) saturate(150%) !important;
-}
-
-[data-bottom-track-glass-root="true"] .bottom-track-controls-button {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%),
-    rgba(8,8,10,0.18);
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    0 8px 24px rgba(0,0,0,0.18);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
-}
-
-[data-bottom-track-glass-root="true"] .bottom-track-controls-button:active {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.045) 100%),
-    rgba(8,8,10,0.24);
-  border-color: rgba(255,255,255,0.12);
-}
-
-[data-bottom-track-glass-root="true"] .bottom-track-lyrics-modal {
-  background: transparent !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow:
-    0 -12px 38px rgba(0,0,0,0.18),
-    inset 0 1px 0 rgba(255,255,255,0.08) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(130%) !important;
-  backdrop-filter: blur(24px) saturate(130%) !important;
-}
-
-[data-bottom-track-glass-root="true"] .bottom-track-lyrics-modal .stats-lc-soft-white-glass {
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.082) 0%, rgba(255,255,255,0.026) 100%),
-    rgba(10,10,12,0.18);
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.08),
-    0 10px 26px rgba(0,0,0,0.14);
-  -webkit-backdrop-filter: blur(22px) saturate(130%) !important;
-  backdrop-filter: blur(22px) saturate(130%) !important;
-}
-`;
 
 const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const groupStats = useStatsStore(state => state.groupStats);
@@ -1166,7 +1100,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [isLyricsOpen]);
 
   const modalRef = React.useRef<HTMLElement | null>(null);
-  const lyricsModalRef = React.useRef<HTMLDivElement | null>(null);
   const dragControls = useDragControls();
   const [lyricsMatch, setLyricsMatch] = React.useState<LyricsMatch | null>(null);
   const [lyricsText, setLyricsText] = React.useState<string | null>(null);
@@ -1387,36 +1320,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const isAppleMusicUser = panelUser?.platform?.primary === 'appleMusic' || panelUser?.platform === 'appleMusic' || panelUser?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
-  const bottomTrackGlassRootStyle = React.useMemo(
-    () => ({
-      ['--bottom-track-accent' as string]: dominantColor,
-    }) as React.CSSProperties,
-    [dominantColor]
-  );
-  const statsModalBackdropStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 100%, color-mix(in srgb, ${dominantColor} 24%, transparent) 0%, transparent 58%), rgba(8,8,10,0.30)`,
-    backdropFilter: 'blur(24px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-  }), [dominantColor]);
-  const statsPanelGlassStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 0%, color-mix(in srgb, ${dominantColor} 18%, transparent) 0%, transparent 62%), linear-gradient(180deg, rgba(255,255,255,0.065) 0%, rgba(255,255,255,0.024) 100%), rgba(9,9,11,0.22)`,
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)',
-    backdropFilter: 'blur(24px) saturate(160%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(160%)',
-  }), [dominantColor]);
-  const lyricsOverlayStyle = React.useMemo<React.CSSProperties>(() => ({
-    background: `radial-gradient(140% 140% at 50% 100%, color-mix(in srgb, ${dominantColor} 18%, transparent) 0%, transparent 60%), rgba(8,8,10,0.16)`,
-    backdropFilter: 'blur(24px) saturate(130%)',
-    WebkitBackdropFilter: 'blur(24px) saturate(130%)',
-  }), [dominantColor]);
-  const clearGlassPanelTransform = React.useCallback((node: HTMLElement | null) => {
-    if (!node || typeof window === 'undefined') return;
-    window.requestAnimationFrame(() => {
-      node.style.transform = 'none';
-      node.style.willChange = 'auto';
-    });
-  }, []);
   const shouldReserveGeniusLink = !!track?.name && lyricsMatch?.hasLyrics !== false;
   const currentLyricsRequestKey = React.useMemo(() => {
     if (!track?.name) return '';
@@ -2123,24 +2026,18 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               "fixed inset-0 z-[1205]",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
             )}
-            data-bottom-track-glass-root="true"
             aria-hidden={!isModalVisible}
-            style={{
-              ...bottomTrackGlassRootStyle,
-              visibility: isOpen ? 'visible' : 'hidden',
-            }}
+            style={{ visibility: isOpen ? 'visible' : 'hidden' }}
           >
-            <style>{BOTTOM_TRACK_GLASS_SCOPE_CSS}</style>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: isModalVisible ? 1 : 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.24, ease: "easeOut" }}
               className={clsx(
-                "absolute inset-0",
+                "absolute inset-0 bg-black/45 backdrop-blur-[6px]",
                 isModalVisible ? "pointer-events-auto cursor-default" : "pointer-events-none"
               )}
-              style={statsModalBackdropStyle}
               aria-label="Fechar stats da música"
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
@@ -2271,7 +2168,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               onAnimationComplete={() => {
                 if (isModalVisible) {
                   setIsAnimationDone(true);
-                  clearGlassPanelTransform(modalRef.current);
                 } else {
                   setIsAnimationDone(false);
                 }
@@ -2299,53 +2195,45 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   onClick={(event) => event.stopPropagation()}
                 >
                   {olderPlaybackIndex !== playbackIndex ? (
-                    <motion.button
+                    <button
                       type="button"
                       aria-label="Abrir música anterior do seu histórico"
                       onClick={() => selectPlaybackChoice(olderPlaybackIndex)}
-                      whileTap={{ scale: 0.95 }}
-                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full border border-white/8 text-white/82 transition-[opacity,transform,color]"
+                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
-                    </motion.button>
+                    </button>
                   ) : (
                     <span className="h-11 w-11" aria-hidden="true" />
                   )}
-                  <motion.button
+                  <button
                     type="button"
                     data-recent-toggle="true"
                     aria-label="Abrir lista das suas recentes"
                     onClick={() => setRecentPickerOpen(value => !value)}
-                    whileTap={{ scale: 0.95 }}
-                    style={recentPickerOpen ? {
-                      background: 'linear-gradient(90deg, rgba(249,115,22,1) 0%, rgba(245,158,11,1) 100%)',
-                      boxShadow: '0 10px 26px rgba(249,115,22,0.42), 0 0 0 1px rgba(255,255,255,0.08)',
-                      borderColor: 'rgba(255,255,255,0.10)',
-                    } : undefined}
                     className={clsx(
-                      "bottom-track-controls-button flex h-10 min-w-10 items-center justify-center rounded-full border border-white/8 px-3.5 transition-[background-color,transform,color]",
-                      recentPickerOpen ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_10px_26px_rgba(249,115,22,0.42),0_0_0_1px_rgba(255,255,255,0.08)]" : "text-white/84"
+                      "bottom-track-controls-button flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 transition-[background-color,transform,color] active:scale-95",
+                      recentPickerOpen ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_4px_12px_rgba(249,115,22,0.35)]" : "text-white/84"
                     )}
                   >
                     <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
                     <span className="ml-2 text-[8px] font-black uppercase tracking-[0.14em]">Recentes</span>
-                  </motion.button>
+                  </button>
                   {newerPlaybackIndex !== playbackIndex ? (
-                    <motion.button
+                    <button
                       type="button"
                       aria-label="Voltar para música mais recente"
                       onClick={() => selectPlaybackChoice(newerPlaybackIndex)}
-                      whileTap={{ scale: 0.95 }}
-                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full border border-white/8 text-white/82 transition-[opacity,transform,color]"
+                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
                     >
                       <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
-                    </motion.button>
+                    </button>
                   ) : (
                     <span className="h-11 w-11" aria-hidden="true" />
                   )}
                 </motion.div>
               )}
-              <div className="bottom-track-stats-body-backdrop relative w-full overflow-hidden rounded-[30px] p-4" style={statsPanelGlassStyle}>
+              <div className="bottom-track-stats-body-backdrop relative w-full overflow-hidden rounded-[30px] p-4">
                 <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
@@ -2794,23 +2682,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
               <div className="mt-4 flex items-center gap-2">
                 {track?.name && (
-                  <motion.button
+                  <button
                     type="button"
                     onClick={handleLyrics}
                     disabled={lyricsLoading || lyricsMatch?.hasLyrics === false}
-                    whileTap={lyricsMatch?.hasLyrics === false ? undefined : { scale: 0.95 }}
                     className={clsx(
-                      "stats-lc-soft-white-glass flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-white/8 px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                      "stats-lc-soft-white-glass flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
                         ? "cursor-not-allowed text-white/28"
-                        : "text-white/72 hover:text-white"
+                        : "border-0 text-white/72 hover:text-white"
                     )}
                   >
                     {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
                     <span className="whitespace-nowrap">
                       {lyricsLoading ? 'Buscando' : lyricsMatch?.hasLyrics === false ? 'Letra indisponível' : 'Ver letra'}
                     </span>
-                  </motion.button>
+                  </button>
                 )}
                 {(trackLinks.length > 0 || shouldReserveGeniusLink) && (
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -2861,12 +2748,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="fixed inset-0 z-[1208] pointer-events-auto"
-                    style={lyricsOverlayStyle}
+                    className="fixed inset-0 z-[1208] bg-black/40 backdrop-blur-[4px] pointer-events-auto"
                     onClick={() => setIsLyricsOpen(false)}
                   />
                   <motion.div
-                    ref={lyricsModalRef}
                     className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
                     data-animation-done={isLyricsAnimationDone}
                     initial={{ y: '100%' }}
@@ -2876,7 +2761,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onAnimationComplete={() => {
                       if (isLyricsOpen) {
                         setIsLyricsAnimationDone(true);
-                        clearGlassPanelTransform(lyricsModalRef.current);
                       }
                     }}
                     drag="y"
@@ -2894,7 +2778,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       touchAction: 'none',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
                       transform: isLyricsOpen && isLyricsAnimationDone ? 'none' : undefined,
-                      background: 'transparent',
                     }}
                   >
                   {/* Drag Handle Area */}
