@@ -3,6 +3,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
+import { usePageVisibility } from './useViewportMotionGate';
 
 interface AutoOrbitRotationOptions {
   enabled: boolean;
@@ -17,20 +18,12 @@ export const useAutoOrbitRotation = ({
 }: AutoOrbitRotationOptions) => {
   const onAdvanceRef = useRef(onAdvance);
   const [isInteracting, setIsInteracting] = useState(false);
-  const [isPageVisible, setIsPageVisible] = useState(
-    typeof document === 'undefined' || document.visibilityState !== 'hidden'
-  );
+  const isPageVisible = usePageVisibility();
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
     onAdvanceRef.current = onAdvance;
   }, [onAdvance]);
-
-  useEffect(() => {
-    const handleVisibility = () => setIsPageVisible(document.visibilityState !== 'hidden');
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
 
   useEffect(() => {
     if (!enabled || !isPageVisible || isInteracting) return;

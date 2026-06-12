@@ -20,6 +20,7 @@ import { Headphones, Flame, ArrowRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router-dom';
+import { animationTokens, easeOutQuart } from '../../lib/animationTokens';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -76,8 +77,8 @@ const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
     let frame = 0;
 
     const renderFrame = (now: number) => {
-      const progress = Math.min((now - startedAt) / 700, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
+      const progress = Math.min((now - startedAt) / animationTokens.durationMs.arenaNumber, 1);
+      const eased = easeOutQuart(progress);
       const displayValue = Math.round(startValue + (value - startValue) * eased);
       if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(displayValue);
 

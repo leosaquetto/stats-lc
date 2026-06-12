@@ -25,6 +25,7 @@ import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
+import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
 
 const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
 const loadTrackLeaderboardModule = () => import('../components/modals/TrackLeaderboardModal');
@@ -175,21 +176,6 @@ const getReplayItemTitle = (item: any) => item?.name || item?.track?.name || ite
 const getFirstName = (name?: string) => {
   if (!name) return '';
   return name.trim().split(/\s+/)[0] || name;
-};
-
-const useHomeSectionVisibility = (rootMargin = '180px') => {
-  const ref = useRef<HTMLElement | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { rootMargin });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [rootMargin]);
-
-  return [ref, isVisible] as const;
 };
 
 const HomeHighlightPeriodControls = ({
@@ -1112,7 +1098,7 @@ const HomeOrbitalHighlights = ({
   onItemClick?: (item: any) => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
+  const { ref: sectionRef, isInViewport: isSectionVisible } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
@@ -1397,7 +1383,7 @@ const HomePerceptions = ({
   selectedSubValues: ReplaySelectedSubValues;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const [sectionRef, isSectionVisible] = useHomeSectionVisibility();
+  const { ref: sectionRef, isInViewport: isSectionVisible } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [latestDiscovery, setLatestDiscovery] = useState<any>(

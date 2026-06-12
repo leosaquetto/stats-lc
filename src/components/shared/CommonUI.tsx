@@ -11,6 +11,8 @@ import { twMerge } from 'tailwind-merge';
 import { coreUtils } from '../../services/statsCore';
 import { LOGO_ORANGE, LOGO_BLACK_ORANGE } from '../../constants';
 import { useStatsStore } from '../../store/useStatsStore';
+import { animationTokens, easeOutQuart } from '../../lib/animationTokens';
+import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -56,45 +58,8 @@ export const OrbitPagerIndicator = memo(({
 
 OrbitPagerIndicator.displayName = 'OrbitPagerIndicator';
 
-const usePrefersReducedMotion = () => {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setPrefersReducedMotion(media.matches);
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
-
-  return prefersReducedMotion;
-};
-
-const useElementVisibility = <T extends HTMLElement>(rootMargin = '160px') => {
-  const ref = useRef<T | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [rootMargin]);
-
-  return [ref, isVisible] as const;
-};
-
 export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: { size?: number, className?: string, variant?: 'orange' | 'black' }) => {
-  const [logoRef, isVisible] = useElementVisibility<HTMLDivElement>('120px');
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const shouldAnimate = isVisible && !prefersReducedMotion;
+  const { ref: logoRef, canAnimate: shouldAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '120px' });
 
   return (
     <motion.div 
@@ -186,8 +151,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const [loading, setLoading] = useState(() => inputSrc ? loadedImageSrcs.has(inputSrc) === false : true);
   const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
-  const [imageFrameRef, isVisible] = useElementVisibility<HTMLDivElement>('220px');
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const { ref: imageFrameRef, canAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
   const imageRef = useRef<HTMLImageElement>(null);
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
@@ -264,7 +228,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
               height: '100%',
             }}
             initial={{ x: '-100%' }}
-            animate={isVisible && !prefersReducedMotion ? { x: '100%' } : { x: '-100%' }}
+            animate={canAnimate ? { x: '100%' } : { x: '-100%' }}
             transition={{
               repeat: Infinity,
               duration: shimmerDuration,
@@ -425,15 +389,14 @@ export const ShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: 
 );
 
 const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => {
-  const [shimmerRef, isVisible] = useElementVisibility<HTMLDivElement>('180px');
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const { ref: shimmerRef, canAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
 
   return (
     <div ref={shimmerRef} className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
       <motion.div
         className="absolute inset-0"
         initial={{ x: '-100%' }}
-        animate={isVisible && !prefersReducedMotion ? { x: '100%' } : { x: '-100%' }}
+        animate={canAnimate ? { x: '100%' } : { x: '-100%' }}
         transition={{
           repeat: Infinity,
           duration,
@@ -441,7 +404,7 @@ const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: 
         }}
         style={{
           background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
-          willChange: isVisible && !prefersReducedMotion ? 'transform' : 'auto'
+          willChange: canAnimate ? 'transform' : 'auto'
         }}
       />
     </div>
@@ -468,8 +431,11 @@ export const AnimatedNumber = ({
   startFrom?: number;
   adaptive?: boolean;
 }) => {
-  const [numberRef, isVisible] = useElementVisibility<HTMLSpanElement>('120px');
-  const prefersReducedMotion = usePrefersReducedMotion();
+  const {
+    ref: numberRef,
+    isInViewport,
+    prefersReducedMotion,
+  } = useViewportMotionGate<HTMLSpanElement>({ rootMargin: '120px' });
   const initialValue = startFrom == null ? value : startFrom;
   const initialValueRef = useRef(initialValue);
   const displayValueRef = useRef(initialValue);
@@ -480,7 +446,7 @@ export const AnimatedNumber = ({
   useEffect(() => {
     if (prevValueRef.current === value) return;
 
-    if (!isVisible || prefersReducedMotion) {
+    if (!isInViewport || prefersReducedMotion) {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
       prevValueRef.current = value;
@@ -493,8 +459,14 @@ export const AnimatedNumber = ({
     const endValue = value;
     const delta = Math.abs(endValue - startValue);
     const duration = adaptive
-      ? Math.min(900, Math.max(360, 360 + Math.log10(delta + 1) * 180))
-      : 620;
+      ? Math.min(
+          animationTokens.durationMs.numberAdaptiveMax,
+          Math.max(
+            animationTokens.durationMs.numberAdaptiveMin,
+            animationTokens.durationMs.numberAdaptiveMin + Math.log10(delta + 1) * 180
+          )
+        )
+      : animationTokens.durationMs.number;
 
     const animate = (time: number) => {
       if (!startTimeRef.current) startTimeRef.current = time;
@@ -502,7 +474,7 @@ export const AnimatedNumber = ({
       const progress = Math.min(elapsed / duration, 1);
       
       // Quartic out easing for smoother finish
-      const easeProgress = 1 - Math.pow(1 - progress, 4);
+      const easeProgress = easeOutQuart(progress);
       const current = Math.floor(startValue + (endValue - startValue) * easeProgress);
       displayValueRef.current = current;
       if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(current);
@@ -520,7 +492,7 @@ export const AnimatedNumber = ({
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       startTimeRef.current = undefined;
     };
-  }, [adaptive, value, isVisible, prefersReducedMotion, numberRef]);
+  }, [adaptive, value, isInViewport, prefersReducedMotion, numberRef]);
 
   return <span ref={numberRef}>{coreUtils.formatNumber(initialValueRef.current)}</span>;
 };

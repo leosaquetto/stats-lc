@@ -18,30 +18,11 @@ import {
   getTopItemArtistName,
   normalizeTopItemForType,
 } from '../../lib/topItemUtils';
+import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-const useOrbitVisibility = () => {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '180px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, isVisible] as const;
-};
 
 // Internal type for processed connections
 interface AlikeConnection {
@@ -71,7 +52,7 @@ export const StatsAlike = React.memo(() => {
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const topItemsCache = useStatsStore(state => state.topItemsCache);
   const shouldReduceMotion = useReducedMotion();
-  const [orbitRef, isOrbitVisible] = useOrbitVisibility();
+  const { ref: orbitRef, isInViewport: isOrbitVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const [activeIndex, setActiveIndex] = useState(cachedAlikeIndex);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 

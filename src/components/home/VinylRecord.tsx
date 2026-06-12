@@ -9,6 +9,7 @@ import { Disc } from 'lucide-react';
 import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
 import { VinylTonearm } from './VinylTonearm';
+import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -59,41 +60,6 @@ const getTextureProfile = (albumImage: string, dominantColor: string) => {
   }
   vinylTextureCache.set(key, profile);
   return profile;
-};
-
-const useVinylVisibility = () => {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '220px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, isVisible] as const;
-};
-
-const usePrefersReducedMotion = () => {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setPrefersReducedMotion(media.matches);
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
-
-  return prefersReducedMotion;
 };
 
 const getRotationFromTransform = (transform: string) => {
@@ -168,7 +134,12 @@ export const VinylRecord = ({
   onPlaybackIntent
 }: VinylRecordProps) => {
   const uniqueId = useId();
-  const [containerRef, isVisible] = useVinylVisibility();
+  const {
+    ref: containerRef,
+    isInViewport: isVisible,
+    prefersReducedMotion,
+    canAnimate,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
   const initialIdentity = getVisualIdentity(playbackKey, albumImage);
   const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
     albumImage,
@@ -192,8 +163,6 @@ export const VinylRecord = ({
   const phaseRef = useRef(phase);
   const spinEnabledRef = useRef(spinEnabled);
   const tonearmStateRef = useRef(tonearmState);
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const canAnimate = isVisible && !prefersReducedMotion;
   const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
   const incomingIdentity = getVisualIdentity(playbackKey, albumImage);

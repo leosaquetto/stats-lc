@@ -6,6 +6,7 @@ import { Zap, Heart, Sparkles, Trophy, Clock, Disc3, ChevronLeft, ChevronRight }
 import { OrbitPagerIndicator, SmartImage } from '../shared/CommonUI';
 import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { useAutoOrbitRotation } from '../../hooks/useAutoOrbitRotation';
+import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 interface HomeInsightsProps {
   onFriendClick: (friend: any) => void;
@@ -27,26 +28,6 @@ type HomeInsight = {
 };
 
 let cachedInsightIndex = 0;
-
-const useInsightsVisibility = () => {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = React.useState(true);
-
-  React.useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '180px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, isVisible] as const;
-};
 
 // Helpers locais para melhorar inteligência dos insights
 const getItemCount = (item: any): number => {
@@ -187,7 +168,7 @@ const getMonthLeaderInsight = (member: any): string => {
 
 export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendClick }) => {
   const shouldReduceMotion = useReducedMotion();
-  const [insightsRef, isInsightsVisible] = useInsightsVisibility();
+  const { ref: insightsRef, isInViewport: isInsightsVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);

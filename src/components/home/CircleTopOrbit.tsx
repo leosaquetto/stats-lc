@@ -13,30 +13,11 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ChevronLeft, ChevronRight, Disc, Mic2, Music } from 'lucide-react';
 import { getTopItemArtistName } from '../../lib/topItemUtils';
+import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-const useOrbitVisibility = () => {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const [isVisible, setIsVisible] = useState(true);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '180px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, isVisible] as const;
-};
 
 interface CircleTopOrbitProps {
   members: UserStats[];
@@ -46,7 +27,7 @@ interface CircleTopOrbitProps {
 
 export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: CircleTopOrbitProps) => {
   const shouldReduceMotion = useReducedMotion();
-  const [orbitRef, isOrbitVisible] = useOrbitVisibility();
+  const { ref: orbitRef, isInViewport: isOrbitVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isMemberMenuOpen, setIsMemberMenuOpen] = useState(false);
