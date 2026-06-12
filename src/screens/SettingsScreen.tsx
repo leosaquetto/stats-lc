@@ -219,6 +219,7 @@ export default function SettingsScreen() {
 
   const handleTogglePush = async () => {
     if (pushNotificationsEnabled) {
+      await notificationService.disableOrbitPush().catch(() => undefined);
       setPushNotificationsEnabled(false);
       showToast('Notificações Desativadas', 'Alertas de atividade foram pausados neste dispositivo.', 'info');
       return;
@@ -232,8 +233,15 @@ export default function SettingsScreen() {
         showToast('Permissão Negada', 'Libere notificações no navegador para ativar os alertas.', 'error');
         return;
       }
+      const orbitPushEnabled = await notificationService.enableOrbitPush(featuredUserId || featuredMember?.id || '');
       setPushNotificationsEnabled(true);
-      showToast('Notificações Ativadas', 'Alertas da Arena foram configurados para este dispositivo.', 'success');
+      showToast(
+        'Notificações Ativadas',
+        orbitPushEnabled
+          ? 'Alertas da Arena e dos Orbits foram configurados para este dispositivo.'
+          : 'Alertas locais foram ativados. O Push dos Orbits aguarda configuração do servidor.',
+        orbitPushEnabled ? 'success' : 'info'
+      );
       window.setTimeout(() => notificationService.sendTestNotification(), 500);
     } catch (error) {
       console.error(error);
@@ -542,7 +550,7 @@ export default function SettingsScreen() {
           id="alerts"
           eyebrow="Alertas"
           title="Notificações Push"
-          description="Preferências locais para alertas de atividade da Arena."
+          description="Alertas locais da Arena e Web Push para novos Orbits e Orbits ouvidos."
           action={<Bell className="h-4 w-4" />}
         >
           <SettingsPanel className="flex flex-col gap-5">

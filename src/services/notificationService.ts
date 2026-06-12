@@ -4,6 +4,7 @@
 
 import { UserStats } from '../types/stats';
 import { getArtistListString } from '../lib/artistUtils';
+import { orbitService } from './orbitService';
 
 // Store previous now playing states in memory during session
 const previousNowPlaying: Record<string, string> = {};
@@ -21,6 +22,13 @@ export interface NotificationSettings {
 
 // Store previous rankings to detect overtakes
 let previousTodayRankings: string[] = [];
+
+const urlBase64ToUint8Array = (value: string) => {
+  const padding = '='.repeat((4 - value.length % 4) % 4);
+  const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((character) => character.charCodeAt(0)));
+};
 
 export const notificationService = {
   /**
@@ -53,6 +61,31 @@ export const notificationService = {
       console.error('Error requesting notification permission:', e);
       return 'default';
     }
+  },
+
+  async enableOrbitPush(userId: string): Promise<boolean> {
+    if (!userId || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    const publicKey = await orbitService.getPushPublicKey();
+    if (!publicKey) return false;
+
+    const registration = await navigator.serviceWorker.getRegistration()
+      || await navigator.serviceWorker.register('/sw.js');
+    const existing = await registration.pushManager.getSubscription();
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    await orbitService.subscribePush(userId, subscription.toJSON());
+    return true;
+  },
+
+  async disableOrbitPush(): Promise<void> {
+    if (!('serviceWorker' in navigator)) return;
+    const registration = await navigator.serviceWorker.getRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return;
+    await orbitService.unsubscribePush(subscription.endpoint).catch(() => undefined);
+    await subscription.unsubscribe();
   },
 
   /**

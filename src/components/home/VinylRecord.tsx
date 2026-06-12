@@ -160,9 +160,6 @@ export const VinylRecord = ({
   const playbackSequenceRef = useRef(0);
   const albumSwapInFlightRef = useRef(false);
   const manualPlaybackStartRef = useRef(false);
-  const phaseRef = useRef(phase);
-  const spinEnabledRef = useRef(spinEnabled);
-  const tonearmStateRef = useRef(tonearmState);
   const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
   const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
@@ -200,30 +197,8 @@ export const VinylRecord = ({
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const resinAlpha        = isPlaying ? 0.3 : 0.25;
 
-  useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
-
-  useEffect(() => {
-    spinEnabledRef.current = spinEnabled;
-  }, [spinEnabled]);
-
-  useEffect(() => {
-    tonearmStateRef.current = tonearmState;
-  }, [tonearmState]);
-
   const handleTonearmPlaybackChange = useCallback((nextIsPlaying: boolean) => {
     manualPlaybackStartRef.current = nextIsPlaying;
-
-    if (nextIsPlaying) {
-      tonearmStateRef.current = 'playing';
-      phaseRef.current = 'playing';
-      spinEnabledRef.current = true;
-      setTonearmState('playing');
-      setPhase('playing');
-      setSpinEnabled(true);
-    }
-
     onPlaybackIntent?.(nextIsPlaying);
   }, [onPlaybackIntent]);
 
@@ -249,17 +224,12 @@ export const VinylRecord = ({
 
     const runAlbumSwap = async () => {
       albumSwapInFlightRef.current = true;
-      const preserveLiveMotion = isPlaying && (
-        phaseRef.current === 'playing'
-        || spinEnabledRef.current
-        || tonearmStateRef.current === 'playing'
-      );
 
-      if (canAnimate && !preserveLiveMotion) {
+      if (canAnimate) {
         setPhase('swapping-album');
         setTonearmState('lifted');
         setSpinEnabled(false);
-        await wait(780);
+        await wait(isPlaying ? 460 : 620);
       }
 
       if (cancelled || requestId !== visualRequestRef.current) return;
@@ -275,14 +245,6 @@ export const VinylRecord = ({
 
       commitSnapshot();
 
-      if (preserveLiveMotion) {
-        setPhase('playing');
-        setTonearmState('playing');
-        setSpinEnabled(true);
-        albumSwapInFlightRef.current = false;
-        return;
-      }
-
       if (!canAnimate) {
         setPhase(isPlaying ? 'playing' : 'idle');
         setTonearmState(isPlaying ? 'playing' : 'rest');
@@ -291,7 +253,7 @@ export const VinylRecord = ({
         return;
       }
 
-      await wait(660);
+      await wait(560);
       if (cancelled || requestId !== visualRequestRef.current) return;
       if (!isPlaying) {
         setPhase('idle');
@@ -302,7 +264,7 @@ export const VinylRecord = ({
       }
 
       setTonearmState('playing');
-      await wait(760);
+      await wait(620);
       if (cancelled || requestId !== visualRequestRef.current) return;
       setPhase('playing');
       setSpinEnabled(true);
@@ -339,7 +301,14 @@ export const VinylRecord = ({
 
       if (manualPlaybackStartRef.current) {
         manualPlaybackStartRef.current = false;
+        setPhase('booting');
+        setSpinEnabled(false);
+        setTonearmState(canAnimate ? 'lifted' : 'playing');
+        if (canAnimate) await wait(300);
+        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
         setTonearmState('playing');
+        if (canAnimate) await wait(620);
+        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
         setPhase('playing');
         setSpinEnabled(true);
         return;
@@ -579,7 +548,7 @@ export const VinylRecord = ({
       {/* ── DISCO ───────────────────────────────────────────────── */}
       <AnimatePresence initial={canAnimate} mode="sync">
       <motion.div
-        key={isPlaying ? 'live-continuous-record' : visualSnapshot.identity}
+        key={visualSnapshot.identity}
         data-vinyl-visual={visualSnapshot.identity}
         className="absolute inset-0 z-10 touch-none"
         style={{ touchAction: 'none' }}

@@ -25,7 +25,7 @@ export const getReplayFilterLabel = (
     case 'today':
       return 'hoje';
     case 'week':
-      return selectedSubValues.weekMode === 'last-7' ? 'ultimos 7 dias' : 'esta semana';
+      return selectedSubValues.weekMode === 'last-7' ? 'Últimos 7 dias' : 'esta semana';
     case 'month': {
       const monthIndex = parseInt(selectedSubValues.month || '0');
       const year = selectedSubValues.year;

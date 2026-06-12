@@ -114,7 +114,11 @@ const RankingCard = ({ user, i, rankingType, isLeo, onClick, trend }: any) => {
 
 type Range = 'today' | 'weeks' | 'months' | 'years' | 'lifetime';
 
-export default function RankingScreen() {
+interface RankingScreenProps {
+  embedded?: boolean;
+}
+
+export default function RankingScreen({ embedded = false }: RankingScreenProps) {
   const groupStats = useStatsStore(state => state.groupStats);
   const isGlobalLoading = useStatsStore(state => state.isLoading);
   const isOffline = useStatsStore(state => state.isOffline);
@@ -322,7 +326,7 @@ export default function RankingScreen() {
   ];
 
   return (
-    <div className="flex flex-col gap-6 pb-32 px-4">
+    <div className={clsx("flex flex-col px-4", embedded ? "gap-4 pb-2" : "gap-6 pb-32")}>
       <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
         <AnimatePresence>
           {selectedUser && (
@@ -343,13 +347,15 @@ export default function RankingScreen() {
         </AnimatePresence>
       </Suspense>
 
-      <header className="px-1 flex justify-between items-start">
-        <div>
-          <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Arena do Grupo</h1>
-          <p className="text-white/60 text-sm">
-            {isOffline ? "Arena offline (exibindo dados locais)" : "Disputa sonora entre os amigos"}
-          </p>
-        </div>
+      <header className={clsx("relative flex items-start", embedded ? "justify-end" : "justify-between px-1")}>
+        {!embedded && (
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-white/95">Arena do Grupo</h1>
+            <p className="text-white/60 text-sm">
+              {isOffline ? "Arena offline (exibindo dados locais)" : "Disputa sonora entre os amigos"}
+            </p>
+          </div>
+        )}
         <div className="flex gap-2 relative">
           <button 
                 onClick={() => setShowUserSelector(!showUserSelector)} 
@@ -424,7 +430,7 @@ export default function RankingScreen() {
       </header>
 
       {/* Range Selector */}
-      <div className="flex gap-2 p-1 bg-white/[0.03] rounded-3xl overflow-x-auto no-scrollbar scroll-fade-h">
+      <div className="stats-lc-glass-popover flex gap-2 overflow-x-auto rounded-3xl p-1 no-scrollbar scroll-fade-h">
         {ranges.map((r) => (
           <button
             key={r.id}
@@ -443,7 +449,7 @@ export default function RankingScreen() {
       </div>
       
       {/* Ranking Type Selector */}
-      <div className="flex gap-2 p-1 bg-white/[0.03] rounded-3xl self-start">
+      <div className="stats-lc-glass-popover flex gap-2 self-start rounded-3xl p-1">
         <button
           onClick={() => setRankingType('streams')}
           aria-pressed={rankingType === 'streams'}

@@ -15,7 +15,6 @@ import {
   RefreshCcw, 
   AlertTriangle, 
   Trophy,
-  Users, 
   Star, 
   PlayCircle,
   Clock,
@@ -36,8 +35,6 @@ import {
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
 import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
-import { MonthlyGroupLeaderboard } from '../components/home/HomeHighlights';
-import { FriendsStatsComparer } from '../components/stats/FriendsStatsComparer';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -366,13 +363,12 @@ const StatsRankingLoading = () => (
 
 type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
-type StatsSection = 'overview' | 'replay' | 'rankings' | 'compare';
+type StatsSection = 'overview' | 'replay' | 'rankings';
 
 const statsSections: Array<{ id: StatsSection; label: string; icon: typeof BarChart3 }> = [
   { id: 'overview', label: 'Visão', icon: Sparkles },
   { id: 'replay', label: 'Replay', icon: PlayCircle },
-  { id: 'rankings', label: 'Rankings', icon: Trophy },
-  { id: 'compare', label: 'Comparar', icon: Users },
+  { id: 'rankings', label: 'Mais tocados', icon: Trophy },
 ];
 
 const filterToReplayTab = (filter: Filter): ReplayFilterPeriod => {
@@ -1081,7 +1077,7 @@ export default function StatsScreen() {
 
         const totalStreams = mapped.reduce((acc, d) => acc + d.streams, 0);
         if (totalStreams > 0) {
-          return mapped;
+          return mapped.filter((point) => point.timestamp <= today.getDate());
         }
       }
 
@@ -1357,6 +1353,15 @@ export default function StatsScreen() {
     const sourceData = (fullHistory && Array.isArray(fullHistory) && fullHistory.length > 0)
       ? fullHistory
       : historyData;
+    const periodStart = activeFilter === 'Hoje'
+      ? getStartOfTodaySP().getTime()
+      : activeFilter === 'Semana'
+        ? getStartOfWeekSP().getTime()
+        : activeFilter === 'Mês'
+          ? getStartOfMonthSP().getTime()
+          : activeFilter === 'Ano'
+            ? getStartOfYearSP().getTime()
+            : 0;
 
     if (sourceData && sourceData.length > 0) {
       sourceData.forEach((item: any) => {
@@ -1367,6 +1372,8 @@ export default function StatsScreen() {
         if (typeof dateVal === 'number' && dateVal < 2147483647) {
           dateVal = dateVal * 1000;
         }
+        const timestamp = typeof dateVal === 'number' ? dateVal : new Date(dateVal).getTime();
+        if (!Number.isFinite(timestamp) || timestamp < periodStart || timestamp > Date.now()) return;
 
         const hour = getHourSP(dateVal);
 
@@ -1609,7 +1616,7 @@ export default function StatsScreen() {
   useEffect(() => {
     let cancelled = false;
     async function loadAllPeriodData() {
-      if (activeStatsSection === 'compare' || !CURRENT_USER_ID) return;
+      if (!CURRENT_USER_ID) return;
       const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
       const hasFallbackTops =
         !!fallbackTops.artists?.length ||
@@ -1805,7 +1812,7 @@ export default function StatsScreen() {
       </div>
 
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+82px)] z-40 -mt-1">
-        <div className="grid grid-cols-4 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+        <div className="grid grid-cols-3 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
           {statsSections.map((section) => {
             const Icon = section.icon;
             const isActive = activeStatsSection === section.id;
@@ -2208,6 +2215,7 @@ export default function StatsScreen() {
                       <DailyActivityHeatmap
                         data={hourlyDistributionData}
                         accentColor={accentColor}
+                        periodLabel={activeFilter}
                       />
                     </Suspense>
                   </div>
@@ -2380,31 +2388,6 @@ export default function StatsScreen() {
         </>
       )}
 
-      {activeStatsSection === 'compare' && (
-        <div className="flex flex-col gap-8">
-          <div className="flex flex-col gap-4">
-            <SectionHeader 
-              title="Destaques do Grupo" 
-              icon={<Trophy className="h-4 w-4 text-orange-500" />} 
-            />
-            <MonthlyGroupLeaderboard 
-              users={members} 
-              type={activeFilter === 'Hoje' ? 'today' : activeFilter === 'Semana' ? 'week' : 'month'} 
-            />
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <SectionHeader 
-              title="Comparador de Amigos" 
-              icon={<Users className="h-4 w-4 text-orange-500" />} 
-            />
-            <FriendsStatsComparer 
-              members={members} 
-              onArtistClick={(artist) => setSelectedTrack({ ...artist, type: 'artist' })} 
-            />
-          </div>
-        </div>
-      )}
         </motion.div>
       </AnimatePresence>
 

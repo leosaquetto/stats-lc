@@ -120,6 +120,7 @@ const formatCompactDuration = (ms: number) => {
 };
 
 const formatDayCount = (count: number) => `${count || 0} ${count === 1 ? 'dia' : 'dias'}`;
+const formatConsecutiveDayCount = (count: number) => `${formatDayCount(count)} ${count === 1 ? 'seguido' : 'seguidos'}`;
 
 const getSimultaneousItemTime = (item: any) => {
   const candidates = [
@@ -252,13 +253,13 @@ function CirclePulseInsights({ members, featuredUserId }: { members: any[]; feat
     {
       label: 'Streak principal',
       value: featuredUser ? getFirstName(featuredUser.name) : 'sem user',
-      detail: `${formatDayCount(featuredStreak || 0)} seguidos`,
+      detail: formatConsecutiveDayCount(featuredStreak || 0),
       icon: Flame,
     },
     {
       label: 'Streak amigos',
       value: friendStreakLeader?.member ? getFirstName(friendStreakLeader.member.name) : 'sem base',
-      detail: `${formatDayCount(friendStreakLeader?.streak || 0)} seguidos`,
+      detail: formatConsecutiveDayCount(friendStreakLeader?.streak || 0),
       icon: Users,
     },
     {
@@ -280,7 +281,7 @@ function CirclePulseInsights({ members, featuredUserId }: { members: any[]; feat
       <div className="mb-3 flex items-center justify-between gap-3 px-1">
         <div className="min-w-0">
           <p className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-200/80">Pulso da sessão</p>
-          <h2 className="mt-1 text-lg font-black leading-none tracking-[-0.03em] text-white">insights agora</h2>
+          <h2 className="mt-1 text-lg font-black leading-none tracking-[-0.03em] text-white">Insights agora</h2>
         </div>
         <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-orange-100/80">
           10 min
@@ -630,7 +631,7 @@ function DuelsSection() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-200/80">Duelos da Semana</p>
-            <h2 className="mt-1 text-xl font-black leading-none tracking-[-0.04em] text-white">placar vivo</h2>
+            <h2 className="mt-1 text-xl font-black leading-none tracking-[-0.04em] text-white">Placar vivo</h2>
           </div>
           <div className="rounded-full border border-white/8 bg-white/[0.035] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-white/40">
             {duels.length} cards
@@ -882,27 +883,24 @@ function CircleOrbitsTab() {
 
 function CircleArenaTab() {
   return (
-    <div className="flex flex-col gap-5">
-      <section className="mx-4 overflow-hidden rounded-[34px] border border-orange-500/15 bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(255,255,255,0.1),transparent_26%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+    <div className="flex flex-col gap-4">
+      <section className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(255,255,255,0.1),transparent_26%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
             <Trophy className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-200/80">Arena orbital</p>
-            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">ranking, batalha e duelos</h1>
+            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">Ranking, batalha e duelos</h1>
           </div>
           <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-orange-200">
             Live
           </span>
         </div>
-        <p className="mt-4 text-xs font-semibold leading-relaxed text-white/48">
-          O placar principal abre primeiro; duelos ficam como painel complementar da Arena sem duplicar a rota.
-        </p>
       </section>
 
       <Suspense fallback={<CircleTabLoader label="Carregando ranking da arena" />}>
-        <RankingScreen />
+        <RankingScreen embedded />
       </Suspense>
 
       <DuelsSection />
@@ -921,31 +919,27 @@ function CircleAffinityTab() {
   const featuredMatches = [...trackMatches.slice(0, 2), ...artistMatches.slice(0, 2)].slice(0, 4);
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="mx-4 overflow-hidden rounded-[34px] border border-orange-500/15 bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+    <div className="flex flex-col gap-4">
+      <section className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
             <HeartHandshake className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-200/80">Afinidade orbital</p>
-            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">faixa e artista no mesmo pulso</h1>
+            <h1 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">Faixa e artista no mesmo pulso</h1>
           </div>
           <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.14em] text-orange-200">
             10 min
           </span>
         </div>
-        <p className="mt-4 text-xs font-semibold leading-relaxed text-white/48">
-          Encontros simultâneos do círculo por faixa exata e artista, usando a janela de 10 minutos da API já existente.
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-[22px] border border-white/6 bg-black/20 px-3 py-3">
-            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">faixas</p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-[22px] bg-black/20 px-3 py-3 backdrop-blur-xl">
+            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">Faixas</p>
             <p className="mt-1 text-2xl font-black leading-none text-white">{trackMatches.length}</p>
           </div>
-          <div className="rounded-[22px] border border-white/6 bg-black/20 px-3 py-3">
-            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">artistas</p>
+          <div className="rounded-[22px] bg-black/20 px-3 py-3 backdrop-blur-xl">
+            <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/32">Artistas</p>
             <p className="mt-1 text-2xl font-black leading-none text-white">{artistMatches.length}</p>
           </div>
         </div>
@@ -953,8 +947,9 @@ function CircleAffinityTab() {
 
       <section className="mx-4 flex flex-col gap-2">
         {status === 'loading' && featuredMatches.length === 0 ? (
-          <div className="flex min-h-[118px] items-center justify-center rounded-[28px] border border-white/5 bg-white/[0.02]">
+          <div className="flex min-h-14 items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 backdrop-blur-xl">
             <Loader2 className="h-5 w-5 animate-spin text-orange-400/80" />
+            <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/36">Atualizando pulso</span>
           </div>
         ) : featuredMatches.length > 0 ? (
           featuredMatches.map((item) => (
@@ -984,7 +979,7 @@ function CircleAffinityTab() {
       </section>
 
       <Suspense fallback={<CircleTabLoader label="Carregando afinidade" />}>
-        <AlikeScreen />
+        <AlikeScreen embedded />
       </Suspense>
     </div>
   );

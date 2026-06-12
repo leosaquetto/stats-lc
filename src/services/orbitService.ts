@@ -66,6 +66,19 @@ const uniqueTracks = (tracks: any[]) => Array.from(new Map(
 ).values());
 
 export const orbitService = {
+  async getPushPublicKey(): Promise<string | null> {
+    const response = await api.get('/api/push/public-key');
+    return response.data?.configured ? response.data?.publicKey || null : null;
+  },
+
+  async subscribePush(userId: string, subscription: PushSubscriptionJSON): Promise<void> {
+    await api.post('/api/push/subscribe', { userId, subscription });
+  },
+
+  async unsubscribePush(endpoint: string): Promise<void> {
+    await api.post('/api/push/unsubscribe', { endpoint });
+  },
+
   async list(userId: string, box: OrbitBox = 'received', signal?: AbortSignal): Promise<Orbit[]> {
     const response = await api.get('/api/orbits', { params: { user: userId, box }, signal });
     return unwrapItems(response.data);

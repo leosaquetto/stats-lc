@@ -237,6 +237,22 @@ let lastLiveCachePersistAt = 0;
 const lastLiveRecentRecoveryAtByUserId = new Map<string, number>();
 const trackStatsRequestInFlight = new Map<string, Promise<void>>();
 const trackStatsFetchedAt = new Map<string, number>();
+const liveProbeRequestInFlight = new Map<string, Promise<boolean>>();
+const lastLiveProbeSignatureByUserId = new Map<string, string>();
+const LIVE_PROBE_COMPLETION_GRACE_MS = 45 * 1000;
+
+const isExpiredInitialLiveProbeItem = (item: any, generatedAt?: string) => {
+  const timestamp = item?.playedAt || item?.endTime || item?.timestamp;
+  const timestampMs = timestamp ? new Date(timestamp).getTime() : Number.NaN;
+  const durationMs = Number(item?.durationMs || item?.track?.durationMs || 0);
+  const referenceMs = generatedAt ? new Date(generatedAt).getTime() : Date.now();
+
+  if (!Number.isFinite(timestampMs) || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return false;
+  }
+
+  return timestampMs + durationMs + LIVE_PROBE_COMPLETION_GRACE_MS < referenceMs;
+};
 
 // In-flight guard for prefetchUserTops to prevent duplicate simultaneous calls
 const prefetchUserTopsInFlight = new Set<string>();
@@ -587,6 +603,7 @@ interface StatsState {
   clearUserCache: (userId: string) => void;
   fetchGroup: (force?: boolean) => Promise<void>;
   fetchGroupLive: (force?: boolean, options?: LiveFetchOptions) => Promise<void>;
+  fetchLiveProbe: (userId: string) => Promise<boolean>;
   fetchUserTrackStats: (userId: string, trackId: string) => Promise<void>;
   fetchTrackStatsForAll: (trackId: string) => Promise<void>;
   getUserById: (id: string) => UserStats | undefined;
@@ -1466,6 +1483,91 @@ export const useStatsStore = create<StatsState>()(
           set({ isLiveFetching: false });
           clearTimeout(safetyTimer);
         }
+      },
+
+      fetchLiveProbe: async (userId: string) => {
+        if (!userId) return false;
+        const running = liveProbeRequestInFlight.get(userId);
+        if (running) return running;
+
+        const request = (async () => {
+          const response = await statsService.getLiveProbe(userId);
+          if (!response?.signature || !response.item?.track) return false;
+
+          const current = get().liveNowPlayingByUserId[userId];
+          const incoming: any = {
+            ...response.item,
+            isNow: true,
+            timestamp: response.item.playedAt || response.item.endTime || response.generatedAt,
+            playedAt: response.item.playedAt || response.item.endTime,
+            endTime: response.item.endTime || response.item.playedAt,
+            playbackKey: response.signature,
+            streamId: response.item.id || response.signature,
+            durationMs: response.item.durationMs || response.item.track?.durationMs,
+            playedMs: response.item.playedMs ?? 0,
+            source: 'probe',
+            track: response.item.track,
+          };
+
+          if (isLivePayloadOlder(current, incoming)) return false;
+          const currentSignature =
+            current?.playbackKey ||
+            current?.streamId ||
+            current?.playedAt ||
+            current?.endTime ||
+            current?.timestamp ||
+            '';
+          if (
+            !current &&
+            !lastLiveProbeSignatureByUserId.has(userId) &&
+            isExpiredInitialLiveProbeItem(response.item, response.generatedAt)
+          ) {
+            lastLiveProbeSignatureByUserId.set(userId, response.signature);
+            return false;
+          }
+          if (
+            lastLiveProbeSignatureByUserId.get(userId) === response.signature ||
+            currentSignature === response.signature
+          ) {
+            lastLiveProbeSignatureByUserId.set(userId, response.signature);
+            return false;
+          }
+
+          lastLiveProbeSignatureByUserId.set(userId, response.signature);
+          set((state) => ({
+            liveNowPlayingByUserId: {
+              ...state.liveNowPlayingByUserId,
+              [userId]: incoming,
+            },
+          }));
+
+          const member = get().getUserById(userId);
+          if (member) {
+            const prepared = { ...member, nowPlaying: incoming };
+            prepareLiveVisuals([prepared]).then(() => {
+              if (!prepared.nowPlaying?.dominantColor) return;
+              if (get().liveNowPlayingByUserId[userId]?.playbackKey !== response.signature) return;
+              set((state) => ({
+                liveNowPlayingByUserId: {
+                  ...state.liveNowPlayingByUserId,
+                  [userId]: prepared.nowPlaying,
+                },
+              }));
+            }).catch(() => undefined);
+          }
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('nowPlayingChanged', {
+              detail: { userId, signature: response.signature, source: 'probe' },
+            }));
+          }
+          return true;
+        })().finally(() => {
+          liveProbeRequestInFlight.delete(userId);
+        });
+
+        liveProbeRequestInFlight.set(userId, request);
+        return request;
       },
 
       fetchUserTrackStats: async (userId: string, trackId: string) => {

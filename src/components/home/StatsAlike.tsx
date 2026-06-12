@@ -473,7 +473,7 @@ export const StatsAlike = React.memo(() => {
       <div
         ref={orbitRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[326px] w-full select-none flex items-center justify-center overflow-visible [perspective:1200px]"
+        className="relative h-[286px] w-full select-none flex items-center justify-center overflow-visible [perspective:1200px]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -489,7 +489,7 @@ export const StatsAlike = React.memo(() => {
         <div className="pointer-events-none absolute right-[18%] top-[31%] h-1 w-1 rounded-full bg-white/35 shadow-[0_0_14px_rgba(255,255,255,0.4)]" />
         <div className="pointer-events-none absolute bottom-[18%] left-[28%] h-1 w-1 rounded-full bg-orange-400/40 shadow-[0_0_14px_rgba(249,115,22,0.55)]" />
 
-        <div className="relative w-full h-full max-w-lg mb-8">
+        <div className="relative h-full w-full max-w-lg">
           {alikeConnections.map((conn, idx) => {
             const position = (idx - activeIndex + alikeConnections.length) % alikeConnections.length;
             
@@ -570,7 +570,7 @@ export const StatsAlike = React.memo(() => {
         activeIndex={activeIndex}
         onSelect={goToAlikeIndex}
         label="stats alike"
-        className="-mt-6 mb-2"
+        className="-mt-2 mb-1"
       />
     </div>
   );
@@ -614,7 +614,7 @@ const AlikeOrbitalItem = ({
           </span>
         </motion.div>
 
-        <div className="glass-aura relative flex min-h-[178px] flex-col items-center justify-center rounded-[30px] px-8 py-7 text-center shadow-2xl">
+        <div className="glass-aura relative flex min-h-[150px] flex-col items-center justify-center rounded-[30px] px-8 py-6 text-center opacity-45 shadow-2xl blur-[1.5px]">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match Top 50</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
@@ -645,7 +645,7 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[30px] p-8 shadow-2xl transition-all duration-700 backdrop-blur-xl",
+        "relative rounded-[30px] p-6 shadow-2xl transition-all duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-3">

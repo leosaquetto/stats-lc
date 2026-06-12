@@ -472,14 +472,14 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
       <div
         ref={insightsRef}
         data-home-horizontal-scroll="true"
-        className="relative h-[228px] select-none overflow-visible rounded-[28px] px-0 py-1.5"
+        className="relative h-[190px] select-none overflow-visible rounded-[28px] px-0 py-1.5"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
         {...interactionProps}
       >
         <div className="pointer-events-none absolute inset-0 rounded-[28px] bg-[radial-gradient(circle_at_50%_40%,rgba(249,115,22,0.12),rgba(0,0,0,0)_44%),linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]" />
-        <div className="absolute inset-0 z-10 grid grid-cols-2 gap-2 px-0.5">
+        <div className="absolute inset-0 z-10 grid grid-cols-[1.35fr_0.65fr] gap-2 px-0.5">
           {visibleInsightIndices.map((index, slot) => {
             const insight = insights[index];
             const tone = getToneClasses(insight.tone);
@@ -492,7 +492,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ type: 'spring', stiffness: 240, damping: 28, mass: 0.72 }}
-                className={`apple-glass-panel relative flex h-[192px] min-w-0 flex-col overflow-visible rounded-[24px] border border-white/8 p-3 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)] ${slot === 0 ? 'translate-y-0' : 'translate-y-2'}`}
+                className={`apple-glass-panel relative flex h-[158px] min-w-0 flex-col overflow-visible rounded-[24px] border border-white/8 p-3 text-left shadow-[0_18px_48px_rgba(0,0,0,0.34)] ${slot === 0 ? 'translate-y-0' : 'translate-y-2 opacity-75'}`}
                 style={{
                   boxShadow: `0 18px 48px rgba(0,0,0,0.34), 0 0 28px ${tone.glow}`,
                 }}
@@ -508,7 +508,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
                   <span className={`text-[8px] font-black uppercase tracking-[0.22em] ${tone.text}`}>
                     {insight.title}
                   </span>
-                  <h3 className="line-clamp-2 text-[18px] font-black leading-[1] tracking-[-0.03em] text-white">
+                  <h3 className={slot === 0 ? "line-clamp-2 text-[18px] font-black leading-[1] tracking-[-0.03em] text-white" : "line-clamp-2 text-[14px] font-black leading-[1.05] tracking-[-0.02em] text-white"}>
                     {insight.headline}
                   </h3>
                   <p className="line-clamp-2 text-[10px] font-medium leading-snug text-white/58">
@@ -519,7 +519,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
             );
           })}
         </div>
-        <div className="absolute bottom-3 left-1/2 z-30 -translate-x-1/2">
+        <div className="absolute bottom-1 left-1/2 z-30 -translate-x-1/2">
           <OrbitPagerIndicator
             count={insights.length}
             activeIndex={activeInsightIndex}

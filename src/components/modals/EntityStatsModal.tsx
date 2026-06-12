@@ -8,15 +8,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowUpDown,
   BookOpen,
-  CalendarDays,
-  Clock3,
   Copy,
   ExternalLink,
   History,
   ListMusic,
   Loader2,
   MoreHorizontal,
-  Music2,
   Share2,
   Sparkles,
   Users,
@@ -94,7 +91,7 @@ const getEntityImage = (entity: any, kind: EntityKind) => {
 const getEntitySubtitle = (entity: any, kind: EntityKind) => {
   if (kind === 'artist') return 'Stats do artista';
   const artist = entity?.artistName || entity?.albumArtistName || entity?.artist?.name || entity?.album?.artistName || entity?.album?.artist?.name;
-  return artist || 'Stats do album';
+  return artist || 'Stats do álbum';
 };
 
 const getTrack = (item: any) => item?.track || item?.item?.track || item?.item || item;
@@ -136,6 +133,13 @@ const getDiscNumber = (item: any) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 const getStreamDate = (item: any) => item?.playedAt || item?.endTime || item?.timestamp || item?.date || item?.createdAt || null;
+const formatEntityDate = (item: any) => {
+  const value = getStreamDate(item);
+  if (!value) return 'sem histórico';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'sem histórico';
+  return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+};
 const sameEntity = (item: any, entity: any) => {
   const entityId = getEntityId(entity);
   const itemId = String(item?.id || item?.album?.id || item?.artist?.id || item?.item?.id || '');
@@ -491,9 +495,9 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 
   const tabs: Array<{ id: EntityTab; label: string; icon: React.ElementType }> = [
     { id: 'summary', label: 'Resumo', icon: Sparkles },
-    { id: 'tracks', label: kind === 'album' ? 'Faixas' : 'Musicas', icon: ListMusic },
-    { id: 'circle', label: 'Circulo', icon: Users },
-    { id: 'history', label: 'Historico', icon: History },
+    { id: 'tracks', label: kind === 'album' ? 'Faixas' : 'Músicas', icon: ListMusic },
+    { id: 'circle', label: 'Círculo', icon: Users },
+    { id: 'history', label: 'Histórico', icon: History },
   ];
 
   return (
@@ -501,7 +505,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[80] flex items-end justify-center liquid-glass-overlay px-0 sm:px-4"
+      className="fixed inset-0 z-[80] flex items-end justify-center liquid-glass-overlay px-3 pb-[calc(env(safe-area-inset-bottom,0px)+86px)] pt-12"
       onClick={onClose}
     >
       <motion.div
@@ -509,33 +513,36 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0.92 }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-        className="liquid-glass-modal relative flex h-[86dvh] max-h-[610px] w-full max-w-2xl flex-col overflow-hidden rounded-t-[34px] border border-white/10 bg-black/70 shadow-2xl"
+        className={cn(
+          "bottom-track-stats-body-backdrop relative flex max-h-[78dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px]",
+          activeTab === 'summary' ? "h-auto" : "h-[78dvh]"
+        )}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative shrink-0 overflow-hidden p-3.5 pb-3">
-          <div className="absolute inset-0 pointer-events-none opacity-60">
-            {entityImage && <img src={entityImage} alt="" className="h-full w-full scale-110 object-cover blur-3xl opacity-25" />}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/70 to-black" />
+        <div className="relative shrink-0 overflow-hidden p-4 pb-3">
+          <div className="pointer-events-none absolute inset-0 opacity-80">
+            {entityImage && <img src={entityImage} alt="" className="h-full w-full scale-125 object-cover blur-3xl opacity-30 saturate-150" />}
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_82%_18%,rgba(249,115,22,0.24),transparent_35%),linear-gradient(to_bottom,rgba(7,7,8,0.08),rgba(7,7,8,0.82))]" />
           </div>
 
           <div className="relative z-10 mx-auto mb-2.5 h-1 w-12 rounded-full bg-white/22" />
-          <div className="relative z-10 flex items-start gap-3 pr-7">
+          <div className="relative z-10 flex items-start gap-3 pr-8">
             <SmartImage
               src={entityImage}
-              className={cn("h-[72px] w-[72px] shrink-0 border border-white/10 shadow-2xl", kind === 'artist' ? 'rounded-[22px]' : 'rounded-[18px]')}
+              className={cn("stats-lc-soft-white-glass h-[68px] w-[68px] shrink-0 shadow-[0_18px_42px_rgba(0,0,0,0.48)]", kind === 'artist' ? 'rounded-[22px]' : 'rounded-[18px]')}
               fallback={entityName}
-              rounded={kind === 'artist' ? '[22px]' : '[18px]'}
+              rounded={kind === 'artist' ? '[20px]' : '[16px]'}
             />
             <div className="min-w-0 flex-1">
-              <div className="mb-2 flex flex-wrap items-center gap-1.5 overflow-hidden">
-                <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-orange-300">
-                  {kind === 'album' ? 'Album stats' : 'Artist stats'}
+              <div className="mb-1.5 flex min-w-0 items-center gap-2 overflow-hidden">
+                <span className="truncate text-[8px] font-black uppercase tracking-[0.22em] text-orange-400">
+                  {kind === 'album' ? 'Stats do álbum' : 'Stats do artista'}
                 </span>
                 {(topYearRank || topTotalRank) && (
                   <button
                     type="button"
                     onClick={() => setRankSheetOpen(true)}
-                    className="rounded-full border border-orange-500/28 bg-orange-500/[0.14] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-orange-100/88 transition-[background-color,transform] active:scale-95"
+                    className="bottom-track-stats-surface shrink-0 rounded-full px-2 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-orange-100/88 transition-transform active:scale-95"
                   >
                     {topYearRank ? `#${topYearRank} ano` : ''}
                     {topYearRank && topTotalRank ? ' · ' : ''}
@@ -543,26 +550,27 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   </button>
                 )}
               </div>
-              <h2 className="line-clamp-2 text-[19px] font-black leading-[0.98] text-white font-display">{entityName}</h2>
-              <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{subtitle}</p>
-              <div className="mt-2.5 grid grid-cols-3 gap-1.5">
-                <Metric label="plays" value={coreUtils.formatNumber(entityCount || historyItems.length)} />
-                <Metric label="tempo" value={totalDurationMs ? coreUtils.formatDuration(totalDurationMs) : 'carregando'} />
-                <Metric label="melhor ano" value={bestYear ? `${bestYear[0]} (${coreUtils.formatNumber(bestYear[1])})` : 'em analise'} />
-              </div>
+              <h2 className="line-clamp-2 text-[24px] font-black leading-[0.96] text-white font-display">{entityName}</h2>
+              <p className="mt-1 truncate text-[9px] font-black uppercase tracking-[0.18em] text-white/38">{subtitle}</p>
             </div>
             <button
               onClick={onClose}
-              className="absolute right-0 top-0 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/25 text-white/60 transition-colors hover:text-white"
+              className="stats-lc-soft-white-glass absolute right-0 top-0 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/60 transition-colors hover:text-white"
               aria-label="Fechar"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
+
+          <div className="relative z-10 mt-3 grid grid-cols-3 gap-2">
+            <Metric label="plays" value={coreUtils.formatNumber(entityCount || historyItems.length)} />
+            <Metric label="tempo" value={totalDurationMs ? coreUtils.formatDuration(totalDurationMs) : 'carregando'} />
+            <Metric label="melhor ano" value={bestYear ? `${bestYear[0]} · ${coreUtils.formatNumber(bestYear[1])}` : 'em análise'} />
+          </div>
         </div>
 
         <div className="shrink-0 px-4 pb-3">
-          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/[0.025] p-1">
+          <div className="bottom-track-stats-surface grid grid-cols-4 gap-1 rounded-full p-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -571,8 +579,8 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex min-w-0 items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[7px] font-black uppercase tracking-[0.08em] transition-colors",
-                    active ? "bg-orange-500 text-white shadow-lg shadow-orange-950/30" : "bg-white/[0.04] text-white/45 hover:bg-white/[0.08] hover:text-white/80"
+                    "flex min-w-0 items-center justify-center gap-1 rounded-full px-1.5 py-2 text-[7px] font-black uppercase tracking-[0.06em] transition-colors",
+                    active ? "bg-orange-500/88 text-white shadow-[0_8px_22px_rgba(249,115,22,0.22)]" : "text-white/40 hover:bg-white/[0.06] hover:text-white/75"
                   )}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -583,7 +591,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] custom-scrollbar">
+        <div className="flex-1 overflow-y-auto px-4 pb-5 no-scrollbar">
           <AnimatePresence mode="sync" initial={false}>
             {activeTab === 'summary' && (
               <TabPanel key="summary">
@@ -607,7 +615,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
               <TabPanel key="tracks">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-white">{kind === 'album' ? 'Faixas do album' : 'Musicas do artista'}</h3>
+                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-white">{kind === 'album' ? 'Faixas do álbum' : 'Músicas do artista'}</h3>
                     <p className="mt-1 text-[10px] text-white/40">{trackRows.length} itens carregados</p>
                   </div>
                   <button
@@ -693,7 +701,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
                   </div>
                 </div>
                 <p className="mt-3 text-[10px] font-semibold leading-relaxed text-white/42">
-                  Rankings calculados contra seu Top 100 pessoal para {kind === 'album' ? 'albuns' : 'artistas'}.
+                  Rankings calculados contra seu Top 100 pessoal para {kind === 'album' ? 'álbuns' : 'artistas'}.
                 </p>
               </motion.div>
             </motion.div>
@@ -705,9 +713,9 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 };
 
 const Metric = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2">
+  <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] px-3 py-3">
     <span className="block text-[7px] font-black uppercase tracking-[0.18em] text-white/35">{label}</span>
-    <span className="mt-0.5 block truncate text-[12px] font-black text-white">{value}</span>
+    <span className="mt-1 block min-h-[26px] text-[11px] font-black leading-tight text-white">{value}</span>
   </div>
 );
 
@@ -760,31 +768,61 @@ const SummaryContent = ({
   ].filter(Boolean).slice(0, 4) as string[];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3.5">
       {loading && (
-        <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 text-[11px] font-bold text-white/45">
-          Carregando stats pessoais, circulo e historico...
+        <div className="bottom-track-stats-surface rounded-full px-4 py-3 text-[10px] font-bold text-white/45">
+          Carregando stats pessoais, círculo e histórico...
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <InfoCard icon={Music2} label="Reproducoes" value={coreUtils.formatNumber(entityCount)} />
-        <InfoCard icon={Clock3} label="Tempo carregado" value={totalDurationMs ? coreUtils.formatDuration(totalDurationMs) : 'em calculo'} />
-        <InfoCard icon={CalendarDays} label="Ano mais forte" value={bestYear ? `${bestYear[0]} - ${coreUtils.formatNumber(bestYear[1])} plays` : 'sem historico'} />
-        <InfoCard icon={Users} label="Circulo" value={leader ? `#1 ${leader.name}` : 'sem amigos ainda'} />
+      <div className="grid grid-cols-3 gap-2">
+        <SummaryPill
+          accent
+          label="Primeiro stream"
+          value={firstPlay ? formatEntityDate(firstPlay) : 'sem histórico'}
+        />
+        <SummaryPill
+          label="Último stream"
+          value={lastPlay ? formatEntityDate(lastPlay) : 'sem histórico'}
+        />
+        <SummaryPill
+          label="Ano recorde"
+          value={bestYear ? `${coreUtils.formatNumber(bestYear[1])}x · ${bestYear[0]}` : 'em análise'}
+        />
       </div>
 
-      <div className="rounded-[26px] border border-white/10 bg-white/[0.035] p-4">
-        <div className="mb-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-orange-300">
+      <div className="bottom-track-stats-surface flex min-h-14 items-center gap-3 rounded-full px-3 py-2.5">
+        <div className="flex shrink-0 pl-1">
+          {circleRows.slice(0, 3).map((member, index) => (
+            <SmartImage
+              key={member.id || member.key || index}
+              src={coreUtils.getUserAvatar(member.id, member.avatar)}
+              className="-ml-1 h-8 w-8 rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+              rounded="full"
+              fallback={member.name || ''}
+            />
+          ))}
+          {circleRows.length === 0 && <Users className="h-7 w-7 text-orange-300" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <span className="block text-[7px] font-black uppercase tracking-[0.18em] text-white/34">Círculo</span>
+          <span className="mt-1 block truncate text-[10px] font-black text-white/78">
+            {leader ? `${leader.name} lidera com ${coreUtils.formatNumber(leader.count)} plays` : 'Ainda sem amigos nesta entidade'}
+          </span>
+        </div>
+        <span className="shrink-0 rounded-full bg-orange-500/75 px-3 py-1.5 text-[8px] font-black text-white">
+          {coreUtils.formatNumber(entityCount)}x
+        </span>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-orange-300">
           <Sparkles className="h-4 w-4" />
           Destaques
         </div>
-        <p className="mb-3 text-[11px] font-semibold leading-relaxed text-white/58">
-          {kind === 'album' ? 'Album' : 'Artista'} com {coreUtils.formatNumber(entityCount)} reproducoes carregadas.
-        </p>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar" data-home-horizontal-scroll="true">
           {insights.map((insight) => (
-            <div key={insight} className="rounded-2xl border border-white/8 bg-black/20 px-3 py-2.5 text-[10px] font-bold leading-snug text-white/68">
+            <div key={insight} className="bottom-track-stats-surface min-w-[140px] flex-1 rounded-full px-3 py-2.5 text-[9px] font-bold leading-snug text-white/68">
               {insight}
             </div>
           ))}
@@ -794,17 +832,14 @@ const SummaryContent = ({
   );
 };
 
-const InfoCard = ({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 12 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: '80px' }}
-    className="rounded-[26px] border border-white/10 bg-white/[0.035] p-4"
-  >
-    <Icon className="mb-3 h-4 w-4 text-orange-300" />
-    <span className="block text-[8px] font-black uppercase tracking-[0.2em] text-white/35">{label}</span>
-    <span className="mt-1 block text-[14px] font-black text-white">{value}</span>
-  </motion.div>
+const SummaryPill = ({ accent = false, label, value }: { accent?: boolean; label: string; value: string }) => (
+  <div className={cn(
+    "min-w-0 rounded-full px-3 py-2.5",
+    accent ? "bg-orange-500/78 text-white shadow-[0_10px_28px_rgba(249,115,22,0.18)]" : "bottom-track-stats-surface"
+  )}>
+    <span className={cn("block truncate text-[6px] font-black uppercase tracking-[0.14em]", accent ? "text-white/65" : "text-white/32")}>{label}</span>
+    <span className="mt-1 block truncate text-[9px] font-black text-white">{value}</span>
+  </div>
 );
 
 const CompactTrackRow = ({
@@ -959,7 +994,7 @@ const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { ite
     return <EmptyState icon={Loader2} text="Carregando historico..." spinning />;
   }
   if (items.length === 0) {
-    return <EmptyState icon={History} text="Historico ainda nao retornou reproducoes para esta entidade." />;
+    return <EmptyState icon={History} text="Histórico ainda não retornou reproduções para esta entidade." />;
   }
 
   return (

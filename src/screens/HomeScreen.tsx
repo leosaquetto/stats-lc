@@ -194,6 +194,7 @@ const HomeHighlightPeriodControls = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 16, top: 120, width: 272 });
   const shouldReduceMotion = useReducedMotion();
@@ -204,7 +205,7 @@ const HomeHighlightPeriodControls = ({
   const selectedYear = Number(selectedSubValues.year || currentYear);
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
     { key: 'today', label: 'Hoje' },
-    { key: 'week', label: 'Semana' },
+    { key: 'week', label: 'Últimos 7 dias' },
     { key: 'month', label: 'Mês' },
     { key: 'year', label: 'Ano' },
     { key: 'all', label: 'Total' }
@@ -236,16 +237,22 @@ const HomeHighlightPeriodControls = ({
       });
     };
     const handlePointerDown = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && !panelRef.current?.contains(target)) {
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
     updateMenuPosition();
     document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', updateMenuPosition);
     window.addEventListener('scroll', updateMenuPosition, true);
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('resize', updateMenuPosition);
       window.removeEventListener('scroll', updateMenuPosition, true);
     };
@@ -258,9 +265,7 @@ const HomeHighlightPeriodControls = ({
       setTimeout(() => setIsPulsing(false), 400);
     }
     onActiveTabChange(tab);
-    if (tab === 'today' || tab === 'all') {
-      setIsOpen(false);
-    }
+    setIsOpen(false);
   };
 
   return (
@@ -284,7 +289,7 @@ const HomeHighlightPeriodControls = ({
           initial={{ opacity: 0, y: -3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-[76px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76"
+          className="max-w-[116px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76"
         >
           {activeLabel}
         </motion.span>
@@ -299,7 +304,7 @@ const HomeHighlightPeriodControls = ({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            ref={menuRef}
+            ref={panelRef}
             initial={{ opacity: 0, y: -6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
@@ -309,7 +314,7 @@ const HomeHighlightPeriodControls = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="fixed z-50 max-h-[min(420px,calc(100vh-150px))] overflow-y-auto rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl no-scrollbar"
+            className="stats-lc-glass-popover fixed z-50 max-h-[min(420px,calc(100vh-150px))] overflow-y-auto rounded-[22px] p-2 no-scrollbar"
             style={{
               left: menuPosition.left,
               top: menuPosition.top,
@@ -369,7 +374,7 @@ const HomeHighlightPeriodControls = ({
               >
                 <div className="grid grid-cols-2 gap-1">
                   {[
-                    { key: 'last-7' as ReplayWeekMode, label: '7 dias' },
+                    { key: 'last-7' as ReplayWeekMode, label: 'Últimos 7 dias' },
                     { key: 'current' as ReplayWeekMode, label: 'Semana atual' }
                   ].map((option, index) => {
                     const isSelected = selectedSubValues.weekMode === option.key;
@@ -567,8 +572,15 @@ const HomeHighlightCategoryControl = ({
         setIsOpen(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
     document.addEventListener('pointerdown', handlePointerDown);
-    return () => document.removeEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen]);
 
   const handleCategoryChange = (key: HomeHighlightKind) => {
@@ -634,7 +646,7 @@ const HomeHighlightCategoryControl = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="absolute left-0 top-11 z-50 w-[182px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#090909]/95 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+            className="stats-lc-glass-popover absolute left-0 top-11 z-50 w-[182px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] p-2"
           >
             {groups.map((group, index) => {
               const Icon = group.icon;
@@ -917,7 +929,7 @@ const HomeHighlightOrbitCard = ({
         whileHover={isInteractive ? { scale: 1.05, transition: { duration: 0.2 } } : undefined}
         whileTap={isInteractive ? { scale: 0.98 } : undefined}
         className={cn(
-          "relative h-full w-full overflow-hidden bg-black text-left",
+          "relative h-full w-full bg-black text-left",
           index === 0 ? visualConfig.primaryRadius : visualConfig.secondaryRadius,
           kind === 'albums'
             ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]"
@@ -925,23 +937,9 @@ const HomeHighlightOrbitCard = ({
         )}
         style={{ transformStyle: 'preserve-3d' }}
       >
-        <motion.div
-          className="relative h-full w-full"
-          animate={isCentered && isSectionVisible && !shouldReduceMotion ? { y: [0, index === 0 ? -3 : -1.5, 0] } : {}}
-          transition={isCentered && isSectionVisible && !shouldReduceMotion ? {
-            duration: index === 0 ? 8.5 : 7 + index * 0.3,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          } : {}}
-        >
+        <div className={cn("relative h-full w-full overflow-hidden", index === 0 ? visualConfig.primaryRadius : visualConfig.secondaryRadius)}>
           <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={title} rounded="none" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
-          <span
-            className="absolute left-2 top-1.5 z-20 font-black leading-none text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
-            style={{ fontSize: index === 0 ? '24px' : '20px' }}
-          >
-            {index + 1}
-          </span>
           <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
             {detail && (
               <span
@@ -964,7 +962,13 @@ const HomeHighlightOrbitCard = ({
               {metric}
             </span>
           </div>
-        </motion.div>
+        </div>
+        <span
+          className="absolute -left-1 -top-1 z-30 flex min-h-8 min-w-8 items-center justify-center rounded-full bg-black/68 px-2 font-black leading-none text-white shadow-[0_10px_24px_rgba(0,0,0,0.48)] backdrop-blur-xl"
+          style={{ fontSize: index === 0 ? '17px' : '14px' }}
+        >
+          {index + 1}
+        </span>
       </motion.div>
     </motion.div>
   );
@@ -1078,6 +1082,7 @@ const HomeHighlightOrbitStage = ({
 
 const HomeOrbitalHighlights = ({
   totalMinutes,
+  totalPlays,
   artists,
   tracks,
   albums,
@@ -1088,6 +1093,7 @@ const HomeOrbitalHighlights = ({
   onItemClick
 }: {
   totalMinutes: number;
+  totalPlays: number;
   artists: any[];
   tracks: any[];
   albums: any[];
@@ -1102,6 +1108,7 @@ const HomeOrbitalHighlights = ({
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
+  const [metric, setMetric] = useState<'minutes' | 'plays'>('minutes');
   const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
     { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
@@ -1126,7 +1133,7 @@ const HomeOrbitalHighlights = ({
 
   const stageHeight = "h-[238px] sm:h-[258px]";
   const activeGroup = groups.find((group) => group.key === activeKind) || groups[0];
-  const periodLabel = getReplayFilterLabel(activeTab, selectedSubValues);
+  const metricValue = metric === 'minutes' ? totalMinutes : totalPlays;
 
   const handleCategoryChange = useCallback((newKind: HomeHighlightKind) => {
     if (newKind === activeKind) return;
@@ -1189,25 +1196,19 @@ const HomeOrbitalHighlights = ({
               <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
             </motion.div>
             <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.28em] text-white/86">Seus Destaques</h2>
-            <motion.span
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={isSectionVisible ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
-              transition={{ duration: 0.4, delay: 0.15 }}
-              className="shrink-0 rounded-full bg-orange-500/12 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200"
-            >
-              {periodLabel}
-            </motion.span>
           </div>
-          <motion.div
+          <motion.button
+            type="button"
+            onClick={() => setMetric((current) => current === 'minutes' ? 'plays' : 'minutes')}
             initial={{ opacity: 0, x: 20 }}
             animate={isSectionVisible ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5"
           >
             <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
-            <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(totalMinutes)}</span>
-            <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">min</span>
-          </motion.div>
+            <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(metricValue)}</span>
+            <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">{metric === 'minutes' ? 'min' : 'plays'}</span>
+          </motion.button>
         </motion.div>
 
         <motion.div
@@ -1517,16 +1518,16 @@ const HomePerceptions = ({
       </div>
       <div
         data-home-horizontal-scroll="true"
-        className="relative mx-auto h-[244px] max-w-[430px] select-none overflow-visible [perspective:1000px]"
+        className="relative mx-auto h-[210px] max-w-[430px] select-none overflow-visible [perspective:1000px]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStartRef.current = null; }}
         {...interactionProps}
       >
-        <div className="pointer-events-none absolute left-1/2 top-[46%] h-[226px] w-[226px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
+        <div className="pointer-events-none absolute left-1/2 top-[46%] h-[198px] w-[198px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
         <motion.div
-          className="pointer-events-none absolute left-1/2 top-[46%] h-[164px] w-[164px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
+          className="pointer-events-none absolute left-1/2 top-[46%] h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
           animate={!shouldReduceMotion && isSectionVisible ? { rotate: -360 } : {}}
           transition={!shouldReduceMotion && isSectionVisible ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
         />
@@ -1599,7 +1600,7 @@ const HomePerceptions = ({
         </AnimatePresence>
 
         {perceptions.length > 1 && (
-          <div className="absolute bottom-4 left-0 right-0 z-40 flex justify-center gap-1.5">
+          <div className="absolute bottom-0 left-0 right-0 z-40 flex justify-center gap-1.5">
             {perceptions.map((item, index) => (
               <button
                 key={`perception-dot-${item.title}`}
@@ -1895,6 +1896,7 @@ export default function HomeScreen() {
   const [, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
+  const [replayTotalPlaysCount, setReplayTotalPlaysCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
   const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
   const [replaySelectedSubValues, setReplaySelectedSubValues] = useState<ReplaySelectedSubValues>({
@@ -2337,6 +2339,7 @@ export default function HomeScreen() {
       setReplayState('idle');
       setReplayTopItems({ artists: [], tracks: [], albums: [] });
       setReplayTotalMinutesCount(0);
+      setReplayTotalPlaysCount(0);
       return;
     }
 
@@ -2346,6 +2349,7 @@ export default function HomeScreen() {
       tracks: any[];
       albums: any[];
       totalMinutes: number;
+      totalPlays: number;
     }>(cacheKey);
 
     if (cachedReplay) {
@@ -2355,6 +2359,7 @@ export default function HomeScreen() {
         albums: cachedReplay.albums || [],
       });
       setReplayTotalMinutesCount(cachedReplay.totalMinutes || 0);
+      setReplayTotalPlaysCount(cachedReplay.totalPlays || 0);
       setReplayState('ready');
     } else {
       setReplayState('loading');
@@ -2381,6 +2386,7 @@ export default function HomeScreen() {
       if (failed) {
         setReplayTopItems({ artists, tracks, albums });
         setReplayTotalMinutesCount(0);
+        setReplayTotalPlaysCount(0);
         setReplayState('error');
         return;
       }
@@ -2392,8 +2398,15 @@ export default function HomeScreen() {
             ? Math.max(1, Math.round(totalDurationMs / 60000))
             : fallbackTotal;
         setReplayTotalMinutesCount(totalMinutes);
+        setReplayTotalPlaysCount(Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0));
         setReplayState('ready');
-        writeHomeSessionCache(cacheKey, { artists, tracks, albums, totalMinutes });
+        writeHomeSessionCache(cacheKey, {
+          artists,
+          tracks,
+          albums,
+          totalMinutes,
+          totalPlays: Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0),
+        });
       }
     });
 
@@ -2937,6 +2950,7 @@ export default function HomeScreen() {
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
         <HomeOrbitalHighlights
           totalMinutes={replayTotalMinutesCount}
+          totalPlays={replayTotalPlaysCount}
           artists={replayArtists}
           tracks={replayTracks}
           albums={replayAlbums}

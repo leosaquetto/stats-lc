@@ -8,13 +8,13 @@ self.addEventListener('push', (event) => {
     try {
       data = event.data.json();
     } catch (e) {
-      data = { title: 'Novo Alerta Arena', body: event.data.text() };
+      data = { title: 'stats.lc', body: event.data.text() };
     }
   }
 
-  const title = data.title || 'Novidades na Arena!';
+  const title = data.title || 'stats.lc';
   const options = {
-    body: data.body || 'Alguém está comandando as picapes!',
+    body: data.body || 'Você tem uma nova atualização.',
     icon: data.icon || 'https://ui-avatars.com/api/?background=f97316&color=fff&bold=true&name=Arena',
     badge: data.badge || 'https://ui-avatars.com/api/?background=f97316&color=fff&bold=true&name=A',
     vibrate: [100, 50, 100],
@@ -32,7 +32,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+  const urlToOpen = new URL(event.notification.data?.url || '/', self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })

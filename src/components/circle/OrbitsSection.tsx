@@ -261,7 +261,7 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black uppercase tracking-[0.28em] text-orange-200/82">Orbits</p>
-            <h2 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">inbox musical</h2>
+            <h2 className="mt-1 text-2xl font-black leading-none tracking-[-0.04em] text-white">Inbox musical</h2>
             <p className="mt-2 text-xs font-semibold leading-relaxed text-white/45">
               Recomendações entre amigos com leitura rápida, histórico progressivo e ação direta na plataforma certa.
             </p>

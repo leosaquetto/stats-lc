@@ -44,6 +44,7 @@ Represents **catalog availability** for the track.
 - Cardinality lookups use the raw upstream `streams/stats` response for the requested range and are not reconstructed from monthly blocks.
 - Cache/debug metadata is intentionally kept out of normal endpoint payloads and is exposed only via `/api/health` and optional debug surfaces.
 - Live now-playing calls may opt into an internal `cacheProfile: "live"` with a shorter fresh/stale window. This is still handled inside `statsfmFetch` and does not change normal endpoint payloads.
+- `/api/live-probe` uses the isolated `cacheProfile: "pulse"`: 5 seconds fresh and up to 45 seconds stale only after an upstream failure, with simultaneous requests deduplicated.
 - `/api/group-live` has an internal 1.9-second endpoint deadline and may return partial members with `live_deadline_exceeded` warnings instead of blocking the full poll.
 - `/api/group-activity` is the cached background fallback for the Circle Activity reel. It reads one row per member from full stream history, hydrates track-only rows, limits concurrency to three, and always marks returned activities as non-live.
 - Optional dominant-color work is intentionally outside the `/api/group-live` and `/api/group` critical paths. Clients keep existing/local colors while richer endpoints refresh them.
@@ -62,7 +63,7 @@ Represents **catalog availability** for the track.
 
 ## Public Endpoint Reference
 
-All endpoints are `GET` handlers. `user` accepts configured aliases from `lib/users.ts` or raw stats.fm IDs/custom IDs. `force=1` asks the backend to refresh through `statsfmFetch`, but it still respects cooldown, cache, retry, and stale fallback policy.
+Most read endpoints are `GET` handlers. Push subscription mutations use `POST`. `user` accepts configured aliases from `lib/users.ts` or raw stats.fm IDs/custom IDs. `force=1` asks the backend to refresh through `statsfmFetch`, but it still respects cooldown, cache, retry, and stale fallback policy.
 
 ### Core group and profile endpoints
 
@@ -70,8 +71,19 @@ All endpoints are `GET` handlers. `user` accepts configured aliases from `lib/us
 | --- | --- | --- | --- |
 | `/api/group` | optional `force=1`, `debug=1` | Full group dashboard payload. | `members`, `rankings.today|week|month`, each member's `profile`, `platform`, `catalogSummary`, `nowPlaying`, `recent`, `stats`, `tops`, and per-section `errors`. Debug includes Sao Paulo range anchors and sanitized upstream/cache details. |
 | `/api/group-live` | optional `force=1`, `debug=1`, `statsUser=<user>` | Lightweight Home/now-playing polling surface. | `ok`, `source`, `generatedAt`, and `members`. With a valid `statsUser`, it may also return `featuredStats.{userId,day,streams,durationMs,generatedAt}` from the 20-second live cache. Calls without `statsUser` keep the previous payload. |
+| `/api/live-probe` | `user=<user>` | Minimal latest-stream probe for the featured Home vinyl. Never uses `force=1`, profile, tops, colors, or enrichment calls. | `ok`, resolved `user` and `userId`, `generatedAt`, stable `signature`, and one minimal normalized `item`. HTTP cache is intentionally short. |
 | `/api/user` | `user=<user>`, optional `force=1`, `debug=1` | One user profile summary. | `profile`, resolved `platform`, `legacy` upstream result, and sanitized `raw` only when `debug=1`. |
 | `/api/health` | none | Operational snapshot for agents and debugging. | `ok`, `service`, `time`, and `statsfm` cache/retry/metric snapshot. Cache/debug metadata belongs here, not in normal payloads. |
+
+### Web Push endpoints
+
+| Endpoint | Method | Purpose | Response highlights |
+| --- | --- | --- | --- |
+| `/api/push/public-key` | `GET` | Exposes the public VAPID key required by the browser subscription flow. | `ok` and `publicKey`; returns a configuration error when VAPID is unavailable. |
+| `/api/push/subscribe` | `POST` | Upserts one browser Push subscription for a known member. | Accepts `user` and the browser `subscription`; returns `ok` after persistence. |
+| `/api/push/unsubscribe` | `POST` | Removes one browser Push subscription by member and endpoint. | Accepts `user` and `endpoint`; returns `ok` even when the subscription was already absent. |
+
+Push deliveries are generic, link to `/circle?tab=orbits`, and are idempotent per orbit, event, and target user. Invalid subscriptions that return `404` or `410` are removed automatically.
 
 ### User stats, recents, and tops
 

@@ -123,7 +123,11 @@ const getListeningArtistName = (track: any) => {
     '';
 };
 
-export default function AlikeScreen() {
+interface AlikeScreenProps {
+  embedded?: boolean;
+}
+
+export default function AlikeScreen({ embedded = false }: AlikeScreenProps) {
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
@@ -373,9 +377,12 @@ export default function AlikeScreen() {
   const affinityScore = friendAffinities.find(a => a.friend.id === selectedFriendId)?.affinity || 0;
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-8 max-w-5xl mx-auto w-full">
+    <div className={cn(
+      "mx-auto flex w-full max-w-5xl flex-col px-4",
+      embedded ? "gap-4 pb-4 pt-0" : "gap-6 py-8"
+    )}>
       {/* Header */}
-      <div className="flex flex-col items-center text-center gap-3">
+      {!embedded && <div className="flex flex-col items-center text-center gap-3">
         <motion.div 
           initial={{ scale: 0, rotate: -180 }}
           animate={{ scale: 1, rotate: 0 }}
@@ -391,7 +398,7 @@ export default function AlikeScreen() {
           <h1 className="text-3xl font-black tracking-tighter text-white font-mundial uppercase mt-2">Stats Alike</h1>
           <p className="text-xs font-semibold text-white/50 uppercase tracking-[0.2em] mt-1">Conexões Musicais</p>
         </div>
-      </div>
+      </div>}
 
       {/* Amigos Mais Parecidos Ranking */}
       <div className="flex flex-col gap-4">
@@ -430,7 +437,7 @@ export default function AlikeScreen() {
         </div>
       </div>
 
-      <div className="glass-card rounded-[32px] border-white/5 bg-white/[0.026] p-5">
+      {!embedded && <div className="glass-card rounded-[32px] border-white/5 bg-white/[0.026] p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.24em] text-orange-300">Sintonia simultânea</p>
@@ -479,7 +486,7 @@ export default function AlikeScreen() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Versus Section */}
       {selectedFriend && compareStats && (

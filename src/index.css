@@ -524,6 +524,11 @@
   72% { transform: translate3d(-5%, 13%, 0) scale(1.11); }
 }
 
+@keyframes stats-lc-ambient-idle-breathe {
+  0%, 100% { opacity: 0.82; transform: scale(0.997); }
+  50% { opacity: 1; transform: scale(1.008); }
+}
+
 @keyframes progress-fill {
   from { transform: scaleX(var(--progress-start, 0)); }
   to { transform: scaleX(1); }
@@ -593,10 +598,33 @@
   will-change: transform;
 }
 
+.stats-lc-ambient-idle-breathe {
+  animation: stats-lc-ambient-idle-breathe 8.5s ease-in-out infinite;
+  transform-origin: 50% 44%;
+}
+
+.stats-lc-ambient-idle-freeze {
+  animation-play-state: paused;
+}
+
+.stats-lc-glass-popover {
+  isolation: isolate;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(145deg, rgba(24, 24, 24, 0.94), rgba(7, 7, 7, 0.9)),
+    rgba(9, 9, 9, 0.9);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stats-lc-ambient-drift-primary,
   .stats-lc-ambient-drift-secondary,
   .stats-lc-artwork-drift {
+    animation: none;
+  }
+  .stats-lc-ambient-idle-breathe {
     animation: none;
   }
 }

@@ -430,12 +430,12 @@ const fetchFromApi = async <T>(
   requestOptions: ApiRequestOptions = {}
 ): Promise<T> => {
   const finalParams = { ...params };
-  const sendsForceParam = forceRefresh && endpoint !== '/api/group' && endpoint !== '/api/group-live';
+  const sendsForceParam = forceRefresh && endpoint !== '/api/group' && endpoint !== '/api/group-live' && endpoint !== '/api/live-probe';
   if (sendsForceParam) finalParams.force = '1';
 
   const cacheKey = getApiCacheKey(endpoint, finalParams, sendsForceParam);
   const now = Date.now();
-  const shouldUseResponseCache = endpoint !== '/api/group-live';
+  const shouldUseResponseCache = endpoint !== '/api/group-live' && endpoint !== '/api/live-probe';
 
   if (!forceRefresh && useDedupe && shouldUseResponseCache) {
     const cached = apiResponseCache.get(cacheKey);
@@ -464,7 +464,7 @@ const fetchFromApi = async <T>(
     } catch (error: any) {
       const status = error.response?.status;
       const isNetworkError = !error.response && error.request;
-      const shouldSilenceLiveError = isSilentGroupLiveFailure(endpoint, error);
+      const shouldSilenceLiveError = endpoint === '/api/live-probe' || isSilentGroupLiveFailure(endpoint, error);
       const isCanceledRequest =
         requestOptions.signal?.aborted
         || axios.isCancel(error)
@@ -832,6 +832,24 @@ export const statsService = {
 
     if (!forceRefresh) liveRequestInFlight.set(requestKey, request);
     return request;
+  },
+
+  async getLiveProbe(userId: string, signal?: AbortSignal): Promise<{
+    ok: boolean;
+    user: string;
+    userId: string;
+    generatedAt: string;
+    signature: string | null;
+    item: any | null;
+  }> {
+    const response = await fetchFromApi<any>('/api/live-probe', {
+      user: coreUtils.getUserApiParam(userId),
+    }, false, 0, true, { signal });
+
+    return {
+      ...response,
+      item: response?.item ? normalizeRecentStream(response.item) : null,
+    };
   },
 
   async getLatestDiscovery(userId: string, signal?: AbortSignal): Promise<any> {

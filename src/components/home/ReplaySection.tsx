@@ -174,12 +174,12 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
   return (
     <div
-      className="relative isolate w-full overflow-visible px-4 py-4 sm:px-6 lg:px-8"
+      className="relative isolate w-full overflow-visible py-4"
       style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}
     >
       <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.22)_0%,rgba(239,92,38,0.12)_42%,rgba(0,0,0,0)_72%)]" />
       {isLoading && (
-        <div className="absolute top-2 left-4 right-4 h-px overflow-hidden rounded-full bg-white/5">
+        <div className="absolute left-0 right-0 top-2 h-px overflow-hidden rounded-full bg-white/5">
           <motion.div
             className="h-full w-1/2 rounded-full bg-orange-500/70"
             animate={{ x: ['-100%', '220%'] }}
@@ -190,7 +190,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
       <div className="relative z-10 space-y-5">
       <div className="space-y-5">
-        <div className="flex items-center justify-between gap-4 pl-4">
+        <div className="flex items-center justify-between gap-4">
           <button
             type="button"
             onClick={() => setFiltersOpen(open => !open)}
@@ -241,7 +241,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             data-home-horizontal-scroll="true"
-            className="glass-aura ml-4 flex w-[calc(100%_-_1rem)] items-center gap-2 overflow-x-auto rounded-[28px] p-1.5 hide-scrollbar scroll-pl-4"
+            className="glass-aura flex w-full items-center gap-2 overflow-x-auto rounded-[28px] p-1.5 no-scrollbar"
           >
             {periodTabs.map((tab) => (
               <button
@@ -262,7 +262,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       </div>
 
       {filtersOpen && activeTab === 'week' && (
-        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-2 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
+        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-2 overflow-x-auto no-scrollbar">
           {[
             { key: 'last-7' as ReplayWeekMode, label: 'últimos 7 dias' },
             { key: 'current' as ReplayWeekMode, label: 'esta semana' }
@@ -287,7 +287,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {filtersOpen && activeTab === 'month' && (
-        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-5 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
+        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-5 overflow-x-auto no-scrollbar">
           {availableMonths.map((month, index) => {
             const isSelected = selectedSubValues.month === String(index).padStart(2, '0');
             return (
@@ -307,7 +307,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       )}
 
       {filtersOpen && activeTab === 'year' && (
-        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-3 overflow-x-auto pl-4 hide-scrollbar scroll-pl-4">
+        <div data-home-horizontal-scroll="true" className="relative z-10 flex items-center gap-3 overflow-x-auto no-scrollbar">
           {YEARS.map((year) => {
             const isSelected = selectedSubValues.year === String(year);
             return (
@@ -338,7 +338,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
         </div>
       )}
 
-      {hasData && <div className={cn("ml-4 max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
+      {hasData && <div className={cn("max-w-[284px] transition-opacity duration-300", isLoading && "opacity-55")}>
         <p className="text-[23px] font-black leading-[1.1] tracking-[-0.03em] text-white/46">
           <span>{ownerFirstName === 'Você' ? 'Você ouviu ' : `${ownerFirstName} ouviu `}</span>
           <span
@@ -370,14 +370,14 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <div>
             <button
               onClick={onOpenArtistsModal}
-              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
+              className="group flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
               <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Seus artistas mais ouvidos</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          <div data-home-horizontal-scroll="true" className="flex gap-3 overflow-x-auto snap-x pb-2 pl-4 pr-4 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-3 overflow-x-auto snap-x pb-2 no-scrollbar">
             {limitedArtists.map((artist, index) => (
               <motion.div
                 key={replayItemKey('artist', artist, index)}
@@ -438,14 +438,14 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <div>
             <button
               onClick={onOpenSongsModal}
-              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
+              className="group flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
               <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Suas músicas mais ouvidas</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          <div data-home-horizontal-scroll="true" className="overflow-x-auto snap-x pl-4 pr-4 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="overflow-x-auto snap-x no-scrollbar">
             <div className="flex gap-4">
               {Array.from({ length: Math.ceil(visibleTracks.length / 4) }).map((_, pageIndex) => (
                 <div key={pageIndex} className="flex flex-col snap-start flex-shrink-0">
@@ -499,14 +499,14 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
           <div>
             <button
               onClick={onOpenAlbumsModal}
-              className="group ml-4 flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
+              className="group flex max-w-[calc(100vw-48px)] items-center justify-start gap-2 text-left"
             >
               <h3 className="text-[18px] font-black leading-none tracking-[-0.025em] text-white">Seus álbuns mais ouvidos</h3>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/55 transition-colors group-hover:text-white" />
             </button>
           </div>
 
-          <div data-home-horizontal-scroll="true" className="flex gap-3 overflow-x-auto snap-x pb-2 pl-4 pr-4 hide-scrollbar scroll-pl-4">
+          <div data-home-horizontal-scroll="true" className="flex gap-3 overflow-x-auto snap-x pb-2 no-scrollbar">
             {limitedAlbums.map((album, index) => (
               <motion.div
                 key={replayItemKey('album', album, index)}

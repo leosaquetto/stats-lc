@@ -122,7 +122,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }
 
   return (
-    <div className="relative min-h-[484px] overflow-visible px-3 py-5">
+    <div className="relative min-h-[430px] overflow-visible px-3 py-5">
       <div className="absolute right-0 top-0 -z-10 h-56 w-56 rounded-full bg-orange-500/5 blur-[96px]" />
       <div className="absolute left-1/2 top-[44%] -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
 
@@ -199,7 +199,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
         <div
           ref={orbitRef}
           data-home-horizontal-scroll="true"
-          className="relative mx-auto h-[392px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
+          className="relative mx-auto h-[338px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -262,25 +262,22 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                     <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
                       {member.name.split(/\s+/)[0] || member.name}
                     </span>
-                    {isCentered && (
-                      <OrbitPagerIndicator
-                        count={validMembers.length}
-                        activeIndex={activeIndex}
-                        onSelect={goToIndex}
-                        label="membro do Top 1"
-                        className="mt-1"
-                      />
-                    )}
                   </div>
                 </motion.div>
               </motion.div>
             );
           })}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-1 z-40 flex justify-center gap-24 sm:hidden">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex items-center justify-center gap-5">
             <button type="button" onClick={handlePrev} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
               <ChevronLeft className="h-4 w-4 text-white/48" />
             </button>
+            <OrbitPagerIndicator
+              count={validMembers.length}
+              activeIndex={activeIndex}
+              onSelect={goToIndex}
+              label="membro do Top 1"
+            />
             <button type="button" onClick={handleNext} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
               <ChevronRight className="h-4 w-4 text-white/48" />
             </button>
@@ -334,7 +331,7 @@ const OrbitalSatellite = ({
   const artistName = label === 'faixa' || label === 'álbum'
     ? getTopItemArtistName(item)
     : '';
-  const countBadgeClass = "leo-soft-badge absolute z-10 flex h-5 min-w-[22px] items-center justify-center rounded-full bg-[#ff5f00]/58 px-1.5 text-[8px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md";
+  const countBadgeClass = "leo-soft-badge absolute z-10 flex h-6 min-w-[26px] items-center justify-center rounded-full bg-[#ff5f00]/58 px-2 text-[9px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md";
 
   return (
     <motion.div
@@ -361,7 +358,7 @@ const OrbitalSatellite = ({
               </div>
             )}
           </div>
-          <div className="glass-card border-white/8 bg-black/40 rounded-2xl px-3 py-2 max-w-[96px] backdrop-blur-md">
+          <div className="max-w-[96px] rounded-2xl bg-black/36 px-3 py-2 backdrop-blur-xl">
             <span className="text-[7px] font-black uppercase tracking-[0.16em] text-orange-500/80 leading-none block mb-1">
               {label}
             </span>
@@ -386,7 +383,7 @@ const OrbitalSatellite = ({
               </div>
             )}
           </div>
-          <div className="glass-card border-white/8 bg-black/40 rounded-2xl px-3 py-2 max-w-[96px] backdrop-blur-md">
+          <div className="max-w-[96px] rounded-2xl bg-black/36 px-3 py-2 backdrop-blur-xl">
             <span className="text-[7px] font-black uppercase tracking-[0.16em] text-orange-500/80 leading-none block mb-1">
               {label}
             </span>

@@ -137,6 +137,7 @@ interface LiveTrackProgressProps {
   platform: "spotify" | "appleMusic" | "unknown";
   compact?: boolean;
   progressColor?: string | null;
+  isSynchronizing?: boolean;
 }
 
 function formatTrackTime(ms: number) {
@@ -198,7 +199,7 @@ LiveElapsedTime.displayName = 'LiveElapsedTime';
 const COMPLETE_MARGIN_MS = 2500;
 const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
-const COMPLETION_RECHECK_INTERVAL_MS = 5000;
+const COMPLETION_RECHECK_INTERVAL_MS = 8000;
 const MAX_COMPLETION_RECHECKS = 6;
 
 function normalizePlaybackAccent(color: string | null) {
@@ -457,12 +458,12 @@ function useLivePlaybackProgress({
   userId,
   nowPlaying,
   durationMs,
-  fetchGroupLive,
+  fetchLiveProbe,
 }: {
   userId: string;
   nowPlaying: any;
   durationMs?: number | null;
-  fetchGroupLive: (force?: boolean, options?: { bypassThrottle?: boolean }) => Promise<void>;
+  fetchLiveProbe: (userId: string) => Promise<boolean>;
 }) {
   const snapshotRef = React.useRef<PlaybackSnapshot | null>(null);
   const completedPlaybackKeyRef = React.useRef<string | null>(null);
@@ -578,17 +579,17 @@ function useLivePlaybackProgress({
       checkingPlaybackKeyRef.current = snapshot.playbackKey;
       setIsCheckingNext(true);
 
-      fetchGroupLive(false, { bypassThrottle: true })
+      fetchLiveProbe(userId)
         .catch(() => undefined)
         .finally(() => {
           if (checkingPlaybackKeyRef.current === snapshot.playbackKey) {
             checkingPlaybackKeyRef.current = null;
-            setIsCheckingNext(false);
             if (snapshotRef.current?.playbackKey === snapshot.playbackKey) {
               const nextAttempts = (completionCheckAttemptsRef.current[snapshot.playbackKey] || 0) + 1;
               completionCheckAttemptsRef.current[snapshot.playbackKey] = nextAttempts;
               if (nextAttempts >= MAX_COMPLETION_RECHECKS) {
                 completedPlaybackKeyRef.current = snapshot.playbackKey;
+                setIsCheckingNext(false);
                 setIsFinished(true);
               } else {
                 setSnapshotVersion(version => version + 1);
@@ -599,7 +600,7 @@ function useLivePlaybackProgress({
     }, delay);
 
     return () => window.clearTimeout(timer);
-  }, [isNow, completionDurationMs, fetchGroupLive, snapshotVersion]);
+  }, [isNow, completionDurationMs, fetchLiveProbe, snapshotVersion, userId]);
 
   useEffect(() => {
     if (!isNow || !snapshotRef.current) return;
@@ -637,7 +638,8 @@ export const LiveTrackProgress = memo(({
   isNowPlaying,
   platform,
   compact = false,
-  progressColor
+  progressColor,
+  isSynchronizing = false
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
@@ -770,13 +772,23 @@ export const LiveTrackProgress = memo(({
                 isRunning={isNowPlaying}
                 className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
               />
-            <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
-              <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
-              <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
-                {PlatformLogo}
+            {isSynchronizing ? (
+              <motion.span
+                animate={{ opacity: [0.38, 0.9, 0.38] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                className="mx-auto text-[6.4px] font-black uppercase tracking-[0.18em] text-orange-200/80"
+              >
+                SINCRONIZANDO
+              </motion.span>
+            ) : (
+              <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
+                <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+                <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
+                  {PlatformLogo}
+                </div>
+                <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
               </div>
-              <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
-            </div>
+            )}
             <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
               {formatTrackTime(durationMs)}
             </span>
@@ -1100,7 +1112,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     };
   }, [track?.name, mainArtistName]);
 
-  const fetchGroupLive = useStatsStore(state => state.fetchGroupLive);
+  const fetchLiveProbe = useStatsStore(state => state.fetchLiveProbe);
 
   const playback = coreUtils.getPlaybackStatus({ nowPlaying });
   const backendIsLive = playback.status === "live";
@@ -1173,8 +1185,6 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     () => getDistinctAmbientColors(artworkPalette, dominantColor),
     [artworkPalette, dominantColor]
   );
-  const idleAmbientColorB = useMemo(() => adjustBrightness(ambientColorB, -0.3), [ambientColorB]);
-  const idleAmbientColorC = useMemo(() => adjustBrightness(ambientColorC, -0.18), [ambientColorC]);
 
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
@@ -1471,7 +1481,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     userId: user.id,
     nowPlaying,
     durationMs,
-    fetchGroupLive,
+    fetchLiveProbe,
   });
   const isActuallyLive = backendIsLive && livePlayback.shouldSpinVinyl;
   const playbackSignatureSource = nowPlaying as any;
@@ -1555,7 +1565,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute left-1/2 top-[calc(-10rem-env(safe-area-inset-top,0px))] bottom-[-540px] w-[180vw] min-w-[860px] -translate-x-1/2 overflow-hidden transition-[box-shadow,opacity] duration-500 pointer-events-none",
+          "absolute left-1/2 top-[calc(-10rem-env(safe-area-inset-top,0px))] bottom-[-540px] w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
@@ -1567,80 +1577,58 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 58%, rgba(0,0,0,0.84) 72%, rgba(0,0,0,0.46) 90%, transparent 100%)'
         }}
         >
-          <AnimatePresence mode="sync" initial={false}>
-            {visualIsLive ? (
-              <motion.div
-                key="live-bg"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute inset-0 rounded-[inherit]"
-              >
-                <div
-                  className="stats-lc-artwork-drift absolute -inset-[18%] scale-125 opacity-[0.7]"
-                  style={{
-                    background: `radial-gradient(circle at 62% 34%, ${withAlpha(ambientColorA, 0.46)} 0%, ${withAlpha(ambientColorA, 0.2)} 18%, transparent 40%), radial-gradient(circle at 28% 66%, ${withAlpha(ambientColorB, 0.28)} 0%, ${withAlpha(ambientColorB, 0.12)} 16%, transparent 38%)`,
-                  }}
-                />
-                <div
-                  className="stats-lc-ambient-drift-primary absolute -inset-[18%] pointer-events-none"
-                  style={{
-                    background: `radial-gradient(circle at 68% 38%, ${withAlpha(ambientColorB, 0.62)} 0%, ${withAlpha(ambientColorB, 0.18)} 22%, transparent 40%)`
-                  }}
-                />
-                <div
-                  className="stats-lc-ambient-drift-secondary absolute -inset-[20%] pointer-events-none"
-                  style={{
-                    background: `radial-gradient(circle at 18% 58%, ${withAlpha(ambientColorC, 0.5)} 0%, ${withAlpha(ambientColorC, 0.16)} 20%, transparent 36%)`
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/14 to-black/34" />
-              </motion.div>
-            ) : (
-              <motion.div
-                 key="idle-bg"
-                 initial={{ opacity: 0 }}
-                 animate={{ opacity: 1 }}
-                 exit={{ opacity: 0 }}
-                 transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
-                 className="absolute inset-0 overflow-hidden"
-              >
-                 <div
-                   className="absolute inset-0 pointer-events-none"
-                   style={{
-                     background: track
-                       ? 'transparent'
-                       : 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.065) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.11) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.66) 0%, rgba(15,12,12,0.28) 52%, rgba(0,0,0,0.58) 100%)',
-                   }}
-                 />
-                 {track && (
-                   <div
-                     className="stats-lc-artwork-drift absolute -inset-[18%] scale-125 opacity-[0.56]"
-                     style={{
-                       background: `radial-gradient(circle at 58% 36%, ${withAlpha(ambientColorA, 0.34)} 0%, ${withAlpha(ambientColorA, 0.14)} 26%, transparent 56%), radial-gradient(circle at 32% 68%, ${withAlpha(idleAmbientColorB, 0.22)} 0%, ${withAlpha(idleAmbientColorB, 0.1)} 24%, transparent 54%)`,
-                     }}
-                   />
-                 )}
-                 <div
-                   className="stats-lc-ambient-drift-primary absolute -inset-[36%] pointer-events-none"
-                   style={{
-                     background: track
-                       ? `radial-gradient(circle at 40% 40%, ${withAlpha(idleAmbientColorB, 0.34)} 0%, transparent 54%)`
-                       : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.075) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.12) 0%, transparent 56%)',
-                   }}
-                 />
-                 <div
-                   className="stats-lc-ambient-drift-secondary absolute -inset-[38%] pointer-events-none"
-                   style={{
-                     background: track
-                       ? `radial-gradient(circle at 65% 60%, ${withAlpha(idleAmbientColorC, 0.26)} 0%, transparent 50%)`
-                       : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.055) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.12) 0%, transparent 54%)',
-                   }}
-                 />
-              </motion.div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.78, ease: [0.16, 1, 0.3, 1] }}
+            className={cn(
+              "absolute inset-0 overflow-visible rounded-[inherit]",
+              !visualIsLive && "stats-lc-ambient-idle-breathe"
             )}
-          </AnimatePresence>
+          >
+            {!track && (
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: 'radial-gradient(circle at 28% 30%, rgba(255,255,255,0.065) 0%, transparent 42%), radial-gradient(circle at 74% 62%, rgba(249,115,22,0.11) 0%, transparent 46%), linear-gradient(135deg, rgba(0,0,0,0.66) 0%, rgba(15,12,12,0.28) 52%, rgba(0,0,0,0.58) 100%)',
+                }}
+              />
+            )}
+            {track && (
+              <div
+                className={cn(
+                  "stats-lc-artwork-drift absolute -inset-[18%] scale-125 transition-opacity duration-700",
+                  visualIsLive ? "opacity-[0.7]" : "stats-lc-ambient-idle-freeze opacity-[0.56]"
+                )}
+                style={{
+                  background: `radial-gradient(circle at 62% 34%, ${withAlpha(ambientColorA, 0.46)} 0%, ${withAlpha(ambientColorA, 0.2)} 18%, transparent 44%), radial-gradient(circle at 28% 66%, ${withAlpha(ambientColorB, 0.28)} 0%, ${withAlpha(ambientColorB, 0.12)} 18%, transparent 42%)`,
+                }}
+              />
+            )}
+            <div
+              className={cn(
+                "stats-lc-ambient-drift-primary absolute -inset-[24%] pointer-events-none",
+                !visualIsLive && "stats-lc-ambient-idle-freeze"
+              )}
+              style={{
+                background: track
+                  ? `radial-gradient(circle at 68% 38%, ${withAlpha(ambientColorB, visualIsLive ? 0.62 : 0.34)} 0%, ${withAlpha(ambientColorB, visualIsLive ? 0.18 : 0.1)} 24%, transparent 48%)`
+                  : 'radial-gradient(circle at 38% 38%, rgba(255,255,255,0.075) 0%, transparent 50%), radial-gradient(circle at 58% 54%, rgba(249,115,22,0.12) 0%, transparent 56%)',
+              }}
+            />
+            <div
+              className={cn(
+                "stats-lc-ambient-drift-secondary absolute -inset-[26%] pointer-events-none",
+                !visualIsLive && "stats-lc-ambient-idle-freeze"
+              )}
+              style={{
+                background: track
+                  ? `radial-gradient(circle at 18% 58%, ${withAlpha(ambientColorC, visualIsLive ? 0.5 : 0.26)} 0%, ${withAlpha(ambientColorC, visualIsLive ? 0.16 : 0.08)} 22%, transparent 44%)`
+                  : 'radial-gradient(circle at 68% 58%, rgba(255,255,255,0.055) 0%, transparent 48%), radial-gradient(circle at 32% 72%, rgba(124,45,18,0.12) 0%, transparent 54%)',
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/14 to-black/34" />
+          </motion.div>
           <div className="stats-lc-grain stats-lc-header-grain absolute inset-0 pointer-events-none" />
         </div>
         {track && (
@@ -1869,7 +1857,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                             isNowPlaying={isActuallyLive}
                             platform={platform.primary}
                             compact
-                        progressColor={progressColor || undefined}
+                            progressColor={progressColor || undefined}
+                            isSynchronizing={livePlayback.isCheckingNext}
                          />
                       </div>
 

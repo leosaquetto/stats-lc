@@ -83,6 +83,11 @@ export interface NowPlaying {
   track: Track;
   isNow: boolean;
   timestamp: string;
+  playedAt?: string;
+  endTime?: string;
+  playbackKey?: string;
+  streamId?: string;
+  source?: 'probe' | 'group-live' | 'manual';
   progressMs?: number;
   durationMs?: number;
   playedMs?: number;

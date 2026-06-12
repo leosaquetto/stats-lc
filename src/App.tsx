@@ -206,14 +206,66 @@ function AppRoutes() {
   );
 }
 
+function LiveProbePoller() {
+  const location = useLocation();
+  const featuredUserId = useStatsStore(s => s.featuredUserId);
+  const fetchLiveProbe = useStatsStore(s => s.fetchLiveProbe);
+  const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
+
+  useEffect(() => {
+    if (location.pathname !== '/' || !featuredUserId) return;
+
+    let cancelled = false;
+    let timer = 0;
+    let consecutiveErrors = 0;
+    let inFlight = false;
+    const delays = [8000, 15000, 30000];
+
+    const schedule = (delay: number) => {
+      window.clearTimeout(timer);
+      if (!cancelled) timer = window.setTimeout(run, delay);
+    };
+
+    const run = async () => {
+      if (cancelled || inFlight || document.visibilityState !== 'visible') return;
+      inFlight = true;
+      try {
+        const changed = await fetchLiveProbe(featuredUserId);
+        consecutiveErrors = 0;
+        if (changed) {
+          fetchGroupLive(false, { bypassThrottle: true }).catch(() => undefined);
+        }
+        schedule(delays[0]);
+      } catch {
+        consecutiveErrors += 1;
+        schedule(delays[Math.min(consecutiveErrors - 1, delays.length - 1)]);
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void run();
+      else window.clearTimeout(timer);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    void run();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [featuredUserId, fetchGroupLive, fetchLiveProbe, location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   const fetchStats = useStatsStore(s => s.fetchGroup);
   const fetchGroupLive = useStatsStore(s => s.fetchGroupLive);
   const setOffline = useStatsStore(s => s.setOffline);
   const pollingFrequency = useStatsStore(s => s.pollingFrequency);
-  const hasActivePlayback = useStatsStore(s =>
-    Object.values(s.liveNowPlayingByUserId).some(nowPlaying => nowPlaying?.isNow === true)
-  );
   const [initialBootSettled, setInitialBootSettled] = useState(false);
 
   useEffect(() => {
@@ -317,7 +369,7 @@ export default function App() {
   }, [initialBootSettled]);
 
   useEffect(() => {
-    const safePollingFrequency = hasActivePlayback ? 8 : Math.max(8, pollingFrequency);
+    const safePollingFrequency = Math.max(25, pollingFrequency);
     const intervalTime = safePollingFrequency * 1000;
 
     const interval = setInterval(() => {
@@ -337,7 +389,7 @@ export default function App() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [fetchGroupLive, hasActivePlayback, pollingFrequency]);
+  }, [fetchGroupLive, pollingFrequency]);
 
   useEffect(() => {
     let cleanup = () => {};
@@ -362,6 +414,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <HashRouter>
+        <LiveProbePoller />
         <Layout>
           <AppRoutes />
         </Layout>
