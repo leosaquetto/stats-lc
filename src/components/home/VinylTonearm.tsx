@@ -219,14 +219,6 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
             setLevel(nextLevel);
           }}
         >
-          <rect
-            x="0"
-            y="0"
-            width="100"
-            height="46"
-            fill="transparent"
-            pointerEvents="all"
-          />
           <g transform={`translate(${pivotX} ${pivotY}) rotate(34)`}>
             <circle
               cx="0"

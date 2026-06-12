@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -312,9 +312,68 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
   );
 };
 
+const StatsEmptyPanel = ({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+  action
+}: {
+  icon: typeof Music2;
+  eyebrow: string;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) => (
+  <div className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.045] to-transparent" />
+    <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-orange-500/[0.12] blur-3xl" />
+    <div className="relative z-10 flex items-start gap-4">
+      <div className="glass-aura-orange flex h-12 w-12 shrink-0 items-center justify-center rounded-[22px] text-white shadow-[0_0_24px_rgba(249,115,22,0.16)]">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300/85">{eyebrow}</span>
+        <h2 className="mt-2 text-lg font-black leading-tight tracking-tight text-white">{title}</h2>
+        <p className="mt-2 max-w-[240px] text-[12px] font-semibold leading-relaxed text-white/46">{description}</p>
+        {action && <div className="mt-4">{action}</div>}
+      </div>
+    </div>
+  </div>
+);
+
+const StatsRankingLoading = () => (
+  <div className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.04] to-transparent" />
+    <div className="relative z-10 flex flex-col gap-3">
+      {[0, 1, 2].map((item) => (
+        <div key={`stats-ranking-loading-${item}`} className="flex items-center gap-3 rounded-[24px] border border-white/[0.055] bg-white/[0.025] p-3">
+          <div className="stats-lc-skeleton-shimmer h-11 w-11 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="stats-lc-skeleton-shimmer h-3 w-2/3 rounded-full" />
+            <div className="stats-lc-skeleton-shimmer h-2 w-1/3 rounded-full opacity-60" />
+          </div>
+          <div className="stats-lc-skeleton-shimmer h-8 w-14 rounded-full opacity-70" />
+        </div>
+      ))}
+      <div className="flex items-center justify-center gap-2 pt-1 text-[9px] font-black uppercase tracking-[0.22em] text-white/24">
+        <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
+        Buscando rankings
+      </div>
+    </div>
+  </div>
+);
+
 type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
-type ViewMode = 'user' | 'friends';
+type StatsSection = 'overview' | 'replay' | 'rankings' | 'compare';
+
+const statsSections: Array<{ id: StatsSection; label: string; icon: typeof BarChart3 }> = [
+  { id: 'overview', label: 'Visão', icon: Sparkles },
+  { id: 'replay', label: 'Replay', icon: PlayCircle },
+  { id: 'rankings', label: 'Rankings', icon: Trophy },
+  { id: 'compare', label: 'Comparar', icon: Users },
+];
 
 const filterToReplayTab = (filter: Filter): ReplayFilterPeriod => {
   if (filter === 'Hoje') return 'today';
@@ -379,7 +438,7 @@ const getReplayItemMinutes = (source: any, type: ItemType) => {
 export default function StatsScreen() {
   const [activeFilter, setActiveFilter] = useState<Filter>('Mês');
   const [activeType, setActiveType] = useState<ItemType>('artists');
-  const [viewMode, setViewMode] = useState<ViewMode>('user');
+  const [activeStatsSection, setActiveStatsSection] = useState<StatsSection>('overview');
   
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const [fullUserData, setFullUserData] = useState<any>(null);
@@ -508,10 +567,10 @@ export default function StatsScreen() {
     trackEvent('stats_type_changed', { type: activeType });
   }, [activeType]);
 
-  // Track View Mode (user stats vs group leaderboard)
+  // Track top-level Stats section switching
   useEffect(() => {
-    trackEvent('stats_view_mode_changed', { viewMode });
-  }, [viewMode]);
+    trackEvent('stats_section_changed', { section: activeStatsSection });
+  }, [activeStatsSection]);
 
   // Track Stats Battle Arena activation
   useEffect(() => {
@@ -1550,7 +1609,7 @@ export default function StatsScreen() {
   useEffect(() => {
     let cancelled = false;
     async function loadAllPeriodData() {
-      if (viewMode === 'friends' || !CURRENT_USER_ID) return;
+      if (activeStatsSection === 'compare' || !CURRENT_USER_ID) return;
       const fallbackTops = (user?.topItems || {}) as { artists?: any[]; tracks?: any[]; albums?: any[] };
       const hasFallbackTops =
         !!fallbackTops.artists?.length ||
@@ -1600,7 +1659,7 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, viewMode, topItemsRetryNonce, user?.topItems]);
+  }, [CURRENT_USER_ID, activeFilter, activeStatsSection, topItemsRetryNonce, user?.topItems]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1682,6 +1741,10 @@ export default function StatsScreen() {
   const replaySourceItems = replayOwnerId === CURRENT_USER_ID
     ? { artists: activePeriodArtists, tracks: activePeriodTracks, albums: activePeriodAlbums }
     : friendReplayItems;
+  const hasReplayItems =
+    replaySourceItems.artists.length > 0 ||
+    replaySourceItems.tracks.length > 0 ||
+    replaySourceItems.albums.length > 0;
   const replayDurationMs = replayOwnerId === CURRENT_USER_ID
     ? periodSummaryStats.durationMs
     : (replaySourceItems.tracks || []).reduce((sum, item: any) => {
@@ -1690,6 +1753,15 @@ export default function StatsScreen() {
         return sum + (Number(durationMs) || 0) * (Number(count) || 0);
       }, 0);
   const isReplayLoading = replayOwnerId === CURRENT_USER_ID ? isTopItemsLoading : isFriendReplayLoading;
+  const openRankingsFromReplay = (type: ItemType) => {
+    setActiveType(type);
+    setActiveStatsSection('rankings');
+    window.requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
+    });
+  };
 
   if (!user) {
     return (
@@ -1732,7 +1804,49 @@ export default function StatsScreen() {
         </div>
       </div>
 
-      {viewMode === 'user' ? (
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+82px)] z-40 -mt-1">
+        <div className="grid grid-cols-4 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+          {statsSections.map((section) => {
+            const Icon = section.icon;
+            const isActive = activeStatsSection === section.id;
+
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveStatsSection(section.id)}
+                aria-current={isActive ? 'page' : undefined}
+                className={clsx(
+                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-[color,transform] duration-200 active:scale-[0.96]",
+                  isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
+                )}
+              >
+                {isActive && (
+                  <motion.span
+                    className="absolute inset-0 rounded-2xl border border-orange-500/20 bg-orange-500/10"
+                    initial={{ opacity: 0, scale: 0.94 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                )}
+                <Icon className="relative h-3.5 w-3.5" />
+                <span className="relative">{section.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <AnimatePresence mode="sync" initial={false}>
+        <motion.div
+          key={activeStatsSection}
+          initial={{ opacity: 0, x: 12 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col gap-3"
+        >
+      {activeStatsSection === 'overview' && (
         <>
           {/* Hero Summary Card */}
           <motion.div
@@ -1853,33 +1967,42 @@ export default function StatsScreen() {
               })()}
             </div>
           )}
+        </>
+      )}
 
-          {(activePeriodArtists.length > 0 || activePeriodTracks.length > 0 || activePeriodAlbums.length > 0 || replaySourceItems.artists.length > 0 || replaySourceItems.tracks.length > 0 || replaySourceItems.albums.length > 0) && (
+      {activeStatsSection === 'replay' && (
+        <div className="flex flex-col gap-3">
+          <SectionHeader
+            title="Replay do Período"
+            icon={<PlayCircle className="h-3.5 w-3.5 text-orange-500" />}
+          />
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-fade-h" data-home-horizontal-scroll="true">
+            {members.map((member) => {
+              const isSelected = member.id === replayOwnerId;
+              return (
+                <button
+                  key={`stats-replay-owner-${member.id}`}
+                  type="button"
+                  onClick={() => setReplayOwnerId(member.id)}
+                  className={clsx(
+                    "glass-aura flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-[background-color,border-color,color,opacity,transform] duration-200 active:scale-95",
+                    isSelected ? "text-orange-300 ring-1 ring-orange-500/25" : "text-white/42 opacity-72"
+                  )}
+                  title={`Ver Replay de ${member.name}`}
+                >
+                  <div className={clsx("h-7 w-7 overflow-hidden rounded-full border", isSelected ? "border-orange-500" : "border-white/10")}>
+                    <SmartImage src={coreUtils.getUserAvatar(member.id, member.avatar)} className="h-full w-full object-cover" fallback="" rounded="full" />
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.12em]">
+                    {member.id === CURRENT_USER_ID ? 'Você' : (member.name || '').split(/\s+/)[0]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {hasReplayItems ? (
             <Suspense fallback={<div className="glass-aura h-48 rounded-[32px] animate-pulse" />}>
-              <div className="mb-2 flex items-center gap-2 overflow-x-auto px-4 no-scrollbar scroll-fade-h" data-home-horizontal-scroll="true">
-                {members.map((member) => {
-                  const isSelected = member.id === replayOwnerId;
-                  return (
-                    <button
-                      key={`stats-replay-owner-${member.id}`}
-                      type="button"
-                      onClick={() => setReplayOwnerId(member.id)}
-                      className={clsx(
-                        "glass-aura flex shrink-0 items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-[background-color,border-color,color,opacity,transform] duration-200 active:scale-95",
-                        isSelected ? "text-orange-300 ring-1 ring-orange-500/25" : "text-white/42 opacity-72"
-                      )}
-                      title={`Ver Replay de ${member.name}`}
-                    >
-                      <div className={clsx("h-7 w-7 overflow-hidden rounded-full border", isSelected ? "border-orange-500" : "border-white/10")}>
-                        <SmartImage src={coreUtils.getUserAvatar(member.id, member.avatar)} className="h-full w-full object-cover" fallback="" rounded="full" />
-                      </div>
-                      <span className="text-[9px] font-black uppercase tracking-[0.12em]">
-                        {member.id === CURRENT_USER_ID ? 'Você' : (member.name || '').split(/\s+/)[0]}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
               <ReplaySection
                 topArtists={replaySourceItems.artists.slice(0, 20).map((a: any) => ({
                   id: a.id || a.name,
@@ -1909,16 +2032,39 @@ export default function StatsScreen() {
                 selectedSubValues={statsReplaySubValues}
                 onActiveTabChange={handleReplayTabChange}
                 onSelectedSubValuesChange={setStatsReplaySubValues}
-                onOpenArtistsModal={() => { setActiveType('artists'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
-                onOpenSongsModal={() => { setActiveType('tracks'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
-                onOpenAlbumsModal={() => { setActiveType('albums'); document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' }); }}
+                onOpenArtistsModal={() => openRankingsFromReplay('artists')}
+                onOpenSongsModal={() => openRankingsFromReplay('tracks')}
+                onOpenAlbumsModal={() => openRankingsFromReplay('albums')}
                 onOpenTrack={(track) => setSelectedTrack({ ...track, type: 'track' })}
                 isLoading={isReplayLoading}
                 ownerFirstName={replayOwnerFirstName}
               />
             </Suspense>
+          ) : (
+            <StatsEmptyPanel
+              icon={isReplayLoading ? RefreshCcw : PlayCircle}
+              eyebrow={isReplayLoading ? "Carregando" : activeFilter}
+              title={isReplayLoading ? "Montando replay" : "Replay sem faixas ainda"}
+              description={isReplayLoading
+                ? "Buscando artistas, músicas e álbuns para compor este recorte."
+                : "Quando houver dados neste período, o replay aparece aqui com artistas, faixas e álbuns em destaque."
+              }
+              action={!isReplayLoading ? (
+                <button
+                  type="button"
+                  onClick={() => setStatsPeriod('Total')}
+                  className="rounded-full border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-orange-200 active:scale-95"
+                >
+                  Ver total
+                </button>
+              ) : null}
+            />
           )}
+        </div>
+      )}
 
+      {activeStatsSection === 'overview' && (
+        <>
           {/* Análise Temporal - Gráficos */}
           <div className="flex flex-col gap-3">
             <SectionHeader
@@ -2069,7 +2215,11 @@ export default function StatsScreen() {
               })()}
             </div>
           </div>
+        </>
+      )}
 
+      {activeStatsSection === 'rankings' && (
+        <>
           {/* Rankings Section */}
           <SectionHeader 
             title="Meus Mais Tocados" 
@@ -2157,10 +2307,7 @@ export default function StatsScreen() {
                   </button>
                 </div>
               ) : isTopItemsLoading && filteredTopItems.length === 0 ? (
-                <div className="py-20 flex flex-col items-center gap-4">
-                  <RefreshCcw className="h-8 w-8 text-white/10 animate-spin" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20">Buscando Rankings...</span>
-                </div>
+                <StatsRankingLoading />
               ) : filteredTopItems.length > 0 ? (
                 <div className="flex flex-col gap-2.5">
                   {filteredTopItems.slice(0, visibleItemsCount).map((item, index) => (
@@ -2209,26 +2356,31 @@ export default function StatsScreen() {
                   )}
                 </div>
               ) : (
-                <div className="py-20 flex flex-col items-center gap-4 opacity-40 text-center">
-                  <Music2 className="h-10 w-10" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em]">
-                    {searchQuery.trim() ? "Nenhum resultado correspondente" : "Nenhum dado encontrado"}
-                  </span>
-                  {!searchQuery.trim() && (
+                <StatsEmptyPanel
+                  icon={searchQuery.trim() ? Search : Music2}
+                  eyebrow={activeFilter}
+                  title={searchQuery.trim() ? "Nada encontrado" : "Ranking vazio"}
+                  description={searchQuery.trim()
+                    ? "Tente outro nome ou limpe a busca para voltar ao ranking completo."
+                    : "Ainda não há itens suficientes para montar este recorte."
+                  }
+                  action={!searchQuery.trim() ? (
                     <button
                       type="button"
                       onClick={() => setTopItemsRetryNonce((value) => value + 1)}
-                      className="rounded-2xl bg-white/10 px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/70 active:scale-95"
+                      className="rounded-full border border-white/10 bg-white/[0.055] px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/62 active:scale-95"
                     >
-                      Recarregar ranking
+                      Recarregar
                     </button>
-                  )}
-                </div>
+                  ) : null}
+                />
               )}
             </motion.div>
           </AnimatePresence>
         </>
-      ) : (
+      )}
+
+      {activeStatsSection === 'compare' && (
         <div className="flex flex-col gap-8">
           <div className="flex flex-col gap-4">
             <SectionHeader 
@@ -2253,6 +2405,8 @@ export default function StatsScreen() {
           </div>
         </div>
       )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* MODALS PERSISTENCE LAYER */}
       <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
