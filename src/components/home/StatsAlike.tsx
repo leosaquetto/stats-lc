@@ -93,10 +93,12 @@ const buildApiTrackFallback = (
     const byUserEntries = Object.entries(row?.byUser || {});
     if (byUserEntries.length < 2) continue;
 
-    const featuredEntry = byUserEntries.find(([key, value]) => entryMatchesMember(key, value, featuredUser));
+    const featuredEntry = byUserEntries.find(([key, value]) => entryMatchesMember(key, value, featuredUser)) || byUserEntries[0];
     if (!featuredEntry) continue;
 
-    const friendEntry = byUserEntries.find(([key, value]) => !entryMatchesMember(key, value, featuredUser));
+    const friendEntry = byUserEntries.find(([key, value]) => (
+      key !== featuredEntry[0] && !entryMatchesMember(key, value, featuredUser)
+    )) || byUserEntries.find(([key]) => key !== featuredEntry[0]);
     if (!friendEntry) continue;
 
     const friend = friends.find((member) => entryMatchesMember(friendEntry[0], friendEntry[1], member)) || friends[0];
@@ -436,7 +438,7 @@ export const StatsAlike = React.memo(() => {
     [alikeConnections]
   );
   const apiFallbackKey = useMemo(
-    () => `${effectiveFeaturedUserId}:${members.map((member) => member.id).filter(Boolean).join('|')}`,
+    () => `pair-v2:${effectiveFeaturedUserId}:${members.map((member) => member.id).filter(Boolean).join('|')}`,
     [effectiveFeaturedUserId, members]
   );
 
@@ -455,25 +457,34 @@ export const StatsAlike = React.memo(() => {
     if (friends.length === 0) return;
 
     const controller = new AbortController();
-    statsService.getCompareData({
-      users: [effectiveFeaturedUserId, ...friends.map((friend) => friend.id)],
-      period: 'all',
-      limit: 250,
-      commonMode: 'any',
-      minSharedBy: 2,
-      signal: controller.signal,
-    })
-      .then((data) => {
+    const loadPairFallback = async () => {
+      let fallback: AlikeConnection | null = null;
+
+      for (const friend of friends) {
         if (controller.signal.aborted) return;
-        const fallback = buildApiTrackFallback(data?.common?.tracks || [], featuredUser, friends);
-        cachedApiTrackFallbackByKey.set(apiFallbackKey, fallback);
-        setApiTrackFallback(fallback);
-      })
-      .catch((error: any) => {
-        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
-        cachedApiTrackFallbackByKey.set(apiFallbackKey, null);
-        setApiTrackFallback(null);
-      });
+
+        try {
+          const data = await statsService.getCompareData({
+            users: [effectiveFeaturedUserId, friend.id],
+            period: 'all',
+            limit: 80,
+            commonMode: 'any',
+            minSharedBy: 2,
+            signal: controller.signal,
+          });
+          fallback = buildApiTrackFallback(data?.common?.tracks || [], featuredUser, [friend]);
+          if (fallback) break;
+        } catch (error: any) {
+          if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+        }
+      }
+
+      if (controller.signal.aborted) return;
+      cachedApiTrackFallbackByKey.set(apiFallbackKey, fallback);
+      setApiTrackFallback(fallback);
+    };
+
+    loadPairFallback();
 
     return () => controller.abort();
   }, [apiFallbackKey, effectiveFeaturedUserId, featuredUser, hasLocalTrackMatch, isOrbitVisible, members]);

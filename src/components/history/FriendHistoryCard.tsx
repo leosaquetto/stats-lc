@@ -286,10 +286,11 @@ export const FriendHistoryCard = memo(({
   };
 
   const fmt = (n: number) => coreUtils.formatNumber(n || 0);
+  const fmtPositiveOrPending = (n: number) => n > 0 ? fmt(n) : '...';
   const expandedStats = [
     { label: 'Hoje', value: fmt(currentStats.streamsToday), color: 'text-orange-500' },
     { label: 'Mês', value: fmt(currentStats.totalStreamsThisMonth), color: 'text-white/90' },
-    { label: 'Ano', value: fmt(currentStats.totalStreamsThisYear), color: 'text-white/90' },
+    { label: 'Ano', value: fmtPositiveOrPending(currentStats.totalStreamsThisYear), color: 'text-white/90' },
   ];
   const hasMoreInlineHistory = showInlineHistory && isStatsExpanded && recents.length > historyList.length;
 

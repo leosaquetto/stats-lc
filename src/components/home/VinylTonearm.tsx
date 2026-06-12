@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 interface VinylTonearmProps {
@@ -126,6 +126,10 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
     updateFromClientPoint(event.clientX, event.clientY, event.currentTarget.ownerSVGElement);
   };
 
+  const updateFromMouse = (event: ReactMouseEvent<SVGGElement>) => {
+    updateFromClientPoint(event.clientX, event.clientY, event.currentTarget.ownerSVGElement);
+  };
+
   const commitPointerLevel = () => {
     const nextIsPlaying = levelRef.current >= 0.58;
     const targetLevel = nextIsPlaying ? 1 : 0;
@@ -144,6 +148,11 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
       updateFromClientPoint(event.clientX, event.clientY, svgRef.current);
     };
 
+    const moveWindowMouseDrag = (event: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      updateFromClientPoint(event.clientX, event.clientY, svgRef.current);
+    };
+
     const finishWindowDrag = () => {
       if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
@@ -154,11 +163,15 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
     window.addEventListener('pointermove', moveWindowDrag);
     window.addEventListener('pointerup', finishWindowDrag);
     window.addEventListener('pointercancel', finishWindowDrag);
+    window.addEventListener('mousemove', moveWindowMouseDrag);
+    window.addEventListener('mouseup', finishWindowDrag);
 
     return () => {
       window.removeEventListener('pointermove', moveWindowDrag);
       window.removeEventListener('pointerup', finishWindowDrag);
       window.removeEventListener('pointercancel', finishWindowDrag);
+      window.removeEventListener('mousemove', moveWindowMouseDrag);
+      window.removeEventListener('mouseup', finishWindowDrag);
     };
   }, [isDragging, isPlaying]);
 
@@ -199,7 +212,28 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
           data-vinyl-tonearm-control="true"
           className="pointer-events-auto cursor-grab touch-none active:cursor-grabbing"
           onClick={(event) => event.stopPropagation()}
+          onMouseDown={(event) => {
+            if (isDraggingRef.current) return;
+            event.stopPropagation();
+            event.preventDefault();
+            isDraggingRef.current = true;
+            setIsDragging(true);
+            updateFromMouse(event);
+          }}
+          onMouseMove={(event) => {
+            if (!isDraggingRef.current) return;
+            event.preventDefault();
+            updateFromMouse(event);
+          }}
+          onMouseUp={(event) => {
+            if (!isDraggingRef.current) return;
+            event.preventDefault();
+            isDraggingRef.current = false;
+            setIsDragging(false);
+            commitPointerLevel();
+          }}
           onPointerDown={(event) => {
+            if (isDraggingRef.current) return;
             event.stopPropagation();
             event.preventDefault();
             isDraggingRef.current = true;

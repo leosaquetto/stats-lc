@@ -63,11 +63,12 @@ export const statsCacheService = {
     
     // Tenta extrair dos dados do grupo (groupStats) PRIMEIRO, pois ele é a fonte original da verdade
     const userFromGroup = store.groupStats?.users?.[userId] || getCanonicalMembers(store.groupStats).find((m: any) => m.id === userId);
-    if (userFromGroup && userFromGroup.streamsYear !== undefined) {
+    const groupYearStreams = Number(userFromGroup?.streamsYear || 0);
+    if (userFromGroup && groupYearStreams > 0) {
       const stats = {
         streamsToday: userFromGroup.streamsToday || 0,
         totalStreamsThisMonth: userFromGroup.streamsMonth || 0,
-        totalStreamsThisYear: userFromGroup.streamsYear || 0,
+        totalStreamsThisYear: groupYearStreams,
         lifetime: userFromGroup.totalStreams || 0
       };
       store.setCacheStats(userId, stats);

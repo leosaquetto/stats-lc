@@ -1099,7 +1099,7 @@ const HomeHighlightGrid = ({
   if (visibleItems.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-0 overflow-hidden bg-black sm:grid-cols-4">
       {visibleItems.map((item, index) => {
         const title = getReplayItemTitle(item);
         const detail = getHighlightDetailLabel(item, kind);
@@ -1115,7 +1115,7 @@ const HomeHighlightGrid = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.32, delay: Math.min(index * 0.035, 0.18), ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.985 }}
-            className="group relative aspect-[1.08] min-h-[132px] overflow-hidden rounded-[18px] bg-black text-left shadow-[0_16px_36px_rgba(0,0,0,0.34)] outline-none ring-1 ring-white/[0.035] transition-[filter,transform] focus-visible:ring-2 focus-visible:ring-orange-400/70 sm:min-h-[118px]"
+            className="group relative aspect-[1.08] min-h-[132px] overflow-hidden bg-black text-left outline-none transition-[filter,transform] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-orange-400/70 sm:min-h-[118px]"
           >
             {image ? (
               <SmartImage src={image} className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.02]" rounded="none" fallback={title} />
