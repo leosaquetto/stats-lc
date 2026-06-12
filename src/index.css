@@ -252,11 +252,11 @@
 
 .bottom-track-rarity-heading {
   display: flex;
-  min-height: 42px;
+  min-height: 38px;
   align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
-  padding: 0 16px 7px;
+  padding: 0 18px 6px;
   text-shadow: 0 5px 18px rgba(0,0,0,0.68);
 }
 
@@ -286,10 +286,10 @@
 }
 
 .bottom-track-rarity-title--shiny { font-family: "Cinzel Decorative", serif; color: #ffd38a; letter-spacing: 0.08em; }
-.bottom-track-rarity-title--hidden-gem { font-family: Unbounded, sans-serif; color: #99f6e4; letter-spacing: 0.04em; }
-.bottom-track-rarity-title--special { font-family: Bungee, sans-serif; color: #f9a8d4; letter-spacing: 0.04em; }
-.bottom-track-rarity-title--late { font-family: "Special Elite", serif; color: #dbeafe; letter-spacing: 0.08em; }
-.bottom-track-rarity-title--seasonal { font-family: Fraunces, serif; color: #d9f99d; letter-spacing: 0.07em; }
+.bottom-track-rarity-title--hidden-gem { font-family: Unbounded, sans-serif; color: #9ff6e7; letter-spacing: 0.04em; }
+.bottom-track-rarity-title--special { font-family: Bungee, sans-serif; color: #ffc1df; letter-spacing: 0.04em; }
+.bottom-track-rarity-title--late { font-family: "Special Elite", serif; color: #eef4ff; letter-spacing: 0.08em; }
+.bottom-track-rarity-title--seasonal { font-family: Fraunces, serif; color: #e3ffb6; letter-spacing: 0.07em; }
 
 .bottom-track-rarity-seal {
   border: 1px solid rgba(255,255,255,0.12);
@@ -313,15 +313,15 @@
   border-radius: 30px;
   padding: 14px;
   background:
-    radial-gradient(circle at 14% 0%, color-mix(in srgb, var(--bottom-track-accent) 30%, transparent), transparent 42%),
-    linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.018)),
-    rgba(9,9,11,0.49);
+    radial-gradient(circle at 14% 0%, color-mix(in srgb, var(--bottom-track-accent) 24%, transparent), transparent 42%),
+    linear-gradient(145deg, rgba(255,255,255,0.070), rgba(255,255,255,0.018)),
+    rgba(18,14,16,0.24);
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.035),
-    0 18px 58px rgba(0,0,0,0.38),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+    0 0 0 1px rgba(255,255,255,0.048),
+    0 18px 58px rgba(0,0,0,0.32),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+  -webkit-backdrop-filter: blur(26px) saturate(185%);
+  backdrop-filter: blur(26px) saturate(185%);
 }
 
 .bottom-track-card-shine {
@@ -336,39 +336,52 @@
 
 .bottom-track-card--shiny .bottom-track-story-card {
   background:
-    radial-gradient(circle at 16% 0%, rgba(255,245,210,0.31), transparent 38%),
-    linear-gradient(145deg, rgba(236,136,33,0.48), rgba(74,28,7,0.54)),
-    rgba(9,9,11,0.44);
-  box-shadow: 0 0 38px rgba(255,142,41,0.25), inset 0 1px 0 rgba(255,255,255,0.14);
+    radial-gradient(circle at 16% 0%, rgba(255,226,164,0.26), transparent 38%),
+    radial-gradient(circle at 80% 28%, rgba(255,117,26,0.22), transparent 48%),
+    linear-gradient(145deg, rgba(255,255,255,0.078), rgba(255,255,255,0.016)),
+    rgba(28,13,7,0.28);
+  box-shadow: 0 0 34px rgba(255,142,41,0.20), inset 0 1px 0 rgba(255,255,255,0.13);
 }
 .bottom-track-card--shiny .bottom-track-card-shine { opacity: 0.5; animation: bottom-track-card-sheen 3.6s ease-in-out infinite; }
 
 .bottom-track-card--hidden-gem .bottom-track-story-card {
-  background: radial-gradient(circle at 12% 0%, rgba(153,246,228,0.24), transparent 38%), linear-gradient(145deg, rgba(5,95,81,0.48), rgba(5,24,31,0.62)), rgba(9,9,11,0.44);
-  box-shadow: 0 0 38px rgba(45,212,191,0.18), inset 0 1px 0 rgba(255,255,255,0.12);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(153,246,228,0.22), transparent 38%),
+    radial-gradient(circle at 84% 30%, rgba(20,184,166,0.17), transparent 46%),
+    linear-gradient(145deg, rgba(255,255,255,0.070), rgba(255,255,255,0.016)),
+    rgba(5,24,31,0.28);
+  box-shadow: 0 0 34px rgba(45,212,191,0.16), inset 0 1px 0 rgba(255,255,255,0.11);
 }
 .bottom-track-card--special .bottom-track-story-card {
-  background: radial-gradient(circle at 10% 0%, rgba(244,114,182,0.25), transparent 40%), radial-gradient(circle at 95% 20%, rgba(59,130,246,0.20), transparent 44%), rgba(25,13,38,0.66);
-  box-shadow: 0 0 38px rgba(217,70,239,0.16), inset 0 1px 0 rgba(255,255,255,0.12);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(244,114,182,0.22), transparent 40%),
+    radial-gradient(circle at 95% 20%, rgba(59,130,246,0.17), transparent 44%),
+    linear-gradient(145deg, rgba(255,255,255,0.068), rgba(255,255,255,0.016)),
+    rgba(25,13,38,0.30);
+  box-shadow: 0 0 34px rgba(217,70,239,0.14), inset 0 1px 0 rgba(255,255,255,0.11);
 }
 .bottom-track-card--late .bottom-track-story-card {
-  background: radial-gradient(circle at 15% 0%, rgba(191,219,254,0.20), transparent 40%), linear-gradient(145deg, rgba(49,46,129,0.38), rgba(5,8,18,0.70)), rgba(9,9,11,0.48);
-  box-shadow: 0 0 38px rgba(129,140,248,0.15), inset 0 1px 0 rgba(255,255,255,0.11);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(191,219,254,0.18), transparent 40%),
+    radial-gradient(circle at 86% 28%, rgba(129,140,248,0.14), transparent 48%),
+    linear-gradient(145deg, rgba(255,255,255,0.064), rgba(255,255,255,0.014)),
+    rgba(5,8,18,0.32);
+  box-shadow: 0 0 34px rgba(129,140,248,0.13), inset 0 1px 0 rgba(255,255,255,0.10);
 }
 .bottom-track-card--seasonal .bottom-track-story-card { box-shadow: 0 0 38px rgba(132,204,22,0.13), inset 0 1px 0 rgba(255,255,255,0.11); }
-.bottom-track-card--seasonal[data-season="summer"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(253,224,71,0.24), transparent 42%), linear-gradient(145deg, rgba(14,116,144,0.42), rgba(10,32,38,0.66)); }
-.bottom-track-card--seasonal[data-season="autumn"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(251,146,60,0.24), transparent 42%), linear-gradient(145deg, rgba(124,45,18,0.44), rgba(35,18,10,0.68)); }
-.bottom-track-card--seasonal[data-season="winter"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(186,230,253,0.24), transparent 42%), linear-gradient(145deg, rgba(30,64,175,0.38), rgba(8,18,42,0.72)); }
-.bottom-track-card--seasonal[data-season="spring"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(244,114,182,0.22), transparent 42%), linear-gradient(145deg, rgba(22,101,52,0.38), rgba(9,35,20,0.70)); }
+.bottom-track-card--seasonal[data-season="summer"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(253,224,71,0.18), transparent 42%), radial-gradient(circle at 88% 30%, rgba(14,165,233,0.14), transparent 48%), linear-gradient(145deg, rgba(255,255,255,0.066), rgba(255,255,255,0.014)), rgba(10,32,38,0.28); }
+.bottom-track-card--seasonal[data-season="autumn"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(251,146,60,0.18), transparent 42%), radial-gradient(circle at 88% 30%, rgba(217,119,6,0.14), transparent 48%), linear-gradient(145deg, rgba(255,255,255,0.066), rgba(255,255,255,0.014)), rgba(35,18,10,0.30); }
+.bottom-track-card--seasonal[data-season="winter"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(186,230,253,0.18), transparent 42%), radial-gradient(circle at 88% 30%, rgba(59,130,246,0.13), transparent 48%), linear-gradient(145deg, rgba(255,255,255,0.066), rgba(255,255,255,0.014)), rgba(8,18,42,0.30); }
+.bottom-track-card--seasonal[data-season="spring"] .bottom-track-story-card { background: radial-gradient(circle at 12% 0%, rgba(244,114,182,0.16), transparent 42%), radial-gradient(circle at 88% 30%, rgba(34,197,94,0.13), transparent 48%), linear-gradient(145deg, rgba(255,255,255,0.066), rgba(255,255,255,0.014)), rgba(9,35,20,0.30); }
 
 .bottom-track-story-identity { display: flex; align-items: center; gap: 11px; }
-.bottom-track-story-cover { width: 64px; height: 64px; flex: 0 0 auto; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 26px rgba(0,0,0,0.30); }
+.bottom-track-story-cover { width: 62px; height: 62px; flex: 0 0 auto; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 26px rgba(0,0,0,0.30), 0 0 0 2px color-mix(in srgb, var(--bottom-track-accent) 46%, transparent); }
 .bottom-track-title-tag, .bottom-track-release-date { flex: 0 0 auto; border-radius: 999px; padding: 3px 6px; background: rgba(0,0,0,0.34); font-size: 5px; font-weight: 900; line-height: 1; letter-spacing: 0.07em; text-transform: uppercase; color: rgba(255,255,255,0.58); }
-.bottom-track-card-cell { border-radius: 15px; padding: 8px; background: rgba(0,0,0,0.34); box-shadow: inset 0 1px 0 rgba(255,255,255,0.045); -webkit-backdrop-filter: blur(20px) saturate(150%); backdrop-filter: blur(20px) saturate(150%); }
-.bottom-track-late-line { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 9px; background: rgba(0,0,0,0.34); font-size: 6px; font-weight: 900; color: rgba(255,255,255,0.62); }
+.bottom-track-card-cell { border-radius: 15px; padding: 8px; background: rgba(0,0,0,0.43); box-shadow: inset 0 1px 0 rgba(255,255,255,0.048); -webkit-backdrop-filter: blur(32px) saturate(170%); backdrop-filter: blur(32px) saturate(170%); }
+.bottom-track-late-line { display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 5px; border-radius: 999px; padding: 6px 9px; background: rgba(0,0,0,0.43); font-size: 6px; font-weight: 900; color: rgba(255,255,255,0.62); }
 .bottom-track-late-line strong { border-radius: 999px; padding: 3px 5px; background: rgba(199,210,254,0.12); color: rgba(224,231,255,0.88); }
-.bottom-track-advanced-grid { border-radius: 17px; padding: 7px 5px; background: rgba(0,0,0,0.29); }
-.bottom-track-social-panel { min-height: 47px; border-radius: 18px; padding: 8px; background: rgba(0,0,0,0.34); }
+.bottom-track-advanced-grid { border-radius: 17px; padding: 7px 5px; background: rgba(0,0,0,0.40); -webkit-backdrop-filter: blur(28px) saturate(160%); backdrop-filter: blur(28px) saturate(160%); }
+.bottom-track-social-panel { min-height: 47px; border-radius: 18px; padding: 8px; background: rgba(0,0,0,0.43); -webkit-backdrop-filter: blur(32px) saturate(170%); backdrop-filter: blur(32px) saturate(170%); }
 .bottom-track-story-avatar { box-shadow: 0 5px 12px rgba(0,0,0,0.25); }
 .bottom-track-cake-piece { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 50%; background: conic-gradient(var(--bottom-track-accent) var(--cake-piece), rgba(255,255,255,0.07) 0); box-shadow: inset 0 0 0 6px rgba(0,0,0,0.50); }
 .bottom-track-cake-piece span { font-size: 7px; font-weight: 900; color: rgba(255,255,255,0.82); }
