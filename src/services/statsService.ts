@@ -378,6 +378,8 @@ const normalizeGroupStats = (data: any): GroupStats => {
  * Utilitário para chamadas à nossa API Backend na Vercel
  */
 const API_RESPONSE_CACHE_TTL = 5 * 60 * 1000;
+const getApiResponseCacheTtl = (endpoint: string) =>
+  endpoint === '/api/group-activity' ? 60 * 1000 : API_RESPONSE_CACHE_TTL;
 const apiResponseCache = new Map<string, { expiresAt: number; data: any }>();
 const apiRequestInFlight = new Map<string, Promise<any>>();
 
@@ -457,7 +459,7 @@ const fetchFromApi = async <T>(
       if (!forceRefresh && shouldUseResponseCache) {
         apiResponseCache.set(cacheKey, {
           data: response.data,
-          expiresAt: Date.now() + API_RESPONSE_CACHE_TTL,
+          expiresAt: Date.now() + getApiResponseCacheTtl(endpoint),
         });
       }
       return response.data;

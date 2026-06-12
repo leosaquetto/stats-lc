@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { Music, Clock, Play } from 'lucide-react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
+import { getFriendActivityTimestamp, selectFriendActivity } from '../../lib/friendActivity';
 import { GroupActivityMember, statsService } from '../../services/statsService';
 
 interface FriendActivityReelProps {
@@ -101,20 +102,21 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           ? liveNowPlayingByUserId[friend.id]
           : null;
         const historicalActivity = historicalByUserId.get(String(friend.id));
-        const initialActivity = !hasLoadedHistory && friend.nowPlaying?.track
+        const initialActivity = friend.nowPlaying?.track
           ? friend.nowPlaying
           : null;
-        const activity = liveActivity || historicalActivity || initialActivity;
+        const activity = selectFriendActivity(
+          liveActivity,
+          historicalActivity,
+          initialActivity
+        );
 
         return activity?.track
           ? {
               ...friend,
-              nowPlaying: liveActivity
-                ? liveActivity
-                : {
-                    ...activity,
-                    isNow: false,
-                  },
+              nowPlaying: activity.isNow === true
+                ? activity
+                : { ...activity, isNow: false },
             }
           : null;
       })
@@ -124,10 +126,9 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
       const isPlayingB = b?.nowPlaying?.isNow ? 1 : 0;
       if (isPlayingA !== isPlayingB) return isPlayingB - isPlayingA;
 
-      return new Date(b?.nowPlaying?.timestamp || 0).getTime() - new Date(a?.nowPlaying?.timestamp || 0).getTime();
+      return getFriendActivityTimestamp(b?.nowPlaying) - getFriendActivityTimestamp(a?.nowPlaying);
     });
   }, [
-    hasLoadedHistory,
     historicalByUserId,
     liveNowPlayingByUserId,
     members,
