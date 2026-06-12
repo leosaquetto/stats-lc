@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 interface VinylTonearmProps {
   isPlaying?: boolean;
@@ -12,6 +12,7 @@ const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
+  const shouldReduceMotion = useReducedMotion();
   const [level, setLevel] = useState(0.5);
   const [isDragging, setIsDragging] = useState(false);
   const levelRef = useRef(0.5);
@@ -33,6 +34,14 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
   const liftScale = tonearmState === 'lifted' ? 0.992 : 1;
   const liftOpacity = tonearmState === 'rest' ? 0.58 : tonearmState === 'lifted' ? 0.88 : 0.96;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
+  const shouldGrooveDrift = tonearmState === 'playing' && !isDragging && !shouldReduceMotion;
+  const tonearmGroupTransition = shouldGrooveDrift
+    ? {
+        rotate: { duration: 42, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' as const },
+        opacity: { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const },
+        scale: { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const },
+      }
+    : { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;
   const unitX = Math.cos(angleRadians);
   const unitY = Math.sin(angleRadians);
@@ -252,8 +261,9 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
           </g>
 
           <motion.g
-            animate={{ rotate: 0, opacity: liftOpacity, scale: liftScale, transformOrigin: `${pivotX}px ${pivotY}px` }}
-            transition={{ duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] }}
+            animate={{ rotate: shouldGrooveDrift ? [0, -1.18, -0.42] : 0, opacity: liftOpacity, scale: liftScale }}
+            transition={tonearmGroupTransition}
+            style={{ transformOrigin: `${pivotX}px ${pivotY}px` }}
           >
           <motion.line
             x1={pivotX}

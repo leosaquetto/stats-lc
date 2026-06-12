@@ -122,7 +122,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }
 
   return (
-    <div className="relative min-h-[430px] overflow-visible px-3 py-5">
+    <div className="relative min-h-[390px] overflow-visible px-3 py-5">
       <div className="absolute right-0 top-0 -z-10 h-56 w-56 rounded-full bg-orange-500/5 blur-[96px]" />
       <div className="absolute left-1/2 top-[44%] -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
 
@@ -138,16 +138,19 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             <button
               type="button"
               onClick={() => setIsMemberMenuOpen(open => !open)}
-              className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/[0.04] shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl active:scale-95"
+              className="flex h-8 items-center gap-1.5 overflow-hidden rounded-full border border-white/10 bg-white/[0.055] py-0.5 pl-0.5 pr-2 shadow-[0_12px_28px_rgba(0,0,0,0.22)] backdrop-blur-xl active:scale-95"
               aria-label="Trocar membro no Top 1 do Círculo"
             >
-              <SmartImage
-                src={coreUtils.getUserAvatar(activeUser.id, activeUser.avatar)}
-                cacheKey={`circle-top-picker-active:${activeUser.id}`}
-                rounded="full"
-                className="h-full w-full object-cover"
-                fallback=""
-              />
+              <span className="h-7 w-7 overflow-hidden rounded-full">
+                <SmartImage
+                  src={coreUtils.getUserAvatar(activeUser.id, activeUser.avatar)}
+                  cacheKey={`circle-top-picker-active:${activeUser.id}`}
+                  rounded="full"
+                  className="h-full w-full object-cover"
+                  fallback=""
+                />
+              </span>
+              <span className="text-[7px] font-black uppercase tracking-[0.14em] text-white/56">Amigos</span>
             </button>
             <AnimatePresence>
               {isMemberMenuOpen && (
@@ -156,7 +159,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.92, y: -4 }}
                   transition={{ duration: 0.18 }}
-                  className="absolute right-0 top-10 z-50 grid max-h-[184px] w-[104px] grid-cols-2 gap-2 overflow-y-auto rounded-3xl border border-white/10 bg-black/72 p-2 shadow-2xl backdrop-blur-2xl"
+                  className="stats-lc-glass-popover absolute right-0 top-10 z-50 grid max-h-[196px] w-[172px] grid-cols-4 gap-2 overflow-y-auto rounded-[24px] p-2.5 shadow-2xl"
                 >
                   {validMembers.map((member, index) => {
                     const isActive = index === activeIndex;
@@ -199,7 +202,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
         <div
           ref={orbitRef}
           data-home-horizontal-scroll="true"
-          className="relative mx-auto h-[338px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
+          className="relative mx-auto h-[300px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -220,9 +223,9 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             const memberArtist = memberTops.artists?.[0];
             const memberTrack = memberTops.tracks?.[0];
             const memberAlbum = memberTops.albums?.[0];
-            const x = isCentered ? 0 : isRight ? 114 : -114;
-            const y = isCentered ? -2 : -22;
-            const scale = isCentered ? 1 : 0.68;
+            const x = isCentered ? 0 : isRight ? 126 : -126;
+            const y = isCentered ? -4 : -18;
+            const scale = isCentered ? 1 : 0.62;
             const opacity = isCentered ? 1 : 0.32;
             const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
 
@@ -231,7 +234,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                 key={member.id}
                 animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
                 transition={{ type: 'spring', stiffness: 160, damping: 24 }}
-                className="absolute left-1/2 top-[48%] w-[292px]"
+                className="absolute left-1/2 top-[48%] w-[336px]"
                 onClick={() => !isCentered && goToIndex(index)}
               >
                 <motion.div
@@ -239,17 +242,30 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
                   className="relative flex flex-col items-center"
                 >
-                  {isCentered && (
+                  {isCentered ? (
                     <>
-                      <OrbitalSatellite item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" className="absolute -right-5 top-[-66px]" />
-                      <OrbitalSatellite item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" className="absolute -left-5 bottom-[4px] -rotate-3" />
-                      <OrbitalSatellite item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" className="absolute -right-5 bottom-[4px] rotate-3" />
+                      <div className="relative mb-3 flex h-16 w-16 items-center justify-center">
+                        <div className="absolute inset-[-12px] rounded-full border border-orange-500/16 shadow-[0_0_34px_rgba(249,115,22,0.14)]" />
+                        <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-orange-500/88 shadow-[0_14px_34px_rgba(249,115,22,0.22)]">
+                          <SmartImage
+                            src={coreUtils.getUserAvatar(member.id, member.avatar)}
+                            cacheKey={`circle-top-center:${member.id}`}
+                            rounded="full"
+                            className="h-full w-full object-cover"
+                            fallback=""
+                          />
+                        </div>
+                      </div>
+                      <div className="relative z-10 grid w-full grid-cols-3 gap-2">
+                        <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" />
+                        <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" />
+                        <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" />
+                      </div>
                     </>
-                  )}
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                    <div className="relative">
-                      <div className="absolute inset-[-18px] rounded-full border border-orange-500/18 shadow-[0_0_44px_rgba(249,115,22,0.18)]" />
-                      <div className="h-28 w-28 overflow-hidden rounded-full border-3 border-orange-500 shadow-2xl shadow-orange-500/25">
+                  ) : (
+                    <div className="relative z-10">
+                      <div className="absolute inset-[-14px] rounded-full border border-orange-500/10 shadow-[0_0_34px_rgba(249,115,22,0.1)]" />
+                      <div className="h-24 w-24 overflow-hidden rounded-full border border-white/14 shadow-2xl">
                         <SmartImage
                           src={coreUtils.getUserAvatar(member.id, member.avatar)}
                           cacheKey={`circle-top-center:${member.id}`}
@@ -259,10 +275,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                         />
                       </div>
                     </div>
-                    <span className="max-w-[230px] truncate text-center text-[26px] font-black leading-none text-white">
-                      {member.name.split(/\s+/)[0] || member.name}
-                    </span>
-                  </div>
+                  )}
                 </motion.div>
               </motion.div>
             );
@@ -286,6 +299,74 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
     </div>
   );
 });
+
+const CircleTopInlineItem = ({
+  item,
+  icon,
+  label,
+  rounded,
+}: {
+  item?: TopItem;
+  icon: React.ReactNode;
+  label: string;
+  rounded: 'full' | 'lg';
+}) => {
+  if (!item) {
+    return (
+      <div className="flex min-w-0 flex-col items-center gap-2 rounded-[20px] border border-white/[0.055] bg-white/[0.025] px-2 py-3">
+        <div
+          className={cn(
+            "flex h-[68px] w-[68px] items-center justify-center border border-white/5 bg-white/[0.02]",
+            rounded === 'full' ? 'rounded-full' : 'rounded-xl'
+          )}
+        >
+          {icon}
+        </div>
+        <span className="text-[7px] font-black uppercase tracking-[0.14em] text-white/28">sem dados</span>
+      </div>
+    );
+  }
+
+  const playCount = item.playcount || item.streams || 0;
+  const artistName = label === 'faixa' || label === 'álbum'
+    ? getTopItemArtistName(item)
+    : '';
+
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-2 rounded-[20px] border border-white/[0.06] bg-black/22 px-2 py-3 shadow-[0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+      <div className="relative h-[72px] w-[72px] shrink-0">
+        <SmartImage
+          src={item.image}
+          cacheKey={`circle-top-inline:${label}:${item.id || item.name}`}
+          className={cn(
+            "h-full w-full object-cover border border-white/10 shadow-[0_10px_22px_rgba(0,0,0,0.44)]",
+            rounded === 'full' ? 'rounded-full' : 'rounded-xl'
+          )}
+          rounded={rounded === 'full' ? 'full' : 'lg'}
+          fallback=""
+        />
+        {playCount > 0 && (
+          <div className="leo-soft-badge absolute -bottom-1 -right-1 flex h-6 min-w-[28px] items-center justify-center rounded-full bg-[#ff5f00]/62 px-2 text-[9px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md">
+            {coreUtils.formatNumber(playCount)}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 text-center">
+        <span className="mb-1 block text-[7px] font-black uppercase leading-none tracking-[0.14em] text-orange-400/78">
+          {label}
+        </span>
+        <span className="block line-clamp-2 text-[9px] font-black leading-tight text-white/86">
+          {item.name}
+        </span>
+        {artistName && (
+          <span className="mt-0.5 block line-clamp-1 text-[7px] font-semibold leading-tight text-white/42">
+            {artistName}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const OrbitalSatellite = ({
   item,

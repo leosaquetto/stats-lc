@@ -29,6 +29,7 @@ interface FriendHistoryCardProps {
   showFullHistoryButton?: boolean;
   showInlineHistory?: boolean;
   showInlineOrbitButton?: boolean;
+  presentation?: 'default' | 'homeRecent';
 }
 
 // Ícone de equalizer para o header (ao vivo no card)
@@ -128,12 +129,15 @@ export const FriendHistoryCard = memo(({
   maxInlineItems = 5,
   showFullHistoryButton = true,
   showInlineHistory = true,
-  showInlineOrbitButton = true
+  showInlineOrbitButton = true,
+  presentation = 'default'
 }: FriendHistoryCardProps) => {
   const [isStatsExpanded, setIsStatsExpanded] = useState(defaultExpanded);
   const [recents, setRecents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userStats, setUserStats] = useState<any>(null);
+  const [inlineVisibleCount, setInlineVisibleCount] = useState(maxInlineItems);
+  const [isInlineLoadingMore, setIsInlineLoadingMore] = useState(false);
 
   const groupStats = useStatsStore(state => state.groupStats);
   const storeUser = useMemo(
@@ -146,7 +150,8 @@ export const FriendHistoryCard = memo(({
     () => (Array.isArray(recentOverride) ? recentOverride.map(statsService.normalizeRecentStream).filter(Boolean) : []),
     [recentOverride]
   );
-  const inlineHistoryLimit = Math.max(1, maxInlineItems);
+  const isHomeRecent = presentation === 'homeRecent';
+  const inlineHistoryLimit = Math.max(1, inlineVisibleCount);
 
   const isLive = storeUser.nowPlaying?.isNow === true;
   const activityTimestamp = getActivityTimestamp(storeUser) || getActivityTimestamp(user);
@@ -168,6 +173,10 @@ export const FriendHistoryCard = memo(({
     }
     return recents.slice(0, inlineHistoryLimit);
   };
+
+  useEffect(() => {
+    setInlineVisibleCount(maxInlineItems);
+  }, [maxInlineItems, user.id, normalizedRecentOverride.length]);
 
   // Sempre carrega dados ao montar — não só ao expandir
   useEffect(() => {
@@ -280,12 +289,44 @@ export const FriendHistoryCard = memo(({
   const expandedStats = [
     { label: 'Hoje', value: fmt(currentStats.streamsToday), color: 'text-orange-500' },
     { label: 'Mês', value: fmt(currentStats.totalStreamsThisMonth), color: 'text-white/90' },
-    currentStats.totalStreamsThisYear > 0
-      ? { label: 'Ano', value: fmt(currentStats.totalStreamsThisYear), color: 'text-white/90' }
-      : currentStats.lifetime > 0
-        ? { label: 'Total', value: fmt(currentStats.lifetime), color: 'text-white/90' }
-        : null,
-  ].filter(Boolean) as Array<{ label: string; value: string; color: string }>;
+    { label: 'Ano', value: fmt(currentStats.totalStreamsThisYear), color: 'text-white/90' },
+  ];
+  const hasMoreInlineHistory = showInlineHistory && isStatsExpanded && recents.length > historyList.length;
+
+  const handleLoadMoreInline = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (isInlineLoadingMore) return;
+    const nextVisibleCount = inlineVisibleCount + 10;
+    if (recents.length >= nextVisibleCount) {
+      setInlineVisibleCount(nextVisibleCount);
+      return;
+    }
+
+    setIsInlineLoadingMore(true);
+    try {
+      const items = await statsCacheService.fetchPaginatedHistory(user.id, recents.length, 10);
+      const normalized = (items || []).map(statsService.normalizeRecentStream).filter(Boolean);
+      if (normalized.length > 0) {
+        setRecents((current) => {
+          const seen = new Set(current.map(historyItemKey));
+          const merged = [...current];
+          normalized.forEach((item, index) => {
+            const key = historyItemKey(item, current.length + index);
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          });
+          return merged;
+        });
+      }
+      setInlineVisibleCount(nextVisibleCount);
+    } catch {
+      setInlineVisibleCount(nextVisibleCount);
+    } finally {
+      setIsInlineLoadingMore(false);
+    }
+  };
 
   return (
     <motion.div
@@ -300,8 +341,8 @@ export const FriendHistoryCard = memo(({
     >
       {/* Card principal */}
       <div className={cn(
-        "flex flex-col rounded-[24px] border overflow-hidden transition-colors duration-200",
-        "glass border-white/10"
+        "flex flex-col rounded-[24px] overflow-hidden transition-colors duration-200",
+        isHomeRecent ? "bg-transparent" : "glass border border-white/10"
       )}>
         {/* Header do usuário */}
         <motion.button
@@ -386,11 +427,28 @@ export const FriendHistoryCard = memo(({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="px-4 py-3 border-t border-white/5 flex gap-4 text-center bg-white/[0.01]">
+              <div className={cn(
+                "px-4 py-3",
+                isHomeRecent
+                  ? "flex flex-wrap gap-2 text-left"
+                  : "border-t border-white/5 flex gap-4 text-center bg-white/[0.01]"
+              )}>
                 {expandedStats.map(stat => (
-                  <div key={stat.label} className="flex-1 flex flex-col gap-0.5">
-                    <span className="text-[7px] font-black uppercase tracking-[0.25em] text-white/30">{stat.label}</span>
-                    <span className={cn("text-[13px] font-black font-sans", stat.color)}>{stat.value}</span>
+                  <div
+                    key={stat.label}
+                    className={cn(
+                      isHomeRecent
+                        ? "leo-soft-badge flex items-center gap-1.5 rounded-full px-3 py-2"
+                        : "flex-1 flex flex-col gap-0.5"
+                    )}
+                  >
+                    <span className={cn(
+                      "font-black uppercase",
+                      isHomeRecent
+                        ? "text-[7px] tracking-[0.18em] text-white/36"
+                        : "text-[7px] tracking-[0.25em] text-white/30"
+                    )}>{stat.label}</span>
+                    <span className={cn("font-black font-sans", stat.color, isHomeRecent ? "text-[11px]" : "text-[13px]")}>{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -399,7 +457,7 @@ export const FriendHistoryCard = memo(({
         </AnimatePresence>
 
         {showInlineHistory && isStatsExpanded && (
-        <div className="border-t border-white/5">
+        <div className={cn(!isHomeRecent && "border-t border-white/5")}>
           {loading && recents.length === 0 ? (
             <div className="p-3 flex flex-col gap-2">
               <ShimmerOverlay duration={2.6} />
@@ -506,8 +564,18 @@ export const FriendHistoryCard = memo(({
         )}
 
         {/* Botão "Ver histórico completo" */}
-        {!loading && showFullHistoryButton && (
-          <div className="px-3 pb-3">
+        {!loading && (hasMoreInlineHistory || showFullHistoryButton) && (
+          <div className="flex flex-col gap-2 px-3 pb-3">
+            {hasMoreInlineHistory && (
+              <button
+                onClick={handleLoadMoreInline}
+                disabled={isInlineLoadingMore}
+                className="w-full rounded-2xl border border-white/[0.055] bg-white/[0.025] px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/34 transition-all hover:bg-white/[0.055] hover:text-white/60 active:scale-[0.99] disabled:opacity-40"
+              >
+                {isInlineLoadingMore ? 'Carregando' : 'Carregar mais'}
+              </button>
+            )}
+            {showFullHistoryButton && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -518,6 +586,7 @@ export const FriendHistoryCard = memo(({
               <ExternalLink className="h-3 w-3 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
               Ver histórico completo
             </button>
+            )}
           </div>
         )}
       </div>

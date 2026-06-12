@@ -93,6 +93,7 @@ const StatsFmMark = ({ className = "h-4 w-4" }: { className?: string }) => (
 
 const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
   const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
+  const navAnimationKey = pathname;
 
   return (
     <nav className="w-full pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
@@ -129,10 +130,14 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                   className="relative flex flex-col items-center justify-center gap-1 outline-none touch-manipulation select-none"
                 >
                   <motion.div
+                    key={`${item.path}-${isActive ? navAnimationKey : 'idle'}`}
                     className="relative z-10 flex items-center justify-center"
-                    animate={{ scale: isActive ? 1.02 : 1 }}
+                    initial={isActive ? { scale: 0.92, rotate: -3, y: 2 } : false}
+                    animate={isActive
+                      ? { scale: [0.92, 1.13, 1.02], rotate: [-3, 4, 0], y: [2, -2, 0] }
+                      : { scale: 1, rotate: 0, y: 0 }}
                     whileTap={{ scale: 0.94 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                    transition={{ duration: isActive ? 0.42 : 0.2, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <div className="relative flex h-7 w-7 items-center justify-center">
                       <Icon

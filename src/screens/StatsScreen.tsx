@@ -40,6 +40,7 @@ import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { ShareButton } from '../components/shared/ShareButton';
+import { PerceptionsPanel } from '../components/stats/PerceptionsPanel';
 import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
 
 import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP, getHourSP, formatDateSP } from '../lib/time';
@@ -1929,6 +1930,16 @@ export default function StatsScreen() {
               </div>
             </div>
           </motion.div>
+
+          {CURRENT_USER_ID && (activePeriodTracks.length > 0 || activePeriodArtists.length > 0) && (
+            <PerceptionsPanel
+              tracks={activePeriodTracks}
+              artists={activePeriodArtists}
+              userId={CURRENT_USER_ID}
+              activeTab={filterToReplayTab(activeFilter)}
+              selectedSubValues={statsReplaySubValues}
+            />
+          )}
 
           {/* Insights + Replay */}
           {insights.length > 0 && (

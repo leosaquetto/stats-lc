@@ -41,9 +41,11 @@ const ScrollingTrackTitle = React.memo(({
   const containerRef = useRef<HTMLButtonElement | null>(null);
   const measureRef = useRef<HTMLSpanElement | null>(null);
   const [scrollDistance, setScrollDistance] = useState(0);
-  const shouldScroll = scrollDistance > 0 && !shouldReduceMotion;
+  const [hasMeasured, setHasMeasured] = useState(false);
+  const shouldScroll = hasMeasured && scrollDistance > 0 && !shouldReduceMotion;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    setHasMeasured(false);
     const measure = () => {
       const container = containerRef.current;
       const text = measureRef.current;
@@ -51,11 +53,15 @@ const ScrollingTrackTitle = React.memo(({
       const overflow = text.scrollWidth - container.clientWidth;
       const shouldMarqueeOnCompactViewport = title.length >= 18 && window.innerWidth <= 430 && text.scrollWidth > container.clientWidth * 0.82;
       setScrollDistance(overflow > 2 || shouldMarqueeOnCompactViewport ? text.scrollWidth + 32 : 0);
+      setHasMeasured(true);
     };
 
-    measure();
+    const frame = window.requestAnimationFrame(measure);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', measure);
+    };
   }, [isPlaying, title]);
 
   return (
@@ -64,7 +70,7 @@ const ScrollingTrackTitle = React.memo(({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative z-0 block overflow-hidden pb-px text-left pointer-events-auto cursor-pointer hover:underline",
+        "relative z-[70] block overflow-hidden pb-px text-left pointer-events-auto cursor-pointer hover:underline",
         isPlaying ? "max-w-[192px]" : "max-w-[calc(100vw-45px)]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_86%,transparent_100%)]"
       )}
@@ -104,7 +110,7 @@ const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
   return (
     <div
       className={cn(
-        "flex max-w-[148px] shrink-0 flex-col items-start justify-start self-start sm:max-w-[170px]",
+        "relative z-[75] flex max-w-[148px] shrink-0 flex-col items-start justify-start self-start sm:max-w-[170px]",
         hasMultipleBadges ? "-mt-0.5 gap-px" : "mt-[1px] gap-[2px]"
       )}
     >
@@ -1666,7 +1672,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
             </div>
           </div>
         )}
-        <div className="relative z-30 px-0 sm:px-2 pt-0 pb-3 sm:pb-4 overflow-visible">
+        <div className="pointer-events-none relative z-50 px-0 sm:px-2 pt-0 pb-3 sm:pb-4 overflow-visible">
 
           <AnimatePresence mode="sync">
             <motion.div
@@ -1696,7 +1702,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                       onAvatarClick(e as any);
                     }
                   }}
-                  className={cn("relative shrink-0", onAvatarClick && "cursor-pointer")}
+                  className={cn("relative shrink-0", onAvatarClick && "pointer-events-auto cursor-pointer")}
                   whileTap={onAvatarClick ? { scale: 0.95 } : undefined}
                 >
                   {isActuallyLive && profileAvatar && (
@@ -1777,7 +1783,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                   <motion.div variants={itemVariants} className="flex relative items-start min-h-[168px] sm:min-h-[210px] w-full">
 
                     {/* Conteúdo Esquerdo: textos e ranking compactos, com o vinil vazando por trás */}
-                    <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-10">
+                    <div className="flex flex-col justify-start w-full shrink-0 min-w-0 pl-0 pr-1 gap-5 sm:gap-6 relative z-50">
                       <div className="flex flex-col gap-0.5">
                         <div className={cn(
                           "flex items-start gap-1.5",
@@ -1887,7 +1893,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
 	                            <motion.div
 	                              onClick={handleArenaSummaryClick}
 	                              whileTap={{ scale: 0.98 }}
-	                              className="relative flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
+	                              className="pointer-events-auto relative flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
 	                            >
                               <div
                                 ref={arenaTrailRef}
@@ -1990,7 +1996,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                             <motion.div
                               onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
                               whileTap={{ scale: 0.96 }}
-                              className="flex items-center gap-2 cursor-pointer shrink-0"
+                              className="pointer-events-auto flex items-center gap-2 cursor-pointer shrink-0"
                             >
                               {playCount === undefined ? (
                                 <div className="h-6 w-20 rounded-full bg-white/5 animate-pulse" />
@@ -2033,7 +2039,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               }}
                               whileTap={{ scale: 0.94 }}
                               className={cn(
-                                "leo-soft-badge relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                                "leo-soft-badge pointer-events-auto relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
                                 visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
                               )}
                               aria-label="Abrir letra"

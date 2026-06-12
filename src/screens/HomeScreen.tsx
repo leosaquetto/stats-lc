@@ -16,6 +16,7 @@ import { coreUtils } from '../services/statsCore';
 import { statsService, type ReplayPeriodQuery } from '../services/statsService';
 import { statsCacheService } from '../services/statsCacheService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
+import { getSelectableReplayYears } from '../lib/replayYears';
 
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
@@ -201,7 +202,7 @@ const HomeHighlightPeriodControls = ({
   const currentMonth = new Date().getMonth();
   const availableMonths = MONTHS_SHORT;
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: Math.max(1, currentYear - 2024 + 1) }, (_, index) => 2024 + index);
+  const years = getSelectableReplayYears(currentYear);
   const selectedYear = Number(selectedSubValues.year || currentYear);
   const periodTabs: Array<{ key: ReplayFilterPeriod; label: string }> = [
     { key: 'today', label: 'Hoje' },
@@ -219,14 +220,14 @@ const HomeHighlightPeriodControls = ({
       if (!rect) return;
       const viewportWidth = window.innerWidth || 390;
       const viewportHeight = window.innerHeight || 750;
-      const width = Math.min(272, Math.max(240, viewportWidth - 32));
+      const width = Math.min(306, Math.max(252, viewportWidth - 32));
       const left = Math.min(Math.max(16, rect.right - width), Math.max(16, viewportWidth - width - 16));
       const estimatedHeight = activeTab === 'month'
-        ? 254
+        ? 336
         : activeTab === 'week'
           ? 166
           : activeTab === 'year'
-            ? 166
+            ? 238
             : 138;
       const belowTop = rect.bottom + 8;
       const shouldOpenAbove = belowTop + estimatedHeight > viewportHeight - 16 && rect.top > estimatedHeight + 24;
@@ -274,7 +275,7 @@ const HomeHighlightPeriodControls = ({
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/30 px-3 text-orange-100 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-[background-color,border-color] hover:bg-black/40 hover:border-white/[0.1]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-3 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
         aria-label={`Filtro de período: ${activeLabel}`}
         aria-expanded={isOpen}
         whileTap={{ scale: 0.96 }}
@@ -314,7 +315,7 @@ const HomeHighlightPeriodControls = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="stats-lc-glass-popover fixed z-50 max-h-[min(420px,calc(100vh-150px))] overflow-y-auto rounded-[22px] p-2 no-scrollbar"
+            className="stats-lc-glass-popover fixed z-50 max-h-[min(480px,calc(100vh-120px))] overflow-y-auto rounded-[24px] p-2.5 no-scrollbar"
             style={{
               left: menuPosition.left,
               top: menuPosition.top,
@@ -422,7 +423,7 @@ const HomeHighlightPeriodControls = ({
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 className="mt-2 border-t border-white/[0.06] pt-2"
               >
-                <div className="mb-2 flex gap-1 overflow-x-auto no-scrollbar" data-home-horizontal-scroll="true">
+                <div className="mb-2 grid grid-cols-4 gap-1">
                   {years.map((year, index) => {
                     const isSelected = selectedSubValues.year === String(year);
                     return (
@@ -436,7 +437,7 @@ const HomeHighlightPeriodControls = ({
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className={cn(
-                          "shrink-0 rounded-full px-2.5 py-1.5 text-[9px] font-black transition-colors relative",
+	                          "rounded-full px-2 py-1.5 text-[9px] font-black transition-colors relative",
                           isSelected ? "bg-orange-500/16 text-orange-100" : "bg-white/[0.04] text-white/44 hover:text-white/72"
                         )}
                       >
@@ -503,7 +504,7 @@ const HomeHighlightPeriodControls = ({
                 transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                 className="mt-2 border-t border-white/[0.06] pt-2"
               >
-                <div className="grid grid-cols-3 gap-1">
+	                <div className="grid grid-cols-4 gap-1">
                   {years.map((year, index) => {
                     const isSelected = selectedSubValues.year === String(year);
                     return (
@@ -601,7 +602,7 @@ const HomeHighlightCategoryControl = ({
       <motion.button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-orange-500/18 bg-orange-500/12 px-3 text-orange-100 shadow-[0_12px_24px_rgba(249,115,22,0.08)] transition-[background-color,border-color] hover:bg-orange-500/16 hover:border-orange-500/25"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-3 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
         aria-label={`Categoria de destaque: ${activeGroup.tabLabel}`}
         aria-expanded={isOpen}
         whileTap={{ scale: 0.96 }}
@@ -646,7 +647,7 @@ const HomeHighlightCategoryControl = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="stats-lc-glass-popover absolute left-0 top-11 z-50 w-[182px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[22px] p-2"
+            className="stats-lc-glass-popover absolute left-0 top-11 z-50 w-[190px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[24px] p-2.5"
           >
             {groups.map((group, index) => {
               const Icon = group.icon;
@@ -813,9 +814,9 @@ const buildHighlightCardMotionConfig = ({
   };
 };
 
-const getHighlightMetricLabel = (item: any, kind: HomeHighlightKind) => {
-  if (kind === 'tracks') return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
-  return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
+const getHighlightMetricLabel = (item: any, _kind: HomeHighlightKind, metric: 'minutes' | 'plays' = 'plays') => {
+  if (metric === 'minutes') return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
+  return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
 };
 
 const getHighlightDetailLabel = (item: any, kind: HomeHighlightKind) => {
@@ -1080,6 +1081,70 @@ const HomeHighlightOrbitStage = ({
   );
 };
 
+const HomeHighlightGrid = ({
+  items,
+  kind,
+  metric,
+  shouldReduceMotion,
+  onItemClick,
+}: {
+  items: any[];
+  kind: HomeHighlightKind;
+  metric: 'minutes' | 'plays';
+  shouldReduceMotion: boolean;
+  onItemClick?: (item: any) => void;
+}) => {
+  const visibleItems = items.slice(0, 8);
+
+  if (visibleItems.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      {visibleItems.map((item, index) => {
+        const title = getReplayItemTitle(item);
+        const detail = getHighlightDetailLabel(item, kind);
+        const metricLabel = getHighlightMetricLabel(item, kind, metric);
+        const image = getReplayItemImage(item);
+
+        return (
+          <motion.button
+            key={`${kind}-tile-${item.id || item.name || index}`}
+            type="button"
+            onClick={() => onItemClick?.(buildHighlightDetailItem(item, kind))}
+            initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.32, delay: Math.min(index * 0.035, 0.18), ease: [0.16, 1, 0.3, 1] }}
+            whileTap={{ scale: 0.985 }}
+            className="group relative aspect-[1.08] min-h-[132px] overflow-hidden rounded-[18px] bg-black text-left shadow-[0_16px_36px_rgba(0,0,0,0.34)] outline-none ring-1 ring-white/[0.035] transition-[filter,transform] focus-visible:ring-2 focus-visible:ring-orange-400/70 sm:min-h-[118px]"
+          >
+            {image ? (
+              <SmartImage src={image} className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.02]" rounded="none" fallback={title} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-white/[0.055] text-[18px] font-black text-white/34">
+                {title.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/16 to-black/86" />
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-0.5 px-3 pb-3">
+              {detail && (
+                <span className="line-clamp-1 text-[7px] font-black uppercase leading-none tracking-[0.1em] text-white/58">
+                  {detail}
+                </span>
+              )}
+              <span className="line-clamp-2 text-[12px] font-black leading-[1.04] text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.72)]">
+                {title}
+              </span>
+              <span className="mt-0.5 w-max rounded-full bg-black/38 px-2 py-1 text-[8px] font-black uppercase leading-none tracking-[0.08em] text-white/88 backdrop-blur-md">
+                {metricLabel}
+              </span>
+            </div>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+};
+
 const HomeOrbitalHighlights = ({
   totalMinutes,
   totalPlays,
@@ -1108,7 +1173,7 @@ const HomeOrbitalHighlights = ({
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
-  const [metric, setMetric] = useState<'minutes' | 'plays'>('minutes');
+  const [metric, setMetric] = useState<'minutes' | 'plays'>('plays');
   const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
     { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
@@ -1233,10 +1298,7 @@ const HomeOrbitalHighlights = ({
           />
         </motion.div>
 
-        <div
-          data-home-horizontal-scroll="true"
-          className="relative mt-1 select-none overflow-visible"
-        >
+        <div className="relative mt-1 select-none overflow-visible">
           {/* Loading shimmer overlay */}
           <AnimatePresence>
             {isLoadingPeriod && (
@@ -1274,12 +1336,12 @@ const HomeOrbitalHighlights = ({
             )}
           </AnimatePresence>
 
-          <article className="relative mx-auto w-full max-w-[430px] overflow-visible [perspective:1200px]">
-            <div className={cn("relative z-10 mx-auto w-full max-w-[430px] overflow-visible", stageHeight)}>
+          <article className="relative mx-auto w-full max-w-[430px] overflow-visible">
+            <div className="relative z-10 mx-auto w-full max-w-[430px] overflow-visible">
               <AnimatePresence mode="wait" initial={false} custom={categoryDirection}>
                 <motion.div
-                  key={`highlight-orbit-${activeGroup.key}`}
-                  className="absolute inset-0"
+                  key={`highlight-grid-${activeGroup.key}`}
+                  className="relative"
                   custom={categoryDirection}
                   initial={{
                     opacity: 0,
@@ -1303,63 +1365,16 @@ const HomeOrbitalHighlights = ({
                     duration: 0.45,
                     ease: [0.16, 1, 0.3, 1],
                   }}
-                  style={{ transformStyle: 'preserve-3d' }}
                 >
-                  <HomeHighlightOrbitStage
+                  <HomeHighlightGrid
                     items={activeGroup.items}
                     kind={activeGroup.key}
-                    stageHeight={stageHeight}
-                    isCentered
-                    isSectionVisible={isSectionVisible}
+                    metric={metric}
                     shouldReduceMotion={shouldReduceMotion}
                     onItemClick={onItemClick}
                   />
                 </motion.div>
               </AnimatePresence>
-            </div>
-            <div
-              className="flex justify-center gap-1.5 mt-4"
-              onTouchStart={handleIndicatorTouchStart}
-              onTouchEnd={handleIndicatorTouchEnd}
-            >
-              {groups.map((group, index) => {
-                const isActive = group.key === activeGroup.key;
-                return (
-                  <motion.button
-                    key={`highlight-category-${group.key}`}
-                    type="button"
-                    onClick={() => handleCategoryChange(group.key)}
-                    className={cn(
-                      "h-1.5 rounded-full transition-colors relative overflow-hidden",
-                      isActive ? "w-5" : "w-1.5"
-                    )}
-                    whileHover={!isActive ? { scale: 1.2, backgroundColor: 'rgba(255, 255, 255, 0.3)' } : {}}
-                    whileTap={{ scale: 0.9 }}
-                    animate={{
-                      width: isActive ? 20 : 6,
-                      backgroundColor: isActive ? 'rgb(249, 115, 22)' : 'rgba(255, 255, 255, 0.18)',
-                    }}
-                    transition={{
-                      type: 'spring',
-                      stiffness: 400,
-                      damping: 30,
-                    }}
-                    aria-label={`Ver ${group.tabLabel.toLowerCase()}`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeCategoryIndicator"
-                        className="absolute inset-0 bg-orange-500 rounded-full"
-                        transition={{
-                          type: 'spring',
-                          stiffness: 500,
-                          damping: 35,
-                        }}
-                      />
-                    )}
-                  </motion.button>
-                );
-              })}
             </div>
           </article>
         </div>
@@ -1651,6 +1666,7 @@ const HomeRecentPlays = ({
         showFullHistoryButton
         showInlineHistory
         showInlineOrbitButton={false}
+        presentation="homeRecent"
       />
     </section>
   );
@@ -2432,7 +2448,7 @@ export default function HomeScreen() {
       .sort((a, b) => b.length - a.length)[0] || [];
 
     if (preparedRecent.length > 0) {
-      setResolvedRecentPlays(preparedRecent.slice(0, 10));
+      setResolvedRecentPlays(preparedRecent.slice(0, 20));
     }
 
     if (preparedRecent.length >= 10) {
@@ -2450,7 +2466,7 @@ export default function HomeScreen() {
           if (merged.length > 0) {
             setHistoryCache(primaryUser.id, merged);
             writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), merged);
-            setResolvedRecentPlays(merged.slice(0, 10));
+            setResolvedRecentPlays(merged.slice(0, 20));
           }
         })
         .catch(() => {});
@@ -2464,7 +2480,7 @@ export default function HomeScreen() {
       .then((items) => {
         if (cancelled) return;
         const nextRecent = items?.length ? items : preparedRecent;
-        setResolvedRecentPlays(nextRecent.slice(0, 10));
+        setResolvedRecentPlays(nextRecent.slice(0, 20));
         if (nextRecent.length > 0) {
           setHistoryCache(primaryUser.id, nextRecent);
           writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), nextRecent);
@@ -2473,7 +2489,7 @@ export default function HomeScreen() {
       })
       .catch(() => {
         if (cancelled) return;
-        setResolvedRecentPlays(preparedRecent.slice(0, 10));
+        setResolvedRecentPlays(preparedRecent.slice(0, 20));
         setRecentPrepState(preparedRecent.length > 0 ? 'ready' : 'error');
       });
 
@@ -2960,18 +2976,6 @@ export default function HomeScreen() {
           onSelectedSubValuesChange={setReplaySelectedSubValues}
           onItemClick={handleOpenMusicDetail}
         />
-      )}
-
-      {isAppReady && primaryUser && (
-        <div className="content-auto-safe">
-          <HomePerceptions
-            tracks={replayTracks}
-            artists={replayArtists}
-            userId={primaryUser.id}
-            activeTab={replayActiveTab}
-            selectedSubValues={replaySelectedSubValues}
-          />
-        </div>
       )}
 
       {isAppReady && (

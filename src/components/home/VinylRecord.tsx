@@ -195,7 +195,7 @@ export const VinylRecord = ({
   }, [baseDominantColor]);
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
-  const resinAlpha        = isPlaying ? 0.3 : 0.25;
+  const resinAlpha        = isPlaying ? 0.27 : 0.225;
 
   const handleTonearmPlaybackChange = useCallback((nextIsPlaying: boolean) => {
     manualPlaybackStartRef.current = nextIsPlaying;

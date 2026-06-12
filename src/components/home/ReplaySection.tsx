@@ -18,6 +18,7 @@ import {
   type ReplaySelectedSubValues,
   type ReplayWeekMode
 } from './replayUtils';
+import { getSelectableReplayYears } from '../../lib/replayYears';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -81,7 +82,7 @@ interface ReplaySectionProps {
   ownerFirstName?: string;
 }
 
-const YEARS = [2024, 2025, 2026];
+const YEARS = getSelectableReplayYears();
 const INITIAL_TRACK_ROWS = 4;
 
 const ReplayTrackImage = ({ src, fallback }: { src?: string; fallback: string }) => {

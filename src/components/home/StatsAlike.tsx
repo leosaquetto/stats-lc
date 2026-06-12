@@ -7,6 +7,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
+import { statsService } from '../../services/statsService';
 import { UserStats, TopItem } from '../../types/stats';
 import { OrbitPagerIndicator, SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
@@ -35,6 +36,7 @@ interface AlikeConnection {
   userPosition: number;
   friendPosition: number;
   isEmpty?: boolean;
+  isApiFallback?: boolean;
 }
 
 let cachedAlikeIndex = 0;
@@ -44,6 +46,81 @@ let cachedHydratedTopsByUser: Record<string, {
   albums: any[];
   fetchedAt: number;
 }> = {};
+const cachedApiTrackFallbackByKey = new Map<string, AlikeConnection | null>();
+
+const normalizeIdentity = (value: unknown) => coreUtils.normalizeText(String(value || ''));
+
+const getCompareEntryItem = (entry: any) => entry?.item || entry?.track || entry;
+
+const getCompareEntryCount = (entry: any) => Number(
+  entry?.playcount ||
+  entry?.streams ||
+  entry?.count ||
+  entry?.playedCount ||
+  entry?.item?.playcount ||
+  entry?.item?.streams ||
+  0
+) || 0;
+
+const entryMatchesMember = (entryKey: string, entryValue: any, member: any) => {
+  const memberTokens = [
+    member?.id,
+    member?.customId,
+    member?.profile?.customId,
+    member?.name,
+    member?.displayName,
+    member?.id ? coreUtils.getUserApiParam(member.id) : '',
+  ].map(normalizeIdentity).filter(Boolean);
+  const entryTokens = [
+    entryKey,
+    entryValue?.userId,
+    entryValue?.user?.id,
+    entryValue?.user?.customId,
+    entryValue?.user?.name,
+  ].map(normalizeIdentity).filter(Boolean);
+
+  return entryTokens.some((entryToken) => (
+    memberTokens.some((memberToken) => entryToken === memberToken || entryToken.includes(memberToken) || memberToken.includes(entryToken))
+  ));
+};
+
+const buildApiTrackFallback = (
+  rows: any[],
+  featuredUser: UserStats,
+  friends: UserStats[]
+): AlikeConnection | null => {
+  for (const row of rows || []) {
+    const byUserEntries = Object.entries(row?.byUser || {});
+    if (byUserEntries.length < 2) continue;
+
+    const featuredEntry = byUserEntries.find(([key, value]) => entryMatchesMember(key, value, featuredUser));
+    if (!featuredEntry) continue;
+
+    const friendEntry = byUserEntries.find(([key, value]) => !entryMatchesMember(key, value, featuredUser));
+    if (!friendEntry) continue;
+
+    const friend = friends.find((member) => entryMatchesMember(friendEntry[0], friendEntry[1], member)) || friends[0];
+    if (!friend) continue;
+
+    const userItem = normalizeTopItemForType(getCompareEntryItem(featuredEntry[1]) || row.item, 'track') || normalizeTopItemForType(row.item, 'track');
+    const friendItem = normalizeTopItemForType(getCompareEntryItem(friendEntry[1]) || row.item, 'track') || userItem;
+    if (!userItem?.name || !friendItem?.name) continue;
+
+    return {
+      id: `api-track-${userItem.id || userItem.name}`,
+      type: 'track',
+      item: userItem,
+      alikeUser: friend,
+      matchingItem: friendItem,
+      userPlaycount: getCompareEntryCount(featuredEntry[1]) || userItem.playcount || userItem.streams || 0,
+      userPosition: 0,
+      friendPosition: 0,
+      isApiFallback: true,
+    };
+  }
+
+  return null;
+};
 
 export const StatsAlike = React.memo(() => {
   const groupStats = useStatsStore(state => state.groupStats);
@@ -58,6 +135,7 @@ export const StatsAlike = React.memo(() => {
 
   // Local hydrated topItems cache
   const [hydratedTopsByUser, setHydratedTopsByUser] = useState(cachedHydratedTopsByUser);
+  const [apiTrackFallback, setApiTrackFallback] = useState<AlikeConnection | null>(null);
 
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
   const featuredUser = useMemo(
@@ -353,13 +431,67 @@ export const StatsAlike = React.memo(() => {
     return selection;
   }, [effectiveFeaturedUserId, topItemsSignature, getMemberTopItems]);
 
+  const hasLocalTrackMatch = useMemo(
+    () => alikeConnections.some((connection) => connection.type === 'track' && !connection.isEmpty),
+    [alikeConnections]
+  );
+  const apiFallbackKey = useMemo(
+    () => `${effectiveFeaturedUserId}:${members.map((member) => member.id).filter(Boolean).join('|')}`,
+    [effectiveFeaturedUserId, members]
+  );
+
+  useEffect(() => {
+    if (!isOrbitVisible || !featuredUser || hasLocalTrackMatch || members.length < 2) {
+      setApiTrackFallback(null);
+      return;
+    }
+
+    if (cachedApiTrackFallbackByKey.has(apiFallbackKey)) {
+      setApiTrackFallback(cachedApiTrackFallbackByKey.get(apiFallbackKey) || null);
+      return;
+    }
+
+    const friends = members.filter((member) => member.id !== effectiveFeaturedUserId);
+    if (friends.length === 0) return;
+
+    const controller = new AbortController();
+    statsService.getCompareData({
+      users: [effectiveFeaturedUserId, ...friends.map((friend) => friend.id)],
+      period: 'all',
+      limit: 250,
+      commonMode: 'any',
+      minSharedBy: 2,
+      signal: controller.signal,
+    })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        const fallback = buildApiTrackFallback(data?.common?.tracks || [], featuredUser, friends);
+        cachedApiTrackFallbackByKey.set(apiFallbackKey, fallback);
+        setApiTrackFallback(fallback);
+      })
+      .catch((error: any) => {
+        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+        cachedApiTrackFallbackByKey.set(apiFallbackKey, null);
+        setApiTrackFallback(null);
+      });
+
+    return () => controller.abort();
+  }, [apiFallbackKey, effectiveFeaturedUserId, featuredUser, hasLocalTrackMatch, isOrbitVisible, members]);
+
+  const displayConnections = useMemo(() => {
+    if (!apiTrackFallback || hasLocalTrackMatch) return alikeConnections;
+    return alikeConnections.map((connection) => (
+      connection.type === 'track' ? apiTrackFallback : connection
+    ));
+  }, [alikeConnections, apiTrackFallback, hasLocalTrackMatch]);
+
   // Protect activeIndex if alikeConnections length changes
   useEffect(() => {
-    if (alikeConnections.length > 0 && activeIndex >= alikeConnections.length) {
+    if (displayConnections.length > 0 && activeIndex >= displayConnections.length) {
       cachedAlikeIndex = 0;
       setActiveIndex(0);
     }
-  }, [alikeConnections.length, activeIndex]);
+  }, [displayConnections.length, activeIndex]);
 
   if (!groupStats || !featuredUser) {
     return (
@@ -389,11 +521,11 @@ export const StatsAlike = React.memo(() => {
     );
   }
 
-  if (alikeConnections.length === 0) return null;
+  if (displayConnections.length === 0) return null;
 
   const handleNext = () => {
     setActiveIndex(prev => {
-      const next = (prev + 1) % alikeConnections.length;
+      const next = (prev + 1) % displayConnections.length;
       cachedAlikeIndex = next;
       return next;
     });
@@ -401,15 +533,15 @@ export const StatsAlike = React.memo(() => {
 
   const handlePrev = () => {
     setActiveIndex(prev => {
-      const next = (prev - 1 + alikeConnections.length) % alikeConnections.length;
+      const next = (prev - 1 + displayConnections.length) % displayConnections.length;
       cachedAlikeIndex = next;
       return next;
     });
   };
 
   const goToAlikeIndex = (index: number) => {
-    if (alikeConnections.length === 0) return;
-    const next = (index + alikeConnections.length) % alikeConnections.length;
+    if (displayConnections.length === 0) return;
+    const next = (index + displayConnections.length) % displayConnections.length;
     cachedAlikeIndex = next;
     setActiveIndex(next);
   };
@@ -453,19 +585,13 @@ export const StatsAlike = React.memo(() => {
         title="Stats Alike" 
         icon={<HeartHandshake className="h-4 w-4 text-orange-500" />}
         action={
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-1.5 glass px-2 py-0.5 rounded-full border border-white/5 opacity-50 group-hover:opacity-100 transition-opacity">
-               <Sparkles className="h-2.5 w-2.5 text-orange-500" />
-               <span className="text-[7px] font-black uppercase tracking-[0.2em] text-white/60">Modo Órbita</span>
-             </div>
-             <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
                <button onClick={handlePrev} className="p-1 hover:bg-white/10 rounded-full transition-colors">
                  <ChevronLeft className="h-3 w-3 text-white/30 hover:text-white" />
                </button>
                <button onClick={handleNext} className="p-1 hover:bg-white/10 rounded-full transition-colors">
                  <ChevronRight className="h-3 w-3 text-white/30 hover:text-white" />
                </button>
-             </div>
           </div>
         }
       />
@@ -490,8 +616,8 @@ export const StatsAlike = React.memo(() => {
         <div className="pointer-events-none absolute bottom-[18%] left-[28%] h-1 w-1 rounded-full bg-orange-400/40 shadow-[0_0_14px_rgba(249,115,22,0.55)]" />
 
         <div className="relative h-full w-full max-w-lg">
-          {alikeConnections.map((conn, idx) => {
-            const position = (idx - activeIndex + alikeConnections.length) % alikeConnections.length;
+          {displayConnections.map((conn, idx) => {
+            const position = (idx - activeIndex + displayConnections.length) % displayConnections.length;
             
             // Map position to 3D orbit
             let zIndex = 0;
@@ -566,7 +692,7 @@ export const StatsAlike = React.memo(() => {
         </div>
       </div>
       <OrbitPagerIndicator
-        count={alikeConnections.length}
+        count={displayConnections.length}
         activeIndex={activeIndex}
         onSelect={goToAlikeIndex}
         label="stats alike"
@@ -596,13 +722,13 @@ const AlikeOrbitalItem = ({
     track: 'Música em Comum',
     album: 'Álbum em Comum'
   };
-  const labelBadgeClass = "flex h-9 min-w-[190px] items-center justify-center rounded-full border border-white/10 bg-white/[0.055] px-5 shadow-[0_14px_32px_rgba(0,0,0,0.28)]";
+  const labelBadgeClass = "relative z-20 flex h-8 min-w-[190px] items-center justify-center rounded-full border border-white/10 bg-white/[0.055] px-5 shadow-[0_14px_32px_rgba(0,0,0,0.28)]";
   const labelTextClass = "block text-center text-[9px] font-black uppercase leading-none tracking-[0.16em] text-white/56";
 
   if (isEmpty) {
     return (
       <div className={cn(
-        "flex flex-col items-center gap-3 transition-all duration-500",
+        "flex flex-col items-center gap-2 transition-all duration-500",
         isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
       )}>
         <motion.div 
@@ -630,7 +756,7 @@ const AlikeOrbitalItem = ({
 
   return (
     <div className={cn(
-        "flex flex-col items-center gap-3 transition-all duration-500",
+        "flex flex-col items-center gap-2 transition-all duration-500",
       isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
     )}>
       {/* Label Badge */}
@@ -642,15 +768,21 @@ const AlikeOrbitalItem = ({
            {typeLabels[type]}
         </span>
       </motion.div>
+      <motion.span
+        animate={{ opacity: isCentered ? 1 : 0.3 }}
+        className="-mt-3 relative z-30 rounded-full border border-orange-400/18 bg-orange-500/16 px-3 py-1 text-[8px] font-black uppercase tracking-[0.12em] text-orange-100 shadow-[0_10px_24px_rgba(0,0,0,0.26)] backdrop-blur-xl"
+      >
+        Match com {alikeUser.name}
+      </motion.span>
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[30px] p-6 shadow-2xl transition-all duration-700 backdrop-blur-xl",
+        "relative rounded-[28px] p-4 shadow-2xl transition-all duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* User (You) */}
-          <div className="relative h-16 w-16 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(featuredUserId, featuredUserAvatar)} 
               cacheKey={`stats-alike-featured:${featuredUserId}`}
@@ -661,16 +793,18 @@ const AlikeOrbitalItem = ({
             <div className="absolute -bottom-2 -right-3 bg-orange-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(249,115,22,0.32)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(userPlaycount)}</span>
             </div>
-            <div className="absolute -top-2 -left-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
-               <span className="text-[10px] font-black text-white/90">#{userPosition}</span>
-            </div>
+            {userPosition > 0 && (
+              <div className="absolute -top-2 -left-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
+                 <span className="text-[10px] font-black text-white/90">#{userPosition}</span>
+              </div>
+            )}
             <div className="absolute inset-0 bg-orange-500/10 rounded-full blur-md opacity-50" />
           </div>
 
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Central Item Image */}
-          <div className="relative h-32 w-32 flex-shrink-0 group">
+          <div className="relative h-28 w-28 flex-shrink-0 group">
             <SmartImage 
               src={item.image} 
               cacheKey={`stats-alike-item:${type}:${item.id || item.name}`}
@@ -699,7 +833,7 @@ const AlikeOrbitalItem = ({
           <div className="w-[1px] h-8 bg-gradient-to-b from-transparent via-white/10 to-transparent" />
 
           {/* Alike Friend */}
-          <div className="relative h-16 w-16 shrink-0">
+          <div className="relative h-14 w-14 shrink-0">
             <SmartImage 
               src={coreUtils.getUserAvatar(alikeUser.id, alikeUser.avatar)} 
               cacheKey={`stats-alike-friend:${alikeUser.id}`}
@@ -710,9 +844,11 @@ const AlikeOrbitalItem = ({
             <div className="absolute -bottom-2 -left-3 bg-blue-500 rounded-full px-2 h-6 min-w-7 flex items-center justify-center shadow-[0_8px_18px_rgba(59,130,246,0.28)] z-20">
                <span className="text-[10px] font-black leading-none text-white">{coreUtils.formatNumber(friendPlaycount)}</span>
             </div>
-            <div className="absolute -top-2 -right-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
-               <span className="text-[10px] font-black text-white/90">#{friendPosition}</span>
-            </div>
+            {friendPosition > 0 && (
+              <div className="absolute -top-2 -right-3 bg-black/65 rounded-full w-7 h-7 flex items-center justify-center border border-white/10 shadow-lg z-20">
+                 <span className="text-[10px] font-black text-white/90">#{friendPosition}</span>
+              </div>
+            )}
             <div className="absolute inset-0 bg-blue-500/10 rounded-full blur-md opacity-50" />
           </div>
         </div>
@@ -725,20 +861,17 @@ const AlikeOrbitalItem = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex flex-col items-center text-center max-w-[270px]"
+            className="flex max-w-[270px] flex-col items-center text-center"
           >
-            <span className="line-clamp-2 px-2 text-[18px] font-black leading-tight tracking-tight text-white">
+            <span className="line-clamp-2 px-2 text-[17px] font-black leading-tight tracking-tight text-white">
               {item.name}
             </span>
             {artistName && (
-              <span className="mt-1 line-clamp-1 px-2 text-[10px] font-semibold text-white/48">
+              <span className="mt-0.5 line-clamp-1 px-2 text-[10px] font-semibold text-white/48">
                 {artistName}
               </span>
             )}
-            <div className="flex flex-wrap justify-center items-center gap-1.5 mt-1">
-              <span className="text-[10px] font-bold text-white/46 uppercase tracking-widest bg-white/5 px-2.5 py-1 rounded-md whitespace-nowrap">
-                Match com {alikeUser.name}
-              </span>
+            <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5">
               {Math.abs(userPosition - friendPosition) >= 15 && (
                 <span className="text-[9px] font-bold text-red-400 bg-red-400/10 border border-red-400/20 shadow-md uppercase tracking-widest px-2 py-0.5 rounded-md whitespace-nowrap flex items-center gap-1">
                   <Flame className="w-2.5 h-2.5" />
