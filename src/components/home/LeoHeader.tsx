@@ -51,8 +51,7 @@ const ScrollingTrackTitle = React.memo(({
       const text = measureRef.current;
       if (!container || !text) return;
       const overflow = text.scrollWidth - container.clientWidth;
-      const shouldMarqueeOnCompactViewport = title.length >= 18 && window.innerWidth <= 430 && text.scrollWidth > container.clientWidth * 0.82;
-      setScrollDistance(overflow > 2 || shouldMarqueeOnCompactViewport ? text.scrollWidth + 32 : 0);
+      setScrollDistance(overflow > 2 ? text.scrollWidth + 32 : 0);
       setHasMeasured(true);
     };
 
@@ -70,8 +69,7 @@ const ScrollingTrackTitle = React.memo(({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative z-[70] block overflow-hidden pb-px text-left pointer-events-auto cursor-pointer hover:underline",
-        isPlaying ? "max-w-[192px]" : "max-w-[calc(100vw-45px)]",
+        "relative z-[70] block w-[min(58vw,220px)] max-w-full overflow-hidden pb-px text-left pointer-events-auto cursor-pointer hover:underline sm:w-[320px]",
         shouldScroll && "[mask-image:linear-gradient(90deg,black_0%,black_86%,transparent_100%)]"
       )}
       title={title}
@@ -1787,7 +1785,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                       <div className="flex flex-col gap-0.5">
                         <div className={cn(
                           "flex items-start gap-1.5",
-                          visualIsLive ? "max-w-[calc(100vw-45px)]" : "max-w-[calc(100vw-45px)]"
+                          "max-w-[min(62vw,250px)] sm:max-w-[360px]"
                         )}>
                           <ScrollingTrackTitle
                             title={parsedTrackTitle.displayTitle || track.name}
@@ -1797,7 +1795,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                           <TrackTitleBadges badges={parsedTrackTitle.badges} />
                         </div>
                         <div
-                          className="block w-[calc(100vw-45px)] max-w-none overflow-hidden whitespace-nowrap pb-0.5 text-[19.70px] font-normal leading-[1.14] tracking-[-0.016em] text-white/72 pointer-events-auto select-none"
+                          className="block w-[min(62vw,250px)] max-w-full overflow-hidden whitespace-nowrap pb-0.5 text-[19.70px] font-normal leading-[1.14] tracking-[-0.016em] text-white/72 pointer-events-auto select-none sm:w-[360px]"
                         >
                           {displayArtists.map((artist, idx) => {
                             const isLast = idx === displayArtists.length - 1;

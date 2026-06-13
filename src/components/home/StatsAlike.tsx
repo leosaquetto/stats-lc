@@ -9,7 +9,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
 import { UserStats, TopItem } from '../../types/stats';
-import { OrbitPagerIndicator, SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
+import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -59,6 +59,14 @@ const getCompareEntryCount = (entry: any) => Number(
   entry?.playedCount ||
   entry?.item?.playcount ||
   entry?.item?.streams ||
+  0
+) || 0;
+
+const getCompareEntryRank = (entry: any) => Number(
+  entry?.rank ||
+  entry?.position ||
+  entry?.item?.rank ||
+  entry?.item?.position ||
   0
 ) || 0;
 
@@ -115,8 +123,8 @@ const buildApiTrackFallback = (
       alikeUser: friend,
       matchingItem: friendItem,
       userPlaycount: getCompareEntryCount(featuredEntry[1]) || userItem.playcount || userItem.streams || 0,
-      userPosition: 0,
-      friendPosition: 0,
+      userPosition: getCompareEntryRank(featuredEntry[1]),
+      friendPosition: getCompareEntryRank(friendEntry[1]),
       isApiFallback: true,
     };
   }
@@ -702,16 +710,50 @@ export const StatsAlike = React.memo(() => {
           })}
         </div>
       </div>
-      <OrbitPagerIndicator
+      <StatsAlikePagerIndicator
         count={displayConnections.length}
         activeIndex={activeIndex}
         onSelect={goToAlikeIndex}
-        label="stats alike"
-        className="-mt-2 mb-1"
       />
     </div>
   );
 });
+
+const StatsAlikePagerIndicator = ({
+  count,
+  activeIndex,
+  onSelect,
+}: {
+  count: number;
+  activeIndex: number;
+  onSelect: (index: number) => void;
+}) => {
+  if (count <= 1) return null;
+
+  return (
+    <div
+      className="relative z-50 mt-1 mb-3 flex items-center justify-center gap-2"
+      aria-label="Navegação de Stats Alike"
+    >
+      {Array.from({ length: count }, (_, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <button
+            key={`stats-alike-page-${index}`}
+            type="button"
+            onClick={() => onSelect(index)}
+            className={cn(
+              "h-2 rounded-full transition-[width,background-color,opacity,transform] duration-200 active:scale-90",
+              isActive ? "w-7 bg-orange-500 opacity-100" : "w-2 bg-white/16 opacity-70"
+            )}
+            aria-label={`Ir para Stats Alike ${index + 1}`}
+            aria-current={isActive ? 'true' : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+};
 
 const AlikeOrbitalItem = ({ 
   connection, 

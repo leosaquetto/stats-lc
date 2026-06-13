@@ -128,9 +128,9 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }
 
   return (
-    <div className="relative min-h-[326px] overflow-visible px-3 py-4">
+    <div className="relative min-h-[276px] overflow-visible px-3 py-3">
       <div className="absolute right-0 top-0 -z-10 h-56 w-56 rounded-full bg-orange-500/5 blur-[96px]" />
-      <div className="absolute left-1/2 top-[42%] -z-10 h-56 w-56 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
+      <div className="absolute left-1/2 top-[42%] -z-10 h-48 w-48 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
 
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/85">
@@ -200,15 +200,15 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
         <div
           ref={orbitRef}
           data-home-horizontal-scroll="true"
-          className="relative mx-auto h-[258px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
+          className="relative mx-auto h-[218px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={() => { touchStartRef.current = null; }}
         >
-          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[272px] w-[272px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/7" />
-          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[216px] w-[216px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/13" />
-          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[156px] w-[156px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/26 shadow-[0_0_36px_rgba(249,115,22,0.09)]" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[238px] w-[238px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/7" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[188px] w-[188px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/13" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[136px] w-[136px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/24 shadow-[0_0_32px_rgba(249,115,22,0.08)]" />
 
           {validMembers.map((member, index) => {
             const relative = (index - activeIndex + validMembers.length) % validMembers.length;
@@ -222,7 +222,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             const memberTrack = memberTops.tracks?.[0];
             const memberAlbum = memberTops.albums?.[0];
             const x = isCentered ? 0 : isRight ? 116 : -116;
-            const y = isCentered ? -3 : -16;
+            const y = isCentered ? -10 : -18;
             const scale = isCentered ? 1 : 0.62;
             const opacity = isCentered ? 1 : 0.32;
             const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
@@ -241,22 +241,11 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   className="relative flex flex-col items-center"
                 >
                   {isCentered ? (
-                    <>
-                      <div className="relative mb-2 h-12 w-12 overflow-hidden rounded-full border-2 border-orange-500/82 shadow-[0_12px_28px_rgba(249,115,22,0.2)]">
-                          <SmartImage
-                            src={coreUtils.getUserAvatar(member.id, member.avatar)}
-                            cacheKey={`circle-top-center:${member.id}`}
-                            rounded="full"
-                            className="h-full w-full object-cover"
-                            fallback=""
-                          />
-                      </div>
-                      <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">
-                        <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" />
-                        <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" />
-                        <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" />
-                      </div>
-                    </>
+                    <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">
+                      <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" />
+                      <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" />
+                      <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" />
+                    </div>
                   ) : (
                     <div className="relative z-10">
                       <div className="absolute inset-[-14px] rounded-full border border-orange-500/10 shadow-[0_0_34px_rgba(249,115,22,0.1)]" />
