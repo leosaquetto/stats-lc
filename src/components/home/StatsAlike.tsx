@@ -438,7 +438,7 @@ export const StatsAlike = React.memo(() => {
     [alikeConnections]
   );
   const apiFallbackKey = useMemo(
-    () => `pair-v2:${effectiveFeaturedUserId}:${members.map((member) => member.id).filter(Boolean).join('|')}`,
+    () => `pair-month-v1:${effectiveFeaturedUserId}:${members.map((member) => member.id).filter(Boolean).join('|')}`,
     [effectiveFeaturedUserId, members]
   );
 
@@ -466,7 +466,7 @@ export const StatsAlike = React.memo(() => {
         try {
           const data = await statsService.getCompareData({
             users: [effectiveFeaturedUserId, friend.id],
-            period: 'all',
+            period: 'month',
             limit: 80,
             commonMode: 'any',
             minSharedBy: 2,
