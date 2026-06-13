@@ -11,13 +11,18 @@ import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ChevronLeft, ChevronRight, Disc, Mic2, Music } from 'lucide-react';
+import { Disc, Mic2, Music } from 'lucide-react';
 import { getTopItemArtistName } from '../../lib/topItemUtils';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const getFirstName = (name?: string | null) => {
+  const [firstName] = String(name || '').trim().split(/\s+/);
+  return firstName || 'Amigo';
+};
 
 interface CircleTopOrbitProps {
   members: UserStats[];
@@ -61,6 +66,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const activeUser = useMemo(() => {
     return validMembers[activeIndex] || validMembers[0] || null;
   }, [activeIndex, validMembers]);
+  const activeUserFirstName = useMemo(() => getFirstName(activeUser?.name), [activeUser?.name]);
 
   const goToIndex = React.useCallback((index: number) => {
     if (validMembers.length === 0) return;
@@ -122,11 +128,11 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }
 
   return (
-    <div className="relative min-h-[390px] overflow-visible px-3 py-5">
+    <div className="relative min-h-[326px] overflow-visible px-3 py-4">
       <div className="absolute right-0 top-0 -z-10 h-56 w-56 rounded-full bg-orange-500/5 blur-[96px]" />
-      <div className="absolute left-1/2 top-[44%] -z-10 h-64 w-64 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
+      <div className="absolute left-1/2 top-[42%] -z-10 h-56 w-56 -translate-x-1/2 rounded-full bg-orange-500/[0.035] blur-[100px]" />
 
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-[13px] font-black uppercase tracking-[0.34em] text-white/85">
           Top 1 do Círculo
         </h2>
@@ -150,7 +156,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   fallback=""
                 />
               </span>
-              <span className="text-[7px] font-black uppercase tracking-[0.14em] text-white/56">Amigos</span>
+              <span className="max-w-[64px] truncate text-[7px] font-black uppercase tracking-[0.14em] text-white/56">{activeUserFirstName}</span>
             </button>
             <AnimatePresence>
               {isMemberMenuOpen && (
@@ -188,29 +194,21 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
               )}
             </AnimatePresence>
           </div>
-          <div className="hidden items-center gap-1 sm:flex">
-            <button type="button" onClick={handlePrev} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
-              <ChevronLeft className="h-3.5 w-3.5 text-white/35" />
-            </button>
-            <button type="button" onClick={handleNext} className="p-1.5 rounded-full hover:bg-white/10 transition-colors">
-              <ChevronRight className="h-3.5 w-3.5 text-white/35" />
-            </button>
-          </div>
         </div>
       </div>
 
         <div
           ref={orbitRef}
           data-home-horizontal-scroll="true"
-          className="relative mx-auto h-[300px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
+          className="relative mx-auto h-[258px] w-full max-w-[420px] select-none overflow-visible [perspective:1200px]"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={() => { touchStartRef.current = null; }}
         >
-          <div className="pointer-events-none absolute left-1/2 top-[48%] h-[318px] w-[318px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/7" />
-          <div className="pointer-events-none absolute left-1/2 top-[48%] h-[252px] w-[252px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/13" />
-          <div className="pointer-events-none absolute left-1/2 top-[48%] h-[184px] w-[184px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/30 shadow-[0_0_42px_rgba(249,115,22,0.1)]" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[272px] w-[272px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/7" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[216px] w-[216px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/13" />
+          <div className="pointer-events-none absolute left-1/2 top-[50%] h-[156px] w-[156px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/26 shadow-[0_0_36px_rgba(249,115,22,0.09)]" />
 
           {validMembers.map((member, index) => {
             const relative = (index - activeIndex + validMembers.length) % validMembers.length;
@@ -223,8 +221,8 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             const memberArtist = memberTops.artists?.[0];
             const memberTrack = memberTops.tracks?.[0];
             const memberAlbum = memberTops.albums?.[0];
-            const x = isCentered ? 0 : isRight ? 126 : -126;
-            const y = isCentered ? -4 : -18;
+            const x = isCentered ? 0 : isRight ? 116 : -116;
+            const y = isCentered ? -3 : -16;
             const scale = isCentered ? 1 : 0.62;
             const opacity = isCentered ? 1 : 0.32;
             const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
@@ -234,7 +232,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                 key={member.id}
                 animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
                 transition={{ type: 'spring', stiffness: 160, damping: 24 }}
-                className="absolute left-1/2 top-[48%] w-[336px]"
+                className="absolute left-1/2 top-[50%] w-[318px]"
                 onClick={() => !isCentered && goToIndex(index)}
               >
                 <motion.div
@@ -244,9 +242,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                 >
                   {isCentered ? (
                     <>
-                      <div className="relative mb-3 flex h-16 w-16 items-center justify-center">
-                        <div className="absolute inset-[-12px] rounded-full border border-orange-500/16 shadow-[0_0_34px_rgba(249,115,22,0.14)]" />
-                        <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-orange-500/88 shadow-[0_14px_34px_rgba(249,115,22,0.22)]">
+                      <div className="relative mb-2 h-12 w-12 overflow-hidden rounded-full border-2 border-orange-500/82 shadow-[0_12px_28px_rgba(249,115,22,0.2)]">
                           <SmartImage
                             src={coreUtils.getUserAvatar(member.id, member.avatar)}
                             cacheKey={`circle-top-center:${member.id}`}
@@ -254,9 +250,8 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                             className="h-full w-full object-cover"
                             fallback=""
                           />
-                        </div>
                       </div>
-                      <div className="relative z-10 grid w-full grid-cols-3 gap-2">
+                      <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">
                         <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" />
                         <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" />
                         <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" />
@@ -281,19 +276,13 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
             );
           })}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex items-center justify-center gap-5">
-            <button type="button" onClick={handlePrev} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
-              <ChevronLeft className="h-4 w-4 text-white/48" />
-            </button>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex items-center justify-center">
             <OrbitPagerIndicator
               count={validMembers.length}
               activeIndex={activeIndex}
               onSelect={goToIndex}
               label="membro do Top 1"
             />
-            <button type="button" onClick={handleNext} className="pointer-events-auto rounded-full bg-black/32 p-2 backdrop-blur-xl active:scale-95">
-              <ChevronRight className="h-4 w-4 text-white/48" />
-            </button>
           </div>
         </div>
     </div>
@@ -313,16 +302,18 @@ const CircleTopInlineItem = ({
 }) => {
   if (!item) {
     return (
-      <div className="flex min-w-0 flex-col items-center gap-2 rounded-[20px] border border-white/[0.055] bg-white/[0.025] px-2 py-3">
+      <div className="flex min-w-0 flex-col items-center gap-1.5 px-1">
         <div
           className={cn(
-            "flex h-[68px] w-[68px] items-center justify-center border border-white/5 bg-white/[0.02]",
+            "flex h-[62px] w-[62px] items-center justify-center bg-white/[0.025]",
             rounded === 'full' ? 'rounded-full' : 'rounded-xl'
           )}
         >
           {icon}
         </div>
-        <span className="text-[7px] font-black uppercase tracking-[0.14em] text-white/28">sem dados</span>
+        <span className="rounded-full bg-black/36 px-2 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-white/28 backdrop-blur-xl">
+          sem dados
+        </span>
       </div>
     );
   }
@@ -333,13 +324,13 @@ const CircleTopInlineItem = ({
     : '';
 
   return (
-    <div className="flex min-w-0 flex-col items-center gap-2 rounded-[20px] border border-white/[0.06] bg-black/22 px-2 py-3 shadow-[0_18px_34px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-      <div className="relative h-[72px] w-[72px] shrink-0">
+    <div className="flex min-w-0 flex-col items-center gap-1.5 px-1">
+      <div className="relative h-[66px] w-[66px] shrink-0">
         <SmartImage
           src={item.image}
           cacheKey={`circle-top-inline:${label}:${item.id || item.name}`}
           className={cn(
-            "h-full w-full object-cover border border-white/10 shadow-[0_10px_22px_rgba(0,0,0,0.44)]",
+            "h-full w-full object-cover shadow-[0_10px_22px_rgba(0,0,0,0.44)]",
             rounded === 'full' ? 'rounded-full' : 'rounded-xl'
           )}
           rounded={rounded === 'full' ? 'full' : 'lg'}
@@ -351,7 +342,7 @@ const CircleTopInlineItem = ({
           </div>
         )}
       </div>
-      <div className="min-w-0 text-center">
+      <div className="min-w-0 rounded-[13px] bg-black/42 px-2 py-1.5 text-center shadow-[0_12px_22px_rgba(0,0,0,0.24)] backdrop-blur-xl">
         <span className="mb-1 block text-[7px] font-black uppercase leading-none tracking-[0.14em] text-orange-400/78">
           {label}
         </span>
