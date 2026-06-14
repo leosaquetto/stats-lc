@@ -23,6 +23,7 @@ import { getArtworkPalette, withAlpha, getPerceivedBrightness, normalizeColor, a
 import { getMainArtist, getMainArtistName, getSecondaryArtists } from '../../lib/artistUtils';
 import { attachLiveNowPlayingToMember, getCanonicalMembers, getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { parseTrackTitleBadges } from '../../lib/trackTitleBadges';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -646,6 +647,8 @@ export const LiveTrackProgress = memo(({
   isSynchronizing = false
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
+  const motionRuntime = useMotionRuntime();
+  const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
   const assertiveProgressColor = useMemo(() => getAssertiveProgressAccent(visibleProgressColor), [visibleProgressColor]);
   const progressFillGradient = useMemo(() => {
@@ -756,8 +759,8 @@ export const LiveTrackProgress = memo(({
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden relative">
               <motion.div
-                animate={{ x: ["-100%", "200%"] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                animate={shouldRunAmbientMotion ? { x: ["-100%", "200%"] } : { x: "-100%" }}
+                transition={shouldRunAmbientMotion ? { duration: 4, repeat: Infinity, ease: "easeInOut" } : { duration: 0 }}
                 className="h-full w-1/2 bg-gradient-to-r from-transparent via-orange-500/30 to-transparent"
               />
             </div>
@@ -778,8 +781,8 @@ export const LiveTrackProgress = memo(({
               />
             {isSynchronizing ? (
               <motion.span
-                animate={{ opacity: [0.38, 0.9, 0.38] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                animate={shouldRunAmbientMotion ? { opacity: [0.38, 0.9, 0.38] } : { opacity: 0.72 }}
+                transition={shouldRunAmbientMotion ? { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18 }}
                 className="mx-auto text-[6.4px] font-black uppercase tracking-[0.18em] text-orange-200/80"
               >
                 SINCRONIZANDO
@@ -995,6 +998,8 @@ const ArenaRankingBubble = ({
 export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, recentPlays?: any[], onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
+  const motionRuntime = useMotionRuntime();
+  const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve' && !shouldReduceMotion;
   const arenaTrailRef = useRef<HTMLDivElement | null>(null);
   const arenaDomCacheRef = useRef<ArenaDomCache | null>(null);
   const arenaOffsetRef = useRef(0);
@@ -1710,8 +1715,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                         background: `conic-gradient(${dominantColor || '#f97316'}, transparent, ${dominantColor || '#f97316'})`,
                         filter: 'brightness(1.5) saturate(1.3)'
                       }}
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: liveRingDuration, repeat: Infinity, ease: 'linear' }}
+                      animate={shouldRunAmbientMotion ? { rotate: 360 } : { rotate: 0 }}
+                      transition={shouldRunAmbientMotion ? { duration: liveRingDuration, repeat: Infinity, ease: 'linear' } : { duration: 0.18 }}
                     />
                   )}
                     <div className={cn(
@@ -2071,8 +2076,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                 >
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_0%,transparent_70%)] animate-pulse" />
                   <motion.div
-                    animate={shouldReduceMotion ? {} : { y: [0, -5, 0], scale: [1, 1.04, 1] }}
-                    transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                    animate={shouldRunAmbientMotion ? { y: [0, -5, 0], scale: [1, 1.04, 1] } : { y: 0, scale: 1 }}
+                    transition={shouldRunAmbientMotion ? { duration: 5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.18 }}
                     className="relative mb-4 sm:mb-6"
                   >
                     <StatsLCLogo size={34} className="opacity-55 grayscale transition-[filter,opacity,transform] duration-700 group-hover:opacity-95 group-hover:grayscale-0 sm:scale-110" />

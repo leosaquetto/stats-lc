@@ -651,6 +651,18 @@ body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
   animation-play-state: paused;
 }
 
+html[data-stats-lc-motion-tier="conserve"] .vinyl-record-idle,
+html[data-stats-lc-motion-tier="conserve"] .vinyl-record-aura,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-drift-primary,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-drift-secondary,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-artwork-drift,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-idle-breathe,
+html[data-stats-lc-motion-tier="conserve"] .animate-pulse-slow,
+html[data-stats-lc-motion-tier="conserve"] .animate-pulse,
+html[data-stats-lc-motion-tier="conserve"] .animate-ping {
+  animation-play-state: paused;
+}
+
 @keyframes eq-bar-1 {
   0%, 100% { transform: scaleY(0.2); }
   50% { transform: scaleY(0.9); }

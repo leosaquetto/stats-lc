@@ -97,7 +97,7 @@ export const MusicCard = React.memo(({
         whileTap={onClick ? { scale: 0.96, y: 0 } : {}}
         onClick={onClick}
         className={cn(
-          "glass group relative flex items-center gap-4 rounded-[24px] p-4 transition-all duration-500",
+          "glass group relative flex items-center gap-4 rounded-[24px] p-4 transition-[background-color,border-color,box-shadow,opacity,transform] duration-500",
           onClick && "cursor-pointer",
           isFirstPlay && "border-orange-500/20 bg-orange-500/[0.03] shadow-[0_0_15px_rgba(249,115,22,0.08)]",
           className
@@ -129,7 +129,13 @@ export const MusicCard = React.memo(({
               <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px] z-10">
                  <div className="flex items-end gap-[1.5px] h-2.5">
                     {[0,1,2].map(i => (
-                      <motion.div key={i} animate={{ height: ["20%", "100%", "40%"] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} className="w-[1.5px] bg-white rounded-full" />
+                      <motion.div
+                        key={i}
+                        animate={{ scaleY: [0.2, 1, 0.4] }}
+                        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }}
+                        className="h-full w-[1.5px] origin-bottom rounded-full bg-white"
+                        style={{ willChange: 'transform' }}
+                      />
                     ))}
                  </div>
               </div>
@@ -209,10 +215,11 @@ export const MusicCard = React.memo(({
             <div className="mt-2 flex flex-col gap-1 w-full max-w-[200px]">
               <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
                  <motion.div 
-                   className="h-full bg-orange-500 rounded-full"
+                   className="h-full w-full origin-left bg-orange-500 rounded-full"
                    initial={false}
-                   animate={{ width: `${Math.min(100, (progressMs / durationMs) * 100)}%` }}
+                   animate={{ scaleX: Math.min(1, progressMs / durationMs) }}
                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                   style={{ willChange: 'transform' }}
                  />
               </div>
               <div className="flex justify-between items-center text-[7px] font-mono text-white/30 tabular-nums">

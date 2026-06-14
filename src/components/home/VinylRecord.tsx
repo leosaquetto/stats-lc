@@ -139,6 +139,7 @@ export const VinylRecord = ({
     isInViewport: isVisible,
     prefersReducedMotion,
     canAnimate,
+    shouldRunAmbientMotion,
   } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
   const initialIdentity = getVisualIdentity(playbackKey, albumImage);
   const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
@@ -534,12 +535,12 @@ export const VinylRecord = ({
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
-        {!shouldSpin && canAnimate && (
+        {!shouldSpin && shouldRunAmbientMotion && (
           <div
             className="vinyl-record-aura absolute inset-[-8%] rounded-full pointer-events-none z-0"
             style={{
               background: `radial-gradient(circle at center, ${withAlpha(safeDominantColor, 0.25)} 0%, transparent 70%)`,
-              filter: 'blur(18px)',
+              filter: 'blur(12px)',
             }}
           />
         )}
@@ -557,7 +558,7 @@ export const VinylRecord = ({
         exit={transitionMotion.exit}
         transition={transitionMotion.transition}
       >
-      <div className={`relative h-full w-full ${!shouldSpin && canAnimate ? "vinyl-record-idle" : ""}`}>
+      <div className={`relative h-full w-full ${!shouldSpin && shouldRunAmbientMotion ? "vinyl-record-idle" : ""}`}>
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[4%] w-[4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/70" />
       <div
         ref={(node) => {
@@ -582,8 +583,7 @@ export const VinylRecord = ({
             )
           `,
           isolation: 'isolate',
-          backdropFilter: 'blur(1.2px) saturate(1.18)',
-          WebkitBackdropFilter: 'blur(1.2px) saturate(1.18)',
+          contain: 'paint',
           maskImage: 'radial-gradient(circle at center, transparent 2%, rgba(0,0,0,0.55) 2.14%, black 2.35%)',
           WebkitMaskImage: 'radial-gradient(circle at center, transparent 2%, rgba(0,0,0,0.55) 2.14%, black 2.35%)',
           backfaceVisibility: 'hidden',
@@ -603,13 +603,13 @@ export const VinylRecord = ({
           <div
             className="absolute rounded-full pointer-events-none z-[10]"
             style={{
-              inset: isMulticolorVinyl ? '-18%' : '-42%',
+              inset: isMulticolorVinyl ? '-12%' : '-24%',
               backgroundImage: `url("${visualSnapshot.albumImage}")`,
               backgroundPosition: 'center',
               backgroundSize: 'cover',
               filter: isMulticolorVinyl
-                ? 'blur(22px) saturate(2.6) contrast(1.18)'
-                : 'blur(76px) saturate(2.5) contrast(1.2)',
+                ? 'blur(14px) saturate(2.2) contrast(1.12)'
+                : 'blur(34px) saturate(2.1) contrast(1.14)',
               mixBlendMode: 'color',
               opacity: isMulticolorVinyl
                 ? (shouldSpin ? 0.9 : 0.72)
@@ -822,7 +822,14 @@ export const VinylRecord = ({
       </AnimatePresence>
       </>
 
-      {!hideTonearm && <VinylTonearm state={tonearmState} isPlaying={isPlaying} onUserPlaybackChange={handleTonearmPlaybackChange} />}
+      {!hideTonearm && (
+        <VinylTonearm
+          state={tonearmState}
+          isPlaying={isPlaying}
+          shouldRunAmbientMotion={shouldRunAmbientMotion}
+          onUserPlaybackChange={handleTonearmPlaybackChange}
+        />
+      )}
 
     </div>
   );

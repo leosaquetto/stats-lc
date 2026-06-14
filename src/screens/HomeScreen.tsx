@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
-import { motion, AnimatePresence, useMotionTemplate, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -350,7 +350,6 @@ const HomeHighlightPeriodControls = ({
                 >
                   {activeTab === tab.key && (
                     <motion.div
-                      layoutId="periodActiveIndicator"
                       className="absolute inset-0 bg-orange-500/16 rounded-[16px]"
                       transition={{
                         type: 'spring',
@@ -402,7 +401,6 @@ const HomeHighlightPeriodControls = ({
                       >
                         {isSelected && (
                           <motion.div
-                            layoutId="weekModeIndicator"
                             className="absolute inset-0 bg-white/12 rounded-[14px]"
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                           />
@@ -443,7 +441,6 @@ const HomeHighlightPeriodControls = ({
                       >
                         {isSelected && (
                           <motion.div
-                            layoutId="yearIndicator"
                             className="absolute inset-0 bg-orange-500/16 rounded-full"
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                           />
@@ -483,7 +480,6 @@ const HomeHighlightPeriodControls = ({
                       >
                         {isSelected && (
                           <motion.div
-                            layoutId="monthIndicator"
                             className="absolute inset-0 bg-white/13 rounded-[13px]"
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                           />
@@ -530,7 +526,6 @@ const HomeHighlightPeriodControls = ({
                       >
                         {isSelected && (
                           <motion.div
-                            layoutId="yearFilterIndicator"
                             className="absolute inset-0 bg-white/13 rounded-[13px]"
                             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                           />
@@ -679,7 +674,6 @@ const HomeHighlightCategoryControl = ({
                 >
                   {isActive && (
                     <motion.div
-                      layoutId="categoryActiveIndicator"
                       className="absolute inset-0 bg-orange-500/16 rounded-[16px]"
                       transition={{
                         type: 'spring',
@@ -808,8 +802,7 @@ const buildHighlightCardMotionConfig = ({
           Math.round(translateXAmount * -0.45),
           -translateXAmount,
         ],
-    opacityOutput: [0.34, 0.72, 1, 0.72, 0.34],
-    blurOutput: shouldReduceMotion ? [0, 0, 0, 0, 0] : [2.4, 0.9, 0, 0.9, 2.4],
+    opacityOutput: [0.42, 0.76, 1, 0.76, 0.42],
     zIndexOutput: [20, 64, 120, 64, 20],
   };
 };
@@ -835,6 +828,7 @@ const HomeHighlightOrbitCard = ({
   item,
   index,
   kind,
+  metric,
   scrollX,
   visualConfig,
   isCentered,
@@ -845,6 +839,7 @@ const HomeHighlightOrbitCard = ({
   item: any;
   index: number;
   kind: HomeHighlightKind;
+  metric: 'minutes' | 'plays';
   scrollX: MotionValue<number>;
   visualConfig: HighlightVisualConfig;
   isCentered: boolean;
@@ -866,15 +861,12 @@ const HomeHighlightOrbitCard = ({
   const scale = useTransform(scrollX, motionConfig.inputRange, motionConfig.scaleOutput);
   const rotateY = useTransform(scrollX, motionConfig.inputRange, motionConfig.rotateYOutput);
   const opacity = useTransform(scrollX, motionConfig.inputRange, motionConfig.opacityOutput);
-  const blurAmount = useTransform(scrollX, motionConfig.inputRange, motionConfig.blurOutput);
   const zIndex = useTransform(scrollX, motionConfig.inputRange, motionConfig.zIndexOutput);
   const pointerEvents = useTransform(opacity, [0, 0.32, 0.33, 1], ['none', 'none', 'auto', 'auto']);
-  const transform = useMotionTemplate`translate3d(${translateX}px, 0px, 0px) scale(${scale}) rotateY(${rotateY}deg)`;
-  const filter = useMotionTemplate`blur(${blurAmount}px)`;
   const isInteractive = Boolean(isCentered && onItemClick);
   const title = getReplayItemTitle(item);
   const detail = getHighlightDetailLabel(item, kind);
-  const metric = getHighlightMetricLabel(item, kind);
+  const metricLabel = getHighlightMetricLabel(item, kind, metric);
   const handleActivate = useCallback(() => {
     if (!isInteractive) return;
     onItemClick?.(buildHighlightDetailItem(item, kind));
@@ -908,12 +900,13 @@ const HomeHighlightOrbitCard = ({
         width: cardSize.width,
         height: cardSize.height,
         opacity,
-        filter,
         zIndex,
         pointerEvents,
-        transform,
+        x: translateX,
+        scale,
+        rotateY,
         transformStyle: 'preserve-3d',
-        willChange: 'transform, opacity, filter',
+        willChange: isSectionVisible ? 'transform, opacity' : 'auto',
         backfaceVisibility: 'hidden',
       }}
     >
@@ -960,7 +953,7 @@ const HomeHighlightOrbitCard = ({
               className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
               style={{ fontSize: index === 0 ? '7.5px' : '6.5px' }}
             >
-              {metric}
+              {metricLabel}
             </span>
           </div>
         </div>
@@ -978,17 +971,21 @@ const HomeHighlightOrbitCard = ({
 const HomeHighlightOrbitStage = ({
   items,
   kind,
+  metric,
   stageHeight,
   isCentered,
   isSectionVisible,
+  shouldRunAmbientMotion,
   shouldReduceMotion,
   onItemClick,
 }: {
   items: any[];
   kind: HomeHighlightKind;
+  metric: 'minutes' | 'plays';
   stageHeight: string;
   isCentered: boolean;
   isSectionVisible: boolean;
+  shouldRunAmbientMotion: boolean;
   shouldReduceMotion: boolean;
   onItemClick?: (item: any) => void;
 }) => {
@@ -1035,12 +1032,12 @@ const HomeHighlightOrbitStage = ({
           animate={{
             opacity: [0, 0.3, 0.5],
             scale: 1,
-            rotate: !shouldReduceMotion && isSectionVisible && isCentered ? 360 : 0,
+            rotate: shouldRunAmbientMotion && isCentered ? 360 : 0,
           }}
           transition={{
             opacity: { duration: 0.6, ease: 'easeOut' },
             scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-            rotate: !shouldReduceMotion && isSectionVisible && isCentered
+            rotate: shouldRunAmbientMotion && isCentered
               ? { duration: 58, repeat: Infinity, ease: 'linear' }
               : { duration: 0.5 }
           }}
@@ -1068,6 +1065,7 @@ const HomeHighlightOrbitStage = ({
             item={item}
             index={index}
             kind={kind}
+            metric={metric}
             scrollX={scrollX}
             visualConfig={visualConfig}
             isCentered={isCentered}
@@ -1077,70 +1075,6 @@ const HomeHighlightOrbitStage = ({
           />
         ))}
       </div>
-    </div>
-  );
-};
-
-const HomeHighlightGrid = ({
-  items,
-  kind,
-  metric,
-  shouldReduceMotion,
-  onItemClick,
-}: {
-  items: any[];
-  kind: HomeHighlightKind;
-  metric: 'minutes' | 'plays';
-  shouldReduceMotion: boolean;
-  onItemClick?: (item: any) => void;
-}) => {
-  const visibleItems = items.slice(0, 8);
-
-  if (visibleItems.length === 0) return null;
-
-  return (
-    <div className="grid grid-cols-4 gap-0 overflow-hidden bg-black">
-      {visibleItems.map((item, index) => {
-        const title = getReplayItemTitle(item);
-        const detail = getHighlightDetailLabel(item, kind);
-        const metricLabel = getHighlightMetricLabel(item, kind, metric);
-        const image = getReplayItemImage(item);
-
-        return (
-          <motion.button
-            key={`${kind}-tile-${item.id || item.name || index}`}
-            type="button"
-            onClick={() => onItemClick?.(buildHighlightDetailItem(item, kind))}
-            initial={shouldReduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.32, delay: Math.min(index * 0.035, 0.18), ease: [0.16, 1, 0.3, 1] }}
-            whileTap={{ scale: 0.985 }}
-            className="group relative aspect-square overflow-hidden bg-black text-left outline-none transition-[filter,transform] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-orange-400/70"
-          >
-            {image ? (
-              <SmartImage src={image} className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.02]" rounded="none" fallback={title} />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-white/[0.055] text-[13px] font-black text-white/34">
-                {title.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/16 to-black/86" />
-            <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-0.5 px-1.5 pb-1.5 sm:px-3 sm:pb-3">
-              {detail && (
-                <span className="line-clamp-1 text-[5.5px] font-black uppercase leading-none tracking-[0.06em] text-white/58 sm:text-[7px] sm:tracking-[0.1em]">
-                  {detail}
-                </span>
-              )}
-              <span className="line-clamp-2 text-[9px] font-black leading-[1.02] text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.72)] sm:text-[12px]">
-                {title}
-              </span>
-              <span className="mt-0.5 w-max max-w-full rounded-full bg-black/38 px-1.5 py-0.5 text-[6.5px] font-black uppercase leading-none tracking-[0.04em] text-white/88 backdrop-blur-md sm:px-2 sm:py-1 sm:text-[8px] sm:tracking-[0.08em]">
-                {metricLabel}
-              </span>
-            </div>
-          </motion.button>
-        );
-      })}
     </div>
   );
 };
@@ -1169,7 +1103,11 @@ const HomeOrbitalHighlights = ({
   onItemClick?: (item: any) => void;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const { ref: sectionRef, isInViewport: isSectionVisible } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
+  const {
+    ref: sectionRef,
+    isInViewport: isSectionVisible,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
@@ -1360,16 +1298,20 @@ const HomeOrbitalHighlights = ({
                     x: categoryDirection * -30,
                     scale: 0.92,
                     rotateY: categoryDirection * -5,
-                }}
+                  }}
                   transition={{
                     duration: 0.45,
                     ease: [0.16, 1, 0.3, 1],
                   }}
                 >
-                  <HomeHighlightGrid
+                  <HomeHighlightOrbitStage
                     items={activeGroup.items}
                     kind={activeGroup.key}
                     metric={metric}
+                    stageHeight={stageHeight}
+                    isCentered={isSectionVisible}
+                    isSectionVisible={isSectionVisible}
+                    shouldRunAmbientMotion={shouldRunAmbientMotion}
                     shouldReduceMotion={shouldReduceMotion}
                     onItemClick={onItemClick}
                   />
@@ -1399,7 +1341,11 @@ const HomePerceptions = ({
   selectedSubValues: ReplaySelectedSubValues;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const { ref: sectionRef, isInViewport: isSectionVisible } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
+  const {
+    ref: sectionRef,
+    isInViewport: isSectionVisible,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [latestDiscovery, setLatestDiscovery] = useState<any>(
@@ -1543,8 +1489,8 @@ const HomePerceptions = ({
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[198px] w-[198px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
         <motion.div
           className="pointer-events-none absolute left-1/2 top-[46%] h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
-          animate={!shouldReduceMotion && isSectionVisible ? { rotate: -360 } : {}}
-          transition={!shouldReduceMotion && isSectionVisible ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
+          animate={shouldRunAmbientMotion ? { rotate: -360 } : {}}
+          transition={shouldRunAmbientMotion ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.035] blur-2xl" />
 
@@ -1569,11 +1515,11 @@ const HomePerceptions = ({
             >
               <motion.div
                 className="relative h-full w-full"
-                animate={!shouldReduceMotion && isSectionVisible ? {
+                animate={shouldRunAmbientMotion ? {
                   y: [0, relative % 2 === 0 ? 2 : -2, 0],
                   rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
                 } : {}}
-                transition={!shouldReduceMotion && isSectionVisible ? {
+                transition={shouldRunAmbientMotion ? {
                   duration: 6.2 + relative * 0.45,
                   repeat: Infinity,
                   ease: 'easeInOut',
@@ -1597,8 +1543,8 @@ const HomePerceptions = ({
             transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 0.7 }}
           >
             <motion.div
-              animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-              transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+              animate={shouldRunAmbientMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+              transition={shouldRunAmbientMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
               className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
             >
               {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}

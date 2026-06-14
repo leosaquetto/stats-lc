@@ -9,6 +9,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { getVisibleMembersWithLive } from '../../lib/memberSelectors';
 import { getFriendActivityTimestamp, selectFriendActivity } from '../../lib/friendActivity';
 import { GroupActivityMember, statsService } from '../../services/statsService';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 interface FriendActivityReelProps {
   onTrackClick: (track: any) => void;
@@ -45,8 +46,9 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
 }) => {
   const reelRef = useRef<HTMLDivElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
+  const motionRuntime = useMotionRuntime();
   const isReelVisible = useInView(reelRef, { amount: 0.12, margin: '160px 0px' });
-  const shouldAnimate = isReelVisible && !shouldReduceMotion;
+  const shouldAnimate = isReelVisible && !shouldReduceMotion && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);

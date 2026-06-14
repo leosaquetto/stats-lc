@@ -67,10 +67,11 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
              </div>
              <div className="h-3 w-full bg-white/5 rounded-full mt-4 overflow-hidden shadow-inner">
                 <motion.div 
-                   initial={{ width: 0 }}
-                   animate={{ width: '100%' }}
+                   initial={{ scaleX: 0 }}
+                   animate={{ scaleX: 1 }}
                    transition={{ duration: 1.5, ease: "easeOut" }}
-                   className="h-full bg-gradient-to-r from-orange-600 to-amber-400"
+                   className="h-full w-full origin-left bg-gradient-to-r from-orange-600 to-amber-400"
+                   style={{ willChange: 'transform' }}
                 />
              </div>
           </div>
@@ -86,10 +87,11 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
                 </div>
                 <div className="h-2 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.max(monthlyPercent * 5, 5)}%` }} // Exaggerated for visual effect if small
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: Math.min(1, Math.max(monthlyPercent * 5, 5) / 100) }} // Exaggerated for visual effect if small
                       transition={{ duration: 1.5, delay: 0.2, ease: "easeOut" }}
-                      className="h-full bg-amber-400"
+                      className="h-full w-full origin-left bg-amber-400"
+                      style={{ willChange: 'transform' }}
                    />
                 </div>
              </div>
@@ -104,10 +106,11 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
                 </div>
                 <div className="h-2 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.max(todayPercent * 50, 5)}%` }} // Exaggerated for visual effect if small
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: Math.min(1, Math.max(todayPercent * 50, 5) / 100) }} // Exaggerated for visual effect if small
                       transition={{ duration: 1.5, delay: 0.4, ease: "easeOut" }}
-                      className="h-full bg-green-400"
+                      className="h-full w-full origin-left bg-green-400"
+                      style={{ willChange: 'transform' }}
                    />
                 </div>
              </div>
@@ -303,9 +306,10 @@ export const UserDetailModal = ({
                    </div>
                    <div className="h-2 w-16 rounded-full bg-white/5 overflow-hidden">
                       <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: loading ? '20%' : `${Math.min((stats.today?.count || 0) * 2, 100)}%` }}
-                        className="h-full bg-orange-500" 
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: loading ? 0.2 : Math.min((stats.today?.count || 0) * 2, 100) / 100 }}
+                        className="h-full w-full origin-left bg-orange-500"
+                        style={{ willChange: 'transform' }}
                       />
                    </div>
                 </div>

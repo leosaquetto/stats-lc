@@ -21,6 +21,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router-dom';
 import { animationTokens, easeOutQuart } from '../../lib/animationTokens';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -98,9 +99,10 @@ const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
 
 export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: UserStats[], lastUpdate?: string }) => {
   const shouldReduceMotion = useReducedMotion();
+  const motionRuntime = useMotionRuntime();
   const stageRef = React.useRef<HTMLDivElement | null>(null);
   const isStageVisible = useInView(stageRef, { amount: 0.1, margin: '160px 0px' });
-  const canAnimateStage = !shouldReduceMotion && isStageVisible;
+  const canAnimateStage = !shouldReduceMotion && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve' && isStageVisible;
   const [arenaSeed] = React.useState(() => getArenaSeed(users) ^ Date.now());
 
   const totalStreams = React.useMemo(() =>
@@ -602,6 +604,8 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
   const [tops, setTops] = useState<{ tracks: any[], artists: any[], albums: any[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<string>('month');
+  const motionRuntime = useMotionRuntime();
+  const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -643,10 +647,11 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
 
   const renderHighlightsSkeleton = () => (
     <motion.div
-      initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      initial={{ opacity: 0, y: 12, scale: 0.985 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col gap-3 my-2 relative"
+      style={{ willChange: 'transform, opacity' }}
     >
       <SectionHeader title="Seus Destaques" icon={<Flame className="h-3.5 w-3.5 text-orange-500" />} />
       <Skeleton className="h-8 w-full rounded-lg" />
@@ -704,8 +709,8 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
               <motion.span
                 className="h-1.5 w-1.5 rounded-full bg-orange-500"
-                animate={{ scale: [1, 1.6, 1], opacity: [0.6, 1, 0.6] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
+                animate={shouldRunAmbientMotion ? { scale: [1, 1.6, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 0.75 }}
+                transition={shouldRunAmbientMotion ? { duration: 1.2, repeat: Infinity } : { duration: 0.16 }}
               />
               <span className="text-[7px] font-black uppercase tracking-widest text-orange-400">Atualizando</span>
             </div>

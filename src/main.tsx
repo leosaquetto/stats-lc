@@ -3,11 +3,13 @@ import App from './App.tsx';
 import './index.css';
 import { initAnalytics } from './services/analyticsService.ts';
 import { initPerformanceMonitoring } from './lib/performanceMonitoring.ts';
+import { initMotionRuntime } from './lib/motionRuntime.ts';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Initialize tracking system
 initAnalytics();
 initPerformanceMonitoring();
+initMotionRuntime();
 
 // Register Service Worker for push notifications
 if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {

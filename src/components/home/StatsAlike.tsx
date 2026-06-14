@@ -139,7 +139,11 @@ export const StatsAlike = React.memo(() => {
   const prefetchUserTops = useStatsStore(state => state.prefetchUserTops);
   const topItemsCache = useStatsStore(state => state.topItemsCache);
   const shouldReduceMotion = useReducedMotion();
-  const { ref: orbitRef, isInViewport: isOrbitVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
+  const {
+    ref: orbitRef,
+    isInViewport: isOrbitVisible,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const [activeIndex, setActiveIndex] = useState(cachedAlikeIndex);
   const touchStartRef = React.useRef<{ x: number; y: number; intent: 'pending' | 'horizontal' | 'vertical' } | null>(null);
 
@@ -521,10 +525,11 @@ export const StatsAlike = React.memo(() => {
           action={<Skeleton className="h-6 w-24 rounded-full" />}
         />
         <motion.div
-          initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           className="relative h-[286px] w-full flex items-center justify-center overflow-visible"
+          style={{ willChange: 'transform, opacity' }}
         >
           <div className="absolute h-56 w-56 rounded-full border border-white/[0.04]" />
           <div className="relative glass-card p-6 rounded-[32px] shadow-2xl overflow-hidden">
@@ -643,8 +648,7 @@ export const StatsAlike = React.memo(() => {
             let scale = 0.6;
             let x = 0;
             let y = 0;
-            let opacity = 0.4;
-            let blur = "blur(4px)";
+            let opacity = 0.42;
             let rotateY = 0;
 
             if (position === 0) { // Front
@@ -653,23 +657,20 @@ export const StatsAlike = React.memo(() => {
               x = 0;
               y = 0;
               opacity = 1;
-              blur = "blur(0px)";
               rotateY = 0;
             } else if (position === 1) { // Right Back
               zIndex = 10;
               scale = 0.78;
               x = 132;
               y = -22;
-              opacity = 0.4;
-              blur = "blur(2px)";
+              opacity = 0.46;
               rotateY = -15;
             } else { // Left Back
               zIndex = 10;
               scale = 0.78;
               x = -132;
               y = -22;
-              opacity = 0.4;
-              blur = "blur(2px)";
+              opacity = 0.46;
               rotateY = 15;
             }
 
@@ -682,25 +683,28 @@ export const StatsAlike = React.memo(() => {
                   zIndex, 
                   scale, 
                   opacity,
-                  filter: blur,
                   rotateY,
                 }}
                 transition={{ type: "spring", stiffness: 150, damping: 24 }}
                 className="absolute top-1/2 left-1/2 w-[332px]"
                 onClick={() => position !== 0 && goToAlikeIndex(idx)}
+                style={{ willChange: isOrbitVisible ? 'transform, opacity' : 'auto' }}
               >
                 <motion.div
-                  animate={shouldReduceMotion || !isOrbitVisible ? {} : {
+                  animate={shouldReduceMotion || !shouldRunAmbientMotion ? {} : {
                     x: [0, idx % 2 === 0 ? 10 : -8, idx % 3 === 0 ? -5 : 4, 0],
                     y: [0, idx % 2 === 0 ? -7 : 8, idx % 3 === 0 ? 5 : -4, 0],
                     rotate: [0, idx % 2 === 0 ? 0.8 : -0.9, idx % 3 === 0 ? -0.4 : 0.5, 0]
                   }}
-                  transition={{ duration: 15 + idx * 3, repeat: Infinity, ease: "easeInOut", delay: idx * 0.8 }}
+                  transition={shouldReduceMotion || !shouldRunAmbientMotion
+                    ? { duration: 0.18 }
+                    : { duration: 15 + idx * 3, repeat: Infinity, ease: "easeInOut", delay: idx * 0.8 }}
                 >
                   <AlikeOrbitalItem
                     connection={conn}
                     isCentered={position === 0}
                     isOrbitVisible={isOrbitVisible}
+                    shouldRunAmbientMotion={shouldRunAmbientMotion}
                     featuredUserAvatar={featuredUser?.avatar}
                     featuredUserId={effectiveFeaturedUserId}
                   />
@@ -759,12 +763,14 @@ const AlikeOrbitalItem = ({
   connection, 
   isCentered,
   isOrbitVisible,
+  shouldRunAmbientMotion,
   featuredUserAvatar,
   featuredUserId
 }: { 
   connection: AlikeConnection, 
   isCentered: boolean,
   isOrbitVisible: boolean,
+  shouldRunAmbientMotion: boolean,
   featuredUserAvatar?: string,
   featuredUserId: string
 }) => {
@@ -781,7 +787,7 @@ const AlikeOrbitalItem = ({
   if (isEmpty) {
     return (
       <div className={cn(
-        "flex flex-col items-center gap-2 transition-all duration-500",
+        "flex flex-col items-center gap-2 transition-[opacity,transform] duration-500",
         isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
       )}>
         <motion.div 
@@ -793,7 +799,7 @@ const AlikeOrbitalItem = ({
           </span>
         </motion.div>
 
-        <div className="glass-aura relative flex min-h-[150px] flex-col items-center justify-center rounded-[30px] px-8 py-6 text-center opacity-45 shadow-2xl blur-[1.5px]">
+        <div className="glass-aura relative flex min-h-[150px] flex-col items-center justify-center rounded-[30px] px-8 py-6 text-center opacity-45 shadow-2xl">
            <HeartHandshake className="h-6 w-6 text-white/10 mb-2" />
            <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Sem Match Top 50</span>
            <span className="text-[9px] text-white/20 mt-1 max-w-[120px]">Nenhum match no Top 50 para {typeLabels[type].toLowerCase().replace(' em comum', '')}.</span>
@@ -809,7 +815,7 @@ const AlikeOrbitalItem = ({
 
   return (
     <div className={cn(
-        "flex flex-col items-center gap-2 transition-all duration-500",
+        "flex flex-col items-center gap-2 transition-[opacity,transform] duration-500",
       isCentered ? "cursor-default" : "cursor-pointer pointer-events-auto"
     )}>
       {/* Label Badge */}
@@ -830,7 +836,7 @@ const AlikeOrbitalItem = ({
 
       {/* Main Bridge UI */}
       <div className={cn(
-        "relative rounded-[28px] p-4 shadow-2xl transition-all duration-700 backdrop-blur-xl",
+        "relative rounded-[28px] p-4 shadow-2xl transition-[background-color,box-shadow,transform,opacity] duration-700 backdrop-blur-xl",
         Math.abs(userPosition - friendPosition) >= 15 ? "bg-red-500/[0.03] shadow-[0_0_30px_rgba(239,68,68,0.05)]" : "bg-white/[0.01]"
       )}>
         <div className="flex items-center gap-2">
@@ -862,7 +868,7 @@ const AlikeOrbitalItem = ({
               src={item.image} 
               cacheKey={`stats-alike-item:${type}:${item.id || item.name}`}
               className={cn(
-                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-all duration-700",
+                "h-full w-full object-cover shadow-[0_12px_32px_rgba(0,0,0,0.6)] transition-[border-color,transform,opacity] duration-700",
                 type === 'artist' ? 'rounded-full' : 'rounded-2xl',
                 isCentered && "group-hover:scale-110",
                 isCentered && (Math.abs(userPosition - friendPosition) >= 15 ? "group-hover:border-red-500/50" : "group-hover:border-orange-500/50")
@@ -870,7 +876,7 @@ const AlikeOrbitalItem = ({
               rounded={type === 'artist' ? 'full' : '2xl'}
               fallback=""
             />
-            {isCentered && isOrbitVisible && (
+            {isCentered && isOrbitVisible && shouldRunAmbientMotion && (
               <motion.div 
                 animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
                 transition={{ duration: 4, repeat: Infinity }}

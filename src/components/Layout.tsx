@@ -18,6 +18,7 @@ import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
 import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
 import { preloadRouteModule } from '../lib/routePreloads';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -34,18 +35,21 @@ const preloadRouteModules = (path: string) => {
 };
 
 const EqualizerIcon = () => {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimate = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+
   return (
     <div className="flex items-end gap-[1.5px] h-3 w-3.5 shrink-0 select-none pb-[1px]" aria-hidden="true">
       <span
-        style={{ animation: 'eq-bar-1 0.8s ease-in-out infinite' }}
+        style={{ animation: shouldAnimate ? 'eq-bar-1 0.8s ease-in-out infinite' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.45)' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
       <span
-        style={{ animation: 'eq-bar-2 0.6s ease-in-out infinite 0.15s' }}
+        style={{ animation: shouldAnimate ? 'eq-bar-2 0.6s ease-in-out infinite 0.15s' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.8)' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
       <span
-        style={{ animation: 'eq-bar-3 0.7s ease-in-out infinite 0.3s' }}
+        style={{ animation: shouldAnimate ? 'eq-bar-3 0.7s ease-in-out infinite 0.3s' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.32)' }}
         className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
       />
     </div>
@@ -1078,6 +1082,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const getHistoryCache = useStatsStore(state => state.getHistoryCache);
   const setHistoryCache = useStatsStore(state => state.setHistoryCache);
+  const motionRuntime = useMotionRuntime();
 
   const MemoizedSocialAvatar = React.useMemo(() => React.memo<{ entry: any; index: number; total: number }>(
     ({ entry, index, total }) => {
@@ -1339,7 +1344,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const albumReleaseRawDate = React.useMemo(() => getAlbumReleaseDate(track), [track]);
   const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(albumReleaseRawDate), [albumReleaseRawDate]);
   const isBubbleLive = panelUser?.nowPlaying?.isNow === true && playbackIndex === 0 && !hasExternalPlayback;
-  const shouldAnimateBubble = isBubbleLive && !isModalVisible;
+  const shouldAnimateBubble = isBubbleLive && !isModalVisible && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const bubbleAccentColor = bubbleDominantColor || '#ff5f00';
   const isAppleMusicUser = panelUser?.platform?.primary === 'appleMusic' || panelUser?.platform === 'appleMusic' || panelUser?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
@@ -3272,7 +3277,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 toggleSyncInfo();
               }}
               className={clsx(
-                "pointer-events-auto flex items-center mb-1 select-none group relative transition-all duration-300 overflow-hidden text-left cursor-pointer",
+                "pointer-events-auto flex items-center mb-1 select-none group relative transition-[background-color,border-color,box-shadow,opacity,transform] duration-300 overflow-hidden text-left cursor-pointer",
                 shouldShowExpanded
                   ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
                   : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"

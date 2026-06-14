@@ -14,6 +14,7 @@ import {
 } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -51,6 +52,8 @@ export const FriendsHorizontalCard = React.memo(({
 }: any) => {
   const playback = coreUtils.getPlaybackStatus({ nowPlaying: { isNow: rawIsNowPlaying, timestamp, track: { name: songName } } });
   const isActuallyLive = playback.status === "live";
+  const motionRuntime = useMotionRuntime();
+  const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
   const userAvatar = coreUtils.getUserAvatar(userId, providedAvatar);
@@ -118,8 +121,8 @@ export const FriendsHorizontalCard = React.memo(({
 
         {isActuallyLive ? (
           <motion.div 
-            animate={{ opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            animate={shouldRunAmbientMotion ? { opacity: [0.7, 1, 0.7] } : { opacity: 0.82 }}
+            transition={shouldRunAmbientMotion ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.16 }}
             className="mt-1 px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/20"
           >
             <span className="text-[7px] font-black text-orange-500 uppercase tracking-widest whitespace-nowrap">Ouvindo</span>

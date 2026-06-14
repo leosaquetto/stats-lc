@@ -686,9 +686,9 @@ function ToastStack({ toasts, onClose }: { toasts: ToastItem[]; onClose: (id: st
         {toasts.map(toast => (
           <motion.div
             key={toast.id}
-            initial={{ opacity: 0, y: -16, scale: 0.96, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -10, scale: 0.96, filter: 'blur(8px)' }}
+            initial={{ opacity: 0, y: -16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.96 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             className="pointer-events-auto relative overflow-hidden rounded-[24px] border bg-black/70 p-4 shadow-[0_20px_50px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
             style={{

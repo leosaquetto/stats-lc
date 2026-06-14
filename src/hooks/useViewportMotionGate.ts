@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMotionRuntime } from './useMotionRuntime';
 
 type ViewportMotionGateOptions = {
   initialVisible?: boolean;
@@ -48,6 +49,7 @@ export const useViewportMotionGate = <T extends HTMLElement>({
   const [isInViewport, setIsInViewport] = useState(initialVisible);
   const prefersReducedMotion = usePrefersReducedMotion();
   const isPageVisible = usePageVisibility();
+  const motionRuntime = useMotionRuntime();
 
   useEffect(() => {
     const node = ref.current;
@@ -63,15 +65,27 @@ export const useViewportMotionGate = <T extends HTMLElement>({
   }, [rootMargin]);
 
   const canAnimate = useMemo(
-    () => isInViewport && !prefersReducedMotion && (!respectPageVisibility || isPageVisible),
-    [isInViewport, isPageVisible, prefersReducedMotion, respectPageVisibility]
+    () => (
+      isInViewport &&
+      motionRuntime.canRunMotion &&
+      !prefersReducedMotion &&
+      (!respectPageVisibility || isPageVisible)
+    ),
+    [isInViewport, isPageVisible, motionRuntime.canRunMotion, prefersReducedMotion, respectPageVisibility]
+  );
+  const shouldRunAmbientMotion = useMemo(
+    () => canAnimate && motionRuntime.tier !== 'conserve',
+    [canAnimate, motionRuntime.tier]
   );
 
   return {
     canAnimate,
     isInViewport,
     isPageVisible,
+    motionFps: motionRuntime.fps,
+    motionTier: motionRuntime.tier,
     prefersReducedMotion,
     ref,
+    shouldRunAmbientMotion,
   };
 };

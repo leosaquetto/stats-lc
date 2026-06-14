@@ -63,7 +63,11 @@ export const PerceptionsPanel = ({
   className?: string;
 }) => {
   const shouldReduceMotion = useReducedMotion();
-  const { ref: sectionRef, isInViewport: isSectionVisible } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
+  const {
+    ref: sectionRef,
+    isInViewport: isSectionVisible,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [latestDiscovery, setLatestDiscovery] = useState<any>(
@@ -140,7 +144,7 @@ export const PerceptionsPanel = ({
   }, [perceptions.length]);
 
   const { restart: restartRotation, interactionProps } = useAutoOrbitRotation({
-    enabled: isSectionVisible && !shouldReduceMotion && perceptions.length > 1,
+    enabled: isSectionVisible && !shouldReduceMotion && shouldRunAmbientMotion && perceptions.length > 1,
     intervalMs: 5500,
     onAdvance: advance,
   });
@@ -207,8 +211,8 @@ export const PerceptionsPanel = ({
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[198px] w-[198px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
         <motion.div
           className="pointer-events-none absolute left-1/2 top-[46%] h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
-          animate={!shouldReduceMotion && isSectionVisible ? { rotate: -360 } : {}}
-          transition={!shouldReduceMotion && isSectionVisible ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
+          animate={shouldRunAmbientMotion ? { rotate: -360 } : {}}
+          transition={shouldRunAmbientMotion ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.035] blur-2xl" />
 
@@ -233,11 +237,11 @@ export const PerceptionsPanel = ({
             >
               <motion.div
                 className="relative h-full w-full"
-                animate={!shouldReduceMotion && isSectionVisible ? {
+                animate={shouldRunAmbientMotion ? {
                   y: [0, relative % 2 === 0 ? 2 : -2, 0],
                   rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
                 } : {}}
-                transition={!shouldReduceMotion && isSectionVisible ? {
+                transition={shouldRunAmbientMotion ? {
                   duration: 6.2 + relative * 0.45,
                   repeat: Infinity,
                   ease: 'easeInOut',
@@ -261,8 +265,8 @@ export const PerceptionsPanel = ({
             transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 0.7 }}
           >
             <motion.div
-              animate={!shouldReduceMotion && isSectionVisible ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-              transition={!shouldReduceMotion && isSectionVisible ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+              animate={shouldRunAmbientMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
+              transition={shouldRunAmbientMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
               className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
             >
               {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}

@@ -3,6 +3,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
+import { useMotionRuntime } from './useMotionRuntime';
 import { usePageVisibility } from './useViewportMotionGate';
 
 interface AutoOrbitRotationOptions {
@@ -19,6 +20,7 @@ export const useAutoOrbitRotation = ({
   const onAdvanceRef = useRef(onAdvance);
   const [isInteracting, setIsInteracting] = useState(false);
   const isPageVisible = usePageVisibility();
+  const motionRuntime = useMotionRuntime();
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
@@ -26,10 +28,11 @@ export const useAutoOrbitRotation = ({
   }, [onAdvance]);
 
   useEffect(() => {
-    if (!enabled || !isPageVisible || isInteracting) return;
-    const timer = window.setTimeout(() => onAdvanceRef.current(), intervalMs);
+    if (!enabled || !isPageVisible || isInteracting || !motionRuntime.canRunMotion || motionRuntime.tier === 'conserve') return;
+    const multiplier = motionRuntime.tier === 'balanced' ? 1.65 : 1;
+    const timer = window.setTimeout(() => onAdvanceRef.current(), intervalMs * multiplier);
     return () => window.clearTimeout(timer);
-  }, [enabled, generation, intervalMs, isInteracting, isPageVisible]);
+  }, [enabled, generation, intervalMs, isInteracting, isPageVisible, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   const restart = useCallback(() => {
     setGeneration((value) => value + 1);

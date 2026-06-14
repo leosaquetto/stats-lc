@@ -1965,10 +1965,11 @@ export default function StatsScreen() {
                 return (
                   <motion.div
                     key={`stats-insight-${currentInsightIndex}`}
-                    initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+                    initial={{ opacity: 0, y: 8, scale: 0.985 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.985 }}
                     className="glass-aura relative overflow-hidden rounded-[28px] px-5 py-4"
+                    style={{ willChange: 'transform, opacity' }}
                   >
                     <div className="relative z-10 flex items-center gap-4">
                       <div className="glass-aura-orange flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">

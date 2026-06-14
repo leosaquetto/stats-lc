@@ -33,7 +33,11 @@ interface CircleTopOrbitProps {
 
 export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: CircleTopOrbitProps) => {
   const shouldReduceMotion = useReducedMotion();
-  const { ref: orbitRef, isInViewport: isOrbitVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
+  const {
+    ref: orbitRef,
+    isInViewport: isOrbitVisible,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
   const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [isMemberMenuOpen, setIsMemberMenuOpen] = useState(false);
@@ -244,22 +248,22 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
               return (
                 <motion.div
                   key={member.id}
-                  initial={shouldReduceMotion ? false : { x: 'calc(-50% + 0px)', y: 'calc(-50% + 4px)', scale: 0.96, opacity: 0, filter: 'blur(7px)', zIndex: 30 }}
+                  initial={shouldReduceMotion ? false : { x: 'calc(-50% + 0px)', y: 'calc(-50% + 4px)', scale: 0.96, opacity: 0, zIndex: 30 }}
                   animate={{
                     x: 'calc(-50% + 0px)',
                     y: canRevealStage ? 'calc(-50% + -10px)' : 'calc(-50% + 4px)',
                     scale: canRevealStage ? 1 : 0.96,
                     opacity: canRevealStage ? 1 : 0,
-                    filter: canRevealStage ? 'blur(0px)' : 'blur(7px)',
                     zIndex: 30
                   }}
-                  exit={shouldReduceMotion ? undefined : { y: 'calc(-50% + -20px)', scale: 0.98, opacity: 0, filter: 'blur(5px)' }}
+                  exit={shouldReduceMotion ? undefined : { y: 'calc(-50% + -20px)', scale: 0.98, opacity: 0 }}
                   transition={{ duration: 0.44, ease: animationTokens.ease.smooth }}
                   className="absolute left-1/2 top-[50%] w-[318px]"
+                  style={{ willChange: isOrbitVisible ? 'transform, opacity' : 'auto' }}
                 >
                   <motion.div
-                    animate={shouldReduceMotion || !isOrbitVisible ? {} : { x: [0, 8, -5, 0], y: [0, -5, 4, 0], rotate: [0, 0.6, -0.4, 0] }}
-                    transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+                    animate={shouldReduceMotion || !shouldRunAmbientMotion ? {} : { x: [0, 8, -5, 0], y: [0, -5, 4, 0], rotate: [0, 0.6, -0.4, 0] }}
+                    transition={shouldReduceMotion || !shouldRunAmbientMotion ? { duration: 0.18 } : { duration: 16, repeat: Infinity, ease: 'easeInOut' }}
                     className="relative flex flex-col items-center"
                   >
                     <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">

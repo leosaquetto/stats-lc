@@ -4,13 +4,14 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 interface VinylTonearmProps {
   isPlaying?: boolean;
+  shouldRunAmbientMotion?: boolean;
   state?: 'rest' | 'lifted' | 'playing';
   onUserPlaybackChange?: (isPlaying: boolean) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }: VinylTonearmProps) => {
+export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true, state, onUserPlaybackChange }: VinylTonearmProps) => {
   const uniqueId = useId();
   const shouldReduceMotion = useReducedMotion();
   const [level, setLevel] = useState(0.5);
@@ -34,7 +35,7 @@ export const VinylTonearm = ({ isPlaying = false, state, onUserPlaybackChange }:
   const liftScale = tonearmState === 'lifted' ? 0.992 : 1;
   const liftOpacity = tonearmState === 'rest' ? 0.58 : tonearmState === 'lifted' ? 0.88 : 0.96;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
-  const shouldGrooveDrift = tonearmState === 'playing' && !isDragging && !shouldReduceMotion;
+  const shouldGrooveDrift = tonearmState === 'playing' && shouldRunAmbientMotion && !isDragging && !shouldReduceMotion;
   const tonearmGroupTransition = shouldGrooveDrift
     ? {
         rotate: { duration: 42, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' as const },

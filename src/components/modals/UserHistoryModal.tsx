@@ -167,9 +167,10 @@ const HistorySectionHeader = ({ label }: { label: string }) => (
           {[0, 1, 2].map((index) => (
             <motion.span
               key={index}
-              animate={{ height: ['25%', '100%', '45%'] }}
+              animate={{ scaleY: [0.25, 1, 0.45] }}
               transition={{ duration: 0.62, repeat: Infinity, delay: index * 0.1 }}
-              className="w-[1.5px] rounded-full bg-red-500"
+              className="h-full w-[1.5px] origin-bottom rounded-full bg-red-500"
+              style={{ willChange: 'transform' }}
             />
           ))}
         </div>

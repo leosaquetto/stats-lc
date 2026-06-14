@@ -59,7 +59,7 @@ export const OrbitPagerIndicator = memo(({
 OrbitPagerIndicator.displayName = 'OrbitPagerIndicator';
 
 export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: { size?: number, className?: string, variant?: 'orange' | 'black' }) => {
-  const { ref: logoRef, canAnimate: shouldAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '120px' });
+  const { ref: logoRef, shouldRunAmbientMotion } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '120px' });
 
   return (
     <motion.div 
@@ -71,13 +71,13 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
     >
       <motion.div 
         className="absolute inset-0 rounded-full bg-orange-500/20 blur-md"
-        animate={shouldAnimate ? { 
+        animate={shouldRunAmbientMotion ? {
           scale: [1, 1.3, 1],
           opacity: [0.2, 0.4, 0.2]
         } : { scale: 1, opacity: 0.22 }}
         transition={{ 
           duration: 4, 
-          repeat: Infinity, 
+          repeat: shouldRunAmbientMotion ? Infinity : 0,
           ease: "easeInOut" 
         }}
       />
@@ -152,7 +152,10 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const [loading, setLoading] = useState(() => inputSrc ? loadedImageSrcs.has(inputSrc) === false : true);
   const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
-  const { ref: imageFrameRef, canAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
+  const {
+    ref: imageFrameRef,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
   const imageRef = useRef<HTMLImageElement>(null);
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
@@ -240,12 +243,14 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
               height: '100%',
             }}
             initial={{ x: '-100%' }}
-            animate={canAnimate ? { x: '100%' } : { x: '-100%' }}
-            transition={{
-              repeat: Infinity,
-              duration: shimmerDuration,
-              ease: "linear",
-            }}
+            animate={shouldRunAmbientMotion ? { x: '100%' } : { x: '-100%' }}
+            transition={shouldRunAmbientMotion
+              ? {
+                  repeat: Infinity,
+                  duration: shimmerDuration,
+                  ease: "linear",
+                }
+              : { duration: 0.16 }}
           />
         </div>
       )}
@@ -401,22 +406,27 @@ export const ShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: 
 );
 
 const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => {
-  const { ref: shimmerRef, canAnimate } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
+  const {
+    ref: shimmerRef,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
 
   return (
     <div ref={shimmerRef} className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
       <motion.div
         className="absolute inset-0"
         initial={{ x: '-100%' }}
-        animate={canAnimate ? { x: '100%' } : { x: '-100%' }}
-        transition={{
-          repeat: Infinity,
-          duration,
-          ease: "linear",
-        }}
+        animate={shouldRunAmbientMotion ? { x: '100%' } : { x: '-100%' }}
+        transition={shouldRunAmbientMotion
+          ? {
+              repeat: Infinity,
+              duration,
+              ease: "linear",
+            }
+          : { duration: 0.16 }}
         style={{
           background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
-          willChange: canAnimate ? 'transform' : 'auto'
+          willChange: shouldRunAmbientMotion ? 'transform' : 'auto'
         }}
       />
     </div>
@@ -647,7 +657,7 @@ export const TopRankRow = React.memo(({
       <motion.div 
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
-        className="glass flex items-center justify-between px-3 py-2 rounded-[20px] border-white/5 group hover:bg-white/[0.08] transition-all h-full"
+        className="glass flex items-center justify-between px-3 py-2 rounded-[20px] border-white/5 group hover:bg-white/[0.08] transition-[background-color,border-color,box-shadow,opacity,transform] h-full"
       >
          <div className="flex items-center gap-3 min-w-0">
             <span className="text-[10px] font-black text-white/60 w-4 pl-1">#{index + 1}</span>
