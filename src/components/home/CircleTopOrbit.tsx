@@ -14,6 +14,7 @@ import { twMerge } from 'tailwind-merge';
 import { Disc, Mic2, Music } from 'lucide-react';
 import { getTopItemArtistName } from '../../lib/topItemUtils';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
+import { animationTokens } from '../../lib/animationTokens';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -34,9 +35,11 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   const shouldReduceMotion = useReducedMotion();
   const { ref: orbitRef, isInViewport: isOrbitVisible } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
   const touchStartRef = React.useRef<{ x: number; y: number } | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(null);
   const [isMemberMenuOpen, setIsMemberMenuOpen] = useState(false);
+  const [hasEnteredViewport, setHasEnteredViewport] = useState(false);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
+  const previousFeaturedUserIdRef = React.useRef(featuredUserId);
 
   const validMembers = useMemo(() => {
     return [...members]
@@ -54,14 +57,30 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
   }, [featuredUserId, members, periodTops]);
 
   useEffect(() => {
-    if (activeIndex >= validMembers.length) {
-      setActiveIndex(0);
-    }
-  }, [activeIndex, validMembers.length]);
+    if (previousFeaturedUserIdRef.current === featuredUserId) return;
+    previousFeaturedUserIdRef.current = featuredUserId;
+    setActiveMemberId(featuredUserId || null);
+    setIsMemberMenuOpen(false);
+  }, [featuredUserId]);
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [featuredUserId, validMembers.length]);
+    if (isOrbitVisible) setHasEnteredViewport(true);
+  }, [isOrbitVisible]);
+
+  useEffect(() => {
+    const fallbackMemberId = validMembers[0]?.id || null;
+    setActiveMemberId(current => {
+      if (!fallbackMemberId) return current === null ? current : null;
+      if (current && validMembers.some(member => member.id === current)) return current;
+      return fallbackMemberId;
+    });
+  }, [validMembers]);
+
+  const activeIndex = useMemo(() => {
+    if (!activeMemberId) return 0;
+    const index = validMembers.findIndex(member => member.id === activeMemberId);
+    return index >= 0 ? index : 0;
+  }, [activeMemberId, validMembers]);
 
   const activeUser = useMemo(() => {
     return validMembers[activeIndex] || validMembers[0] || null;
@@ -70,9 +89,10 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
 
   const goToIndex = React.useCallback((index: number) => {
     if (validMembers.length === 0) return;
-    setActiveIndex((index + validMembers.length) % validMembers.length);
+    const nextIndex = (index + validMembers.length) % validMembers.length;
+    setActiveMemberId(validMembers[nextIndex]?.id || null);
     setIsMemberMenuOpen(false);
-  }, [validMembers.length]);
+  }, [validMembers]);
 
   const handlePrev = React.useCallback(() => {
     goToIndex(activeIndex - 1);
@@ -210,60 +230,48 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
           <div className="pointer-events-none absolute left-1/2 top-[50%] h-[188px] w-[188px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-dashed border-orange-500/13" />
           <div className="pointer-events-none absolute left-1/2 top-[50%] h-[136px] w-[136px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-orange-500/24 shadow-[0_0_32px_rgba(249,115,22,0.08)]" />
 
-          {validMembers.map((member, index) => {
-            const relative = (index - activeIndex + validMembers.length) % validMembers.length;
-            const isCentered = relative === 0;
-            const isRight = relative === 1;
-            const isLeft = relative === validMembers.length - 1;
-            if (!isCentered && !isRight && !isLeft) return null;
+          <AnimatePresence mode="wait" initial={false}>
+            {validMembers.map((member, index) => {
+              const isCentered = index === activeIndex;
+              if (!isCentered) return null;
 
-            const memberTops = periodTops[member.id] || member.topItems || { artists: [], tracks: [], albums: [] };
-            const memberArtist = memberTops.artists?.[0];
-            const memberTrack = memberTops.tracks?.[0];
-            const memberAlbum = memberTops.albums?.[0];
-            const x = isCentered ? 0 : isRight ? 116 : -116;
-            const y = isCentered ? -10 : -18;
-            const scale = isCentered ? 1 : 0.62;
-            const opacity = isCentered ? 1 : 0.32;
-            const blur = isCentered ? 'blur(0px)' : 'blur(3px)';
+              const memberTops = periodTops[member.id] || member.topItems || { artists: [], tracks: [], albums: [] };
+              const memberArtist = memberTops.artists?.[0];
+              const memberTrack = memberTops.tracks?.[0];
+              const memberAlbum = memberTops.albums?.[0];
+              const canRevealStage = shouldReduceMotion || hasEnteredViewport;
 
-            return (
-              <motion.div
-                key={member.id}
-                animate={{ x: `calc(-50% + ${x}px)`, y: `calc(-50% + ${y}px)`, scale, opacity, filter: blur, zIndex: isCentered ? 30 : 8 }}
-                transition={{ type: 'spring', stiffness: 160, damping: 24 }}
-                className="absolute left-1/2 top-[50%] w-[318px]"
-                onClick={() => !isCentered && goToIndex(index)}
-              >
+              return (
                 <motion.div
-                  animate={shouldReduceMotion || !isOrbitVisible || !isCentered ? {} : { x: [0, 8, -5, 0], y: [0, -5, 4, 0], rotate: [0, 0.6, -0.4, 0] }}
-                  transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
-                  className="relative flex flex-col items-center"
+                  key={member.id}
+                  initial={shouldReduceMotion ? false : { x: 'calc(-50% + 0px)', y: 'calc(-50% + 4px)', scale: 0.96, opacity: 0, filter: 'blur(7px)', zIndex: 30 }}
+                  animate={{
+                    x: 'calc(-50% + 0px)',
+                    y: canRevealStage ? 'calc(-50% + -10px)' : 'calc(-50% + 4px)',
+                    scale: canRevealStage ? 1 : 0.96,
+                    opacity: canRevealStage ? 1 : 0,
+                    filter: canRevealStage ? 'blur(0px)' : 'blur(7px)',
+                    zIndex: 30
+                  }}
+                  exit={shouldReduceMotion ? undefined : { y: 'calc(-50% + -20px)', scale: 0.98, opacity: 0, filter: 'blur(5px)' }}
+                  transition={{ duration: 0.44, ease: animationTokens.ease.smooth }}
+                  className="absolute left-1/2 top-[50%] w-[318px]"
                 >
-                  {isCentered ? (
+                  <motion.div
+                    animate={shouldReduceMotion || !isOrbitVisible ? {} : { x: [0, 8, -5, 0], y: [0, -5, 4, 0], rotate: [0, 0.6, -0.4, 0] }}
+                    transition={{ duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+                    className="relative flex flex-col items-center"
+                  >
                     <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">
-                      <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" />
-                      <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" />
-                      <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" />
+                      <CircleTopInlineItem item={memberArtist} icon={<Mic2 className="h-3 w-3 text-white/20" />} label="artista" rounded="full" index={0} shouldReduceMotion={shouldReduceMotion} />
+                      <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" index={1} shouldReduceMotion={shouldReduceMotion} />
+                      <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" index={2} shouldReduceMotion={shouldReduceMotion} />
                     </div>
-                  ) : (
-                    <div className="relative z-10">
-                      <div className="absolute inset-[-14px] rounded-full border border-orange-500/10 shadow-[0_0_34px_rgba(249,115,22,0.1)]" />
-                      <div className="h-24 w-24 overflow-hidden rounded-full border border-white/14 shadow-2xl">
-                        <SmartImage
-                          src={coreUtils.getUserAvatar(member.id, member.avatar)}
-                          cacheKey={`circle-top-center:${member.id}`}
-                          rounded="full"
-                          className="h-full w-full object-cover"
-                          fallback=""
-                        />
-                      </div>
-                    </div>
-                  )}
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            );
-          })}
+              );
+            })}
+          </AnimatePresence>
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex items-center justify-center">
             <OrbitPagerIndicator
@@ -283,27 +291,46 @@ const CircleTopInlineItem = ({
   icon,
   label,
   rounded,
+  index,
+  shouldReduceMotion,
 }: {
   item?: TopItem;
   icon: React.ReactNode;
   label: string;
   rounded: 'full' | 'lg';
+  index: number;
+  shouldReduceMotion: boolean | null;
 }) => {
+  const delay = shouldReduceMotion ? 0 : index * 0.07;
+
   if (!item) {
     return (
-      <div className="flex min-w-0 flex-col items-center gap-1.5 px-1">
-        <div
+      <motion.div
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 10, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.3, delay, ease: animationTokens.ease.smooth }}
+        className="flex min-w-0 flex-col items-center gap-1.5 px-1"
+      >
+        <motion.div
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 8, scale: 0.92 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3, delay, ease: animationTokens.ease.smooth }}
           className={cn(
             "flex h-[62px] w-[62px] items-center justify-center bg-white/[0.025]",
             rounded === 'full' ? 'rounded-full' : 'rounded-xl'
           )}
         >
           {icon}
-        </div>
-        <span className="rounded-full bg-black/36 px-2 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-white/28 backdrop-blur-xl">
+        </motion.div>
+        <motion.span
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: delay + 0.08, ease: animationTokens.ease.smooth }}
+          className="rounded-full bg-black/36 px-2 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-white/28 backdrop-blur-xl"
+        >
           sem dados
-        </span>
-      </div>
+        </motion.span>
+      </motion.div>
     );
   }
 
@@ -313,8 +340,18 @@ const CircleTopInlineItem = ({
     : '';
 
   return (
-    <div className="flex min-w-0 flex-col items-center gap-1.5 px-1">
-      <div className="relative h-[66px] w-[66px] shrink-0">
+    <motion.div
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 12, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.34, delay, ease: animationTokens.ease.smooth }}
+      className="flex min-w-0 flex-col items-center gap-1.5 px-1"
+    >
+      <motion.div
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 8, scale: 0.9, rotate: index === 0 ? -2 : index === 2 ? 2 : 0 }}
+        animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+        transition={{ duration: 0.34, delay, ease: animationTokens.ease.smooth }}
+        className="relative h-[66px] w-[66px] shrink-0"
+      >
         <SmartImage
           src={item.image}
           cacheKey={`circle-top-inline:${label}:${item.id || item.name}`}
@@ -326,12 +363,22 @@ const CircleTopInlineItem = ({
           fallback=""
         />
         {playCount > 0 && (
-          <div className="leo-soft-badge absolute -bottom-1 -right-1 flex h-6 min-w-[28px] items-center justify-center rounded-full bg-[#ff5f00]/62 px-2 text-[9px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md">
+          <motion.div
+            initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.65, y: 4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.22, delay: delay + 0.11, ease: animationTokens.ease.smooth }}
+            className="leo-soft-badge absolute -bottom-1 -right-1 flex h-6 min-w-[28px] items-center justify-center rounded-full bg-[#ff5f00]/62 px-2 text-[9px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md"
+          >
             {coreUtils.formatNumber(playCount)}
-          </div>
+          </motion.div>
         )}
-      </div>
-      <div className="min-w-0 rounded-[13px] bg-black/42 px-2 py-1.5 text-center shadow-[0_12px_22px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+      </motion.div>
+      <motion.div
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.28, delay: delay + 0.06, ease: animationTokens.ease.smooth }}
+        className="min-w-0 rounded-[13px] bg-black/42 px-2 py-1.5 text-center shadow-[0_12px_22px_rgba(0,0,0,0.24)] backdrop-blur-xl"
+      >
         <span className="mb-1 block text-[7px] font-black uppercase leading-none tracking-[0.14em] text-orange-400/78">
           {label}
         </span>
@@ -343,122 +390,7 @@ const CircleTopInlineItem = ({
             {artistName}
           </span>
         )}
-      </div>
-    </div>
-  );
-};
-
-const OrbitalSatellite = ({
-  item,
-  icon,
-  label,
-  rounded,
-  className
-}: {
-  item?: TopItem;
-  icon: React.ReactNode;
-  label: string;
-  rounded: 'full' | 'lg';
-  className?: string;
-}) => {
-  if (!item) {
-    return (
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0, opacity: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className={cn("flex flex-col items-center gap-2 opacity-40", className)}
-      >
-        <div
-          className={cn(
-            "h-[72px] w-[72px] bg-white/[0.02] border border-white/5 flex items-center justify-center",
-            rounded === 'full' ? 'rounded-full' : 'rounded-xl'
-          )}
-        >
-          {icon}
-        </div>
-        <div className="glass-card border-white/5 bg-white/[0.02] rounded-2xl px-3 py-2 max-w-[100px]">
-          <span className="text-left text-[7px] font-black uppercase tracking-wider text-white/30 block">
-            sem dados
-          </span>
-        </div>
       </motion.div>
-    );
-  }
-
-  const playCount = item.playcount || item.streams || 0;
-  const displayCount = coreUtils.formatNumber(playCount);
-  const artistName = label === 'faixa' || label === 'álbum'
-    ? getTopItemArtistName(item)
-    : '';
-  const countBadgeClass = "leo-soft-badge absolute z-10 flex h-6 min-w-[26px] items-center justify-center rounded-full bg-[#ff5f00]/58 px-2 text-[9px] font-black leading-none text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34)] backdrop-blur-md";
-
-  return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0, y: 10 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      exit={{ scale: 0, opacity: 0, y: 10 }}
-      transition={{ duration: 0.4, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-      className={cn("flex flex-col items-center gap-2", className)}
-    >
-      {/* Image with callout style for artist */}
-      {rounded === 'full' ? (
-        <div className="relative flex items-center gap-2">
-          <div className="relative h-[72px] w-[72px] shrink-0">
-            <SmartImage
-              src={item.image}
-              cacheKey={`circle-top-satellite:${item.id || item.name}`}
-              className="h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border-2 border-white/10 rounded-full"
-              rounded="full"
-              fallback=""
-            />
-            {playCount > 0 && (
-              <div className={cn(countBadgeClass, "-bottom-1 -right-1")}>
-                <span>{displayCount}</span>
-              </div>
-            )}
-          </div>
-          <div className="max-w-[96px] rounded-2xl bg-black/36 px-3 py-2 backdrop-blur-xl">
-            <span className="text-[7px] font-black uppercase tracking-[0.16em] text-orange-500/80 leading-none block mb-1">
-              {label}
-            </span>
-            <span className="text-[9px] font-bold text-white/80 leading-tight line-clamp-2 block">
-              {item.name}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="relative flex flex-col items-center gap-1.5">
-          <div className="relative h-[72px] w-[72px] shrink-0">
-            <SmartImage
-              src={item.image}
-              cacheKey={`circle-top-satellite:${item.id || item.name}`}
-              className="h-full w-full object-cover shadow-[0_8px_16px_rgba(0,0,0,0.5)] border border-white/10 rounded-xl"
-              rounded="lg"
-              fallback=""
-            />
-            {playCount > 0 && (
-              <div className={cn(countBadgeClass, "-top-1.5 -right-1.5")}>
-                <span>{displayCount}</span>
-              </div>
-            )}
-          </div>
-          <div className="max-w-[96px] rounded-2xl bg-black/36 px-3 py-2 backdrop-blur-xl">
-            <span className="text-[7px] font-black uppercase tracking-[0.16em] text-orange-500/80 leading-none block mb-1">
-              {label}
-            </span>
-            <span className="block line-clamp-2 text-left text-[9px] font-bold leading-tight text-white/80">
-              {item.name}
-            </span>
-            {artistName && (
-              <span className="mt-0.5 block line-clamp-1 text-left text-[7px] font-semibold leading-tight text-white/42">
-                {artistName}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
     </motion.div>
   );
 };

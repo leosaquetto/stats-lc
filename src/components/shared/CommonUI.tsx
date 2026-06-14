@@ -141,6 +141,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
   const cachedStableSrc = cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '';
   const lastGoodSrcRef = useRef(cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '');
+  const lastCacheKeyRef = useRef(cacheKey || '');
   const [overrideSrc, setOverrideSrc] = useState('');
 
   const resolvedSrc = overrideSrc || inputSrc;
@@ -156,18 +157,29 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
   const hasDisplayableSrc = !!imageSrc && !imageSrc.includes("private.webp");
+  const previousBelongsToCurrentKey = !cacheKey || stableImageSrcByKey.get(cacheKey) === previousDisplaySrc;
 
   useEffect(() => {
     setOverrideSrc('');
   }, [inputSrc]);
 
   useEffect(() => {
+    const nextCacheKey = cacheKey || '';
+    if (lastCacheKeyRef.current !== nextCacheKey) {
+      lastCacheKeyRef.current = nextCacheKey;
+      lastGoodSrcRef.current = nextCacheKey ? stableImageSrcByKey.get(nextCacheKey) || '' : '';
+      setOverrideSrc('');
+      setError(false);
+      setShowFallback(false);
+      setLoading(!!inputSrc && !loadedImageSrcs.has(inputSrc));
+    }
+
     if (!cacheKey) return;
     const cached = stableImageSrcByKey.get(cacheKey);
     if (cached && !lastGoodSrcRef.current) {
       lastGoodSrcRef.current = cached;
     }
-  }, [cacheKey]);
+  }, [cacheKey, inputSrc]);
 
   useEffect(() => {
     setError(false);
@@ -204,7 +216,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   };
 
   const shouldShowFallback = !hasDisplayableSrc && showFallback && !previousDisplaySrc;
-  const shouldKeepPreviousImage = !!previousDisplaySrc && (loading || error || previousDisplaySrc !== imageSrc);
+  const shouldKeepPreviousImage = previousBelongsToCurrentKey && !!previousDisplaySrc && (loading || error || previousDisplaySrc !== imageSrc);
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>

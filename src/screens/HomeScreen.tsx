@@ -1099,7 +1099,7 @@ const HomeHighlightGrid = ({
   if (visibleItems.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-0 overflow-hidden bg-black sm:grid-cols-4">
+    <div className="grid grid-cols-4 gap-0 overflow-hidden bg-black">
       {visibleItems.map((item, index) => {
         const title = getReplayItemTitle(item);
         const detail = getHighlightDetailLabel(item, kind);
@@ -1115,26 +1115,26 @@ const HomeHighlightGrid = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ duration: 0.32, delay: Math.min(index * 0.035, 0.18), ease: [0.16, 1, 0.3, 1] }}
             whileTap={{ scale: 0.985 }}
-            className="group relative aspect-[1.08] min-h-[132px] overflow-hidden bg-black text-left outline-none transition-[filter,transform] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-orange-400/70 sm:min-h-[118px]"
+            className="group relative aspect-square overflow-hidden bg-black text-left outline-none transition-[filter,transform] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-orange-400/70"
           >
             {image ? (
               <SmartImage src={image} className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.02]" rounded="none" fallback={title} />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-white/[0.055] text-[18px] font-black text-white/34">
+              <div className="flex h-full w-full items-center justify-center bg-white/[0.055] text-[13px] font-black text-white/34">
                 {title.slice(0, 2).toUpperCase()}
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/16 to-black/86" />
-            <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-0.5 px-3 pb-3">
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex flex-col gap-0.5 px-1.5 pb-1.5 sm:px-3 sm:pb-3">
               {detail && (
-                <span className="line-clamp-1 text-[7px] font-black uppercase leading-none tracking-[0.1em] text-white/58">
+                <span className="line-clamp-1 text-[5.5px] font-black uppercase leading-none tracking-[0.06em] text-white/58 sm:text-[7px] sm:tracking-[0.1em]">
                   {detail}
                 </span>
               )}
-              <span className="line-clamp-2 text-[12px] font-black leading-[1.04] text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.72)]">
+              <span className="line-clamp-2 text-[9px] font-black leading-[1.02] text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.72)] sm:text-[12px]">
                 {title}
               </span>
-              <span className="mt-0.5 w-max rounded-full bg-black/38 px-2 py-1 text-[8px] font-black uppercase leading-none tracking-[0.08em] text-white/88 backdrop-blur-md">
+              <span className="mt-0.5 w-max max-w-full rounded-full bg-black/38 px-1.5 py-0.5 text-[6.5px] font-black uppercase leading-none tracking-[0.04em] text-white/88 backdrop-blur-md sm:px-2 sm:py-1 sm:text-[8px] sm:tracking-[0.08em]">
                 {metricLabel}
               </span>
             </div>
