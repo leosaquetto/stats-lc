@@ -7,6 +7,7 @@ declare global {
   interface Window {
     __SPLASH_READY__?: boolean;
     __STATS_LC_HOME_READY__?: boolean;
+    __STATS_LC_HOME_READY_DOCUMENT__?: boolean;
     __STATS_LC_DISMISS_SPLASH__?: () => void;
     __STATS_LC_PERFORMANCE__?: {
       homeReadyMs: number | null;

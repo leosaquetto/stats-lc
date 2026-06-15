@@ -207,6 +207,7 @@ export default function SettingsScreen() {
     localStorage.setItem('stats-lc-has-selected-user', '1');
     sessionStorage.removeItem('stats-lc-home-boot-ready');
     window.__STATS_LC_HOME_READY__ = false;
+    window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
     window.location.hash = '#/';
     window.location.reload();
   };

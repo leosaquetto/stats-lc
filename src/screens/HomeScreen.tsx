@@ -28,6 +28,7 @@ import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/m
 import { getMainArtistName } from '../lib/artistUtils';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
 import { peekRuntimeCacheResult, readRuntimeCacheResult, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
@@ -59,6 +60,7 @@ function cn(...inputs: ClassValue[]) {
 
 const HOME_CACHE_TTL = 15 * 60 * 1000;
 const HOME_CRITICAL_WARMUP_TIMEOUT_MS = 1800;
+const HOME_MOTION_PRESSURE_DEADLINE_MS = 16_000;
 const HOME_RECENT_CACHE_VERSION = 'v2-album-resolved';
 const getHomeRecentCacheKey = (userId: string) => `stats-lc-home-recent:${HOME_RECENT_CACHE_VERSION}:${userId}`;
 let homeGroupActivityRuntimeCache: { members: GroupActivityMember[]; settled: boolean } = {
@@ -1857,13 +1859,17 @@ const getReplayTrackUrl = (track: any) => {
 };
 
 export default function HomeScreen() {
-  const hasBootReadySession = () => {
-    return (
-      window.__STATS_LC_HOME_READY__ === true ||
-      window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1' ||
-      Boolean(document.documentElement.dataset.statsLcHomeReadyMs)
-    );
+  const markHomeReadyDocument = () => {
+    window.__STATS_LC_HOME_READY__ = true;
+    window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
+    window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
   };
+  const clearHomeReadyDocument = () => {
+    window.__STATS_LC_HOME_READY__ = false;
+    window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
+    window.sessionStorage?.removeItem('stats-lc-home-boot-ready');
+  };
+  const hasBootReadySession = () => window.__STATS_LC_HOME_READY_DOCUMENT__ === true;
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const liveStreamsTodayByUserId = useStatsStore(state => state.liveStreamsTodayByUserId);
@@ -1881,6 +1887,7 @@ export default function HomeScreen() {
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const navigate = useNavigate();
   const location = useLocation();
+  const homeMotionRuntime = useMotionRuntime();
   
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
@@ -1895,6 +1902,7 @@ export default function HomeScreen() {
   const [refreshProgress, setRefreshProgress] = useState(100);
   const [headerHighlight, setHeaderHighlight] = useState(false);
   const [isAppReady, setIsAppReady] = useState(() => hasBootReadySession());
+  const [isBelowFoldHydrationReady, setIsBelowFoldHydrationReady] = useState(() => hasBootReadySession());
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
   const [friendActivityMembers, setFriendActivityMembers] = useState<GroupActivityMember[]>(
     () => homeGroupActivityRuntimeCache.members
@@ -1907,6 +1915,7 @@ export default function HomeScreen() {
   const [headerLyricsPrepState, setHeaderLyricsPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [preparedHeaderLyrics, setPreparedHeaderLyrics] = useState<{ key: string; hasLyrics: boolean } | null>(null);
   const [showInitialModal, setShowInitialModal] = useState(false);
+  const [bootMotionPressureDeadline, setBootMotionPressureDeadline] = useState(() => hasBootReadySession());
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
@@ -1949,18 +1958,48 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!hasReleasedHomeRef.current) return;
-    window.__STATS_LC_HOME_READY__ = true;
+    markHomeReadyDocument();
     window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
     setIsAppReady(true);
     window.__STATS_LC_DISMISS_SPLASH__?.();
   }, []);
 
   useEffect(() => {
+    if (hasReleasedHomeRef.current || bootMotionPressureDeadline) return;
+    return motionRuntimeScheduler.scheduleTask(
+      () => setBootMotionPressureDeadline(true),
+      HOME_MOTION_PRESSURE_DEADLINE_MS,
+      'interaction',
+      'home-motion-pressure-deadline',
+    );
+  }, [bootMotionPressureDeadline]);
+
+  useEffect(() => {
     if (!isAppReady) return;
-    window.__STATS_LC_HOME_READY__ = true;
-    window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+    markHomeReadyDocument();
     window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
   }, [isAppReady]);
+
+  useEffect(() => {
+    if (!isAppReady) {
+      if (!hasBootReadySession()) setIsBelowFoldHydrationReady(false);
+      return undefined;
+    }
+    if (wasHomeReadyAtMountRef.current) {
+      setIsBelowFoldHydrationReady(true);
+      return undefined;
+    }
+    return motionRuntimeScheduler.scheduleTask(
+      () => setIsBelowFoldHydrationReady(true),
+      1400,
+      'interaction',
+      'home-below-fold-hydration',
+    );
+  }, [isAppReady]);
+
+  useEffect(() => {
+    document.documentElement.dataset.statsLcHomeBelowFoldReady = isBelowFoldHydrationReady ? 'true' : 'false';
+  }, [isBelowFoldHydrationReady]);
 
   const allMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId) || [], [groupStats, liveNowPlayingByUserId]);
   const members = useMemo(() => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId) || [], [groupStats, hiddenUsers, liveNowPlayingByUserId]);
@@ -2381,12 +2420,11 @@ export default function HomeScreen() {
     }
   }, [allMembers, featuredUserId, primaryUser, members, groupStats, isLoading, setFeaturedUserId]);
 
-  // Mark Home as ready after the primary hero data and critical artwork are prepared.
-  // After the first release, period changes can update below without returning to splash.
+  // Mark Home as ready after the first viewport can enter smoothly. Below-fold
+  // sections hydrate in-scene so boot never waits on Replay or deep history.
   useEffect(() => {
     const hasCoreData = !!groupStats && !!primaryUser;
     const hasRecentBaseline = !primaryUser || recentPrepState === 'ready' || recentPrepState === 'error';
-    const hasReplayBaseline = !primaryUser || replayState === 'ready' || replayState === 'error';
     const hasFriendActivityBaseline = !primaryUser || friendActivityPrepState === 'ready' || friendActivityPrepState === 'error';
     const hasHeaderRankingBaseline =
       !primaryTrack?.id ||
@@ -2395,10 +2433,17 @@ export default function HomeScreen() {
     const hasHeaderLyricsBaseline =
       !primaryLyricsKey ||
       preparedHeaderLyrics?.key === primaryLyricsKey;
+    const hasMotionRevealBudget =
+      hasBootReadySession() ||
+      homeMotionRuntime.prefersReducedMotion ||
+      homeMotionRuntime.saveData ||
+      !homeMotionRuntime.isPageVisible ||
+      homeMotionRuntime.tier === 'full' ||
+      bootMotionPressureDeadline;
 
     if (hasReleasedHomeRef.current) {
       if (window.__STATS_LC_HOME_READY__ !== true) {
-        window.__STATS_LC_HOME_READY__ = true;
+        markHomeReadyDocument();
         window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
       }
       setIsAppReady(true);
@@ -2410,20 +2455,19 @@ export default function HomeScreen() {
       hasCoreData &&
       isVisualWarmupReady &&
       hasRecentBaseline &&
-      hasReplayBaseline &&
       hasFriendActivityBaseline &&
       hasHeaderRankingBaseline &&
-      hasHeaderLyricsBaseline;
+      hasHeaderLyricsBaseline &&
+      hasMotionRevealBudget;
 
     if (!ready) {
       const hasBootReady = hasBootReadySession();
       if (!hasReleasedHomeRef.current && !hasBootReady && !isAppReady) {
-        window.__STATS_LC_HOME_READY__ = false;
+        clearHomeReadyDocument();
         window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: false } }));
         setIsAppReady(false);
       } else if (hasBootReady) {
-        window.__STATS_LC_HOME_READY__ = true;
-        window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+        markHomeReadyDocument();
       }
       return;
     }
@@ -2435,7 +2479,7 @@ export default function HomeScreen() {
       if (cancelled || released) return;
       released = true;
       hasReleasedHomeRef.current = true;
-      window.__STATS_LC_HOME_READY__ = true;
+      markHomeReadyDocument();
       window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
       setIsAppReady(true);
     };
@@ -2479,11 +2523,16 @@ export default function HomeScreen() {
     };
   }, [
     friendActivityPrepState,
+    bootMotionPressureDeadline,
     groupStats,
     hasHydratedHeaderRanking,
     headerLyricsPrepState,
     headerRankingPrepState,
     headerRankingSettledKey,
+    homeMotionRuntime.isPageVisible,
+    homeMotionRuntime.prefersReducedMotion,
+    homeMotionRuntime.saveData,
+    homeMotionRuntime.tier,
     isAppReady,
     isVisualWarmupReady,
     primaryLyricsKey,
@@ -2491,7 +2540,6 @@ export default function HomeScreen() {
     primaryUser,
     preparedHeaderLyrics?.key,
     recentPrepState,
-    replayState,
   ]);
 
   useEffect(() => {
@@ -2593,8 +2641,9 @@ export default function HomeScreen() {
   }, [friendsSelection]);
 
   useEffect(() => {
-    const controller = new AbortController();
     let cancelled = false;
+    let controller: AbortController | null = null;
+    let cancelReplayHydrate = () => {};
     if (!primaryUser?.id) {
       setReplayState('idle');
       setReplayTopItems({ artists: [], tracks: [], albums: [] });
@@ -2625,59 +2674,71 @@ export default function HomeScreen() {
       setReplayState('loading');
     }
 
-    statsService.getReplayData(primaryUser.id, { ...replayPeriodQuery, signal: controller.signal })
-      .then((replay) => ({
-        artists: replay.topArtists,
-        tracks: replay.topTracks,
-        albums: replay.topAlbums,
-        totalSongs: replay.totalSongs,
-        totalDurationMs: replay.totalDurationMs,
-        failed: false
-      }))
-      .catch((error: any) => {
-        if (controller.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
-          return null;
+    if (!isBelowFoldHydrationReady) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    cancelReplayHydrate = motionRuntimeScheduler.scheduleTask(() => {
+      if (cancelled || !primaryUser?.id) return;
+      controller = new AbortController();
+      statsService.getReplayData(primaryUser.id, { ...replayPeriodQuery, signal: controller.signal })
+        .then((replay) => ({
+          artists: replay.topArtists,
+          tracks: replay.topTracks,
+          albums: replay.topAlbums,
+          totalSongs: replay.totalSongs,
+          totalDurationMs: replay.totalDurationMs,
+          failed: false
+        }))
+        .catch((error: any) => {
+          if (controller?.signal.aborted || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+            return null;
+          }
+          return { artists: [], tracks: [], albums: [], totalSongs: undefined, totalDurationMs: undefined, failed: true };
+        })
+        .then((payload) => {
+        if (!payload || cancelled) return;
+        const { artists, tracks, albums, totalSongs, totalDurationMs, failed } = payload;
+        if (failed) {
+          setReplayTopItems({ artists, tracks, albums });
+          setReplayTotalMinutesCount(0);
+          setReplayTotalPlaysCount(0);
+          setReplayState('error');
+          return;
         }
-        return { artists: [], tracks: [], albums: [], totalSongs: undefined, totalDurationMs: undefined, failed: true };
-      })
-      .then((payload) => {
-      if (!payload || cancelled) return;
-      const { artists, tracks, albums, totalSongs, totalDurationMs, failed } = payload;
-      if (failed) {
-        setReplayTopItems({ artists, tracks, albums });
-        setReplayTotalMinutesCount(0);
-        setReplayTotalPlaysCount(0);
-        setReplayState('error');
-        return;
-      }
-      if (!cancelled) {
-        setReplayTopItems({ artists, tracks, albums });
-        const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
-        const totalMinutes =
-          Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
-            ? Math.max(1, Math.round(totalDurationMs / 60000))
-            : fallbackTotal;
-        setReplayTotalMinutesCount(totalMinutes);
-        setReplayTotalPlaysCount(Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0));
-        setReplayState('ready');
-        writeHomeSessionCache(cacheKey, {
-          artists,
-          tracks,
-          albums,
-          totalMinutes,
-          totalPlays: Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0),
-        });
-      }
-    });
+        if (!cancelled) {
+          setReplayTopItems({ artists, tracks, albums });
+          const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
+          const totalMinutes =
+            Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
+              ? Math.max(1, Math.round(totalDurationMs / 60000))
+              : fallbackTotal;
+          setReplayTotalMinutesCount(totalMinutes);
+          setReplayTotalPlaysCount(Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0));
+          setReplayState('ready');
+          writeHomeSessionCache(cacheKey, {
+            artists,
+            tracks,
+            albums,
+            totalMinutes,
+            totalPlays: Number(totalSongs) || tracks.reduce((sum: number, track: any) => sum + getReplayItemCount(track), 0),
+          });
+        }
+      });
+    }, cachedReplay ? 1400 : 760, 'ambient', 'home-replay-hydrate');
 
     return () => {
       cancelled = true;
-      controller.abort();
+      cancelReplayHydrate();
+      controller?.abort();
     };
-  }, [primaryUser?.id, replayPeriodKey]);
+  }, [isBelowFoldHydrationReady, primaryUser?.id, replayPeriodKey, replayPeriodQuery]);
 
   useEffect(() => {
     let cancelled = false;
+    let cancelRecentRefresh = () => {};
 
     if (!primaryUser?.id) {
       setResolvedRecentPlays([]);
@@ -2699,22 +2760,30 @@ export default function HomeScreen() {
       setHistoryCache(primaryUser.id, preparedRecent);
       writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), preparedRecent);
       setRecentPrepState('ready');
-      void statsService.fetchRecent(primaryUser.id, 20, 0)
-        .then((freshItems) => {
-          if (cancelled) return;
+      if (isBelowFoldHydrationReady) {
+        cancelRecentRefresh = motionRuntimeScheduler.scheduleTask(() => {
+          if (cancelled || !primaryUser?.id) return;
+          void statsService.fetchRecent(primaryUser.id, 20, 0)
+            .then((freshItems) => {
+              if (cancelled) return;
 
-          const normalizedFresh = normalizeHomeRecentItems(freshItems || []);
-          if (normalizedFresh.length === 0) return;
+              const normalizedFresh = normalizeHomeRecentItems(freshItems || []);
+              if (normalizedFresh.length === 0) return;
 
-          const merged = mergeHomeRecentItems(normalizedFresh, preparedRecent);
-          if (merged.length > 0) {
-            setHistoryCache(primaryUser.id, merged);
-            writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), merged);
-            setResolvedRecentPlays(merged.slice(0, 20));
-          }
-        })
-        .catch(() => {});
-      return;
+              const merged = mergeHomeRecentItems(normalizedFresh, preparedRecent);
+              if (merged.length > 0) {
+                setHistoryCache(primaryUser.id, merged);
+                writeHomeSessionCache(getHomeRecentCacheKey(primaryUser.id), merged);
+                setResolvedRecentPlays(merged.slice(0, 20));
+              }
+            })
+            .catch(() => {});
+        }, 980, 'ambient', 'home-recent-background-refresh');
+      }
+      return () => {
+        cancelled = true;
+        cancelRecentRefresh();
+      };
     }
 
     // /api/group already supplies a compact recent baseline. Render it now and
@@ -2739,13 +2808,18 @@ export default function HomeScreen() {
 
     return () => {
       cancelled = true;
+      cancelRecentRefresh();
     };
-  }, [getHistoryCache, primaryUser?.id, primaryUser?.recent, (primaryUser as any)?.history, setHistoryCache]);
+  }, [getHistoryCache, isBelowFoldHydrationReady, primaryUser?.id, primaryUser?.recent, (primaryUser as any)?.history, setHistoryCache]);
 
   useEffect(() => {
     const track = primaryUser?.nowPlaying?.track;
     if (!track?.id || members.length === 0) {
       setTrackModalPrepState(primaryUser ? 'ready' : 'idle');
+      return;
+    }
+    if (!isBelowFoldHydrationReady) {
+      setTrackModalPrepState('idle');
       return;
     }
 
@@ -2764,7 +2838,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [primaryUser?.id, primaryUser?.nowPlaying?.track?.id, membersSignature]);
+  }, [isBelowFoldHydrationReady, primaryUser?.id, primaryUser?.nowPlaying?.track?.id, membersSignature]);
 
   const replayArtists = replayTopItems.artists || [];
   const replayTracks = replayTopItems.tracks || [];
@@ -2831,8 +2905,9 @@ export default function HomeScreen() {
   }, [primaryUser?.id]);
 
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
-  const isReplayInitialLoading = isAppReady && !!primaryUser && replayState !== 'ready' && !hasReplayData;
-  const isReplayUpdating = isAppReady && !!primaryUser && replayState !== 'ready' && hasReplayData;
+  const canHydrateBelowFold = isAppReady && isBelowFoldHydrationReady;
+  const isReplayInitialLoading = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && !hasReplayData;
+  const isReplayUpdating = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && hasReplayData;
   const showPipelineSync = false;
   return (
     <>
@@ -3230,7 +3305,7 @@ export default function HomeScreen() {
 
       {isReplayInitialLoading && <HomeSectionLoader label="Carregando seus destaques" />}
 
-      {isAppReady && primaryUser && replayState === 'error' && (
+      {canHydrateBelowFold && primaryUser && replayState === 'error' && (
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="glass-aura rounded-[28px] px-5 py-5 text-center">
             <AlertTriangle className="mx-auto h-6 w-6 text-orange-400" />
@@ -3240,7 +3315,7 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
+      {canHydrateBelowFold && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
         <motion.div
           initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3261,7 +3336,7 @@ export default function HomeScreen() {
         </motion.div>
       )}
 
-      {isAppReady && (
+      {canHydrateBelowFold && (
       <motion.div
         initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
@@ -3277,7 +3352,7 @@ export default function HomeScreen() {
       </motion.div>
       )}
 
-      {isAppReady && (
+      {canHydrateBelowFold && (
       <motion.div
         initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
@@ -3289,7 +3364,7 @@ export default function HomeScreen() {
       </motion.div>
       )}
 
-      {isAppReady && (
+      {canHydrateBelowFold && (
       <motion.div
         initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
@@ -3301,7 +3376,7 @@ export default function HomeScreen() {
       </motion.div>
       )}
 
-      {isAppReady && primaryUser && (
+      {canHydrateBelowFold && primaryUser && (
         <motion.div
           initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           whileInView={{ opacity: 1, y: 0, scale: 1 }}

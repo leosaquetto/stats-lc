@@ -45,6 +45,7 @@ const syncSnapshot = () => {
 const markDocumentHomeReady = () => {
   if (typeof window === 'undefined') return;
   window.__STATS_LC_HOME_READY__ = true;
+  window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
   try {
     sessionStorage.setItem('stats-lc-home-boot-ready', '1');
   } catch {}

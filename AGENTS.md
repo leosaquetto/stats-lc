@@ -95,6 +95,8 @@ Regras importantes:
 - Para qualquer patch visual, de animacao, modal, loader, tray, rota ou loop,
   siga tambem `docs/motion-runtime-rules.md`.
 - Tudo que a Home precisa mostrar sem placeholders deve ser preparado antes de liberar a splash quando possivel.
+- A splash real e a tela com logo/equalizer `stats.lc`; o loader preto de rota com spinner nao deve ser tratado como splash.
+- Se a Home fria precisar segurar a splash por mais tempo para entrar fluida, prefira atrasar a liberacao visual ate o runtime voltar a `full` ou atingir um deadline de seguranca, em vez de revelar uma primeira viewport engasgando.
 - Depois que a Home liberou, refresh/live update nao deve voltar para splash.
 - Nao criar request loops em `useEffect`.
 - Estabilize params/queries com `useMemo`.
@@ -102,6 +104,7 @@ Regras importantes:
 - Zustand: evite selectors que retornam objetos/arrays novos.
 - Prefira selectors escalares e derive listas com `useMemo`.
 - UI acionada por scroll deve ficar montada e alternar `opacity`, `transform` e `pointer-events`.
+- Animacoes longas/non-stop devem ser loops fechados: a posicao base precisa bater com o quadro `0%, 100%` para nao saltar ao pausar, retomar ou mudar tier.
 - Evite animar `height`, `width`, blur pesado ou sombras pesadas em areas de alta frequencia.
 - Imagens e rankings ja aquecidos devem ser reutilizados; nao reprocessar avatares/capas toda vez que um modal ou card monta.
 - `/api/group` fornece uma base recente compacta suficiente para liberar a
@@ -122,6 +125,7 @@ Regras importantes:
 ## LeoHeader E Vinil
 
 - Vinil nao deve ser movido ou redesenhado sem pedido claro.
+- Textura do plastico do vinil deve permanecer abstrata; nao reintroduzir uma capa reconhecivel piscando por cima do disco.
 - O relogio da faixa deve evitar rerender por segundo; pode atualizar texto isolado.
 - A barra de progresso deve usar snapshot estavel e nao remontar por `key` dinamica.
 - Quando recentes alimentarem Vinil/LeoHeader, preserve resolucao real de album usando `/api/recent?resolveAlbums=1` quando aplicavel.

@@ -669,8 +669,17 @@
 .stats-lc-ambient-drift-primary,
 .stats-lc-ambient-drift-secondary {
   backface-visibility: hidden;
-  transform: translate3d(0, 0, 0);
   will-change: auto;
+}
+
+.stats-lc-ambient-drift-primary {
+  opacity: 0.68;
+  transform: translate3d(-16%, -9%, 0) scale(1);
+}
+
+.stats-lc-ambient-drift-secondary {
+  opacity: 0.5;
+  transform: translate3d(5%, 10%, 0) scale(1.01);
 }
 
 .stats-lc-ambient-drift-primary[data-active="true"] {
@@ -686,7 +695,7 @@
 .stats-lc-artwork-drift {
   backface-visibility: hidden;
   background-repeat: no-repeat;
-  transform: translate3d(0, 0, 0) scale(1.08);
+  transform: translate3d(-10%, -7%, 0) scale(1.08);
   will-change: auto;
 }
 

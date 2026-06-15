@@ -77,8 +77,9 @@ const RouteLoader = () => {
       animate={{ opacity: 1 }}
       transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
       data-stats-lc-route-loader="true"
-      className="pointer-events-none fixed inset-0 z-[44] flex h-[100svh] min-h-[100svh] w-screen min-w-0 flex-col items-center justify-center gap-4 overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom,0px)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
+      className="pointer-events-none fixed inset-0 z-[44] flex h-[100svh] min-h-[100svh] w-screen min-w-0 flex-col items-center justify-center gap-4 overflow-hidden bg-black/72 px-6 pb-[calc(env(safe-area-inset-bottom,0px)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center backdrop-blur-sm"
     >
+      <div className="stats-lc-grain absolute inset-0 opacity-[0.018] mix-blend-overlay" aria-hidden="true" />
       <motion.div
         initial={{ opacity: 0, y: 8, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -237,18 +238,18 @@ const PersistentRouteScene = ({
     className="contents"
   >
     <Suspense fallback={active ? <RouteLoader /> : null}>
-      <Activity mode={active ? 'visible' : 'hidden'}>
-        <motion.div
-          data-stats-lc-route-scene={id}
-          className="w-full min-w-0"
-          initial={false}
-          animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
-          transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
-          style={{ contain: active ? 'none' : 'layout style' }}
-        >
+      <motion.div
+        data-stats-lc-route-scene={id}
+        className="w-full min-w-0"
+        initial={false}
+        animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
+        transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+        style={{ contain: active ? 'none' : 'layout style' }}
+      >
+        <Activity mode={active ? 'visible' : 'hidden'}>
           {children}
-        </motion.div>
-      </Activity>
+        </Activity>
+      </motion.div>
     </Suspense>
   </div>
 );
@@ -432,7 +433,7 @@ export default function App() {
       if ((event as CustomEvent<{ ready?: boolean }>).detail?.ready === true) schedule();
     };
 
-    if (window.__STATS_LC_HOME_READY__ === true) schedule();
+    if (window.__STATS_LC_HOME_READY_DOCUMENT__ === true) schedule();
     else window.addEventListener('stats-lc-home-ready', handleHomeReady);
 
     return () => {

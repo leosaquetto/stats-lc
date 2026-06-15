@@ -128,27 +128,30 @@ const NavSettingsIcon = ({
     <motion.line x1="4" x2="20" y1="12" y2="12" />
     <motion.line x1="4" x2="20" y1="18" y2="18" />
     <motion.circle
-      cx="9"
-      cy="6"
-      r="1.8"
+      initial={false}
+      cx={9}
+      cy={6}
+      r={1.8}
       fill="currentColor"
-      animate={isActive && shouldAnimate ? { cx: [9, 13, 9] } : { cx: 9 }}
+      animate={isActive && shouldAnimate ? { x: [0, 4, 0] } : { x: 0 }}
       transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
     />
     <motion.circle
-      cx="15"
-      cy="12"
-      r="1.8"
+      initial={false}
+      cx={15}
+      cy={12}
+      r={1.8}
       fill="currentColor"
-      animate={isActive && shouldAnimate ? { cx: [15, 11, 15] } : { cx: 15 }}
+      animate={isActive && shouldAnimate ? { x: [0, -4, 0] } : { x: 0 }}
       transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1], delay: 0.035 }}
     />
     <motion.circle
-      cx="11"
-      cy="18"
-      r="1.8"
+      initial={false}
+      cx={11}
+      cy={18}
+      r={1.8}
       fill="currentColor"
-      animate={isActive && shouldAnimate ? { cx: [11, 16, 11] } : { cx: 11 }}
+      animate={isActive && shouldAnimate ? { x: [0, 5, 0] } : { x: 0 }}
       transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1], delay: 0.07 }}
     />
   </motion.svg>
@@ -3451,7 +3454,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const [homeReady, setHomeReady] = React.useState(() => {
     if (typeof window === 'undefined') return true;
-    return window.__STATS_LC_HOME_READY__ === true || window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1';
+    return window.__STATS_LC_HOME_READY_DOCUMENT__ === true;
   });
   
   const allUsers = React.useMemo(() => {
@@ -3510,11 +3513,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => () => cancelSyncRegroupTaskRef.current(), []);
   const hasWarmHomeReady = React.useCallback(() => {
     if (typeof window === 'undefined') return true;
-    return (
-      window.__STATS_LC_HOME_READY__ === true ||
-      window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1' ||
-      Boolean(document.documentElement.dataset.statsLcHomeReadyMs)
-    );
+    return window.__STATS_LC_HOME_READY_DOCUMENT__ === true;
   }, []);
 
   React.useEffect(() => {
@@ -3572,15 +3571,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       const ready = (event as CustomEvent<{ ready?: boolean }>).detail?.ready;
       if (ready === true) {
         window.__STATS_LC_HOME_READY__ = true;
+        window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
         sessionStorage.setItem('stats-lc-home-boot-ready', '1');
       } else if (ready === false) {
         if (hasWarmHomeReady()) {
           window.__STATS_LC_HOME_READY__ = true;
+          window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
           window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
           setHomeReady(true);
           return;
         }
         window.__STATS_LC_HOME_READY__ = false;
+        window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
         sessionStorage.removeItem('stats-lc-home-boot-ready');
       }
       setHomeReady(ready === true);
@@ -3592,6 +3594,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => {
     if (!homeReady) return;
     window.__STATS_LC_HOME_READY__ = true;
+    window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
     window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
     window.__STATS_LC_DISMISS_SPLASH__?.();
   }, [homeReady]);

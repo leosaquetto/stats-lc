@@ -775,6 +775,8 @@ export const LiveTrackProgress = memo(({
   const progressFillAnimationRef = useRef<Animation | null>(null);
   const motionRuntime = useMotionRuntime();
   const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const shouldRunSyncCompositorLoop = isSynchronizing && shouldRunAmbientMotion;
+  useCompositorLoopTelemetry(shouldRunSyncCompositorLoop, 'leo-progress-sync');
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
   const assertiveProgressColor = useMemo(() => getAssertiveProgressAccent(visibleProgressColor), [visibleProgressColor]);
   const progressFillGradient = useMemo(() => {
@@ -806,7 +808,7 @@ export const LiveTrackProgress = memo(({
   const AppleMusicLogo = () => (
     <svg
       viewBox="0 0 17 21"
-      className="h-[0.68em] w-auto object-contain fill-current -translate-y-[1px]"
+      className="h-[1.42em] min-w-[1.02em] w-auto object-contain fill-current -translate-y-[0.5px]"
       aria-labelledby="apple-music-logo-title"
       role="img"
     >
@@ -1024,10 +1026,10 @@ export const LiveTrackProgress = memo(({
             <div className="mx-auto flex h-3 min-w-0 max-w-[min(152px,44vw)] items-center justify-center overflow-hidden">
               <motion.div
                 layout
-                animate={isSynchronizing && shouldRunAmbientMotion
+                animate={shouldRunSyncCompositorLoop
                   ? { opacity: [0.72, 1, 0.78], y: [1, 0, 1], scale: [0.99, 1.015, 0.99] }
                   : { opacity: 1, y: 0, scale: 1 }}
-                transition={isSynchronizing && shouldRunAmbientMotion
+                transition={shouldRunSyncCompositorLoop
                   ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity }
                   : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                 className={cn(
@@ -1081,10 +1083,10 @@ export const LiveTrackProgress = memo(({
               )}
               <motion.div
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
-                animate={isSynchronizing && shouldRunAmbientMotion
+                animate={shouldRunSyncCompositorLoop
                   ? { opacity: [0.48, 1, 0.56], scale: [0.82, 1.18, 0.86] }
                   : { opacity: 1, scale: 1 }}
-                transition={isSynchronizing && shouldRunAmbientMotion
+                transition={shouldRunSyncCompositorLoop
                   ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity }
                   : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 style={{
@@ -1502,8 +1504,6 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
     () => getDistinctAmbientColors(artworkPalette, dominantColor),
     [artworkPalette, dominantColor]
   );
-  const [ambientBackdropSettling, setAmbientBackdropSettling] = useState(true);
-
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
@@ -1859,16 +1859,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
   const visualIsLive = playbackOverride?.signature === backendPlaybackSignature
     ? playbackOverride.isPlaying
     : isActuallyLive;
-  useEffect(() => {
-    setAmbientBackdropSettling(true);
-    return motionRuntime.scheduleTask(
-      () => setAmbientBackdropSettling(false),
-      visualIsLive ? 1700 : 1200,
-      'interaction',
-      'leo-header-ambient-settle',
-    );
-  }, [albumImage, dominantColor, vinylPlaybackKey, visualIsLive]);
-  const shouldRunBackdropAmbientMotion = shouldRunFullAmbientMotion && ambientBackdropSettling;
+  const shouldRunBackdropAmbientMotion = shouldRunAmbientMotion;
   const shouldRunLiveBackdropAmbientMotion = visualIsLive && shouldRunBackdropAmbientMotion;
   const shouldRunIdleBackdropBreathe = !visualIsLive && shouldRunBackdropAmbientMotion;
   useCompositorLoopTelemetry(shouldRunLiveBackdropAmbientMotion, 'leo-header-ambient');
@@ -1941,7 +1932,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute left-1/2 top-[calc(-10rem-env(safe-area-inset-top,0px))] bottom-[-540px] z-0 w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
+          "absolute left-1/2 top-[calc(-15rem-env(safe-area-inset-top,0px))] bottom-[-600px] z-0 w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"

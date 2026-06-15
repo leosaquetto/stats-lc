@@ -189,6 +189,17 @@ export const VinylRecord = ({
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const resinAlpha        = isPlaying ? 0.27 : 0.225;
+  const artworkResinInset = motionTier === 'conserve'
+    ? '-22%'
+    : motionTier === 'balanced'
+      ? '-30%'
+      : '-38%';
+  const artworkResinFilter = motionTier === 'conserve'
+    ? 'blur(24px) saturate(1.08) contrast(0.92)'
+    : motionTier === 'balanced'
+      ? 'blur(34px) saturate(1.12) contrast(0.9)'
+      : 'blur(44px) saturate(1.16) contrast(0.88)';
+  const artworkResinOpacity = isPlaying ? 0.24 : 0.18;
 
   phaseRef.current = phase;
   spinEnabledRef.current = spinEnabled;
@@ -655,38 +666,17 @@ export const VinylRecord = ({
       >
         {visualSnapshot.albumImage && (
           <div
+            data-vinyl-artwork-resin="true"
             className="absolute rounded-full pointer-events-none z-[10]"
             style={{
-              inset: isMulticolorVinyl
-                ? motionTier === 'conserve'
-                  ? '-6%'
-                  : motionTier === 'balanced'
-                    ? '-9%'
-                    : '-12%'
-                : motionTier === 'conserve'
-                  ? '-12%'
-                  : motionTier === 'balanced'
-                    ? '-18%'
-                    : '-24%',
+              inset: artworkResinInset,
               backgroundImage: `url("${visualSnapshot.albumImage}")`,
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
-              filter: isMulticolorVinyl
-                ? motionTier === 'conserve'
-                  ? 'blur(8px) saturate(1.38) contrast(1.02)'
-                  : motionTier === 'balanced'
-                    ? 'blur(11px) saturate(1.5) contrast(1.03)'
-                    : 'blur(14px) saturate(1.58) contrast(1.04)'
-                : motionTier === 'conserve'
-                  ? 'blur(15px) saturate(1.32) contrast(1.02)'
-                  : motionTier === 'balanced'
-                    ? 'blur(21px) saturate(1.44) contrast(1.03)'
-                    : 'blur(28px) saturate(1.52) contrast(1.04)',
-              mixBlendMode: 'soft-light',
-              opacity: isMulticolorVinyl
-                ? (shouldSpin ? 0.58 : 0.48)
-                : (shouldSpin ? 0.48 : 0.4),
-              transform: 'translateZ(0)',
+              backgroundPosition: `${34 + seededValue(textureSeed, 512) * 32}% ${32 + seededValue(textureSeed, 640) * 36}%`,
+              backgroundSize: '155%',
+              filter: artworkResinFilter,
+              mixBlendMode: 'color-dodge',
+              opacity: artworkResinOpacity,
+              transform: `translate3d(0,0,0) rotate(${(seededValue(textureSeed, 736) - 0.5) * 18}deg) scale(1.08)`,
             }}
           />
         )}

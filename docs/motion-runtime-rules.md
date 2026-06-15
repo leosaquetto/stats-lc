@@ -34,6 +34,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Use `100svh` para overlays mobile.
    - Evite `100vh`, `100dvh` e `calc(100vh...)` no shell, modais e loaders.
    - Loaders de rota devem ser `fixed inset-0`, nao fallback preso ao `main`.
+   - O loader preto de rota com spinner nao e a splash do app; a splash real e o logo/equalizer `stats.lc`.
    - Depois que a Home foi liberada, navegacao quente de volta para `/#/` nao deve mostrar loader de rota; use `data-stats-lc-home-ready-ms`/sessionStorage como sinal de Home aquecida.
    - Fallback de `Suspense` de rota deve ter revelacao atrasada; se o chunk resolver rapido, nao mostre spinner curto.
 
@@ -101,6 +102,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Um novo documento deve invalidar marcadores de Home quente herdados da sessao. Retorno quente dentro do mesmo documento usa estado React, `window.__STATS_LC_HOME_READY__` e telemetria do documento atual.
    - Depois que `data-stats-lc-home-ready-ms` existe no documento atual, nenhum evento tardio pode regredir a Home para fria ou remover o estado quente desse documento.
    - A primeira viewport deve preparar decisoes visuais essenciais antes de sair da splash: dados-base, capas criticas, atividade visivel e badges que mudariam a geometria do header.
+   - Home fria deve preferir liberar quando `motionRuntime.tier === 'full'`; `balanced` ainda e fase de pressao e so deve liberar por deadline de seguranca ou acessibilidade/reducao de motion.
    - Mova chamadas ja existentes para o boot e entregue o resultado preparado ao componente; nao duplique requests so para evitar uma entrada tardia.
    - Inicie a entrada finita da Home quando a splash ja estiver dissolvendo. Nao execute toda a coreografia atras de uma splash opaca para depois revelar tudo pronto.
    - Um controle persistente, como `Letra`, nao pode trocar de `key`, posicao ou identidade apenas porque ranking/repeats terminou de carregar.
@@ -108,8 +110,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 14. Modo conservador reduz loops, nao elimina entradas finitas essenciais.
    - Entradas unicas curtas com `opacity`/`transform` podem continuar em tier `conserve`, com duracao reduzida.
    - Loops ambientais, equalizers e pulsos continuam condicionados a viewport, visibilidade e `motionRuntime`.
-   - Ambientes caros e nao funcionais, como respirar de uma superficie grande ou vinil idle, rodam apenas em tier `full`; em `balanced` a aura estatica permanece e o movimento funcional continua.
-   - Backdrops grandes da LeoHeader/Home podem pulsar durante entrada, troca de faixa ou troca de paleta, mas devem assentar em ate cerca de `1700ms`; depois disso, a profundidade fica estatica e apenas vinil/tonearm/progresso continuam funcionais.
+   - Backdrops grandes da LeoHeader/Home podem manter locomocao lenta em `full` e `balanced` quando visiveis, desde que usem apenas compositor, runtime central e pausa por modal/rota oculta/pressao `conserve`.
+   - Animacoes longas ou non-stop precisam ser ciclos fechados: o quadro base deve corresponder ao `0%, 100%` do keyframe para pausar, retomar ou trocar de tier sem salto seco de posicao.
+   - Ambientes caros e nao funcionais, como respirar de uma superficie grande ou vinil idle, devem pausar em `conserve`; em `balanced`, mantenha somente camadas lentas, fechadas e auditaveis.
    - Nao empilhe multiplos `EngineBreathe` em uma mesma bolha/avatar pequeno. Prefira camadas radiais estaticas e deixe no maximo uma camada viva ligada ao avatar ou estado principal.
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
    - Quando um elemento possui transform imperativo de drag/scroll, entrada e saida finitas devem viver em um wrapper visual interno. Nunca deixe Motion e `requestAnimationFrame` escreverem `transform` no mesmo no.

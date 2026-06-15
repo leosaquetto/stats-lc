@@ -328,6 +328,7 @@ export const VinylTonearm = ({
           </g>
 
           <motion.g
+            initial={false}
             animate={{ opacity: liftOpacity, scale: liftScale }}
             transition={tonearmGroupTransition}
             style={{ transformOrigin: `${pivotX}px ${pivotY}px` }}
@@ -338,8 +339,11 @@ export const VinylTonearm = ({
             style={{ transformOrigin: `${pivotX}px ${pivotY}px` }}
           >
           <motion.line
+            initial={false}
             x1={pivotX}
             y1={pivotY}
+            x2={armEnd.x}
+            y2={armEnd.y}
             stroke="transparent"
             strokeWidth="15"
             strokeLinecap="round"
@@ -347,8 +351,11 @@ export const VinylTonearm = ({
             transition={transition}
           />
           <motion.line
+            initial={false}
             x1={pivotX - 4}
             y1={pivotY + 1}
+            x2={needleEnd.x + 4}
+            y2={needleEnd.y + 4}
             stroke="transparent"
             strokeWidth="18"
             strokeLinecap="round"
@@ -356,8 +363,11 @@ export const VinylTonearm = ({
             transition={transition}
           />
           <motion.line
+            initial={false}
             x1={pivotX}
             y1={pivotY + armShadowYOffset}
+            x2={armEnd.x}
+            y2={armEnd.y + armShadowYOffset}
             stroke="rgba(0,0,0,0.34)"
             strokeWidth="1.7"
             strokeLinecap="round"
@@ -370,8 +380,11 @@ export const VinylTonearm = ({
           />
           <g filter={`url(#${uniqueId}-tonearm-shadow)`} opacity={isDragging ? 0.14 : 0.26}>
             <motion.line
+              initial={false}
               x1={finalArmShadowStart.x + shadowXOffset}
               y1={finalArmShadowStart.y + shadowYOffset}
+              x2={finalArmShadowEnd.x + shadowXOffset}
+              y2={finalArmShadowEnd.y + shadowYOffset}
               stroke="rgba(0,0,0,0.42)"
               strokeWidth="1.25"
               strokeLinecap="round"
@@ -384,6 +397,7 @@ export const VinylTonearm = ({
               transition={transition}
             />
             <motion.polygon
+              initial={false}
               points={headShadowPoints}
               animate={{ points: headShadowPoints }}
               transition={transition}
@@ -391,8 +405,11 @@ export const VinylTonearm = ({
             />
           </g>
           <motion.line
+            initial={false}
             x1={pivotX}
             y1={pivotY}
+            x2={armEnd.x}
+            y2={armEnd.y}
             stroke={`url(#${uniqueId}-tonearm-metal)`}
             strokeWidth="1.22"
             strokeLinecap="round"
@@ -400,10 +417,11 @@ export const VinylTonearm = ({
             transition={transition}
           />
 
-          <motion.polygon points={collarPoints} animate={{ points: collarPoints }} transition={transition} fill="#121318" stroke="rgba(255,255,255,0.07)" strokeWidth="0.28" />
-          <motion.polygon points={headPoints} animate={{ points: headPoints }} transition={transition} fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.08)" strokeWidth="0.32" />
-          <motion.polygon points={headHighlight} animate={{ points: headHighlight }} transition={transition} fill="rgba(255,255,255,0.045)" />
+          <motion.polygon initial={false} points={collarPoints} animate={{ points: collarPoints }} transition={transition} fill="#121318" stroke="rgba(255,255,255,0.07)" strokeWidth="0.28" />
+          <motion.polygon initial={false} points={headPoints} animate={{ points: headPoints }} transition={transition} fill={`url(#${uniqueId}-tonearm-head)`} stroke="rgba(255,255,255,0.08)" strokeWidth="0.32" />
+          <motion.polygon initial={false} points={headHighlight} animate={{ points: headHighlight }} transition={transition} fill="rgba(255,255,255,0.045)" />
           <motion.line
+            initial={false}
             x1={needleStart.x}
             y1={needleStart.y}
             x2={needleEnd.x}
@@ -420,6 +438,7 @@ export const VinylTonearm = ({
             strokeLinecap="round"
           />
           <motion.circle
+            initial={false}
             cx={needleEnd.x}
             cy={needleEnd.y}
             r="0.16"
