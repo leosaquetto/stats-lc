@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles, Loader2, Share2 } from 'lucide-react';
 import { snapshotService } from '../../services/snapshotService';
 import { statsService } from '../../services/statsService';
@@ -6,6 +6,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { WeeklyReportTemplate } from '../shared/WeeklyReportTemplate';
 import { EngineSpinner } from '../shared/CommonUI';
 import { createPortal } from 'react-dom';
+import { motionRuntime } from '../../lib/motionRuntime';
 
 interface WeeklyReportGeneratorProps {
   userId: string;
@@ -16,7 +17,14 @@ interface WeeklyReportGeneratorProps {
 export const WeeklyReportGenerator: React.FC<WeeklyReportGeneratorProps> = ({ userId, userName, userAvatar }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [reportData, setReportData] = useState<any>(null);
+  const cancelCaptureTaskRef = useRef<() => void>(() => {});
+  const isMountedRef = useRef(true);
   const arenaName = useStatsStore((s) => s.arenaName);
+
+  useEffect(() => () => {
+    isMountedRef.current = false;
+    cancelCaptureTaskRef.current();
+  }, []);
 
   const generateReport = async () => {
     if (isGenerating) return;
@@ -33,7 +41,8 @@ export const WeeklyReportGenerator: React.FC<WeeklyReportGeneratorProps> = ({ us
       setReportData({ artists, tracks, albums });
 
       // Wait for re-render in portal
-      setTimeout(async () => {
+      cancelCaptureTaskRef.current();
+      cancelCaptureTaskRef.current = motionRuntime.scheduleTask(async () => {
         const element = document.getElementById('weekly-report-capture');
         if (element) {
           try {
@@ -48,7 +57,9 @@ export const WeeklyReportGenerator: React.FC<WeeklyReportGeneratorProps> = ({ us
                  const file = new File([blob], `Relatorio-Semanal-${userName}.png`, { type: 'image/png' });
                  
                  // Small delay to ensure browser acknowledges the file
-                 await new Promise(r => setTimeout(r, 100));
+                 await new Promise<void>(resolve => {
+                   motionRuntime.scheduleTask(resolve, 100, 'interaction');
+                 });
                  
                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
@@ -62,14 +73,18 @@ export const WeeklyReportGenerator: React.FC<WeeklyReportGeneratorProps> = ({ us
             console.error("Capture failed", captureError);
           }
         }
+        if (!isMountedRef.current) return;
         setReportData(null); // Clear after capture
         setIsGenerating(false);
-      }, 800); // Give it enough time for images to potentially load in the hidden div
+        cancelCaptureTaskRef.current = () => {};
+      }, 800, 'interaction'); // Give it enough time for images to potentially load in the hidden div
 
     } catch (error) {
       console.error("Failed to generate weekly report", error);
-      setIsGenerating(false);
-      setReportData(null);
+      if (isMountedRef.current) {
+        setIsGenerating(false);
+        setReportData(null);
+      }
     }
   };
 
