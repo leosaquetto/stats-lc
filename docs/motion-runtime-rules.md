@@ -114,6 +114,8 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
    - Quando um elemento possui transform imperativo de drag/scroll, entrada e saida finitas devem viver em um wrapper visual interno. Nunca deixe Motion e `requestAnimationFrame` escreverem `transform` no mesmo no.
    - Na entrada em fileirinha do RankingSummary, os wrappers externos dos avatares e do `+N` ja nascem nos slots finais de `36px`; somente os wrappers visuais internos partem do primeiro slot e se distribuem em sequencia com stagger perceptivel de `180ms`. A saida faz o caminho inverso.
+   - A barra de progresso da LeoHeader e uma unica camada mutavel. Ela inicia no snapshot real e avanca por uma unica animacao de compositor; correcoes de drift para frente ou para tras fazem catch-up animado, nunca salto seco.
+   - `OUVINDO NO` e `SINCRONIZANDO` compartilham o mesmo no visual. Durante sync, accent, fill e thumb pulsam juntos; nao monte dois rotulos concorrentes.
 
 15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.
    - Home, Stats, Circulo e Ajustes devem permanecer sob `PersistentRouteScene`/React `Activity`; trocar de secao alterna a cena visivel sem remontar toda a arvore.

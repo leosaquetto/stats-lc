@@ -527,7 +527,7 @@ function calculateSnapshotProgress(snapshot: PlaybackSnapshot | null, now = Date
   if (catchup) {
     const elapsed = Math.max(0, now - catchup.startedAt);
     const catchupDuration = Math.max(1, catchup.durationMs);
-    const driftMs = Math.max(0, catchup.toMs - catchup.fromMs);
+    const driftMs = catchup.toMs - catchup.fromMs;
     const speed = 1 + (driftMs / catchupDuration);
     if (elapsed < catchupDuration) {
       return Math.max(0, catchup.fromMs + elapsed * speed);
@@ -628,10 +628,10 @@ function useLivePlaybackProgress({
     if (inferredProgressMs != null && completedPlaybackKeyRef.current !== playbackKey) {
       const projectedProgressMs = calculateSnapshotProgress(snapshotRef.current, now);
       const driftMs = inferredProgressMs - projectedProgressMs;
-      if (driftMs >= DRIFT_REANCHOR_MS) {
+      if (Math.abs(driftMs) >= DRIFT_REANCHOR_MS) {
         const catchupDurationMs = Math.min(
           PROGRESS_CATCHUP_MAX_MS,
-          Math.max(PROGRESS_CATCHUP_MIN_MS, driftMs * 0.36),
+          Math.max(PROGRESS_CATCHUP_MIN_MS, Math.abs(driftMs) * 0.36),
         );
         snapshotRef.current = {
           ...snapshotRef.current,
@@ -643,14 +643,6 @@ function useLivePlaybackProgress({
             toMs: inferredProgressMs,
             durationMs: catchupDurationMs,
           },
-        };
-        setSnapshotVersion(version => version + 1);
-      } else if (Math.abs(driftMs) >= DRIFT_REANCHOR_MS) {
-        snapshotRef.current = {
-          ...snapshotRef.current,
-          baseProgressMs: inferredProgressMs,
-          receivedAt: now,
-          catchup: undefined,
         };
         setSnapshotVersion(version => version + 1);
       }
@@ -779,6 +771,8 @@ export const LiveTrackProgress = memo(({
   isSynchronizing = false
 }: LiveTrackProgressProps) => {
   const [minPlayTime, setMinPlayTime] = useState(false);
+  const progressFillRef = useRef<HTMLDivElement | null>(null);
+  const progressFillAnimationRef = useRef<Animation | null>(null);
   const motionRuntime = useMotionRuntime();
   const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
@@ -839,7 +833,7 @@ export const LiveTrackProgress = memo(({
 
   const currentProgress = isNowPlaying ? (progressPercent ?? 0) : 100;
   const progressScale = Math.min(1, Math.max(0, currentProgress / 100));
-  const progressTargetScale = Math.min(1, Math.max(progressScale, (progressTargetPercent ?? (isNowPlaying ? 100 : currentProgress)) / 100));
+  const progressTargetScale = Math.min(1, Math.max(0, (progressTargetPercent ?? (isNowPlaying ? 100 : currentProgress)) / 100));
   const elapsedMs = useMemo(() => progressMs ?? ((currentProgress / 100) * (durationMs || 0)), [currentProgress, durationMs, progressMs]);
   const syncAccent = assertiveProgressColor || visibleProgressColor || 'rgba(255,255,255,0.72)';
   const syncShimmerGradient = useMemo(() => {
@@ -856,6 +850,105 @@ export const LiveTrackProgress = memo(({
     : isYesterdaySP(dateObj)
       ? `ONTEM ÀS ${timeStr}`
       : `${formatDateSP(dateObj)} ÀS ${timeStr}`;
+
+  useLayoutEffect(() => {
+    const fill = progressFillRef.current;
+    if (!fill) return;
+
+    progressFillAnimationRef.current?.cancel();
+    progressFillAnimationRef.current = null;
+
+    const startScale = progressScale;
+    const targetScale = isSynchronizing
+      ? 1
+      : isNowPlaying
+        ? progressTargetScale
+        : progressScale;
+
+    fill.style.opacity = '1';
+    fill.style.transform = `scaleX(${startScale})`;
+
+    if (isSynchronizing) {
+      const intro = fill.animate(
+        [
+          { transform: `scaleX(${startScale}) scaleY(1)`, opacity: 1 },
+          { transform: 'scaleX(1) scaleY(1)', opacity: 0.92 },
+        ],
+        {
+          duration: 360,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          fill: 'forwards',
+        },
+      );
+      progressFillAnimationRef.current = intro;
+      intro.onfinish = () => {
+        if (progressFillAnimationRef.current !== intro) return;
+        fill.style.transform = 'scaleX(1) scaleY(1)';
+        fill.style.opacity = '0.92';
+        intro.cancel();
+        if (!shouldRunAmbientMotion) {
+          progressFillAnimationRef.current = null;
+          return;
+        }
+        const pulse = fill.animate(
+          [
+            { transform: 'scaleX(1) scaleY(0.88)', opacity: 0.72 },
+            { transform: 'scaleX(1) scaleY(1.08)', opacity: 1 },
+            { transform: 'scaleX(1) scaleY(0.9)', opacity: 0.78 },
+          ],
+          {
+            duration: 1450,
+            easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+            iterations: Infinity,
+          },
+        );
+        progressFillAnimationRef.current = pulse;
+      };
+      return () => {
+        progressFillAnimationRef.current?.cancel();
+        progressFillAnimationRef.current = null;
+      };
+    }
+
+    const duration = isNowPlaying && !isSynchronizing && progressAnimationMs && progressAnimationMs > 0
+      ? Math.max(200, progressAnimationMs)
+      : 0;
+    if (duration <= 0 || Math.abs(targetScale - startScale) <= 0.0001) return;
+
+    const animation = fill.animate(
+      [
+        { transform: `scaleX(${startScale})` },
+        { transform: `scaleX(${targetScale})` },
+      ],
+      {
+        duration,
+        easing: 'linear',
+        fill: 'forwards',
+      },
+    );
+    progressFillAnimationRef.current = animation;
+    animation.onfinish = () => {
+      if (progressFillAnimationRef.current !== animation) return;
+      fill.style.transform = `scaleX(${targetScale})`;
+      animation.cancel();
+      progressFillAnimationRef.current = null;
+    };
+
+    return () => {
+      if (progressFillAnimationRef.current === animation) {
+        animation.cancel();
+        progressFillAnimationRef.current = null;
+      }
+    };
+  }, [
+    isNowPlaying,
+    isSynchronizing,
+    progressAnimationKey,
+    progressAnimationMs,
+    progressScale,
+    progressTargetScale,
+    shouldRunAmbientMotion,
+  ]);
 
   return (
     <AnimatePresence mode="sync">
@@ -928,41 +1021,33 @@ export const LiveTrackProgress = memo(({
                 className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
               />
             </motion.span>
-            <div className="mx-auto min-w-0 max-w-[min(152px,44vw)] overflow-visible">
-              <AnimatePresence initial={false} mode="popLayout">
+            <div className="mx-auto flex h-3 min-w-0 max-w-[min(152px,44vw)] items-center justify-center overflow-hidden">
+              <motion.div
+                layout
+                animate={isSynchronizing && shouldRunAmbientMotion
+                  ? { opacity: [0.72, 1, 0.78], y: [1, 0, 1], scale: [0.99, 1.015, 0.99] }
+                  : { opacity: 1, y: 0, scale: 1 }}
+                transition={isSynchronizing && shouldRunAmbientMotion
+                  ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity }
+                  : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                className={cn(
+                  "stats-lc-dense-label flex min-w-0 items-center justify-center overflow-hidden font-black uppercase",
+                  isSynchronizing ? "text-[6.4px] tracking-[0.18em]" : "gap-0.5 text-[5.8px]"
+                )}
+                style={{ color: isSynchronizing ? syncAccent : undefined }}
+              >
                 {isSynchronizing ? (
-                  <motion.div
-                    key="syncing-label"
-                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                    animate={shouldRunAmbientMotion
-                      ? { opacity: [0.72, 1, 0.78], y: 0, scale: [0.99, 1.015, 0.99] }
-                      : { opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={shouldRunAmbientMotion
-                      ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity, repeatType: 'mirror' }
-                      : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                    className="stats-lc-dense-label text-center text-[6.4px] font-black uppercase tracking-[0.18em]"
-                    style={{ color: syncAccent }}
-                  >
-                    SINCRONIZANDO
-                  </motion.div>
+                  'SINCRONIZANDO'
                 ) : (
-                  <motion.div
-                    key="platform-label"
-                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex min-w-0 items-center justify-center gap-0.5 overflow-visible"
-                  >
+                  <>
                     <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">OUVINDO NO</span>
                     <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
                       {PlatformLogo}
                     </div>
                     <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">{PlatformName}</span>
-                  </motion.div>
+                  </>
                 )}
-              </AnimatePresence>
+              </motion.div>
             </div>
             <motion.span
               className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
@@ -973,22 +1058,10 @@ export const LiveTrackProgress = memo(({
             </motion.span>
           </div>
           <div className="w-full h-[5px] rounded-full bg-white/[0.16] overflow-visible relative">
-            <motion.div
+            <div
+              ref={progressFillRef}
               className="h-full w-full rounded-full relative overflow-hidden"
               data-stats-lc-leo-progress-key={progressAnimationKey}
-              initial={false}
-              animate={{
-                scaleX: isSynchronizing ? 1 : (isNowPlaying ? progressTargetScale : progressScale),
-                opacity: isSynchronizing ? 0.92 : 1,
-              }}
-              transition={{
-                duration: isSynchronizing
-                  ? 0.36
-                  : isNowPlaying && progressAnimationMs && progressAnimationMs > 0
-                    ? Math.max(0.2, progressAnimationMs / 1000)
-                    : 0,
-                ease: isSynchronizing ? [0.16, 1, 0.3, 1] : 'linear'
-              }}
               style={{
                 transformOrigin: 'left center',
                 background: progressFillGradient,
@@ -1008,8 +1081,12 @@ export const LiveTrackProgress = memo(({
               )}
               <motion.div
                 className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
-                animate={{ opacity: isSynchronizing ? 0 : 1, scale: isSynchronizing ? 0.72 : 1 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                animate={isSynchronizing && shouldRunAmbientMotion
+                  ? { opacity: [0.48, 1, 0.56], scale: [0.82, 1.18, 0.86] }
+                  : { opacity: 1, scale: 1 }}
+                transition={isSynchronizing && shouldRunAmbientMotion
+                  ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity }
+                  : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   boxShadow: assertiveProgressColor
                     ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.86)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.48)}`
@@ -1017,7 +1094,7 @@ export const LiveTrackProgress = memo(({
                   filter: 'brightness(1.14)'
                 }}
               />
-            </motion.div>
+            </div>
           </div>
         </motion.div>
       )}
