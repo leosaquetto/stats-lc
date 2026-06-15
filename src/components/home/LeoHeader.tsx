@@ -611,7 +611,7 @@ function useLivePlaybackProgress({
     const delay = attempts > 0
       ? COMPLETION_RECHECK_INTERVAL_MS
       : Math.max(0, completionDurationMs + COMPLETE_MARGIN_MS - nowProgress);
-    const timer = window.setTimeout(() => {
+    const cancelCompletionCheck = motionRuntime.scheduleTask(() => {
       if (completedPlaybackKeyRef.current === snapshot.playbackKey) return;
       checkingPlaybackKeyRef.current = snapshot.playbackKey;
       setIsCheckingNext(true);
@@ -634,9 +634,9 @@ function useLivePlaybackProgress({
             }
           }
         });
-    }, delay);
+    }, delay, 'interaction');
 
-    return () => window.clearTimeout(timer);
+    return () => cancelCompletionCheck();
   }, [isNow, completionDurationMs, fetchLiveProbe, snapshotVersion, userId]);
 
   useEffect(() => {

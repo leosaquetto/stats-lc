@@ -62,6 +62,10 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Settings: `/#/settings`
    - Arena: `/#/ranking` ou `/#/circle` com aba Arena quando aplicavel.
 
+12. Arquivos mortos nao devem morar em `src`.
+   - Nao manter `.bak`, copias antigas ou snippets soltos dentro de `src`.
+   - Se uma referencia historica for necessaria, documente em `docs/` em vez de deixar codigo morto importavel/auditavel.
+
 ## Padroes Permitidos
 
 - `EngineSpinner` para loading rotativo.
@@ -84,6 +88,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - Novo loader local de modal quando `LazyModalFallback` resolve.
 - Nova politica paralela de motion fora de `motionRuntime`.
 - `setTimeout` local para delays de UI, toasts, pulsos, highlights, entrada de lista, fallback visual ou scroll de coreografia.
+- Arquivos `.bak` ou copias antigas rastreadas dentro de `src`.
 
 ## Checklist Para Agentes
 

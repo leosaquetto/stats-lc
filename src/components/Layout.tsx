@@ -33,10 +33,18 @@ const NAV_ITEMS = [
 ];
 
 const preloadRouteModules = (path: string) => {
-  const schedule = (window as any).requestIdleCallback || window.setTimeout;
-  schedule(() => {
+  const idleWindow = window as Window & {
+    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+  };
+  const runPreload = () => {
     preloadRouteModule(path).catch(() => undefined);
-  });
+  };
+
+  if (idleWindow.requestIdleCallback) {
+    idleWindow.requestIdleCallback(runPreload, { timeout: 900 });
+    return;
+  }
+  motionRuntimeScheduler.scheduleTask(runPreload, 0, 'interaction');
 };
 
 const EqualizerIcon = () => {
