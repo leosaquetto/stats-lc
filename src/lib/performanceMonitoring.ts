@@ -39,6 +39,15 @@ const syncSnapshot = () => {
   try {
     sessionStorage.setItem('stats-lc-performance', JSON.stringify(snapshot));
   } catch {}
+  if (snapshot.homeReadyMs !== null) markDocumentHomeReady();
+};
+
+const markDocumentHomeReady = () => {
+  if (typeof window === 'undefined') return;
+  window.__STATS_LC_HOME_READY__ = true;
+  try {
+    sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+  } catch {}
 };
 
 const pushSample = (
@@ -92,7 +101,12 @@ export const initPerformanceMonitoring = () => {
   const startedAt = performance.now();
 
   window.addEventListener('stats-lc-home-ready', ((event: CustomEvent<{ ready?: boolean }>) => {
-    if (event.detail?.ready !== true || snapshot.homeReadyMs !== null) return;
+    if (event.detail?.ready !== true) {
+      if (snapshot.homeReadyMs !== null) markDocumentHomeReady();
+      return;
+    }
+    markDocumentHomeReady();
+    if (snapshot.homeReadyMs !== null) return;
     snapshot.homeReadyMs = Math.round((performance.now() - startedAt) * 10) / 10;
     syncSnapshot();
   }) as EventListener);

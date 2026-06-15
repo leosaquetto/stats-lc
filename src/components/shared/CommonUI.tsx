@@ -470,7 +470,13 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const imageFetchPriority = shouldLoadEagerly ? 'high' : 'low';
 
   return (
-    <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
+    <div
+      ref={imageFrameRef}
+      className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}
+      data-stats-lc-smart-image-state={shouldShowFallback ? 'fallback' : hasDisplayableSrc ? 'image' : 'empty'}
+      data-stats-lc-smart-image-loading={loading ? 'true' : 'false'}
+      data-stats-lc-smart-image-previous={shouldKeepPreviousImage ? 'true' : 'false'}
+    >
       {shouldKeepPreviousImage && (
         <img
           src={previousDisplaySrc}
@@ -483,7 +489,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
           aria-hidden="true"
         />
       )}
-      {loading && (
+      {loading && !shouldKeepPreviousImage && (
         <div className="absolute inset-0 bg-white/[0.02] overflow-hidden">
           <EngineShimmer active={shouldRunAmbientMotion} duration={shimmerDuration} strong />
         </div>

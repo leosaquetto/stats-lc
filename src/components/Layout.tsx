@@ -3359,6 +3359,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         sessionStorage.setItem('stats-lc-home-boot-ready', '1');
       } else if (ready === false) {
         if (hasWarmHomeReady()) {
+          window.__STATS_LC_HOME_READY__ = true;
+          window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
           setHomeReady(true);
           return;
         }

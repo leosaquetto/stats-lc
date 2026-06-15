@@ -63,6 +63,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Nao criar `Map`/arrays visuais sem limite para capas, paletas ou texturas.
    - Estatisticas de faixa e outros dados efemeros por entidade devem seguir o mesmo orçamento LRU; uma sessao longa nao pode acumular cada entidade visitada.
    - `Map` global, cache visual, cache de resposta e request in-flight precisam usar `memoryRuntime` (`readRuntimeCacheEntry`/`readRuntimeCacheResult`/`setRuntimeCacheEntry`) ou declarar explicitamente por que nao sobrevivem a sessao.
+   - `SmartImage` deve preservar a ultima imagem boa sem shimmer por cima enquanto a proxima decodifica; use `data-stats-lc-smart-image-*` para auditar fallback, loading e imagem anterior.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
    - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Depois que a faixa atual entrou em `playing`, artwork/cor ficam travados ate a identidade mudar; enriquecimento tardio nao pode remontar disco, reiniciar rotacao ou mover tonearm.
 
@@ -90,6 +91,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - PWA iOS deve ter `apple-touch-icon` valido, icones `192/512`, `background_color` preto e launch images para os viewports suportados; nao depender do cartao branco gerado pelo sistema.
    - Em standalone, congele a altura de launch antes do primeiro paint; nao permita que a splash recentralize quando o viewport do iOS estabilizar.
    - Um novo documento deve invalidar marcadores de Home quente herdados da sessao. Retorno quente dentro do mesmo documento usa estado React, `window.__STATS_LC_HOME_READY__` e telemetria do documento atual.
+   - Depois que `data-stats-lc-home-ready-ms` existe no documento atual, nenhum evento tardio pode regredir a Home para fria ou remover o estado quente desse documento.
    - A primeira viewport deve preparar decisoes visuais essenciais antes de sair da splash: dados-base, capas criticas, atividade visivel e badges que mudariam a geometria do header.
    - Mova chamadas ja existentes para o boot e entregue o resultado preparado ao componente; nao duplique requests so para evitar uma entrada tardia.
    - Inicie a entrada finita da Home quando a splash ja estiver dissolvendo. Nao execute toda a coreografia atras de uma splash opaca para depois revelar tudo pronto.

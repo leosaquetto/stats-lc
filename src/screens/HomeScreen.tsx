@@ -1858,7 +1858,11 @@ const getReplayTrackUrl = (track: any) => {
 
 export default function HomeScreen() {
   const hasBootReadySession = () => {
-    return window.__STATS_LC_HOME_READY__ === true || window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1';
+    return (
+      window.__STATS_LC_HOME_READY__ === true ||
+      window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1' ||
+      Boolean(document.documentElement.dataset.statsLcHomeReadyMs)
+    );
   };
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
@@ -2417,6 +2421,9 @@ export default function HomeScreen() {
         window.__STATS_LC_HOME_READY__ = false;
         window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: false } }));
         setIsAppReady(false);
+      } else if (hasBootReady) {
+        window.__STATS_LC_HOME_READY__ = true;
+        window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
       }
       return;
     }
