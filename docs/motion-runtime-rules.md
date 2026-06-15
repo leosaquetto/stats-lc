@@ -117,6 +117,14 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Modais, detalhes efemeros e rotas fora do shell principal nao viram cenas persistentes automaticamente.
    - Preserve `data-stats-lc-last-route-settle` e `data-stats-lc-last-route-settle-ms` para medir a troca real de cena.
 
+16. Bottom tray, stats sheet e letra usam coreografia curta, centrada e standalone.
+   - O minitray de sync deve expandir a partir do centro e manter dimensoes compactas perto da bottom nav; nao crie uma barra de blur maior que o conteudo.
+   - O minitray deve abrir compacto por padrao; expansao e estado efemero da sessao visual, nao preferencia persistida em `localStorage`.
+   - A sheet de stats da musica deve sair por `transform` relativo ao proprio painel, nao por `100svh`/distancia de viewport inteira.
+   - A letra aberta pelo LeoHeader deve ser standalone: nao precisa montar o modal de track antes.
+   - Backdrop de letra nao pode clarear antes da sheet terminar de descer; overlay e painel precisam manter a mesma linguagem visual durante entrada e saida.
+   - Enquanto stats/letra estiverem abertos ou fechando, loops ambientais por tras devem ficar pausados via `useModalMotionScope` e `data-bottom-track-modal-open`.
+
 ## Padroes Permitidos
 
 - `EngineSpinner` para loading rotativo.
@@ -147,6 +155,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - Colocar um `Suspense` sempre montado entre `AnimatePresence` e o modal condicional.
 - Liberar a Home fria enquanto badges/atividade da primeira viewport ainda estao em estado provisório.
 - Reutilizar marcador de Home quente de um documento anterior para pular o boot visual.
+- Usar `100svh` como distancia de saida de sheets/modais.
+- Fazer backdrop de modal sumir mais rapido que a propria sheet.
+- Expandir tray persistente com largura/blur maior que o conteudo real.
 - `setTimeout` local para delays de UI, toasts, pulsos, highlights, entrada de lista, fallback visual ou scroll de coreografia.
 - Arquivos `.bak` ou copias antigas rastreadas dentro de `src`.
 

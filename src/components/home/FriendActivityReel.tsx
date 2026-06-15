@@ -162,7 +162,8 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         </div>
       </div>
 
-      <div
+      <motion.div
+        layoutScroll
         data-home-horizontal-scroll="true"
         className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]"
       >
@@ -322,7 +323,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           </div>
           <span className="text-[7.5px] font-black text-white/30 uppercase tracking-[0.2em] text-center leading-tight"> Ver<br/>Todos</span>
         </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 };

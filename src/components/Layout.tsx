@@ -1813,7 +1813,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     cancelCloseModalTaskRef.current();
     cancelCloseModalTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
       finalizeStatsModalClose(closeToken);
-    }, 900, 'interaction', 'bottom-track-close-safety');
+    }, 620, 'interaction', 'bottom-track-close-safety');
   }, [finalizeStatsModalClose, historySwipeX]);
 
   const closeLyrics = React.useCallback(() => {
@@ -1825,7 +1825,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     cancelCloseLyricsTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
       setIsLyricsClosing(false);
       if (shouldClosePortal) finalizeLyricsClose();
-    }, 560, 'interaction', 'lyrics-close-safety');
+    }, 520, 'interaction', 'lyrics-close-safety');
   }, [finalizeLyricsClose, isModalVisible, isStandaloneLyrics]);
 
   const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
@@ -2105,7 +2105,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     if (typeof document === 'undefined') return;
     const { body } = document;
     const previousModalOpenAttr = body.dataset.bottomTrackModalOpen;
-    if (isModalVisible) body.dataset.bottomTrackModalOpen = 'true';
+    if (isOpen) body.dataset.bottomTrackModalOpen = 'true';
     else delete body.dataset.bottomTrackModalOpen;
 
     return () => {
@@ -2115,18 +2115,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         body.dataset.bottomTrackModalOpen = previousModalOpenAttr;
       }
     };
-  }, [isModalVisible]);
+  }, [isOpen]);
 
   if (!track && !user) return null;
 
   return (
     <>
-      <div className="relative mb-[calc(env(safe-area-inset-bottom)+12px)] h-[54px] w-[54px] shrink-0" aria-hidden={false}>
+      <div
+        className="relative mb-[calc(env(safe-area-inset-bottom)+8px)] h-[50px] w-[50px] shrink-0"
+        aria-hidden={false}
+        data-stats-lc-bottom-bubble="true"
+      >
         <motion.button
           type="button"
           onClick={handleBubblePress}
           className={clsx(
-            "pointer-events-auto z-[1001] flex h-[54px] w-[54px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
+            "pointer-events-auto z-[1001] flex h-[50px] w-[50px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.22] shadow-[0_10px_30px_-14px_rgba(0,0,0,0.72)] backdrop-blur-xl",
             "absolute inset-0"
           )}
           style={{
@@ -2195,7 +2199,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           )}
           <EngineBreathe
             active={shouldAnimateBubble}
-            className="relative z-10 flex h-[34px] w-[34px] items-center justify-center"
+            className="relative z-10 flex h-[32px] w-[32px] items-center justify-center"
             duration={2.6}
             fromOpacity={1}
             fromScale={shouldAnimateBubble ? 0.97 : 1}
@@ -2282,10 +2286,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
             />
             {!isStandaloneLyrics && (
-            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+140px)] pt-12 pointer-events-none">
+            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-12 pointer-events-none">
             <motion.section
               ref={modalRef}
-              initial={{ opacity: 1, y: '100svh', scale: 0.9 }}
+              initial={{ opacity: 1, y: 540, scale: 0.985 }}
               onPointerDownCapture={(event) => {
                 if (!isModalVisible) return;
                 if (selectedTrackLink) return;
@@ -2382,13 +2386,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               data-animation-done={isAnimationDone}
               animate={{
                 opacity: 1,
-                y: isModalVisible ? '0svh' : '100svh',
-                scale: isModalVisible ? 1 : 0.96,
+                y: isModalVisible ? 0 : 540,
+                scale: isModalVisible ? 1 : 0.985,
               }}
               transition={{
                 ...(isModalVisible
                   ? { type: 'spring' as const, stiffness: 190, damping: 24, mass: 0.92 }
-                  : { duration: 0.46, ease: [0.4, 0, 0.2, 1] as const }),
+                  : { duration: 0.42, ease: [0.32, 0, 0.2, 1] as const }),
               }}
               onAnimationComplete={() => {
                 if (isModalVisible) {
@@ -2987,21 +2991,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <>
                   <motion.div
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: isLyricsOpen ? 1 : 0 }}
+                    animate={{ opacity: isLyricsOpen ? 1 : 0.78 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.22, ease: "easeOut" }}
-                    className="fixed inset-0 z-[1208] bg-black/40 backdrop-blur-[4px] pointer-events-auto"
+                    transition={{ duration: isLyricsOpen ? 0.22 : 0.42, ease: "easeOut" }}
+                    className="fixed inset-0 z-[1208] bg-black/28 backdrop-blur-[3px] pointer-events-auto"
                     onClick={closeLyrics}
                   />
                   <motion.div
                     className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
                     data-animation-done={isLyricsAnimationDone}
-                    initial={{ y: '100%' }}
-                    animate={{ y: isLyricsOpen ? '0%' : '100%' }}
-                    exit={{ y: '100%' }}
+                    initial={{ y: 'calc(100% + 28px)' }}
+                    animate={{ y: isLyricsOpen ? '0%' : 'calc(100% + 28px)' }}
+                    exit={{ y: 'calc(100% + 28px)' }}
                     transition={isLyricsOpen
                       ? { type: 'spring', stiffness: 280, damping: 28, mass: 0.86 }
-                      : { duration: 0.46, ease: [0.4, 0, 0.2, 1] }}
+                      : { duration: 0.44, ease: [0.32, 0, 0.2, 1] }}
                     onAnimationComplete={() => {
                       if (isLyricsOpen) {
                         setIsLyricsAnimationDone(true);
@@ -3278,10 +3282,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     ? (typeof track.artists[0] === 'string' ? track.artists[0] : (track.artists[0] as any)?.name || "Artista")
     : "Artista";
   
-  const [isSyncInfoExpanded, setIsSyncInfoExpanded] = React.useState(() => {
-    const saved = localStorage.getItem('sync_info_expanded');
-    return saved !== null ? saved === 'true' : false;
-  });
+  const [isSyncInfoExpanded, setIsSyncInfoExpanded] = React.useState(false);
 
   const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [viewportWidth, setViewportWidth] = React.useState(() => {
@@ -3349,6 +3350,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
+    setIsSyncInfoExpanded(false);
   }, [location.pathname]);
 
   React.useEffect(() => {
@@ -3381,11 +3383,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   }, [homeReady]);
 
   const toggleSyncInfo = () => {
-    setIsSyncInfoExpanded(prev => {
-      const next = !prev;
-      localStorage.setItem('sync_info_expanded', String(next));
-      return next;
-    });
+    setIsSyncInfoExpanded(prev => !prev);
   };
   
   const shouldShowExpanded = isSyncInfoExpanded;
@@ -3394,10 +3392,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
   const isHomeRoute = location.pathname === '/';
   const shouldGateHome = isHomeRoute && !homeReady;
-  const syncTrayExpandedWidth = Math.max(224, Math.min(viewportWidth - 72, 324));
-  const syncTrayCompactWidth = 70;
-  const syncTrayCompactHeight = 32;
-  const syncTrayExpandedHeight = 56;
+  const syncTrayExpandedWidth = Math.max(204, Math.min(viewportWidth - 104, 286));
+  const syncTrayCompactWidth = 62;
+  const syncTrayCompactHeight = 30;
+  const syncTrayExpandedHeight = 48;
   const syncTrayPrimaryMember = activeMembersSorted[0];
 
   return (
@@ -3432,7 +3430,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
-        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2",
+        "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-1",
         shouldGateHome && "hidden"
       )}>
         {/* Sync Info Footer - aparece apenas quando scrollar */}
@@ -3448,7 +3446,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 damping: 32,
                 mass: 0.78
               }}
-              className="pointer-events-none flex h-[62px] w-full justify-center px-3"
+              className="pointer-events-none flex h-[50px] w-full justify-center px-3"
+              data-stats-lc-sync-tray="true"
+              data-stats-lc-sync-tray-expanded={shouldShowExpanded ? 'true' : 'false'}
             >
               <div
                 className="relative flex items-center justify-center"
@@ -3456,7 +3456,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               >
                 <motion.div
                   aria-hidden="true"
-                  className="absolute left-1/2 top-1/2 rounded-full bg-black/42 shadow-[0_10px_28px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl will-change-transform"
+                  className="absolute left-1/2 top-1/2 rounded-full bg-black/36 shadow-[0_8px_20px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-lg will-change-transform"
                   style={{
                     width: syncTrayExpandedWidth,
                     height: syncTrayExpandedHeight,
@@ -3466,7 +3466,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }}
                   initial={false}
                   animate={{
-                    opacity: shouldShowExpanded ? 0 : 1,
+                    opacity: shouldShowExpanded ? 0.22 : 1,
                     scaleX: shouldShowExpanded ? 1 : syncTrayCompactWidth / syncTrayExpandedWidth,
                     scaleY: shouldShowExpanded ? 1 : syncTrayCompactHeight / syncTrayExpandedHeight,
                   }}
@@ -3491,6 +3491,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     toggleSyncInfo();
                   }}
                   className="pointer-events-auto relative z-10 flex cursor-pointer select-none items-center justify-center overflow-hidden rounded-full text-left outline-none active:scale-[0.99]"
+                  data-stats-lc-sync-tray-button="true"
                   title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
                   aria-label={shouldShowExpanded ? "Minimizar sincronização do grupo" : "Expandir sincronização do grupo"}
                 >
@@ -3498,7 +3499,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     {shouldShowExpanded ? (
                       <motion.div
                         key="expanded-sync-tray"
-                        className="flex h-full w-full min-w-0 items-center justify-center gap-2 overflow-x-auto overflow-y-hidden px-1 no-scrollbar scrolling-touch"
+                        className="flex h-full w-full min-w-0 items-center justify-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 no-scrollbar scrolling-touch"
                         initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -3550,10 +3551,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                 delay: Math.min(idx * 0.025, 0.08),
                                 ease: [0.16, 1, 0.3, 1],
                               }}
-                              className="leo-soft-badge flex min-w-[158px] max-w-[214px] flex-[0_0_auto] items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 active:scale-[0.98]"
+                              className="leo-soft-badge flex min-w-[142px] max-w-[196px] flex-[0_0_auto] items-center gap-2 rounded-full py-1 pl-1 pr-2.5 active:scale-[0.98]"
                             >
                               <div className="relative shrink-0">
-                                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
                                   <AnimatePresence initial={false} mode="popLayout">
                                     <motion.div
                                       key={`${user.id}:${userAvatar}`}
@@ -3582,7 +3583,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                 <AnimatePresence initial={false} mode="wait">
                                   <motion.span
                                     key={`${user.id}:${uSongName}`}
-                                    className="truncate text-[12px] font-black leading-tight text-white"
+                                    className="truncate text-[11px] font-black leading-tight text-white"
                                     initial={{ opacity: 0, y: 5 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -5 }}
@@ -3591,7 +3592,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                     {uSongName}
                                   </motion.span>
                                 </AnimatePresence>
-                                <span className="mt-0.5 truncate text-[9px] font-bold leading-none text-white/42">
+                                <span className="mt-0.5 truncate text-[8px] font-bold leading-none text-white/42">
                                   {uArtistName}
                                 </span>
                               </div>
@@ -3609,7 +3610,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                       >
                         {syncTrayPrimaryMember && (
-                          <div className="h-6 w-6 overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                          <div className="h-[23px] w-[23px] overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
                             <AnimatePresence initial={false} mode="popLayout">
                               <motion.div
                                 key={`${syncTrayPrimaryMember.id}:${coreUtils.getUserAvatar(syncTrayPrimaryMember.id, syncTrayPrimaryMember.avatar)}`}
