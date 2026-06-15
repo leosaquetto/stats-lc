@@ -13,7 +13,7 @@ import { UserSelectorModal } from '../components/home/UserSelectorModal';
 import { UserSelectorExplosion } from '../components/home/UserSelectorExplosion';
 import { TopAlbumsModal, TopArtistsModal, TopSongsModal } from '../components/home/ReplayModals';
 import { coreUtils } from '../services/statsCore';
-import { statsService, type ReplayPeriodQuery } from '../services/statsService';
+import { statsService, type GroupActivityMember, type ReplayPeriodQuery } from '../services/statsService';
 import { statsCacheService } from '../services/statsCacheService';
 import { trackEvent, identifyUser } from '../services/analyticsService';
 import { getSelectableReplayYears } from '../lib/replayYears';
@@ -25,6 +25,7 @@ import { EngineBreathe, EngineDrift, EnginePulse, EngineShimmer, EngineSpin, Eng
 import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
+import { getMainArtistName } from '../lib/artistUtils';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
 import { setRuntimeCacheEntry } from '../lib/memoryRuntime';
@@ -60,6 +61,10 @@ const HOME_CACHE_TTL = 15 * 60 * 1000;
 const HOME_CRITICAL_WARMUP_TIMEOUT_MS = 1800;
 const HOME_RECENT_CACHE_VERSION = 'v2-album-resolved';
 const getHomeRecentCacheKey = (userId: string) => `stats-lc-home-recent:${HOME_RECENT_CACHE_VERSION}:${userId}`;
+let homeGroupActivityRuntimeCache: { members: GroupActivityMember[]; settled: boolean } = {
+  members: [],
+  settled: false,
+};
 
 const readHomeSessionCache = <T,>(key: string): T | null => {
   if (typeof window === 'undefined') return null;
@@ -1861,6 +1866,8 @@ export default function HomeScreen() {
   const isOffline = useStatsStore(state => state.isOffline);
   const error = useStatsStore(state => state.error);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
+  const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
+  const userTrackStats = useStatsStore(state => state.userTrackStats);
   const getHistoryCache = useStatsStore(state => state.getHistoryCache);
   const setHistoryCache = useStatsStore(state => state.setHistoryCache);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
@@ -1883,6 +1890,16 @@ export default function HomeScreen() {
   const [headerHighlight, setHeaderHighlight] = useState(false);
   const [isAppReady, setIsAppReady] = useState(() => hasBootReadySession());
   const [isVisualWarmupReady, setIsVisualWarmupReady] = useState(false);
+  const [friendActivityMembers, setFriendActivityMembers] = useState<GroupActivityMember[]>(
+    () => homeGroupActivityRuntimeCache.members
+  );
+  const [friendActivityPrepState, setFriendActivityPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    () => homeGroupActivityRuntimeCache.settled ? 'ready' : 'idle'
+  );
+  const [headerRankingPrepState, setHeaderRankingPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [headerRankingSettledKey, setHeaderRankingSettledKey] = useState('');
+  const [headerLyricsPrepState, setHeaderLyricsPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [preparedHeaderLyrics, setPreparedHeaderLyrics] = useState<{ key: string; hasLyrics: boolean } | null>(null);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
@@ -1907,8 +1924,16 @@ export default function HomeScreen() {
   const toastDismissTasksRef = useRef(new Map<string, () => void>());
   const wasHomeReadyAtMountRef = useRef(hasBootReadySession());
   const hasReleasedHomeRef = useRef(wasHomeReadyAtMountRef.current);
+  const friendActivityBootStartedRef = useRef(friendActivityPrepState === 'ready');
+  const headerRankingBootKeyRef = useRef('');
+  const headerLyricsBootKeyRef = useRef('');
   const shouldReduceHomeEntryMotion = useReducedMotion();
   const shouldSkipHomeEntryMotion = shouldReduceHomeEntryMotion === true;
+  const handleFriendActivityPrepared = useCallback((nextMembers: GroupActivityMember[]) => {
+    homeGroupActivityRuntimeCache = { members: nextMembers, settled: true };
+    setFriendActivityMembers(nextMembers);
+    setFriendActivityPrepState('ready');
+  }, []);
 
   useEffect(() => () => {
     cancelHeaderHighlightRef.current?.();
@@ -1966,6 +1991,10 @@ export default function HomeScreen() {
     : primaryUser?.streamsToday ?? 0;
 
   const primaryTrack = primaryUser?.nowPlaying?.track as any;
+  const primaryTrackArtist = primaryTrack ? getMainArtistName(primaryTrack) : '';
+  const primaryLyricsKey = primaryTrack?.name && primaryTrackArtist
+    ? `${primaryTrack?.id || primaryTrack.name}::${primaryTrackArtist}`
+    : '';
   const primaryAlbumImage = (
     primaryTrack?.albumImage ||
     primaryTrack?.album?.image ||
@@ -2000,6 +2029,143 @@ export default function HomeScreen() {
     () => members.map((member) => member.id).filter(Boolean).join('|'),
     [members]
   );
+  const hasHydratedHeaderRanking = useMemo(() => {
+    if (!primaryTrack?.id || allMembers.length === 0) return false;
+    return allMembers.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${primaryTrack.id}`));
+  }, [allMembers, primaryTrack?.id, userTrackStats]);
+
+  useEffect(() => {
+    const trackId = primaryTrack?.id;
+    if (!trackId || allMembers.length === 0) {
+      setHeaderRankingPrepState('ready');
+      return;
+    }
+    if (hasHydratedHeaderRanking) {
+      setHeaderRankingSettledKey(trackId);
+      setHeaderRankingPrepState('ready');
+      return;
+    }
+    if (hasReleasedHomeRef.current || headerRankingBootKeyRef.current === trackId) return;
+
+    headerRankingBootKeyRef.current = trackId;
+    setHeaderRankingPrepState('loading');
+    let active = true;
+    let settled = false;
+    const finish = (state: 'ready' | 'error') => {
+      if (!active || settled) return;
+      settled = true;
+      setHeaderRankingSettledKey(trackId);
+      setHeaderRankingPrepState(state);
+    };
+    const cancelDeadline = motionRuntimeScheduler.scheduleTask(
+      () => finish('error'),
+      4500,
+      'interaction',
+      'home-header-ranking-boot-deadline',
+    );
+    fetchTrackStatsForAll(trackId)
+      .then(() => {
+        cancelDeadline();
+        finish('ready');
+      })
+      .catch(() => {
+        cancelDeadline();
+        finish('error');
+      });
+
+    return () => {
+      active = false;
+      cancelDeadline();
+    };
+  }, [allMembers.length, fetchTrackStatsForAll, hasHydratedHeaderRanking, primaryTrack?.id]);
+
+  useEffect(() => {
+    if (!primaryLyricsKey) {
+      setHeaderLyricsPrepState('ready');
+      return;
+    }
+    if (preparedHeaderLyrics?.key === primaryLyricsKey) {
+      setHeaderLyricsPrepState('ready');
+      return;
+    }
+    if (hasReleasedHomeRef.current || headerLyricsBootKeyRef.current === primaryLyricsKey) return;
+
+    headerLyricsBootKeyRef.current = primaryLyricsKey;
+    setHeaderLyricsPrepState('loading');
+    let active = true;
+    let settled = false;
+    const finish = (hasLyrics: boolean, state: 'ready' | 'error') => {
+      if (!active || settled) return;
+      settled = true;
+      setPreparedHeaderLyrics({ key: primaryLyricsKey, hasLyrics });
+      setHeaderLyricsPrepState(state);
+    };
+    const cancelDeadline = motionRuntimeScheduler.scheduleTask(
+      () => finish(false, 'error'),
+      3500,
+      'interaction',
+      'home-header-lyrics-boot-deadline',
+    );
+    statsService.fetchLyricsMatch(primaryTrack.name, primaryTrackArtist)
+      .then((match) => {
+        cancelDeadline();
+        finish(match.hasLyrics === true, 'ready');
+      })
+      .catch(() => {
+        cancelDeadline();
+        finish(false, 'error');
+      });
+
+    return () => {
+      active = false;
+      cancelDeadline();
+    };
+  }, [preparedHeaderLyrics?.key, primaryLyricsKey, primaryTrack?.name, primaryTrackArtist]);
+
+  useEffect(() => {
+    if (!membersSignature || hasReleasedHomeRef.current || friendActivityBootStartedRef.current) return;
+    friendActivityBootStartedRef.current = true;
+    setFriendActivityPrepState('loading');
+
+    const controller = new AbortController();
+    let active = true;
+    let settled = false;
+    const finishWithError = () => {
+      if (!active || settled) return;
+      settled = true;
+      controller.abort();
+      setFriendActivityPrepState('error');
+    };
+    const cancelDeadline = motionRuntimeScheduler.scheduleTask(
+      finishWithError,
+      4500,
+      'interaction',
+      'home-circle-activity-boot-deadline',
+    );
+    statsService.getGroupActivity(controller.signal)
+      .then((response) => {
+        if (!active || settled) return;
+        settled = true;
+        cancelDeadline();
+        const nextMembers = Array.isArray(response.members) ? response.members : [];
+        handleFriendActivityPrepared(nextMembers);
+      })
+      .catch((activityError) => {
+        if (!active || settled || controller.signal.aborted) return;
+        settled = true;
+        cancelDeadline();
+        setFriendActivityPrepState('error');
+        if ((import.meta as any).env?.DEV) {
+          console.warn('[HomeScreen] Circle activity boot preparation unavailable:', activityError);
+        }
+      });
+
+    return () => {
+      active = false;
+      cancelDeadline();
+      controller.abort();
+    };
+  }, [handleFriendActivityPrepared, membersSignature]);
   const bootRecentPlays = useMemo(() => {
     if (!primaryUser?.id) return [];
     const directRecent = normalizeHomeRecentItems(primaryUser?.recent || (primaryUser as any)?.history || []);
@@ -2031,10 +2197,14 @@ export default function HomeScreen() {
         const track = member?.nowPlaying?.track as any;
         return track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || track?.image || '';
       }),
+      ...friendActivityMembers.slice(0, 3).map((member) => {
+        const track = member?.activity?.track as any;
+        return track?.albumImage || track?.album?.image || track?.album?.images?.[0]?.url || track?.album?.images?.[0] || track?.image || '';
+      }),
       ...criticalRecentPlays.slice(0, 3).map(getRecentArtworkUrl),
     ];
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim().length > 5)));
-  }, [criticalRecentPlays, members, primaryAlbumImage, primaryUser?.avatar, primaryUser?.id]);
+  }, [criticalRecentPlays, friendActivityMembers, members, primaryAlbumImage, primaryUser?.avatar, primaryUser?.id]);
 
   useEffect(() => {
     if (!primaryUser) {
@@ -2211,6 +2381,14 @@ export default function HomeScreen() {
     const hasCoreData = !!groupStats && !!primaryUser;
     const hasRecentBaseline = !primaryUser || recentPrepState === 'ready' || recentPrepState === 'error';
     const hasReplayBaseline = !primaryUser || replayState === 'ready' || replayState === 'error';
+    const hasFriendActivityBaseline = !primaryUser || friendActivityPrepState === 'ready' || friendActivityPrepState === 'error';
+    const hasHeaderRankingBaseline =
+      !primaryTrack?.id ||
+      hasHydratedHeaderRanking ||
+      headerRankingSettledKey === primaryTrack.id;
+    const hasHeaderLyricsBaseline =
+      !primaryLyricsKey ||
+      preparedHeaderLyrics?.key === primaryLyricsKey;
 
     if (hasReleasedHomeRef.current) {
       if (window.__STATS_LC_HOME_READY__ !== true) {
@@ -2222,7 +2400,14 @@ export default function HomeScreen() {
       return;
     }
 
-    const ready = hasCoreData && isVisualWarmupReady && hasRecentBaseline && hasReplayBaseline;
+    const ready =
+      hasCoreData &&
+      isVisualWarmupReady &&
+      hasRecentBaseline &&
+      hasReplayBaseline &&
+      hasFriendActivityBaseline &&
+      hasHeaderRankingBaseline &&
+      hasHeaderLyricsBaseline;
 
     if (!ready) {
       const hasBootReady = hasBootReadySession();
@@ -2236,14 +2421,28 @@ export default function HomeScreen() {
 
     let cancelled = false;
     let released = false;
-    const releaseHome = () => {
+    let cancelHomeReveal = () => {};
+    const revealHome = () => {
       if (cancelled || released) return;
       released = true;
       hasReleasedHomeRef.current = true;
       window.__STATS_LC_HOME_READY__ = true;
       window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
       setIsAppReady(true);
+    };
+    const releaseHome = () => {
+      if (cancelled || released) return;
       window.__STATS_LC_DISMISS_SPLASH__?.();
+      if (document.visibilityState === 'hidden') {
+        revealHome();
+        return;
+      }
+      cancelHomeReveal = motionRuntimeScheduler.scheduleTask(
+        revealHome,
+        220,
+        'interaction',
+        'home-first-viewport-reveal',
+      );
     };
     if (document.visibilityState === 'hidden') {
       releaseHome();
@@ -2267,8 +2466,24 @@ export default function HomeScreen() {
       cancelled = true;
       cancelReleaseDelay();
       cancelHiddenTabFallback();
+      cancelHomeReveal();
     };
-  }, [groupStats, isAppReady, isVisualWarmupReady, primaryUser, recentPrepState, replayState]);
+  }, [
+    friendActivityPrepState,
+    groupStats,
+    hasHydratedHeaderRanking,
+    headerLyricsPrepState,
+    headerRankingPrepState,
+    headerRankingSettledKey,
+    isAppReady,
+    isVisualWarmupReady,
+    primaryLyricsKey,
+    primaryTrack?.id,
+    primaryUser,
+    preparedHeaderLyrics?.key,
+    recentPrepState,
+    replayState,
+  ]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -2633,10 +2848,11 @@ export default function HomeScreen() {
             }}
           />
 
-          <AnimatePresence>
-            <React.Suspense key="home-detail-modals" fallback={<LazyModalFallback />}>
+          <React.Suspense key="home-detail-modals" fallback={<LazyModalFallback />}>
+            <AnimatePresence>
               {viewingFullHistoryUser && (
-                <UserHistoryModal 
+                <UserHistoryModal
+                  key={`home-user-history-${viewingFullHistoryUser.id}`}
                   user={viewingFullHistoryUser} 
                   onClose={() => setViewingFullHistoryUser(null)}
                   onTrackClick={(track, playback) => {
@@ -2654,7 +2870,8 @@ export default function HomeScreen() {
                 />
               )}
               {selectedTrack && (
-                <TrackLeaderboardModal 
+                <TrackLeaderboardModal
+                  key={`home-track-${selectedTrack.id || selectedTrack.name}`}
                   track={selectedTrack} 
                   onClose={() => setSelectedTrack(null)}
                   onArtistClick={(artist) => setSelectedArtist({ ...artist, type: 'artist' })}
@@ -2662,6 +2879,7 @@ export default function HomeScreen() {
               )}
               {selectedAlbum && (
                  <UserAlbumStatsModal
+                   key={`home-album-${selectedAlbum.id || selectedAlbum.name}`}
                    user={primaryUser}
                    entity={selectedAlbum}
                    onClose={() => setSelectedAlbum(null)}
@@ -2670,6 +2888,7 @@ export default function HomeScreen() {
               )}
               {selectedArtist && (
                  <UserArtistStatsModal
+                   key={`home-artist-${selectedArtist.id || selectedArtist.name}`}
                    user={primaryUser}
                    entity={selectedArtist}
                    onClose={() => setSelectedArtist(null)}
@@ -2677,12 +2896,15 @@ export default function HomeScreen() {
                  />
               )}
               {viewingAlbumHistoryUser && (
-                <UserAlbumHistoryModal 
+                <UserAlbumHistoryModal
+                  key={`home-album-history-${viewingAlbumHistoryUser.id}`}
                   user={viewingAlbumHistoryUser}
                   onClose={() => setViewingAlbumHistoryUser(null)}
                 />
               )}
-            </React.Suspense>
+            </AnimatePresence>
+          </React.Suspense>
+          <AnimatePresence>
             <TopArtistsModal
               key="home-top-artists-modal"
               isOpen={openReplayModal === 'artists'}
@@ -2965,6 +3187,7 @@ export default function HomeScreen() {
                   user={primaryUser}
                   streamsToday={displayedHeaderStreamsToday}
                   recentPlays={resolvedRecentPlays}
+                  preparedLyrics={preparedHeaderLyrics}
                   onTrackClick={handleOpenMusicDetail}
                   isHighlighted={headerHighlight}
                 />
@@ -2978,6 +3201,10 @@ export default function HomeScreen() {
               >
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
+                  initialHistoricalMembers={friendActivityMembers}
+                  initialHistorySettled={friendActivityPrepState === 'ready'}
+                  suppressHistoricalFetch={friendActivityPrepState === 'loading' || friendActivityPrepState === 'ready'}
+                  onHistoricalMembersLoaded={handleFriendActivityPrepared}
                   onTrackClick={handleOpenMusicDetail}
                   onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
                   onViewAll={() => navigate('/circle')}

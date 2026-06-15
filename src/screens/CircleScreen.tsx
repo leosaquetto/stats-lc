@@ -309,12 +309,19 @@ function CirclePulseInsights({ members, featuredUserId }: { members: any[]; feat
 }
 
 const CircleTabLoader = ({ label }: { label: string }) => (
-  <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
-    <EngineSpinner className="h-6 w-6 text-orange-400/80">
-      <Loader2 className="h-full w-full" />
-    </EngineSpinner>
-    <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
-  </div>
+  <motion.div
+    initial={{ opacity: 0, y: 10, scale: 0.985 }}
+    animate={{ opacity: 1, y: 0, scale: 1 }}
+    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+    className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-4 rounded-[28px] border border-orange-500/12 bg-orange-500/[0.045] px-6 text-center"
+  >
+    <div className="ranking-badge relative flex h-12 min-w-12 items-center justify-center rounded-[20px] border border-orange-500/35 bg-orange-500/[0.16] px-3 shadow-[0_0_28px_rgba(249,115,22,0.22),inset_0_1px_0_rgba(255,255,255,0.1)]">
+      <EngineSpinner className="h-5 w-5 text-orange-300">
+        <Loader2 className="h-full w-full" />
+      </EngineSpinner>
+    </div>
+    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-200/70">{label}</p>
+  </motion.div>
 );
 
 const CircleModalLoader = () => <LazyModalFallback label="Abrindo detalhes" />;
@@ -748,20 +755,24 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
   return (
     <>
       <Suspense fallback={<CircleModalLoader />}>
-        {viewingFullHistoryUser && (
-          <UserHistoryModal
-            user={viewingFullHistoryUser}
-            onClose={() => setViewingFullHistoryUser(null)}
-            onTrackClick={(track) => setSelectedTrackHistory(track)}
-            groupStats={groupStats}
-          />
-        )}
-        {selectedTrackHistory && (
-          <TrackHistoryModal
-            track={selectedTrackHistory}
-            onClose={() => setSelectedTrackHistory(null)}
-          />
-        )}
+        <AnimatePresence>
+          {viewingFullHistoryUser && (
+            <UserHistoryModal
+              key={`circle-user-history-${viewingFullHistoryUser.id}`}
+              user={viewingFullHistoryUser}
+              onClose={() => setViewingFullHistoryUser(null)}
+              onTrackClick={(track) => setSelectedTrackHistory(track)}
+              groupStats={groupStats}
+            />
+          )}
+          {selectedTrackHistory && (
+            <TrackHistoryModal
+              key={`circle-track-history-${selectedTrackHistory.id || selectedTrackHistory.name}`}
+              track={selectedTrackHistory}
+              onClose={() => setSelectedTrackHistory(null)}
+            />
+          )}
+        </AnimatePresence>
       </Suspense>
 
       <CircleCockpitHero
@@ -961,12 +972,17 @@ function CircleAffinityTab() {
 
       <section className="mx-4 flex flex-col gap-2">
         {status === 'loading' && featuredMatches.length === 0 ? (
-          <div className="flex min-h-14 items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 backdrop-blur-xl">
-            <EngineSpinner className="h-5 w-5 text-orange-400/80">
+          <motion.div
+            initial={shouldAnimateCircle ? { opacity: 0, y: 8, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: shouldAnimateCircle ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+            className="flex min-h-14 items-center justify-center gap-2 rounded-[24px] border border-orange-500/12 bg-orange-500/[0.055] px-4"
+          >
+            <EngineSpinner className="h-5 w-5 text-orange-300">
               <Loader2 className="h-full w-full" />
             </EngineSpinner>
-            <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/36">Atualizando pulso</span>
-          </div>
+            <span className="text-[8px] font-black uppercase tracking-[0.16em] text-orange-200/70">Atualizando pulso</span>
+          </motion.div>
         ) : featuredMatches.length > 0 ? (
           <AnimatePresence initial={false}>
             {featuredMatches.map((item, index) => (

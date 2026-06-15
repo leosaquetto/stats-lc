@@ -16,24 +16,42 @@ interface FriendActivityReelProps {
   onFriendClick: (friend: any) => void;
   onViewAll?: () => void;
   excludeUserId?: string;
+  initialHistoricalMembers?: GroupActivityMember[];
+  initialHistorySettled?: boolean;
+  suppressHistoricalFetch?: boolean;
+  onHistoricalMembersLoaded?: (members: GroupActivityMember[]) => void;
 }
 
 export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({ 
   onTrackClick, 
   onFriendClick,
   onViewAll,
-  excludeUserId
+  excludeUserId,
+  initialHistoricalMembers = [],
+  initialHistorySettled = false,
+  suppressHistoricalFetch = false,
+  onHistoricalMembersLoaded,
 }) => {
   const reelRef = useRef<HTMLDivElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const motionRuntime = useMotionRuntime();
   const isReelVisible = useInView(reelRef, { amount: 0.12, margin: '160px 0px' });
-  const shouldAnimate = isReelVisible && !shouldReduceMotion && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const shouldAnimateEntry = !shouldReduceMotion;
+  const shouldAnimateAmbient = isReelVisible && shouldAnimateEntry && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
-  const [historicalMembers, setHistoricalMembers] = useState<GroupActivityMember[]>([]);
-  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+  const [historicalMembers, setHistoricalMembers] = useState<GroupActivityMember[]>(initialHistoricalMembers);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(initialHistorySettled);
+
+  useEffect(() => {
+    if (initialHistorySettled || initialHistoricalMembers.length > 0) {
+      setHistoricalMembers(initialHistoricalMembers);
+    }
+    if (initialHistorySettled) {
+      setHasLoadedHistory(true);
+    }
+  }, [initialHistoricalMembers, initialHistorySettled]);
   
   const members = useMemo(
     () => getVisibleMembersWithLive(groupStats, hiddenUsers, liveNowPlayingByUserId).filter(m =>
@@ -43,7 +61,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
   );
 
   useEffect(() => {
-    if (!isReelVisible || members.length === 0) return;
+    if (!isReelVisible || members.length === 0 || initialHistorySettled || suppressHistoricalFetch) return;
 
     const controller = new AbortController();
     let active = true;
@@ -51,8 +69,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
     statsService.getGroupActivity(controller.signal)
       .then((response) => {
         if (!active) return;
-        setHistoricalMembers(response.members);
+        const nextMembers = Array.isArray(response.members) ? response.members : [];
+        setHistoricalMembers(nextMembers);
         setHasLoadedHistory(true);
+        onHistoricalMembersLoaded?.(nextMembers);
       })
       .catch((error: any) => {
         if (!active || controller.signal.aborted) return;
@@ -66,7 +86,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
       active = false;
       controller.abort();
     };
-  }, [isReelVisible, members.length]);
+  }, [initialHistorySettled, isReelVisible, members.length, onHistoricalMembersLoaded, suppressHistoricalFetch]);
 
   const historicalByUserId = useMemo(
     () => new Map(
@@ -146,7 +166,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
         data-home-horizontal-scroll="true"
         className="flex h-[184px] gap-2.5 overflow-x-auto no-scrollbar -mx-4 px-4 pb-2 scrolling-touch [contain:layout_paint]"
       >
-        <AnimatePresence initial={false} mode="popLayout">
+        <AnimatePresence mode="popLayout">
           {topFriends.map((friend, idx) => {
             if (!friend) return null;
             const isPlaying = friend.nowPlaying?.isNow;
@@ -169,14 +189,14 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                 layoutDependency={activityKey}
                 data-circle-activity-card={friend.id}
                 data-circle-activity-key={activityKey}
-                initial={shouldAnimate ? { opacity: 0, scale: 0.94, x: -18, rotate: -1.5 } : { opacity: 1, scale: 1, x: 0, rotate: 0 }}
+                initial={shouldAnimateEntry ? { opacity: 0, scale: 0.94, x: -18, rotate: -1.5 } : { opacity: 1, scale: 1, x: 0, rotate: 0 }}
                 animate={{ opacity: 1, scale: 1, x: 0, rotate: 0 }}
-                exit={shouldAnimate ? { opacity: 0, scale: 0.96, x: 24, rotate: 1.2 } : { opacity: 1, scale: 1, x: 0, rotate: 0 }}
+                exit={shouldAnimateEntry ? { opacity: 0, scale: 0.96, x: 24, rotate: 1.2 } : { opacity: 1, scale: 1, x: 0, rotate: 0 }}
                 transition={{
-                  layout: { duration: shouldAnimate ? 0.34 : 0.01, ease: [0.16, 1, 0.3, 1] },
-                  duration: shouldAnimate ? 0.24 : 0.01,
+                  layout: { duration: shouldAnimateEntry ? 0.34 : 0.01, ease: [0.16, 1, 0.3, 1] },
+                  duration: shouldAnimateEntry ? (motionRuntime.tier === 'conserve' ? 0.4 : 0.55) : 0.01,
                   ease: [0.16, 1, 0.3, 1],
-                  delay: shouldAnimate ? idx * 0.025 : 0,
+                  delay: shouldAnimateEntry ? 0.34 + idx * 0.12 : 0,
                 }}
                 className="flex-shrink-0 w-[144px] group cursor-pointer transform-gpu"
                 style={{ contentVisibility: idx > 2 ? 'auto' : 'visible', containIntrinsicSize: '144px 180px' }}
@@ -197,10 +217,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                           <motion.div
                             key={`artwork-${activityKey}`}
                             className="absolute inset-0 transform-gpu"
-                            initial={shouldAnimate ? { opacity: 0, x: -18, rotate: -3.5, scale: 1.035 } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
+                            initial={shouldAnimateEntry ? { opacity: 0, x: -18, rotate: -3.5, scale: 1.035 } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
                             animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
-                            exit={shouldAnimate ? { opacity: 0, x: 18, rotate: 2.5, scale: 0.985 } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
-                            transition={{ duration: shouldAnimate ? 0.28 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+                            exit={shouldAnimateEntry ? { opacity: 0, x: 18, rotate: 2.5, scale: 0.985 } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
+                            transition={{ duration: shouldAnimateEntry ? 0.34 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                           >
                             <SmartImage
                               src={trackImage}
@@ -225,7 +245,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                           </div>
                           {isPlaying && (
                             <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 flex items-center justify-center border border-white/10">
-                              <EngineEqualizer active={shouldAnimate} barWidth="1.2px" className="h-1.5 gap-[1px]" barClassName="bg-orange-500" />
+                              <EngineEqualizer active={shouldAnimateAmbient} barWidth="1.2px" className="h-1.5 gap-[1px]" barClassName="bg-orange-500" />
                             </div>
                           )}
                         </div>
@@ -243,10 +263,10 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                           <motion.div
                             key={`track-copy-${activityKey}`}
                             className="flex flex-col gap-1"
-                            initial={shouldAnimate ? { opacity: 0, x: -10, y: 8 } : { opacity: 1, x: 0, y: 0 }}
+                            initial={shouldAnimateEntry ? { opacity: 0, x: -10, y: 8 } : { opacity: 1, x: 0, y: 0 }}
                             animate={{ opacity: 1, x: 0, y: 0 }}
-                            exit={shouldAnimate ? { opacity: 0, x: 10, y: -6 } : { opacity: 1, x: 0, y: 0 }}
-                            transition={{ duration: shouldAnimate ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+                            exit={shouldAnimateEntry ? { opacity: 0, x: 10, y: -6 } : { opacity: 1, x: 0, y: 0 }}
+                            transition={{ duration: shouldAnimateEntry ? 0.28 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                           >
                             <div
                               className="flex flex-col min-w-0"
@@ -270,7 +290,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                               {isPlaying && (
                                 <div className="px-1.5 py-0.5 rounded-full border border-orange-500/20 bg-orange-500/[0.055] flex items-center gap-1 shadow-[0_0_8px_rgba(249,115,22,0.05)]">
                                   <div className="relative flex h-1 w-1">
-                                    <EnginePulse active={shouldAnimate} className="absolute inline-flex h-full w-full rounded-full bg-orange-400" />
+                                    <EnginePulse active={shouldAnimateAmbient} className="absolute inline-flex h-full w-full rounded-full bg-orange-400" />
                                     <span className="relative inline-flex rounded-full h-1 w-1 bg-orange-500" />
                                   </div>
                                   <span className="text-[6px] font-black text-white uppercase tracking-widest">Live</span>
@@ -296,7 +316,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
           onClick={() => onViewAll?.()}
         >
           <div className="h-10 w-10 rounded-full border border-white/10 bg-white/[0.03] flex items-center justify-center transition-[background-color,border-color,transform] group-hover:bg-white/10 group-hover:border-orange-500/50">
-            <EngineDrift active={shouldAnimate} duration={2} rotateA={0} rotateB={0} xA={3} xB={0} yA={0} yB={0}>
+            <EngineDrift active={shouldAnimateAmbient} duration={2} rotateA={0} rotateB={0} xA={3} xB={0} yA={0} yB={0}>
               <Play className="h-3.5 w-3.5 text-white/40 group-hover:text-orange-500 fill-transparent group-hover:fill-orange-500/20" />
             </EngineDrift>
           </div>

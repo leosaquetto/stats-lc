@@ -1033,7 +1033,7 @@ const ArenaRankingBubble = ({
   );
 };
 
-export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, recentPlays?: any[], onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
+export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedLyrics, onTrackClick, onAvatarClick, isHighlighted }: { user: UserStats, streamsToday: number, recentPlays?: any[], preparedLyrics?: { key: string; hasLyrics: boolean } | null, onTrackClick?: (track: any) => void, onAvatarClick?: (e: React.MouseEvent<HTMLElement>) => void, isHighlighted?: boolean }) => {
   if (!user) return null;
   const shouldReduceMotion = useReducedMotion();
   const {
@@ -1110,7 +1110,11 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
   }, [track]);
   const mainArtist = useMemo(() => track ? getMainArtist(track) : null, [track]);
   const mainArtistName = useMemo(() => track ? getMainArtistName(track) : '', [track]);
-  const [hasLyricsBadge, setHasLyricsBadge] = useState(false);
+  const lyricsKey = track?.name && mainArtistName
+    ? `${track?.id || track.name}::${mainArtistName}`
+    : '';
+  const hasPreparedLyrics = !!lyricsKey && preparedLyrics?.key === lyricsKey;
+  const [hasLyricsBadge, setHasLyricsBadge] = useState(() => hasPreparedLyrics && preparedLyrics?.hasLyrics === true);
   const secondaryArtists = useMemo(() => track ? getSecondaryArtists(track) : [], [track]);
   const displayArtists = useMemo(() => {
     const artists = [];
@@ -1144,6 +1148,10 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
   }, [track, mainArtistName]);
 
   useEffect(() => {
+    if (hasPreparedLyrics) {
+      setHasLyricsBadge(preparedLyrics?.hasLyrics === true);
+      return;
+    }
     if (!track?.name || !mainArtistName) {
       setHasLyricsBadge(false);
       return;
@@ -1161,7 +1169,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
     return () => {
       cancelled = true;
     };
-  }, [track?.name, mainArtistName]);
+  }, [hasPreparedLyrics, mainArtistName, preparedLyrics?.hasLyrics, track?.name]);
 
   const fetchLiveProbe = useStatsStore(state => state.fetchLiveProbe);
 
@@ -1922,8 +1930,54 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                         visualIsLive && (showRankingSummary ? "mt-2" : "mt-2.5")
                       )}>
                         <div className="flex min-w-0 w-full flex-wrap items-center gap-3">
+                          {hasLyricsBadge && (
+                            <motion.button
+                              key={`lyrics-action-${track.id || track.name || 'track'}`}
+                              type="button"
+                              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{
+                                duration: 0.55,
+                                delay: 0.38,
+                                ease: [0.16, 1, 0.3, 1],
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+                                  detail: { panel: 'lyrics' }
+                                }));
+                              }}
+                              whileTap={{ scale: 0.94 }}
+                              className={cn(
+                                "leo-soft-badge pointer-events-auto relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                                visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
+                              )}
+                              aria-label="Abrir letra"
+                            >
+                              <BookOpen
+                                className={cn(
+                                  "transition-colors duration-500",
+                                  visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
+                                  visualIsLive ? "text-orange-400" : "text-white/40"
+                                )}
+                                strokeWidth={2.4}
+                              />
+                              <span className={cn(
+                                "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+                                visualIsLive ? "text-[7.5px]" : "text-[7px]",
+                                visualIsLive ? "text-white/60" : "text-white/40"
+                              )}>
+                                Letra
+                              </span>
+                            </motion.button>
+                          )}
                           {showExclusiveFirstListen ? (
-                            <div className={cn(
+                            <motion.div
+                              key={`first-listen-${track.id || track.name || 'track'}`}
+                              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
+                              className={cn(
                               "leo-soft-badge flex cursor-pointer items-center rounded-full",
                               visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
                             )}>
@@ -1937,13 +1991,13 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               )}>
                                 FIRST LISTEN
                               </span>
-                            </div>
+                            </motion.div>
                           ) : showRankingSummary ? (
                             <motion.div
                               key={`arena-summary-${track.id || track.name || 'track'}`}
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                              transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               onClick={handleArenaSummaryClick}
                               whileTap={{ scale: 0.98 }}
                               className="pointer-events-auto relative flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
@@ -2050,7 +2104,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               key={`repeats-summary-${track.id || track.name || 'track'}`}
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ duration: 0.34, delay: 0.07, ease: [0.16, 1, 0.3, 1] }}
+                              transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
                               whileTap={{ scale: 0.96 }}
                               className="pointer-events-auto flex items-center gap-2 cursor-pointer shrink-0"
@@ -2081,47 +2135,6 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               </div>
                             </motion.div>
                           ) : null}
-                          {hasLyricsBadge && (
-                            <motion.button
-                              key={`lyrics-action-${track.id || track.name || 'track'}-${showRankingSummary ? 'rank' : showRepeatsSummary ? 'repeats' : 'solo'}`}
-                              type="button"
-                              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{
-                                duration: 0.34,
-                                delay: showRankingSummary || showRepeatsSummary ? 0.16 : 0.09,
-                                ease: [0.16, 1, 0.3, 1],
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
-                                  detail: { panel: 'lyrics' }
-                                }));
-                              }}
-                              whileTap={{ scale: 0.94 }}
-                              className={cn(
-                                "leo-soft-badge pointer-events-auto relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
-                                visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
-                              )}
-                              aria-label="Abrir letra"
-                            >
-                              <BookOpen
-                                className={cn(
-                                  "transition-colors duration-500",
-                                  visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
-                                  visualIsLive ? "text-orange-400" : "text-white/40"
-                                )}
-                                strokeWidth={2.4}
-                              />
-                              <span className={cn(
-                                "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
-                                visualIsLive ? "text-[7.5px]" : "text-[7px]",
-                                visualIsLive ? "text-white/60" : "text-white/40"
-                              )}>
-                                Letra
-                              </span>
-                            </motion.button>
-                          )}
                         </div>
                       </div>
                     </div>

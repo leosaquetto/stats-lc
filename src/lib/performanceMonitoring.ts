@@ -1,3 +1,5 @@
+import { motionRuntime } from './motionRuntime';
+
 type PerformanceSample = {
   name: string;
   duration: number;
@@ -20,7 +22,10 @@ const snapshot = {
 
 const syncSnapshot = () => {
   if (typeof document === 'undefined') return;
+  const lastRouteSettle = snapshot.routeSettles.at(-1);
   document.documentElement.dataset.statsLcHomeReadyMs = String(snapshot.homeReadyMs ?? '');
+  document.documentElement.dataset.statsLcLastRouteSettle = lastRouteSettle?.name || '';
+  document.documentElement.dataset.statsLcLastRouteSettleMs = String(lastRouteSettle?.duration ?? '');
   document.documentElement.dataset.statsLcLongTasks = String(snapshot.bootLongTasks + snapshot.postReadyLongTasks);
   document.documentElement.dataset.statsLcLongAnimationFrames = String(
     snapshot.bootLongAnimationFrames + snapshot.postReadyLongAnimationFrames
@@ -92,24 +97,38 @@ export const initPerformanceMonitoring = () => {
     syncSnapshot();
   }) as EventListener);
 
-  window.addEventListener('hashchange', () => {
-    const routeStartedAt = performance.now();
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const sample = {
-          name: window.location.hash || '#/',
-          duration: Math.round((performance.now() - routeStartedAt) * 10) / 10,
-          startedAt: Math.round(routeStartedAt * 10) / 10,
-        };
-        snapshot.routeSettles.push(sample);
-        if (snapshot.routeSettles.length > MAX_SAMPLES) {
-          snapshot.routeSettles.splice(0, snapshot.routeSettles.length - MAX_SAMPLES);
-        }
-        syncSnapshot();
-      });
-    });
-  });
-
   observeEntries('longtask', snapshot.longTasks);
   observeEntries('long-animation-frame', snapshot.longAnimationFrames);
+};
+
+export const markRouteSettle = (name: string) => {
+  if (typeof window === 'undefined') return;
+  const routeStartedAt = performance.now();
+  let settled = false;
+  let cancelFallback = () => {};
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    cancelFallback();
+    const sample = {
+      name,
+      duration: Math.round((performance.now() - routeStartedAt) * 10) / 10,
+      startedAt: Math.round(routeStartedAt * 10) / 10,
+    };
+    snapshot.routeSettles.push(sample);
+    if (snapshot.routeSettles.length > MAX_SAMPLES) {
+      snapshot.routeSettles.splice(0, snapshot.routeSettles.length - MAX_SAMPLES);
+    }
+    syncSnapshot();
+  };
+
+  cancelFallback = motionRuntime.scheduleTask(
+    finish,
+    180,
+    'interaction',
+    'route-settle-fallback',
+  );
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(finish);
+  });
 };

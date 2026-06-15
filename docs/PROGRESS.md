@@ -8,9 +8,8 @@
 
 ## Subtarefas pendentes
 
-- [ ] Eliminar entradas abruptas restantes registradas em `docs/abrupt-entry-audit.md`.
-- [ ] Rodar validacao completa pos-commit em `390x844` para Home -> Stats -> Circle -> Settings -> Home, incluindo loaders, mini tray, letras e modais.
-- [ ] Atualizar as regras definitivas de animação/runtime para futuras edições por agentes.
+- [ ] Commitar e fazer push do lote atual.
+- [ ] Reauditar o runtime inteiro contra a meta ampla de engine unica, memoria controlada e 30/60/120 fps.
 
 ## Subtarefas concluídas
 
@@ -32,7 +31,20 @@
 - [x] Auditoria de loops/filas em Home, Stats, Circle e Settings em `390x844`, com `LoAF=0`, overflow `0`, imagens quebradas `0`, console limpo e task/loop kinds registrados. Commit `b48db4d`.
 - [x] Validação Browser Home -> Stats -> Home sem overflow; cover de rota limpa após a transição.
 - [x] Validação Browser dos loops `Engine*`: elementos inativos ficam com `animation-name: none` e `animation-play-state: paused`.
+- [x] Launch iOS com primeiro quadro preto, icones PWA validos e splash em altura standalone estavel.
+- [x] Boot frio prepara atividade do circulo, ranking e letra da faixa atual antes de revelar a primeira viewport.
+- [x] Marcador de Home quente deixa de vazar entre documentos; retorno quente dentro da mesma execucao continua sem loader.
+- [x] Home, Stats, Circulo e Ajustes viraram cenas persistentes com React `Activity`; troca de bottom nav preserva DOM/estado e suspende effects/loops das cenas ocultas.
+- [x] Retorno Ajustes -> Home revalidado com header e 3 cards presentes em menos de 80 ms, sem loader, cover, overflow ou imagem quebrada.
+- [x] Telemetria de rota expoe `data-stats-lc-last-route-settle` e `data-stats-lc-last-route-settle-ms`.
+- [x] Entradas abruptas restantes do inventario ativo foram corrigidas ou classificadas como codigo nao montado.
+- [x] `AnimatePresence` possui diretamente modais condicionais lazy na Home e no Circulo; saidas de historico/detalhe foram medidas no Browser.
+- [x] Regras definitivas de animacao/runtime foram consolidadas em `docs/motion-runtime-rules.md`.
+- [x] Validacao Browser completa em `390x844` para Home -> Stats -> Circulo -> Ajustes -> Home, modais aninhados, batalha e seletor da Arena.
+- [x] Telemetria de settle ganhou fallback nomeado no scheduler central para abas que suspendem `requestAnimationFrame`.
+- [x] `npm run lint`, `npm run build`, `npm run build:report`, `git diff --check` e varreduras proibidas passaram no lote atual.
+- [x] Orcamento final do lote: entry `140.9/160 kB` gzip; JS total `481.7/500 kB` gzip.
 
-## Próximo passo concreto
+## Proximo passo concreto
 
-Atacar as entradas abruptas que ainda restarem em `docs/abrupt-entry-audit.md`, com foco em entradas internas de Stats/Circle e fallbacks de modais/historico.
+Commitar e publicar o lote; depois iniciar nova auditoria global de runtime, memoria e renderizacao.

@@ -23,7 +23,6 @@ import { UserStats, TopItem } from '../../types/stats';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { GroupGrowthChart } from '../battle/GroupGrowthChart';
-import { AlbumDetailModal } from './AlbumDetailModal';
 import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
@@ -34,8 +33,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-
-// Implementação consolidada de AlbumDetailModal agora importada de ./AlbumDetailModal.tsx
 
 const PresentationStatsView = ({ stats, user, loading }: any) => {
   const motionRuntime = useMotionRuntime();

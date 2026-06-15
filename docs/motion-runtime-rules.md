@@ -40,6 +40,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Use `useModalMotionScope(...)` quando uma superficie modal abrir.
    - O container principal do modal/fallback deve ter `data-stats-lc-modal-surface="true"`.
    - Loops do cenario de fundo devem pausar; loops internos do modal podem continuar se forem essenciais.
+   - `useViewportMotionGate` deve considerar o estado modal global: enquanto houver modal aberto, apenas refs dentro de `data-stats-lc-modal-surface="true"` podem manter motion de viewport.
+   - `AnimatePresence` deve possuir diretamente o filho condicional que desmonta. Se o modal for lazy, use `Suspense > AnimatePresence > modal condicional`, nunca `AnimatePresence > Suspense sempre montado > modal condicional`.
+   - Todo modal condicional lazy deve ter `key` estavel ligada a entidade aberta, para uma troca de faixa/usuario produzir uma saida e entrada coerentes.
    - Bottom sheets nao devem depender apenas do unmount do `AnimatePresence` para fechar; mantenha estado explicito de closing quando a superficie precisa descer antes de desmontar.
    - Uma folha standalone de letra nao deve montar nem hidratar o modal de stats da faixa.
 
@@ -62,6 +65,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Preserve atributos `data-stats-lc-*` usados para auditar long tasks, LoAF, loaders e loops.
    - Tarefas recorrentes ou longas do scheduler devem declarar `kind`; audite `data-stats-lc-motion-task-kinds`, nao apenas a contagem total.
    - Audite loops por `data-stats-lc-compositor-loop-kinds`; loops visiveis de profundidade nao devem ser removidos apenas para reduzir o numero bruto.
+   - Telemetria que depende de `requestAnimationFrame` deve ter fallback nomeado no scheduler central, pois abas ocultas podem suspender frames.
 
 11. Browser QA deve usar rotas hash.
    - Home: `/#/`
@@ -74,6 +78,28 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Nao manter `.bak`, copias antigas ou snippets soltos dentro de `src`.
    - Se uma referencia historica for necessaria, documente em `docs/` em vez de deixar codigo morto importavel/auditavel.
 
+13. Launch e splash fazem parte do runtime visual.
+   - PWA iOS deve ter `apple-touch-icon` valido, icones `192/512`, `background_color` preto e launch images para os viewports suportados; nao depender do cartao branco gerado pelo sistema.
+   - Em standalone, congele a altura de launch antes do primeiro paint; nao permita que a splash recentralize quando o viewport do iOS estabilizar.
+   - Um novo documento deve invalidar marcadores de Home quente herdados da sessao. Retorno quente dentro do mesmo documento usa estado React, `window.__STATS_LC_HOME_READY__` e telemetria do documento atual.
+   - A primeira viewport deve preparar decisoes visuais essenciais antes de sair da splash: dados-base, capas criticas, atividade visivel e badges que mudariam a geometria do header.
+   - Mova chamadas ja existentes para o boot e entregue o resultado preparado ao componente; nao duplique requests so para evitar uma entrada tardia.
+   - Inicie a entrada finita da Home quando a splash ja estiver dissolvendo. Nao execute toda a coreografia atras de uma splash opaca para depois revelar tudo pronto.
+   - Um controle persistente, como `Letra`, nao pode trocar de `key`, posicao ou identidade apenas porque ranking/repeats terminou de carregar.
+
+14. Modo conservador reduz loops, nao elimina entradas finitas essenciais.
+   - Entradas unicas curtas com `opacity`/`transform` podem continuar em tier `conserve`, com duracao reduzida.
+   - Loops ambientais, equalizers e pulsos continuam condicionados a viewport, visibilidade e `motionRuntime`.
+   - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
+
+15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.
+   - Home, Stats, Circulo e Ajustes devem permanecer sob `PersistentRouteScene`/React `Activity`; trocar de secao alterna a cena visivel sem remontar toda a arvore.
+   - Cenas ocultas devem ficar em `Activity mode="hidden"` para preservar DOM/estado e suspender effects, listeners e loops.
+   - Deve existir exatamente uma cena `data-stats-lc-route-scene` visivel por vez.
+   - Nao coloque `key={routeKey}` em volta da arvore inteira de uma rota-tab: isso destrói o estado aquecido e repete trabalho sincrono na volta.
+   - Modais, detalhes efemeros e rotas fora do shell principal nao viram cenas persistentes automaticamente.
+   - Preserve `data-stats-lc-last-route-settle` e `data-stats-lc-last-route-settle-ms` para medir a troca real de cena.
+
 ## Padroes Permitidos
 
 - `EngineSpinner` para loading rotativo.
@@ -82,7 +108,8 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - `motion.div`/`motion.button` com `initial`, `animate`, `exit` e transicoes curtas.
 - `layout="position"` somente quando ha reposicionamento real de cards/listas.
 - `LazyModalFallback` para chunks de modal.
-- `RouteIntentCover` e `RouteLoader` para troca de rota.
+- `PersistentRouteScene`/React `Activity` para as quatro rotas-tab principais.
+- `RouteLoader` como fallback atrasado somente quando o chunk ativo realmente ainda nao existe.
 - Timeouts funcionais de rede, API, deadline de asset/I/O, safety release, polling visibility-aware e sequenciamento de Web Animations API.
 
 ## Padroes Proibidos
@@ -95,6 +122,12 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - Loops CSS sem `stats-lc-engine-loop` quando forem recorrentes.
 - Novo loader local de modal quando `LazyModalFallback` resolve.
 - Nova politica paralela de motion fora de `motionRuntime`.
+- Remontar Home, Stats, Circulo ou Ajustes a cada troca de bottom nav.
+- Manter mais de uma `data-stats-lc-route-scene` visivel ao mesmo tempo.
+- Reintroduzir cover de intencao sobre a bottom nav entre cenas persistentes.
+- Colocar um `Suspense` sempre montado entre `AnimatePresence` e o modal condicional.
+- Liberar a Home fria enquanto badges/atividade da primeira viewport ainda estao em estado provisório.
+- Reutilizar marcador de Home quente de um documento anterior para pular o boot visual.
 - `setTimeout` local para delays de UI, toasts, pulsos, highlights, entrada de lista, fallback visual ou scroll de coreografia.
 - Arquivos `.bak` ou copias antigas rastreadas dentro de `src`.
 
@@ -110,7 +143,10 @@ Antes de entregar qualquer patch visual:
    - zero overflow horizontal;
    - zero imagem quebrada;
    - troca Home -> outra rota -> Home;
+   - exatamente uma cena de rota visivel e cenas ocultas sem loops registrados;
+   - `data-stats-lc-last-route-settle-ms` atualizado depois de cada troca;
    - modal abre/fecha sem loops do fundo;
+   - modal e detalhe aninhado continuam montados durante o primeiro frame de saida e desmontam apenas ao concluir o `exit`;
    - nenhuma superficie principal aparece em bloco seco.
 
 ## Inventario

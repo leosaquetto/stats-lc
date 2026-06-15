@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
+import { HashRouter, useLocation } from 'react-router-dom';
+import { Activity, Component, lazy, Suspense, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStatsStore } from './store/useStatsStore';
@@ -19,6 +19,7 @@ import {
 } from './lib/routePreloads';
 import { useMotionRuntime } from './hooks/useMotionRuntime';
 import { motionRuntime as motionRuntimeScheduler } from './lib/motionRuntime';
+import { markRouteSettle } from './lib/performanceMonitoring';
 
 const HomeScreen = lazy(loadHomeScreen);
 const StatsScreen = lazy(loadStatsScreen);
@@ -218,34 +219,65 @@ class RouteErrorBoundary extends Component<
   }
 }
 
+const PersistentRouteScene = ({
+  id,
+  active,
+  shouldAnimate,
+  children,
+}: {
+  id: string;
+  active: boolean;
+  shouldAnimate: boolean;
+  children: ReactNode;
+}) => (
+  <Suspense fallback={active ? <RouteLoader /> : null}>
+    <Activity mode={active ? 'visible' : 'hidden'}>
+      <motion.div
+        data-stats-lc-route-scene={id}
+        className="w-full min-w-0"
+        initial={false}
+        animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
+        transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+      >
+        {children}
+      </motion.div>
+    </Activity>
+  </Suspense>
+);
+
 function AppRoutes() {
   const location = useLocation();
   const motionRuntime = useMotionRuntime();
   const shouldAnimateRoute = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const routeKey = `${location.pathname}${location.search}`;
+  const isStatsRoute = location.pathname === '/stats' || location.pathname === '/highlights';
+  const isCircleRoute = location.pathname === '/circle' || location.pathname === '/ranking' || location.pathname === '/alike';
+  const isSettingsRoute = location.pathname === '/settings';
+  const isHomeRoute = !isStatsRoute && !isCircleRoute && !isSettingsRoute;
+  const circleInitialTab = location.pathname === '/ranking'
+    ? 'arena'
+    : location.pathname === '/alike'
+      ? 'affinity'
+      : 'now';
+
+  useEffect(() => {
+    markRouteSettle(window.location.hash || '#/');
+  }, [routeKey]);
 
   return (
     <RouteErrorBoundary routeKey={routeKey}>
-      <Suspense key={routeKey} fallback={<RouteLoader />}>
-        <motion.div
-          key={routeKey}
-          className="w-full min-w-0"
-          initial={shouldAnimateRoute ? { opacity: 0, x: 10 } : { opacity: 1, x: 0 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: shouldAnimateRoute ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <Routes location={location}>
-            <Route path="/" element={<HomeScreen />} />
-            <Route path="/stats" element={<StatsScreen />} />
-            <Route path="/highlights" element={<StatsScreen />} />
-            <Route path="/circle" element={<CircleScreen initialTab="now" />} />
-            <Route path="/ranking" element={<CircleScreen initialTab="arena" />} />
-            <Route path="/alike" element={<CircleScreen initialTab="affinity" />} />
-            <Route path="/settings" element={<SettingsScreen />} />
-            <Route path="*" element={<HomeScreen />} />
-          </Routes>
-        </motion.div>
-      </Suspense>
+      <PersistentRouteScene id="home" active={isHomeRoute} shouldAnimate={shouldAnimateRoute}>
+        <HomeScreen />
+      </PersistentRouteScene>
+      <PersistentRouteScene id="stats" active={isStatsRoute} shouldAnimate={shouldAnimateRoute}>
+        <StatsScreen />
+      </PersistentRouteScene>
+      <PersistentRouteScene id="circle" active={isCircleRoute} shouldAnimate={shouldAnimateRoute}>
+        <CircleScreen initialTab={circleInitialTab} />
+      </PersistentRouteScene>
+      <PersistentRouteScene id="settings" active={isSettingsRoute} shouldAnimate={shouldAnimateRoute}>
+        <SettingsScreen />
+      </PersistentRouteScene>
     </RouteErrorBoundary>
   );
 }

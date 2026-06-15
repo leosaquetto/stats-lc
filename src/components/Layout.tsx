@@ -89,38 +89,10 @@ const StatsFmMark = ({ className = "h-4 w-4" }: { className?: string }) => (
   </svg>
 );
 
-const RouteIntentCover = () => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-    className="pointer-events-none fixed inset-0 z-[45] flex h-[100svh] min-h-[100svh] items-center justify-center overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
-    data-stats-lc-route-intent-cover="true"
-  >
-    <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.94 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-      transition={{ duration: 0.22, delay: 0.03, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center gap-4"
-    >
-      <div className="ranking-badge relative flex h-14 min-w-14 items-center justify-center rounded-[22px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_32px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]">
-        <EngineSpinner className="h-5 w-5 text-orange-300">
-          <Loader2 className="h-full w-full" />
-        </EngineSpinner>
-      </div>
-      <span className="text-[10px] font-black uppercase tracking-[0.26em] text-orange-200/70">Carregando seção</span>
-    </motion.div>
-  </motion.div>
-);
-
 const BottomNavigation = React.memo(({
   pathname,
-  onRouteIntent,
 }: {
   pathname: string;
-  onRouteIntent?: (path: string) => void;
 }) => {
   const motionRuntime = useMotionRuntime();
   const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
@@ -163,7 +135,6 @@ const BottomNavigation = React.memo(({
               };
               const handleNavigateIntent = () => {
                 handlePreloadIntent();
-                if (item.path !== pathname) onRouteIntent?.(item.path);
               };
 
               return (
@@ -3319,8 +3290,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
-  const [pendingRoutePath, setPendingRoutePath] = React.useState<string | null>(null);
-  const [showRouteIntentCover, setShowRouteIntentCover] = React.useState(false);
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
   const bubbleHighlightCancelersRef = React.useRef(new Map<string, () => void>());
@@ -3381,42 +3350,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
-
-  React.useEffect(() => {
-    if (!pendingRoutePath) {
-      setShowRouteIntentCover(false);
-      return;
-    }
-
-    const isHomeIntent = pendingRoutePath === '/';
-    const routeReached = pendingRoutePath === location.pathname;
-    const warmHomeReady = isHomeIntent && (homeReady || hasWarmHomeReady());
-    if (routeReached && (!isHomeIntent || warmHomeReady)) {
-      setShowRouteIntentCover(false);
-      setPendingRoutePath(null);
-      return;
-    }
-    if (warmHomeReady) {
-      setShowRouteIntentCover(false);
-      setPendingRoutePath(null);
-      return;
-    }
-
-    const cancelReveal = motionRuntimeScheduler.scheduleTask(
-      () => setShowRouteIntentCover(true),
-      isHomeIntent ? 60 : 90,
-      'interaction',
-    );
-    const cancelSafety = motionRuntimeScheduler.scheduleTask(() => {
-      setShowRouteIntentCover(false);
-      setPendingRoutePath(null);
-    }, isHomeIntent ? 760 : 2200, 'interaction');
-
-    return () => {
-      cancelReveal();
-      cancelSafety();
-    };
-  }, [hasWarmHomeReady, homeReady, location.pathname, pendingRoutePath]);
 
   React.useEffect(() => {
     const handleHomeReady = (event: Event) => {
@@ -3494,10 +3427,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       )}>
         {children}
       </main>
-
-      <AnimatePresence>
-        {showRouteIntentCover && <RouteIntentCover />}
-      </AnimatePresence>
 
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
@@ -3715,7 +3644,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         <div className="flex w-full max-w-[480px] items-center justify-center gap-2 px-3">
           {/* Navigation - Liquid Glass Capsule */}
           <div className="min-w-0 flex-1">
-            <BottomNavigation pathname={location.pathname} onRouteIntent={setPendingRoutePath} />
+            <BottomNavigation pathname={location.pathname} />
           </div>
           <BottomTrackStatsBubble user={playingUser} />
         </div>

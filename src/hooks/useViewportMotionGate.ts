@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMotionRuntime } from './useMotionRuntime';
+import { useModalMotionOpen } from './useModalMotionScope';
 
 type ViewportMotionGateOptions = {
   initialVisible?: boolean;
@@ -63,7 +64,9 @@ export const useViewportMotionGate = <T extends HTMLElement>({
 }: ViewportMotionGateOptions = {}) => {
   const ref = useRef<T | null>(null);
   const [isInViewport, setIsInViewport] = useState(initialVisible);
+  const [isInsideModalSurface, setIsInsideModalSurface] = useState(false);
   const motionRuntime = useMotionRuntime();
+  const isModalOpen = useModalMotionOpen();
   const prefersReducedMotion = motionRuntime.prefersReducedMotion;
   const isPageVisible = motionRuntime.isPageVisible;
 
@@ -73,14 +76,29 @@ export const useViewportMotionGate = <T extends HTMLElement>({
     return observeViewport(node, rootMargin, setIsInViewport);
   }, [rootMargin]);
 
+  useEffect(() => {
+    setIsInsideModalSurface(Boolean(
+      isModalOpen && ref.current?.closest('[data-stats-lc-modal-surface="true"]')
+    ));
+  }, [isModalOpen]);
+
   const canAnimate = useMemo(
     () => (
       isInViewport &&
       motionRuntime.canRunMotion &&
       !prefersReducedMotion &&
+      (!isModalOpen || isInsideModalSurface) &&
       (!respectPageVisibility || isPageVisible)
     ),
-    [isInViewport, isPageVisible, motionRuntime.canRunMotion, prefersReducedMotion, respectPageVisibility]
+    [
+      isInViewport,
+      isInsideModalSurface,
+      isModalOpen,
+      isPageVisible,
+      motionRuntime.canRunMotion,
+      prefersReducedMotion,
+      respectPageVisibility,
+    ]
   );
   const shouldRunAmbientMotion = useMemo(
     () => canAnimate && motionRuntime.tier !== 'conserve',
