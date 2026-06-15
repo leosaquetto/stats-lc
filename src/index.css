@@ -79,6 +79,10 @@
   contain-intrinsic-size: auto 520px;
 }
 
+[data-stats-lc-smart-image-state] {
+  contain: layout paint style;
+}
+
 .stats-lc-engine-loop {
   backface-visibility: hidden;
   will-change: auto;

@@ -244,6 +244,7 @@ const PersistentRouteScene = ({
           initial={false}
           animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
           transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+          style={{ contain: active ? 'none' : 'layout style' }}
         >
           {children}
         </motion.div>

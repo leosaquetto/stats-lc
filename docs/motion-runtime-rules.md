@@ -64,6 +64,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Estatisticas de faixa e outros dados efemeros por entidade devem seguir o mesmo orçamento LRU; uma sessao longa nao pode acumular cada entidade visitada.
    - `Map` global, cache visual, cache de resposta e request in-flight precisam usar `memoryRuntime` (`readRuntimeCacheEntry`/`readRuntimeCacheResult`/`setRuntimeCacheEntry`) ou declarar explicitamente por que nao sobrevivem a sessao.
    - `SmartImage` deve preservar a ultima imagem boa sem shimmer por cima enquanto a proxima decodifica; use `data-stats-lc-smart-image-*` para auditar fallback, loading e imagem anterior.
+   - Elementos de imagem com caixa propria podem usar `contain: layout paint style`; palcos orbitais ativos e areas com profundidade/overflow visivel nao devem receber paint containment generico.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
    - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Depois que a faixa atual entrou em `playing`, artwork/cor ficam travados ate a identidade mudar; enriquecimento tardio nao pode remontar disco, reiniciar rotacao ou mover tonearm.
 
@@ -108,6 +109,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Cenas ocultas devem ficar em `Activity mode="hidden"` para preservar DOM/estado e suspender effects, listeners e loops.
    - Deve existir exatamente uma cena `data-stats-lc-route-scene` visivel por vez.
    - Cenas inativas devem declarar `data-stats-lc-route-active="false"` e seus `.stats-lc-engine-loop` precisam computar `animation-name: none`, mesmo se um filho preservado ainda tiver `data-active="true"`.
+   - Cenas de rota inativas podem usar `contain: layout style`; a cena ativa nao deve receber containment generico que quebre sticky, modais, popovers ou palcos orbitais.
    - Nao coloque `key={routeKey}` em volta da arvore inteira de uma rota-tab: isso destrói o estado aquecido e repete trabalho sincrono na volta.
    - Modais, detalhes efemeros e rotas fora do shell principal nao viram cenas persistentes automaticamente.
    - Preserve `data-stats-lc-last-route-settle` e `data-stats-lc-last-route-settle-ms` para medir a troca real de cena.
