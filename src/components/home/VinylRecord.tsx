@@ -149,6 +149,8 @@ export const VinylRecord = ({
   const playbackSequenceRef = useRef(0);
   const albumSwapInFlightRef = useRef(false);
   const manualPlaybackStartRef = useRef(false);
+  const phaseRef = useRef(phase);
+  const spinEnabledRef = useRef(spinEnabled);
   const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
   const shouldRunFullAmbientMotion = shouldRunAmbientMotion && motionTier === 'full';
@@ -187,6 +189,9 @@ export const VinylRecord = ({
   const darkColor         = useMemo(() => adjustBrightness(safeDominantColor, -0.34), [safeDominantColor]);
   const lightColor        = useMemo(() => adjustBrightness(safeDominantColor,  0.42), [safeDominantColor]);
   const resinAlpha        = isPlaying ? 0.27 : 0.225;
+
+  phaseRef.current = phase;
+  spinEnabledRef.current = spinEnabled;
 
   const handleTonearmPlaybackChange = useCallback((nextIsPlaying: boolean) => {
     manualPlaybackStartRef.current = nextIsPlaying;
@@ -293,6 +298,13 @@ export const VinylRecord = ({
       if (incomingIdentity !== visualSnapshot.identity) return;
       if (albumSwapInFlightRef.current) return;
 
+      if (previousPlayingRef.current && phaseRef.current === 'playing' && spinEnabledRef.current) {
+        setTonearmState('playing');
+        setPhase('playing');
+        setSpinEnabled(true);
+        return;
+      }
+
       if (manualPlaybackStartRef.current) {
         manualPlaybackStartRef.current = false;
         setTonearmState('playing');
@@ -326,8 +338,13 @@ export const VinylRecord = ({
   useEffect(() => {
     if (visualSnapshot.identity !== incomingIdentity) return;
 
-    const artworkChanged = visualSnapshot.albumImage !== albumImage;
-    const colorChanged = visualSnapshot.dominantColor !== dominantColor;
+    const shouldLockPlayingVisual = isPlaying && phaseRef.current === 'playing' && !!visualSnapshot.albumImage;
+    const nextAlbumImage = shouldLockPlayingVisual ? visualSnapshot.albumImage : albumImage;
+    const nextDominantColor = shouldLockPlayingVisual && visualSnapshot.dominantColor
+      ? visualSnapshot.dominantColor
+      : dominantColor;
+    const artworkChanged = visualSnapshot.albumImage !== nextAlbumImage;
+    const colorChanged = visualSnapshot.dominantColor !== nextDominantColor;
     const playbackKeyChanged = !!playbackKey && visualSnapshot.playbackKey !== playbackKey;
     if (!artworkChanged && !colorChanged && !playbackKeyChanged) return;
 
@@ -335,9 +352,9 @@ export const VinylRecord = ({
     let cancelled = false;
 
     const syncVisualMetadata = async () => {
-      if (artworkChanged && albumImage) {
+      if (artworkChanged && nextAlbumImage) {
         try {
-          await preloadSmartImages([albumImage], {
+          await preloadSmartImages([nextAlbumImage], {
             limit: 1,
             priority: 'critical',
             timeoutMs: 1400,
@@ -352,8 +369,8 @@ export const VinylRecord = ({
         if (snapshot.identity !== incomingIdentity) return snapshot;
         return {
           ...snapshot,
-          albumImage,
-          dominantColor,
+          albumImage: nextAlbumImage,
+          dominantColor: nextDominantColor,
           playbackKey: playbackKey || snapshot.playbackKey,
         };
       });
@@ -368,6 +385,7 @@ export const VinylRecord = ({
     albumImage,
     dominantColor,
     incomingIdentity,
+    isPlaying,
     playbackKey,
     visualSnapshot.albumImage,
     visualSnapshot.dominantColor,
@@ -565,6 +583,7 @@ export const VinylRecord = ({
       data-vinyl-phase={phase}
       data-vinyl-revision={visualSnapshot.revision}
       data-vinyl-visual-key={visualSnapshot.identity}
+      data-vinyl-visual-locked={isPlaying && phase === 'playing' && !!visualSnapshot.albumImage ? "true" : "false"}
     >
       <>
 

@@ -269,6 +269,14 @@ function AppRoutes() {
 
   useEffect(() => {
     markRouteSettle(window.location.hash || '#/');
+    motionRuntimeScheduler.requestCssEngineLoopAudit(140);
+    const cancelLoopAudit = motionRuntimeScheduler.scheduleTask(
+      () => motionRuntimeScheduler.requestCssEngineLoopAudit(0),
+      620,
+      'interaction',
+      'route-css-loop-audit',
+    );
+    return () => cancelLoopAudit();
   }, [routeKey]);
 
   return (

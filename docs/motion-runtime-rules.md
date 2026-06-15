@@ -51,6 +51,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Elementos animados por CSS devem usar `stats-lc-engine-loop`.
    - Quando aplicavel, definir `data-active="true"` ou `data-active="false"`.
    - Nao assumir que `animation-play-state: running` significa loop real; verificar `animation-name !== none`.
+   - Depois de troca de rota, auditar `data-stats-lc-active-route-running-loops` e `data-stats-lc-hidden-route-running-loops`; cena preservada pode existir, mas loop escondido nao pode computar como rodando.
    - Skeletons recorrentes devem usar `Skeleton`/`SkeletonSurface`; nao criar pseudo-elemento com shimmer infinito fora dos componentes `Engine*`.
 
 8. Transicoes devem listar propriedades.
@@ -63,13 +64,14 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Estatisticas de faixa e outros dados efemeros por entidade devem seguir o mesmo orçamento LRU; uma sessao longa nao pode acumular cada entidade visitada.
    - `Map` global, cache visual, cache de resposta e request in-flight precisam usar `memoryRuntime` (`readRuntimeCacheEntry`/`readRuntimeCacheResult`/`setRuntimeCacheEntry`) ou declarar explicitamente por que nao sobrevivem a sessao.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
-   - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Enriquecimento de artwork/cor da mesma faixa atualiza o visual no lugar, sem remontar disco, reiniciar rotacao ou mover tonearm.
+   - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Depois que a faixa atual entrou em `playing`, artwork/cor ficam travados ate a identidade mudar; enriquecimento tardio nao pode remontar disco, reiniciar rotacao ou mover tonearm.
 
 10. Telemetria deve permanecer separada por boot e pos-boot.
    - Preserve `window.__STATS_LC_PERFORMANCE__`.
    - Preserve atributos `data-stats-lc-*` usados para auditar long tasks, LoAF, loaders e loops.
    - Tarefas recorrentes ou longas do scheduler devem declarar `kind`; audite `data-stats-lc-motion-task-kinds`, nao apenas a contagem total.
    - Audite loops por `data-stats-lc-compositor-loop-kinds`; loops visiveis de profundidade nao devem ser removidos apenas para reduzir o numero bruto.
+   - Audite loops CSS por `data-stats-lc-css-engine-running-loops`, `data-stats-lc-active-route-running-loops` e `data-stats-lc-hidden-route-running-loops`, nao por inspecao visual subjetiva.
    - Telemetria que depende de `requestAnimationFrame` deve ter fallback nomeado no scheduler central, pois abas ocultas podem suspender frames.
    - Callbacks de frame, tarefas sincronas/assincronas e listeners devem ser isolados por falha. Uma excecao ou rejeicao local nunca pode interromper o proximo frame nem as demais tarefas; audite `data-stats-lc-motion-runtime-errors`.
 
@@ -153,7 +155,8 @@ Antes de entregar qualquer patch visual:
    - zero overflow horizontal;
    - zero imagem quebrada;
    - troca Home -> outra rota -> Home;
-   - exatamente uma cena de rota visivel e cenas ocultas sem loops registrados;
+   - exatamente uma cena de rota visivel e cenas ocultas sem loops rodando;
+   - `data-stats-lc-hidden-route-running-loops="0"` depois de trocar de rota;
    - `data-stats-lc-last-route-settle-ms` atualizado depois de cada troca;
    - modal abre/fecha sem loops do fundo;
    - modal e detalhe aninhado continuam montados durante o primeiro frame de saida e desmontam apenas ao concluir o `exit`;

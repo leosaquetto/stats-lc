@@ -75,6 +75,7 @@ let compositorLoopId = 0;
 let runtimeErrorCount = 0;
 let lastRuntimeErrorKind = '';
 let lastRuntimeErrorPhase = '';
+let cssEngineLoopAuditTimer: number | null = null;
 
 const getConnection = () => (
   typeof navigator === 'undefined'
@@ -181,6 +182,68 @@ const syncDataset = () => {
   root.dataset.statsLcMotionRuntimeErrors = String(runtimeErrorCount);
   root.dataset.statsLcMotionRuntimeLastErrorKind = lastRuntimeErrorKind;
   root.dataset.statsLcMotionRuntimeLastErrorPhase = lastRuntimeErrorPhase;
+};
+
+const readCssEngineLoopStats = (root: ParentNode) => {
+  const loops = Array.from(root.querySelectorAll<HTMLElement>('.stats-lc-engine-loop'));
+  let active = 0;
+  let running = 0;
+
+  loops.forEach((loop) => {
+    if (loop.dataset.active !== 'true') return;
+    active += 1;
+
+    const style = window.getComputedStyle(loop);
+    if (
+      style.animationName !== 'none' &&
+      style.animationPlayState !== 'paused' &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden'
+    ) {
+      running += 1;
+    }
+  });
+
+  return { active, running };
+};
+
+const syncCssEngineLoopDataset = () => {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
+
+  const root = document.documentElement;
+  const routeShells = Array.from(document.querySelectorAll<HTMLElement>('[data-stats-lc-route-shell]'));
+  const activeShell = routeShells.find((shell) => shell.dataset.statsLcRouteActive === 'true') || null;
+  const pageStats = readCssEngineLoopStats(document);
+  const activeRouteStats = activeShell ? readCssEngineLoopStats(activeShell) : { active: 0, running: 0 };
+  const hiddenRouteStats = routeShells
+    .filter((shell) => shell.dataset.statsLcRouteActive === 'false')
+    .reduce(
+      (totals, shell) => {
+        const shellStats = readCssEngineLoopStats(shell);
+        return {
+          active: totals.active + shellStats.active,
+          running: totals.running + shellStats.running,
+        };
+      },
+      { active: 0, running: 0 },
+    );
+
+  root.dataset.statsLcActiveRouteShell = activeShell?.dataset.statsLcRouteShell || '';
+  root.dataset.statsLcCssEngineLoops = String(pageStats.active);
+  root.dataset.statsLcCssEngineRunningLoops = String(pageStats.running);
+  root.dataset.statsLcActiveRouteEngineLoops = String(activeRouteStats.active);
+  root.dataset.statsLcActiveRouteRunningLoops = String(activeRouteStats.running);
+  root.dataset.statsLcHiddenRouteEngineLoops = String(hiddenRouteStats.active);
+  root.dataset.statsLcHiddenRouteRunningLoops = String(hiddenRouteStats.running);
+};
+
+const requestCssEngineLoopAudit = (delayMs = 80) => {
+  if (typeof window === 'undefined') return;
+  if (cssEngineLoopAuditTimer !== null) window.clearTimeout(cssEngineLoopAuditTimer);
+  cssEngineLoopAuditTimer = window.setTimeout(() => {
+    cssEngineLoopAuditTimer = null;
+    syncCssEngineLoopDataset();
+  }, Math.max(0, delayMs));
 };
 
 const scheduleNextTask = () => {
@@ -352,9 +415,11 @@ export const initMotionRuntime = () => {
   mediaQuery = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null;
   snapshot = computeSnapshot();
   syncDataset();
+  requestCssEngineLoopAudit(120);
 
   document.addEventListener('visibilitychange', () => {
     emit();
+    requestCssEngineLoopAudit(120);
     if (snapshot.canRunMotion) {
       measureDisplayRefreshRate();
       ensureFrameLoop();
@@ -382,10 +447,12 @@ export const motionRuntime = {
       priority: options.priority ?? 'interaction',
     });
     syncDataset();
+    requestCssEngineLoopAudit();
     ensureFrameLoop();
     return () => {
       frameSubscriptions.delete(listener);
       syncDataset();
+      requestCssEngineLoopAudit();
       if (!frameSubscriptions.size && rafId !== null) {
         window.cancelAnimationFrame(rafId);
         rafId = null;
@@ -422,11 +489,14 @@ export const motionRuntime = {
     const id = ++compositorLoopId;
     compositorLoops.set(id, kind);
     syncDataset();
+    requestCssEngineLoopAudit();
     return () => {
       if (!compositorLoops.delete(id)) return;
       syncDataset();
+      requestCssEngineLoopAudit();
     };
   },
+  requestCssEngineLoopAudit,
   getSchedulerStats: () => ({
     compositorLoopKinds: getCompositorLoopKinds(),
     compositorLoops: compositorLoops.size,
