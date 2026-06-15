@@ -61,7 +61,8 @@ Registro vivo de pontos em que a UI pode aparecer de forma abrupta, sem uma entr
 - Browser in-app em `390x844`: tonearm manual validado por DOM; ao tirar ficou estavel em `data-tonearm-level=0.181`, ao recolocar ficou estavel em `0.818`, sem snap apos 1,2 s.
 - Browser in-app em `390x844`: foot sync compacto `70x32` centralizado; expandido `318x56`, sem barra gigante de blur e sem overflow.
 - Browser in-app em `390x844`, apos migracao dos timers visuais: Home quente, Stats, Circulo, Ajustes e retorno para Home sem overflow horizontal, sem imagens quebradas e sem logs `warn`/`error`; loaders/cover medidos com `390x844` quando presentes.
-- Retorno Ajustes -> Home pela bottom nav: sem loader recortado; troca quente passa por uma janela curta com a tela anterior ainda montada e depois Home entra sem overflow. Continuar observando visualmente se isso deve virar cover obrigatorio mesmo em transicoes muito rapidas.
+- Retorno Ajustes -> Home pela bottom nav: sem loader, sem cover, sem overflow; Home quente medida limpa aos 70/160/660 ms.
+- Auditoria runtime Browser em `390x844`: Home `loopKinds=leo-header-ambient:1,tonearm:1,vinyl:1`, `taskKinds=home-insights-rotation:1,leo-header-completion-check:1,leo-header-elapsed-clock:1`; Stats `taskKinds=stats-insight-rotation:1,stats-perceptions-rotation:1`; Circle e Settings com `loops=0` e `tasks=0`; todas as rotas com `LoAF=0`, overflow `0`, imagens quebradas `0` e console limpo.
 - Retorno a Home: `4` loops CSS realmente ativos; nenhum elemento `data-active=false` manteve `animation-name`.
 - Circulo: palco orbital com `11` loops compositor desejados quando visivel e `0` ao sair da viewport.
 - Circulo fora da viewport: delta `0` de long tasks/LoAF em `8s` de idle e em scroll leve de ida/volta.
