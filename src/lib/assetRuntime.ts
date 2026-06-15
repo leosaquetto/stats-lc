@@ -34,6 +34,7 @@ const imageQueue: ImageAssetJob[] = [];
 
 let activeImageLoads = 0;
 let drainTimer: number | null = null;
+let cancelDrainTask: (() => void) | null = null;
 let drainScheduledAsIdle = false;
 let jobOrder = 0;
 let runtimeSubscriptionReady = false;
@@ -139,6 +140,7 @@ const runImageJob = (job: ImageAssetJob) => {
 
 const drainImageQueue = () => {
   drainTimer = null;
+  cancelDrainTask = null;
   drainScheduledAsIdle = false;
   if (typeof window === 'undefined') return;
   if (!motionRuntime.getSnapshot().isPageVisible) {
@@ -156,16 +158,15 @@ const drainImageQueue = () => {
 };
 
 const scheduleDrain = () => {
-  if (typeof window === 'undefined' || drainTimer !== null) return;
+  if (typeof window === 'undefined' || drainTimer !== null || cancelDrainTask) return;
   ensureRuntimeSubscription();
-  const hasForegroundWork = imageQueue.some((job) => job.priority !== 'ambient');
   const requestIdleCallback = (window as IdleWindow).requestIdleCallback;
-  if (!hasForegroundWork && requestIdleCallback) {
+  if (imageQueue.every((job) => job.priority === 'ambient') && requestIdleCallback) {
     drainScheduledAsIdle = true;
     drainTimer = requestIdleCallback(drainImageQueue, { timeout: 320 });
     return;
   }
-  drainTimer = window.setTimeout(drainImageQueue, 0);
+  cancelDrainTask = motionRuntime.scheduleTask(drainImageQueue, 0, 'interaction');
 };
 
 const promoteScheduledDrain = () => {

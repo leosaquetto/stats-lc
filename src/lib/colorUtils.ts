@@ -24,6 +24,7 @@ const paletteQueue: PaletteJob[] = [];
 
 let activePaletteJobs = 0;
 let paletteDrainTimer: number | null = null;
+let cancelPaletteDrainTask: (() => void) | null = null;
 let paletteJobOrder = 0;
 let paletteRuntimeSubscriptionReady = false;
 
@@ -552,6 +553,7 @@ const getMaxConcurrentPaletteJobs = () => (
 
 const drainPaletteQueue = () => {
   paletteDrainTimer = null;
+  cancelPaletteDrainTask = null;
   if (typeof window === 'undefined') return;
   if (!motionRuntime.getSnapshot().isPageVisible) {
     syncPaletteDataset();
@@ -579,12 +581,14 @@ const drainPaletteQueue = () => {
 };
 
 const schedulePaletteDrain = () => {
-  if (typeof window === 'undefined' || paletteDrainTimer !== null) return;
+  if (typeof window === 'undefined' || paletteDrainTimer !== null || cancelPaletteDrainTask) return;
   ensurePaletteRuntimeSubscription();
   const requestIdleCallback = (window as IdleWindow).requestIdleCallback;
-  paletteDrainTimer = requestIdleCallback
-    ? requestIdleCallback(drainPaletteQueue, { timeout: 180 })
-    : window.setTimeout(drainPaletteQueue, 0);
+  if (requestIdleCallback) {
+    paletteDrainTimer = requestIdleCallback(drainPaletteQueue, { timeout: 180 });
+    return;
+  }
+  cancelPaletteDrainTask = motionRuntime.scheduleTask(drainPaletteQueue, 0, 'interaction');
 };
 
 const trimPaletteCaches = () => {

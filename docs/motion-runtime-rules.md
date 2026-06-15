@@ -10,7 +10,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Use `motionRuntime`, `useMotionRuntime`, `useViewportMotionGate`, `useAutoOrbitRotation` ou os componentes `Engine*`.
    - Nao crie loops recorrentes locais com `setInterval`.
    - Coreografia visual unica, delays de entrada, pulso, dismiss de toast e fallback visual devem usar `motionRuntime.scheduleTask(...)`.
-   - `setTimeout` cru so e aceitavel para polling/rede, timeout de API, safety timer funcional, asset queue ou I/O, e deve ter cleanup/cancelamento.
+   - `setTimeout` cru so e aceitavel para polling/rede, timeout de API, safety timer funcional, deadline de asset/I/O ou retry de rede, e deve ter cleanup/cancelamento.
 
 2. Superficies quentes devem animar apenas propriedades de compositor.
    - Permitido: `opacity`, `transform`, `translate3d`, `scale`, `rotate`.
@@ -71,7 +71,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - `layout="position"` somente quando ha reposicionamento real de cards/listas.
 - `LazyModalFallback` para chunks de modal.
 - `RouteIntentCover` e `RouteLoader` para troca de rota.
-- Timeouts funcionais de rede, API, asset queue, palette queue, safety release, polling visibility-aware e sequenciamento de Web Animations API.
+- Timeouts funcionais de rede, API, deadline de asset/I/O, safety release, polling visibility-aware e sequenciamento de Web Animations API.
 
 ## Padroes Proibidos
 
