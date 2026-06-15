@@ -16,6 +16,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Permitido: `opacity`, `transform`, `translate3d`, `scale`, `rotate`.
    - Evitar em areas frequentes: `height`, `width`, `top`, `left`, `filter`, blur dinamico, sombras pesadas.
    - Se a dimensao visual precisa "expandir", manter a caixa estavel e animar escala interna.
+   - Superficies repetidas com glass/backdrop devem manter blur base em ate `24px`; valores maiores so para modal unico e com justificativa.
 
 3. Entradas de tela/lista devem ser inteligentes, nao instantaneas.
    - Usar delays curtos e intencionais, normalmente entre `20ms` e `35ms`.
