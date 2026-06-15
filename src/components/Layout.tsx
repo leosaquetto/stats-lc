@@ -748,7 +748,7 @@ const loadLyricsMatch = (trackName: string, artistName: string) => {
   if (cached) return Promise.resolve(cached);
 
   const inFlightKey = `match:${key}`;
-  const running = lyricsInFlight.get(inFlightKey);
+  const running = readRuntimeCacheEntry(lyricsInFlight, inFlightKey);
   if (running) return running as Promise<LyricsMatch>;
 
   const promise = statsService.fetchLyricsMatch(trackName, artistName)
@@ -757,7 +757,7 @@ const loadLyricsMatch = (trackName: string, artistName: string) => {
       return match;
     })
     .finally(() => lyricsInFlight.delete(inFlightKey));
-  lyricsInFlight.set(inFlightKey, promise);
+  setRuntimeCacheEntry(lyricsInFlight, inFlightKey, promise, 'small');
   return promise;
 };
 
@@ -767,7 +767,7 @@ const loadLyricsFull = (trackName: string, artistName: string) => {
   if (cached) return Promise.resolve(cached);
 
   const inFlightKey = `full:${key}`;
-  const running = lyricsInFlight.get(inFlightKey);
+  const running = readRuntimeCacheEntry(lyricsInFlight, inFlightKey);
   if (running) return running as Promise<LyricsFullResponse>;
 
   const promise = statsService.fetchLyricsFull(trackName, artistName)
@@ -777,7 +777,7 @@ const loadLyricsFull = (trackName: string, artistName: string) => {
       return response;
     })
     .finally(() => lyricsInFlight.delete(inFlightKey));
-  lyricsInFlight.set(inFlightKey, promise);
+  setRuntimeCacheEntry(lyricsInFlight, inFlightKey, promise, 'small');
   return promise;
 };
 
@@ -827,7 +827,7 @@ const loadBottomTrackStatsPanelData = async ({
   if (cached && (mode === 'fast' || cached.hydration.social)) return cached;
 
   const inFlightMap = mode === 'fast' ? bottomTrackStatsFastInFlight : bottomTrackStatsInFlight;
-  const running = inFlightMap.get(cacheKey);
+  const running = readRuntimeCacheEntry(inFlightMap, cacheKey);
   if (running) return running;
 
   const promise = (async () => {
@@ -896,14 +896,14 @@ const loadBottomTrackStatsPanelData = async ({
         social: mode === 'full',
       },
     };
-    const existing = bottomTrackStatsCache.get(cacheKey);
+    const existing = readRuntimeCacheEntry(bottomTrackStatsCache, cacheKey);
     if (mode === 'full' || !existing || !existing.data.hydration.social) {
       setRuntimeCacheEntry(bottomTrackStatsCache, cacheKey, { data: snapshot, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL }, 'small');
     }
     return snapshot;
   })().finally(() => inFlightMap.delete(cacheKey));
 
-  inFlightMap.set(cacheKey, promise);
+  setRuntimeCacheEntry(inFlightMap, cacheKey, promise, 'small');
   return promise;
 };
 

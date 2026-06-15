@@ -28,7 +28,7 @@ import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/m
 import { getMainArtistName } from '../lib/artistUtils';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
-import { setRuntimeCacheEntry } from '../lib/memoryRuntime';
+import { peekRuntimeCacheResult, readRuntimeCacheResult, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
@@ -1383,7 +1383,7 @@ const HomePerceptions = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [latestDiscovery, setLatestDiscovery] = useState<any>(
-    () => latestDiscoveryCache.get(userId) || null
+    () => peekRuntimeCacheResult(latestDiscoveryCache, userId).value || null
   );
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
@@ -1430,11 +1430,13 @@ const HomePerceptions = ({
   ].filter(Boolean) as Array<{ title: string; text: string; icon: any; image?: string }>;
 
   useEffect(() => {
-    setLatestDiscovery(latestDiscoveryCache.get(userId) || null);
+    setLatestDiscovery(readRuntimeCacheResult(latestDiscoveryCache, userId).value || null);
   }, [userId]);
 
   useEffect(() => {
-    if (!isSectionVisible || !userId || latestDiscoveryCache.has(userId)) return;
+    if (!isSectionVisible || !userId) return;
+    const cachedDiscovery = readRuntimeCacheResult(latestDiscoveryCache, userId);
+    if (cachedDiscovery.hit) return;
     const controller = new AbortController();
     statsService.getLatestDiscovery(userId, controller.signal)
       .then((response) => {

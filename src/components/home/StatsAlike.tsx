@@ -20,7 +20,7 @@ import {
   normalizeTopItemForType,
 } from '../../lib/topItemUtils';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
-import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
+import { readRuntimeCacheResult, setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -461,8 +461,9 @@ export const StatsAlike = React.memo(() => {
       return;
     }
 
-    if (cachedApiTrackFallbackByKey.has(apiFallbackKey)) {
-      setApiTrackFallback(cachedApiTrackFallbackByKey.get(apiFallbackKey) || null);
+    const cachedApiFallback = readRuntimeCacheResult(cachedApiTrackFallbackByKey, apiFallbackKey);
+    if (cachedApiFallback.hit) {
+      setApiTrackFallback(cachedApiFallback.value || null);
       return;
     }
 

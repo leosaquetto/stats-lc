@@ -8,7 +8,7 @@ import { MONTHS_SHORT, type ReplayFilterPeriod, type ReplaySelectedSubValues } f
 import { useAutoOrbitRotation } from '../../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 import { cn } from '../../lib/utils';
-import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
+import { peekRuntimeCacheResult, readRuntimeCacheResult, setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 const latestDiscoveryCache = new Map<string, any>();
 const REPLAY_MONTHS_LONG = MONTHS_SHORT.map((month, index) => (
@@ -72,7 +72,7 @@ export const PerceptionsPanel = ({
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const [latestDiscovery, setLatestDiscovery] = useState<any>(
-    () => latestDiscoveryCache.get(userId) || null
+    () => peekRuntimeCacheResult(latestDiscoveryCache, userId).value || null
   );
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const topTrack = tracks[0];
@@ -119,11 +119,13 @@ export const PerceptionsPanel = ({
   ].filter(Boolean) as Array<{ title: string; text: string; icon: any; image?: string }>;
 
   useEffect(() => {
-    setLatestDiscovery(latestDiscoveryCache.get(userId) || null);
+    setLatestDiscovery(readRuntimeCacheResult(latestDiscoveryCache, userId).value || null);
   }, [userId]);
 
   useEffect(() => {
-    if (!isSectionVisible || !userId || latestDiscoveryCache.has(userId)) return;
+    if (!isSectionVisible || !userId) return;
+    const cachedDiscovery = readRuntimeCacheResult(latestDiscoveryCache, userId);
+    if (cachedDiscovery.hit) return;
     const controller = new AbortController();
     statsService.getLatestDiscovery(userId, controller.signal)
       .then((response) => {

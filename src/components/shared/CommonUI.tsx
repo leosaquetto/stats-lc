@@ -16,7 +16,7 @@ import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 import { useCompositorLoopTelemetry } from '../../hooks/useCompositorLoopTelemetry';
 import { motionRuntime } from '../../lib/motionRuntime';
 import { hasImageAssetLoaded, markImageAssetLoaded, preloadImageAssets } from '../../lib/assetRuntime';
-import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
+import { peekRuntimeCacheEntry, setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -383,8 +383,8 @@ export const preloadSmartImages = preloadImageAssets;
 
 export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, cacheKey?: string, className?: string, fallback?: string, rounded?: string }) => {
   const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
-  const cachedStableSrc = cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '';
-  const lastGoodSrcRef = useRef(cacheKey ? stableImageSrcByKey.get(cacheKey) || '' : '');
+  const cachedStableSrc = cacheKey ? peekRuntimeCacheEntry(stableImageSrcByKey, cacheKey) || '' : '';
+  const lastGoodSrcRef = useRef(cacheKey ? peekRuntimeCacheEntry(stableImageSrcByKey, cacheKey) || '' : '');
   const lastCacheKeyRef = useRef(cacheKey || '');
   const [overrideSrc, setOverrideSrc] = useState('');
 
@@ -405,7 +405,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
   const hasDisplayableSrc = !!imageSrc && !error && !imageSrc.includes("private.webp");
-  const previousBelongsToCurrentKey = !cacheKey || stableImageSrcByKey.get(cacheKey) === previousDisplaySrc;
+  const previousBelongsToCurrentKey = !cacheKey || peekRuntimeCacheEntry(stableImageSrcByKey, cacheKey) === previousDisplaySrc;
 
   useEffect(() => {
     setOverrideSrc('');
@@ -415,7 +415,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
     const nextCacheKey = cacheKey || '';
     if (lastCacheKeyRef.current !== nextCacheKey) {
       lastCacheKeyRef.current = nextCacheKey;
-      lastGoodSrcRef.current = nextCacheKey ? stableImageSrcByKey.get(nextCacheKey) || '' : '';
+      lastGoodSrcRef.current = nextCacheKey ? peekRuntimeCacheEntry(stableImageSrcByKey, nextCacheKey) || '' : '';
       setOverrideSrc('');
       setError(false);
       setShowFallback(false);
@@ -423,7 +423,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
     }
 
     if (!cacheKey) return;
-    const cached = stableImageSrcByKey.get(cacheKey);
+    const cached = peekRuntimeCacheEntry(stableImageSrcByKey, cacheKey);
     if (cached && !lastGoodSrcRef.current) {
       lastGoodSrcRef.current = cached;
     }

@@ -61,6 +61,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Use `assetRuntime`, `memoryRuntime`, `readRuntimeCacheEntry` e `setRuntimeCacheEntry` para caches visuais.
    - Nao criar `Map`/arrays visuais sem limite para capas, paletas ou texturas.
    - Estatisticas de faixa e outros dados efemeros por entidade devem seguir o mesmo orçamento LRU; uma sessao longa nao pode acumular cada entidade visitada.
+   - `Map` global, cache visual, cache de resposta e request in-flight precisam usar `memoryRuntime` (`readRuntimeCacheEntry`/`readRuntimeCacheResult`/`setRuntimeCacheEntry`) ou declarar explicitamente por que nao sobrevivem a sessao.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
    - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Enriquecimento de artwork/cor da mesma faixa atualiza o visual no lugar, sem remontar disco, reiniciar rotacao ou mover tonearm.
 
@@ -102,6 +103,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Home, Stats, Circulo e Ajustes devem permanecer sob `PersistentRouteScene`/React `Activity`; trocar de secao alterna a cena visivel sem remontar toda a arvore.
    - Cenas ocultas devem ficar em `Activity mode="hidden"` para preservar DOM/estado e suspender effects, listeners e loops.
    - Deve existir exatamente uma cena `data-stats-lc-route-scene` visivel por vez.
+   - Cenas inativas devem declarar `data-stats-lc-route-active="false"` e seus `.stats-lc-engine-loop` precisam computar `animation-name: none`, mesmo se um filho preservado ainda tiver `data-active="true"`.
    - Nao coloque `key={routeKey}` em volta da arvore inteira de uma rota-tab: isso destrói o estado aquecido e repete trabalho sincrono na volta.
    - Modais, detalhes efemeros e rotas fora do shell principal nao viram cenas persistentes automaticamente.
    - Preserve `data-stats-lc-last-route-settle` e `data-stats-lc-last-route-settle-ms` para medir a troca real de cena.

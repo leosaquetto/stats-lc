@@ -66,7 +66,7 @@ const loadTrackLeaderboardStats = async (track: any, members: any[], selectedArt
   const cached = readTrackLeaderboardCache(cacheKey);
   if (cached) return cached;
 
-  const running = trackLeaderboardStatsInFlight.get(cacheKey);
+  const running = readRuntimeCacheEntry(trackLeaderboardStatsInFlight, cacheKey);
   if (running) return running;
 
   const promise = (async () => {
@@ -117,7 +117,7 @@ const loadTrackLeaderboardStats = async (track: any, members: any[], selectedArt
     trackLeaderboardStatsInFlight.delete(cacheKey);
   });
 
-  trackLeaderboardStatsInFlight.set(cacheKey, promise);
+  setRuntimeCacheEntry(trackLeaderboardStatsInFlight, cacheKey, promise, 'small');
   return promise;
 };
 

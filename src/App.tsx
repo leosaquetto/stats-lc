@@ -230,19 +230,26 @@ const PersistentRouteScene = ({
   shouldAnimate: boolean;
   children: ReactNode;
 }) => (
-  <Suspense fallback={active ? <RouteLoader /> : null}>
-    <Activity mode={active ? 'visible' : 'hidden'}>
-      <motion.div
-        data-stats-lc-route-scene={id}
-        className="w-full min-w-0"
-        initial={false}
-        animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
-        transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.div>
-    </Activity>
-  </Suspense>
+  <div
+    data-stats-lc-route-shell={id}
+    data-stats-lc-route-active={active ? 'true' : 'false'}
+    aria-hidden={active ? undefined : true}
+    className="contents"
+  >
+    <Suspense fallback={active ? <RouteLoader /> : null}>
+      <Activity mode={active ? 'visible' : 'hidden'}>
+        <motion.div
+          data-stats-lc-route-scene={id}
+          className="w-full min-w-0"
+          initial={false}
+          animate={{ opacity: active ? 1 : 0, x: active ? 0 : id === 'home' ? -6 : 8 }}
+          transition={{ duration: shouldAnimate ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {children}
+        </motion.div>
+      </Activity>
+    </Suspense>
+  </div>
 );
 
 function AppRoutes() {

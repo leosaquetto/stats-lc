@@ -10,7 +10,7 @@ import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
 import { buildTopItemsCacheKey, sanitizeTopItems } from '../lib/topItemUtils';
-import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
+import { peekRuntimeCacheEntry, readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 
 const getBaseUrl = () => {
   const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
@@ -449,7 +449,7 @@ const fetchFromApi = async <T>(
   }
 
   if (!forceRefresh && useDedupe) {
-    const running = apiRequestInFlight.get(cacheKey);
+    const running = readRuntimeCacheEntry(apiRequestInFlight, cacheKey);
     if (running) {
       return running as Promise<T>;
     }
@@ -516,7 +516,7 @@ const fetchFromApi = async <T>(
   })();
 
   if (!forceRefresh && useDedupe) {
-    apiRequestInFlight.set(cacheKey, request);
+    setRuntimeCacheEntry(apiRequestInFlight, cacheKey, request, 'medium');
   }
 
   return request;
@@ -798,7 +798,7 @@ export const statsService = {
    */
   async getGroupLiveData(forceRefresh = false, statsUser?: string): Promise<GroupStats> {
     const requestKey = statsUser || 'no-featured-stats';
-    const existingRequest = liveRequestInFlight.get(requestKey);
+    const existingRequest = readRuntimeCacheEntry(liveRequestInFlight, requestKey);
     if (existingRequest && !forceRefresh) {
       return existingRequest;
     }
@@ -828,13 +828,13 @@ export const statsService = {
         
         throw new Error(`Erro ao sincronizar live: ${errorMessage}`);
       } finally {
-        if (liveRequestInFlight.get(requestKey) === request) {
+        if (peekRuntimeCacheEntry(liveRequestInFlight, requestKey) === request) {
           liveRequestInFlight.delete(requestKey);
         }
       }
     })();
 
-    if (!forceRefresh) liveRequestInFlight.set(requestKey, request);
+    if (!forceRefresh) setRuntimeCacheEntry(liveRequestInFlight, requestKey, request, 'small');
     return request;
   },
 

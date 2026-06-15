@@ -63,3 +63,24 @@ export const readRuntimeCacheEntry = <K, V>(cache: Map<K, V>, key: K) => {
   return value;
 };
 
+export const readRuntimeCacheResult = <K, V>(cache: Map<K, V>, key: K) => {
+  if (!cache.has(key)) {
+    return { hit: false, value: undefined as V | undefined };
+  }
+  const value = cache.get(key) as V;
+  cache.delete(key);
+  cache.set(key, value);
+  return { hit: true, value };
+};
+
+export const peekRuntimeCacheEntry = <K, V>(cache: Map<K, V>, key: K) => {
+  const value = cache.get(key);
+  return typeof value === 'undefined' ? undefined : value;
+};
+
+export const peekRuntimeCacheResult = <K, V>(cache: Map<K, V>, key: K) => {
+  if (!cache.has(key)) {
+    return { hit: false, value: undefined as V | undefined };
+  }
+  return { hit: true, value: cache.get(key) as V };
+};

@@ -745,6 +745,14 @@ body[data-stats-lc-modal-open="true"] .stats-lc-engine-loop::after {
   will-change: auto !important;
 }
 
+body [data-stats-lc-route-active="false"] .stats-lc-engine-loop,
+body [data-stats-lc-route-active="false"] .stats-lc-engine-loop *,
+body [data-stats-lc-route-active="false"] .stats-lc-engine-loop::before,
+body [data-stats-lc-route-active="false"] .stats-lc-engine-loop::after {
+  animation: none !important;
+  will-change: auto !important;
+}
+
 body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"],
 body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"] *,
 body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"]::before,
