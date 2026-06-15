@@ -23,6 +23,7 @@ import { useCompositorLoopTelemetry } from '../hooks/useCompositorLoopTelemetry'
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
 import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 import { useModalMotionScope } from '../hooks/useModalMotionScope';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -1202,6 +1203,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
   const [trackLinkSheetAnchor, setTrackLinkSheetAnchor] = React.useState({ right: 16, bottom: 16 });
   const [toastMessage, setToastMessage] = React.useState('');
+  const cancelToastDismissRef = React.useRef<() => void>(() => {});
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
   const [panelHydration, setPanelHydration] = React.useState<BottomTrackStatsHydrationState>(emptyBottomTrackStatsHydration);
   const [playbackIndex, setPlaybackIndex] = React.useState(0);
@@ -1737,8 +1739,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   ).slice(0, Math.max(2, Math.min(trackArtists.length || 2, 3)));
 
   const showToast = React.useCallback((message: string) => {
+    cancelToastDismissRef.current();
     setToastMessage(message);
-    window.setTimeout(() => setToastMessage(''), 1800);
+    cancelToastDismissRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      setToastMessage('');
+      cancelToastDismissRef.current = () => {};
+    }, 1800, 'interaction');
+  }, []);
+
+  React.useEffect(() => () => {
+    cancelToastDismissRef.current();
   }, []);
 
   const updateLyricsScrollMask = React.useCallback(() => {

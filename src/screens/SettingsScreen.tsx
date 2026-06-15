@@ -311,17 +311,17 @@ export default function SettingsScreen() {
         icon={<Settings className="h-5 w-5" />}
       >
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-2.5 py-2">
             <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Perfil</span>
-            <span className="mt-1 block truncate text-[12px] font-black text-white/90">{getFirstName(featuredMember?.name) || 'Leo'}</span>
+            <span className="mt-1 block text-[11.5px] font-black leading-tight text-white/90">{getFirstName(featuredMember?.name) || 'Leo'}</span>
           </div>
-          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-2.5 py-2">
             <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Ocultos</span>
             <span className="mt-1 block text-[12px] font-black text-white/90">{hiddenUsers.length}</span>
           </div>
-          <div className="rounded-2xl border border-white/7 bg-black/22 px-3 py-2">
+          <div className="rounded-2xl border border-white/7 bg-black/22 px-2.5 py-2">
             <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-white/30">Arena</span>
-            <span className="mt-1 block truncate text-[12px] font-black text-white/90">{arenaName || 'Arena'}</span>
+            <span className="mt-1 block text-[11.5px] font-black leading-tight text-white/90">{arenaName || 'Arena'}</span>
           </div>
         </div>
       </PremiumScreenHeader>
@@ -330,7 +330,7 @@ export default function SettingsScreen() {
         <div className="relative overflow-hidden rounded-[26px] border border-white/8 bg-black/68 shadow-[0_14px_34px_rgba(0,0,0,0.26)] backdrop-blur-xl">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-black/85 to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-black/85 to-transparent" />
-          <div className="no-scrollbar scrolling-touch flex min-w-full gap-0.5 overflow-x-auto p-1.5 scroll-fade-h">
+          <div className="no-scrollbar scrolling-touch flex min-w-full gap-1 overflow-x-auto p-1.5 scroll-fade-h">
             {NAV_ITEMS.map(item => (
               <button
                 key={item.id}
@@ -338,7 +338,7 @@ export default function SettingsScreen() {
                 onClick={() => scrollToSection(item.id)}
                 aria-current={activeSection === item.id ? 'page' : undefined}
                 className={clsx(
-                  'relative z-20 min-w-0 flex-1 rounded-2xl px-1.5 py-2 text-[7.5px] font-black uppercase tracking-[0.07em] transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]',
+                  'relative z-20 min-w-max shrink-0 rounded-2xl px-3 py-2 text-[7.5px] font-black uppercase tracking-[0.07em] transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]',
                   activeSection === item.id
                     ? 'bg-orange-500/16 text-orange-300 shadow-[inset_0_0_0_1px_rgba(255,95,0,0.18)]'
                     : 'text-white/42 hover:bg-white/[0.045] hover:text-white/72'

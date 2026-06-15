@@ -21,34 +21,40 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Escalonar apenas os primeiros itens visiveis.
    - Respeitar `motionRuntime.canRunMotion` e `motionRuntime.tier !== 'conserve'`.
 
-4. Loaders de rota e modal devem cobrir viewport estavel.
+4. Texto em controles nunca deve ser espremido ate cortar.
+   - Pills, tabs e segmented controls com muitos itens devem usar scroll horizontal e `shrink-0`.
+   - Nao use `flex-1 min-w-0` em uma linha de labels longos apenas para caber tudo na tela.
+   - Badges compactos devem quebrar em segmentos, reduzir tracking ou reservar duas linhas antes de truncar palavras curtas.
+   - Cards-resumo podem crescer verticalmente para nomes curtos como `Arena do Grupo`; nao usar `truncate` por reflexo.
+
+5. Loaders de rota e modal devem cobrir viewport estavel.
    - Use `100svh` para overlays mobile.
    - Evite `100vh`, `100dvh` e `calc(100vh...)` no shell, modais e loaders.
    - Loaders de rota devem ser `fixed inset-0`, nao fallback preso ao `main`.
 
-5. Modais devem declarar escopo de motion.
+6. Modais devem declarar escopo de motion.
    - Use `useModalMotionScope(...)` quando uma superficie modal abrir.
    - O container principal do modal/fallback deve ter `data-stats-lc-modal-surface="true"`.
    - Loops do cenario de fundo devem pausar; loops internos do modal podem continuar se forem essenciais.
 
-6. Loops CSS precisam ser rastreaveis e pausaveis.
+7. Loops CSS precisam ser rastreaveis e pausaveis.
    - Elementos animados por CSS devem usar `stats-lc-engine-loop`.
    - Quando aplicavel, definir `data-active="true"` ou `data-active="false"`.
    - Nao assumir que `animation-play-state: running` significa loop real; verificar `animation-name !== none`.
 
-7. Transicoes devem listar propriedades.
+8. Transicoes devem listar propriedades.
    - Nao usar `transition-all` em `src`.
    - Preferir `transition-[background-color,border-color,box-shadow,opacity,transform]` conforme a superficie.
 
-8. Assets, cores e caches visuais devem respeitar memoria adaptativa.
+9. Assets, cores e caches visuais devem respeitar memoria adaptativa.
    - Use `assetRuntime`, `memoryRuntime`, `readRuntimeCacheEntry` e `setRuntimeCacheEntry` para caches visuais.
    - Nao criar `Map`/arrays visuais sem limite para capas, paletas ou texturas.
 
-9. Telemetria deve permanecer separada por boot e pos-boot.
+10. Telemetria deve permanecer separada por boot e pos-boot.
    - Preserve `window.__STATS_LC_PERFORMANCE__`.
    - Preserve atributos `data-stats-lc-*` usados para auditar long tasks, LoAF, loaders e loops.
 
-10. Browser QA deve usar rotas hash.
+11. Browser QA deve usar rotas hash.
    - Home: `/#/`
    - Stats: `/#/stats`
    - Circle: `/#/circle`

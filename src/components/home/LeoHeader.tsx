@@ -758,15 +758,16 @@ export const LiveTrackProgress = memo(({
             initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} exit={{ opacity: 0 }}
             className="flex flex-col gap-1.5 w-full"
           >
-            <div className="flex items-center justify-center gap-1.5 mb-1 min-w-0">
-              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.16em] whitespace-nowrap">OUVIU NO</span>
-              <div className="flex items-center justify-center gap-1 min-w-0">
+            <div className="mb-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
+              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">OUVIU NO</span>
+              <div className="flex min-w-0 items-center justify-center gap-1 overflow-hidden">
                 <div className="text-white/35 flex items-center overflow-visible">
                   {PlatformLogo}
                 </div>
-                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.16em] whitespace-nowrap">{PlatformName}</span>
+                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{PlatformName}</span>
               </div>
-              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.16em] whitespace-nowrap">{timeLabel}</span>
+              <span className="text-[7px] font-black text-white/18" aria-hidden="true">•</span>
+              <span className="max-w-full text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{timeLabel}</span>
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full w-full bg-white/20" />
