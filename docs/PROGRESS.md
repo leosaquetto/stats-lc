@@ -10,8 +10,7 @@
 
 - [ ] Auditar os loops e filas restantes na Home, Circle, Stats e mini tray em viewport mobile.
 - [ ] Eliminar entradas abruptas restantes registradas em `docs/abrupt-entry-audit.md`.
-- [ ] Validar Home -> Stats -> Circle -> Settings -> Home, incluindo loaders, mini tray, letras e modais.
-- [ ] Rodar `npm run lint`, `npm run build`, `npm run build:report` e `git diff --check` no estado final.
+- [ ] Rodar validacao completa pos-commit em `390x844` para Home -> Stats -> Circle -> Settings -> Home, incluindo loaders, mini tray, letras e modais.
 - [ ] Atualizar as regras definitivas de animação/runtime para futuras edições por agentes.
 
 ## Subtarefas concluídas
@@ -25,9 +24,15 @@
 - [x] Filas de assets e paletas ligadas ao runtime. Commit `7bd05a8`.
 - [x] Limpeza dos schedulers visuais restantes. Commit `7aacc2a`.
 - [x] Redução do custo de blur repetido com aparência premium preservada. Commit `2e0e889`.
+- [x] Retorno quente para Home sem loader curto, RouteLoader com revelacao atrasada e preloads de rota por interacao. Commit `ba959f7`.
+- [x] Letra do LeoHeader standalone sem montar/hidratar modal de stats da faixa. Commit `ba959f7`.
+- [x] Fechamento de bottom sheet/modal da bolha com safety tasks nomeadas e sem `transform: none` cortando saida. Commit `ba959f7`.
+- [x] Foot sync compacto/expandido reduzido, centralizado e sem barra gigante/bolha preta indevida. Commit `ba959f7`.
+- [x] Tonearm manual preserva posicao solta e vinil reduz/retoma com transicoes transform-only. Commit `ba959f7`.
+- [x] `npm run lint`, `npm run build`, `npm run build:report`, `git diff --check` e varredura `transition-all|setInterval|100vh|100dvh` passaram no lote `ba959f7`.
 - [x] Validação Browser Home -> Stats -> Home sem overflow; cover de rota limpa após a transição.
 - [x] Validação Browser dos loops `Engine*`: elementos inativos ficam com `animation-name: none` e `animation-play-state: paused`.
 
 ## Próximo passo concreto
 
-Auditar as duas tarefas persistentes do scheduler e o único loop compositor funcional observados no retorno à Home, adicionando telemetria de identificação se necessário.
+Auditar loops e filas restantes na Home, Circle, Stats e mini tray em `390x844`, depois atacar as entradas abruptas que ainda restarem em `docs/abrupt-entry-audit.md`.
