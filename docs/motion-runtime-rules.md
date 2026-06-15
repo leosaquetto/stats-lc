@@ -66,7 +66,10 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - `SmartImage` deve preservar a ultima imagem boa sem shimmer por cima enquanto a proxima decodifica; use `data-stats-lc-smart-image-*` para auditar fallback, loading e imagem anterior.
    - Elementos de imagem com caixa propria podem usar `contain: layout paint style`; palcos orbitais ativos e areas com profundidade/overflow visivel nao devem receber paint containment generico.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
-   - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Depois que a faixa atual entrou em `playing`, artwork/cor ficam travados ate a identidade mudar; enriquecimento tardio nao pode remontar disco, reiniciar rotacao ou mover tonearm.
+   - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Enriquecimento tardio de artwork/cor pode entrar depois de preload critico, mas nao pode remontar disco, reiniciar rotacao ou mover tonearm.
+   - Barra de reproducao da LeoHeader nao deve trocar para fallback laranja enquanto a paleta da capa ainda esta sendo extraida; mantenha a ultima paleta real ou use neutro ate `getArtworkPalette` resolver.
+   - Correcoes de progresso ao vivo devem acelerar ate o tempo corrigido; nao salte a bolinha/linha de uma posicao antiga para uma posicao nova.
+   - RankingSummary do LeoHeader deve hidratar independentemente do modal de track. Se o store nao refletir os dados a tempo, use fallback local unico por faixa e exponha `data-stats-lc-leo-header-ranking-source`.
 
 10. Telemetria deve permanecer separada por boot e pos-boot.
    - Preserve `window.__STATS_LC_PERFORMANCE__`.

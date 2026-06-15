@@ -230,12 +230,17 @@ export const VinylRecord = ({
 
       if (cancelled || requestId !== visualRequestRef.current) return;
 
-      if (albumImage) {
+      if (!albumImage && visualSnapshot.albumImage && isPlaying) {
+        await wait(720);
+      }
+
+      const preparedAlbumImage = incomingVisualRef.current.albumImage;
+      if (preparedAlbumImage) {
         try {
-          await preloadSmartImages([albumImage], {
+          await preloadSmartImages([preparedAlbumImage], {
             limit: 1,
             priority: 'critical',
-            timeoutMs: 1400,
+            timeoutMs: 1700,
           });
         } catch {
           // Keep the previous decoded artwork instead of flashing an unloaded cover.
@@ -338,11 +343,8 @@ export const VinylRecord = ({
   useEffect(() => {
     if (visualSnapshot.identity !== incomingIdentity) return;
 
-    const shouldLockPlayingVisual = isPlaying && phaseRef.current === 'playing' && !!visualSnapshot.albumImage;
-    const nextAlbumImage = shouldLockPlayingVisual ? visualSnapshot.albumImage : albumImage;
-    const nextDominantColor = shouldLockPlayingVisual && visualSnapshot.dominantColor
-      ? visualSnapshot.dominantColor
-      : dominantColor;
+    const nextAlbumImage = albumImage;
+    const nextDominantColor = dominantColor;
     const artworkChanged = visualSnapshot.albumImage !== nextAlbumImage;
     const colorChanged = visualSnapshot.dominantColor !== nextDominantColor;
     const playbackKeyChanged = !!playbackKey && visualSnapshot.playbackKey !== playbackKey;
@@ -357,7 +359,7 @@ export const VinylRecord = ({
           await preloadSmartImages([nextAlbumImage], {
             limit: 1,
             priority: 'critical',
-            timeoutMs: 1400,
+            timeoutMs: 1700,
           });
         } catch {
           return;
@@ -583,7 +585,7 @@ export const VinylRecord = ({
       data-vinyl-phase={phase}
       data-vinyl-revision={visualSnapshot.revision}
       data-vinyl-visual-key={visualSnapshot.identity}
-      data-vinyl-visual-locked={isPlaying && phase === 'playing' && !!visualSnapshot.albumImage ? "true" : "false"}
+      data-vinyl-visual-locked={phase === 'playing' && !!visualSnapshot.albumImage ? "true" : "false"}
     >
       <>
 
@@ -676,19 +678,20 @@ export const VinylRecord = ({
               backgroundSize: 'cover',
               filter: isMulticolorVinyl
                 ? motionTier === 'conserve'
-                  ? 'blur(8px) saturate(1.75) contrast(1.08)'
+                  ? 'blur(8px) saturate(1.38) contrast(1.02)'
                   : motionTier === 'balanced'
-                    ? 'blur(11px) saturate(2) contrast(1.1)'
-                    : 'blur(14px) saturate(2.2) contrast(1.12)'
+                    ? 'blur(11px) saturate(1.5) contrast(1.03)'
+                    : 'blur(14px) saturate(1.58) contrast(1.04)'
                 : motionTier === 'conserve'
-                  ? 'blur(16px) saturate(1.65) contrast(1.08)'
+                  ? 'blur(15px) saturate(1.32) contrast(1.02)'
                   : motionTier === 'balanced'
-                    ? 'blur(24px) saturate(1.9) contrast(1.11)'
-                    : 'blur(34px) saturate(2.1) contrast(1.14)',
-              mixBlendMode: 'color',
+                    ? 'blur(21px) saturate(1.44) contrast(1.03)'
+                    : 'blur(28px) saturate(1.52) contrast(1.04)',
+              mixBlendMode: 'soft-light',
               opacity: isMulticolorVinyl
-                ? (shouldSpin ? 0.9 : 0.72)
-                : (shouldSpin ? 0.82 : 0.68),
+                ? (shouldSpin ? 0.58 : 0.48)
+                : (shouldSpin ? 0.48 : 0.4),
+              transform: 'translateZ(0)',
             }}
           />
         )}

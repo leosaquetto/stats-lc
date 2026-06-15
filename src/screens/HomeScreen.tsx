@@ -2051,10 +2051,10 @@ export default function HomeScreen() {
       setHeaderRankingPrepState('ready');
       return;
     }
-    if (hasReleasedHomeRef.current || headerRankingBootKeyRef.current === trackId) return;
+    if (headerRankingBootKeyRef.current === trackId) return;
 
     headerRankingBootKeyRef.current = trackId;
-    setHeaderRankingPrepState('loading');
+    setHeaderRankingPrepState(hasReleasedHomeRef.current ? 'ready' : 'loading');
     let active = true;
     let settled = false;
     const finish = (state: 'ready' | 'error') => {

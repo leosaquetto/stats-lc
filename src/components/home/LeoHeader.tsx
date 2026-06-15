@@ -150,6 +150,7 @@ const TrackTitleBadges = React.memo(({ badges }: { badges: string[] }) => {
 interface LiveTrackProgressProps {
   progressMs?: number;
   progressPercent?: number;
+  progressTargetPercent?: number;
   progressAnimationMs?: number;
   progressAnimationKey?: string;
   durationMs?: number;
@@ -234,11 +235,13 @@ const LiveElapsedTime = memo(({
 
 LiveElapsedTime.displayName = 'LiveElapsedTime';
 
-const COMPLETE_MARGIN_MS = 2500;
+const COMPLETE_MARGIN_MS = 35_000;
 const DRIFT_REANCHOR_MS = 5000;
 const HIDDEN_FALLBACK_DURATION_MS = 3 * 60 * 1000;
-const COMPLETION_RECHECK_INTERVAL_MS = 8000;
-const MAX_COMPLETION_RECHECKS = 6;
+const COMPLETION_RECHECK_INTERVAL_MS = 9000;
+const MAX_COMPLETION_RECHECKS = 10;
+const PROGRESS_CATCHUP_MIN_MS = 1400;
+const PROGRESS_CATCHUP_MAX_MS = 5200;
 
 function normalizePlaybackAccent(color: string | null) {
   if (!color) return null;
@@ -307,8 +310,20 @@ function getAssertiveProgressAccent(color: string | null) {
   const saturation = getSaturation(normalized);
   const brightness = getPerceivedBrightness(normalized);
 
-  if (saturation < 0.22 || brightness > 196) {
-    return mixHexColors(normalized, '#ff5f00', saturation < 0.16 ? 0.5 : 0.34);
+  if (saturation < 0.16) {
+    return brightness < 128
+      ? adjustBrightness(normalized, 0.28)
+      : adjustBrightness(normalized, -0.08);
+  }
+
+  if (saturation < 0.22) {
+    return brightness < 150
+      ? adjustBrightness(normalized, 0.18)
+      : normalized;
+  }
+
+  if (brightness > 196) {
+    return adjustBrightness(normalized, -0.12);
   }
 
   return normalized;
@@ -373,6 +388,12 @@ type PlaybackSnapshot = {
   baseProgressMs: number;
   durationMs: number | null;
   receivedAt: number;
+  catchup?: {
+    startedAt: number;
+    fromMs: number;
+    toMs: number;
+    durationMs: number;
+  };
 };
 
 function readTimeMs(value: unknown) {
@@ -502,7 +523,31 @@ const mergeResolvedTrackMetadata = (liveTrack: any, resolvedTrack: any) => {
 
 function calculateSnapshotProgress(snapshot: PlaybackSnapshot | null, now = Date.now()) {
   if (!snapshot) return 0;
+  const catchup = snapshot.catchup;
+  if (catchup) {
+    const elapsed = Math.max(0, now - catchup.startedAt);
+    const catchupDuration = Math.max(1, catchup.durationMs);
+    const driftMs = Math.max(0, catchup.toMs - catchup.fromMs);
+    const speed = 1 + (driftMs / catchupDuration);
+    if (elapsed < catchupDuration) {
+      return Math.max(0, catchup.fromMs + elapsed * speed);
+    }
+    return Math.max(0, catchup.toMs + elapsed);
+  }
   return Math.max(0, snapshot.baseProgressMs + (now - snapshot.receivedAt));
+}
+
+function getSnapshotProgressTarget(snapshot: PlaybackSnapshot | null, now = Date.now()) {
+  if (!snapshot?.catchup) return null;
+  const { catchup } = snapshot;
+  const elapsed = Math.max(0, now - catchup.startedAt);
+  if (elapsed >= catchup.durationMs) return null;
+  const remainingMs = Math.max(0, catchup.durationMs - elapsed);
+  return {
+    targetMs: catchup.toMs + catchup.durationMs,
+    remainingMs,
+    key: `${catchup.startedAt}:${catchup.toMs}`,
+  };
 }
 
 function useLivePlaybackProgress({
@@ -582,11 +627,30 @@ function useLivePlaybackProgress({
 
     if (inferredProgressMs != null && completedPlaybackKeyRef.current !== playbackKey) {
       const projectedProgressMs = calculateSnapshotProgress(snapshotRef.current, now);
-      if (Math.abs(projectedProgressMs - inferredProgressMs) >= DRIFT_REANCHOR_MS) {
+      const driftMs = inferredProgressMs - projectedProgressMs;
+      if (driftMs >= DRIFT_REANCHOR_MS) {
+        const catchupDurationMs = Math.min(
+          PROGRESS_CATCHUP_MAX_MS,
+          Math.max(PROGRESS_CATCHUP_MIN_MS, driftMs * 0.36),
+        );
+        snapshotRef.current = {
+          ...snapshotRef.current,
+          baseProgressMs: projectedProgressMs,
+          receivedAt: now,
+          catchup: {
+            startedAt: now,
+            fromMs: projectedProgressMs,
+            toMs: inferredProgressMs,
+            durationMs: catchupDurationMs,
+          },
+        };
+        setSnapshotVersion(version => version + 1);
+      } else if (Math.abs(driftMs) >= DRIFT_REANCHOR_MS) {
         snapshotRef.current = {
           ...snapshotRef.current,
           baseProgressMs: inferredProgressMs,
           receivedAt: now,
+          catchup: undefined,
         };
         setSnapshotVersion(version => version + 1);
       }
@@ -613,6 +677,13 @@ function useLivePlaybackProgress({
   const progressPercent = normalizedDurationMs
     ? Math.min((cappedProgressMs / normalizedDurationMs) * 100, 100)
     : 0;
+  const progressTarget = getSnapshotProgressTarget(snapshotRef.current);
+  const cappedProgressTargetMs = normalizedDurationMs && progressTarget
+    ? Math.min(progressTarget.targetMs, normalizedDurationMs)
+    : null;
+  const progressTargetPercent = normalizedDurationMs && cappedProgressTargetMs != null
+    ? Math.min((cappedProgressTargetMs / normalizedDurationMs) * 100, 100)
+    : undefined;
   const completionDurationMs = normalizedDurationMs ?? HIDDEN_FALLBACK_DURATION_MS;
 
   useEffect(() => {
@@ -664,15 +735,29 @@ function useLivePlaybackProgress({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [isNow, trackId]);
 
+  const catchupKey = progressTarget?.key || '';
+  useEffect(() => {
+    if (!progressTarget || !catchupKey) return;
+    return motionRuntime.scheduleTask(
+      () => setSnapshotVersion(version => version + 1),
+      progressTarget.remainingMs,
+      'interaction',
+      'leo-header-progress-catchup-end',
+    );
+  }, [catchupKey, progressTarget?.remainingMs]);
+
   const progressAnimationMs = normalizedDurationMs
-    ? Math.max(0, normalizedDurationMs - cappedProgressMs)
+    ? progressTarget
+      ? progressTarget.remainingMs
+      : Math.max(0, normalizedDurationMs - cappedProgressMs)
     : 0;
 
   return {
     progressMs: cappedProgressMs,
     progressPercent,
+    progressTargetPercent,
     progressAnimationMs,
-    progressAnimationKey: `${snapshotRef.current?.playbackKey || 'idle'}:${snapshotVersion}`,
+    progressAnimationKey: `${snapshotRef.current?.playbackKey || 'idle'}:${snapshotVersion}:${catchupKey || 'steady'}`,
     isFinished,
     isCheckingNext,
     shouldSpinVinyl: isNow && !isFinished,
@@ -682,6 +767,7 @@ function useLivePlaybackProgress({
 export const LiveTrackProgress = memo(({
   progressMs,
   progressPercent,
+  progressTargetPercent,
   progressAnimationMs,
   progressAnimationKey,
   durationMs,
@@ -698,7 +784,7 @@ export const LiveTrackProgress = memo(({
   const visibleProgressColor = useMemo(() => getVisibleProgressAccent(progressColor), [progressColor]);
   const assertiveProgressColor = useMemo(() => getAssertiveProgressAccent(visibleProgressColor), [visibleProgressColor]);
   const progressFillGradient = useMemo(() => {
-    if (!assertiveProgressColor) return 'linear-gradient(90deg, #ff5f00 0%, #ff9a45 100%)';
+    if (!assertiveProgressColor) return 'linear-gradient(90deg, rgba(255,255,255,0.48) 0%, rgba(255,255,255,0.78) 100%)';
     const brightness = getPerceivedBrightness(assertiveProgressColor);
     const headColor = brightness < 150
       ? adjustBrightness(assertiveProgressColor, 0.16)
@@ -753,7 +839,15 @@ export const LiveTrackProgress = memo(({
 
   const currentProgress = isNowPlaying ? (progressPercent ?? 0) : 100;
   const progressScale = Math.min(1, Math.max(0, currentProgress / 100));
+  const progressTargetScale = Math.min(1, Math.max(progressScale, (progressTargetPercent ?? (isNowPlaying ? 100 : currentProgress)) / 100));
   const elapsedMs = useMemo(() => progressMs ?? ((currentProgress / 100) * (durationMs || 0)), [currentProgress, durationMs, progressMs]);
+  const syncAccent = assertiveProgressColor || visibleProgressColor || 'rgba(255,255,255,0.72)';
+  const syncShimmerGradient = useMemo(() => {
+    const accent = assertiveProgressColor || visibleProgressColor;
+    return accent
+      ? `linear-gradient(90deg, transparent, ${withAlpha(accent, 0.42)}, ${withAlpha(adjustBrightness(accent, 0.18), 0.62)}, transparent)`
+      : 'linear-gradient(90deg, transparent, rgba(255,255,255,0.24), rgba(255,255,255,0.46), transparent)';
+  }, [assertiveProgressColor, visibleProgressColor]);
 
   const dateObj = new Date(timestamp);
   const timeStr = formatTimeSP(dateObj, 'dots');
@@ -818,72 +912,111 @@ export const LiveTrackProgress = memo(({
         <motion.div
           key="playing"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          data-stats-lc-leo-progress-mode={isSynchronizing ? 'sync' : 'playing'}
+          data-stats-lc-leo-progress-color={assertiveProgressColor || visibleProgressColor || ''}
           className="flex w-full origin-left scale-[1.05] flex-col gap-1.5"
         >
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-0.5">
+            <motion.span
+              animate={{ opacity: isSynchronizing ? 0 : 1, y: isSynchronizing ? -1 : 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
               <LiveElapsedTime
                 baseMs={elapsedMs}
                 durationMs={durationMs}
-                isRunning={isNowPlaying}
+                isRunning={isNowPlaying && !isSynchronizing}
                 className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
               />
-            {isSynchronizing ? (
-              <EngineBreathe
-                active={shouldRunAmbientMotion}
-                duration={1.8}
-                fromOpacity={0.38}
-                fromScale={1}
-                toOpacity={0.9}
-                toScale={1}
-                className="mx-auto text-[6.4px] font-black uppercase tracking-[0.18em] text-orange-200/80"
-              >
-                SINCRONIZANDO
-              </EngineBreathe>
-            ) : (
-              <div className="mx-auto flex min-w-0 max-w-[min(138px,42vw)] items-center justify-center gap-0.5 overflow-visible">
-                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">OUVINDO NO</span>
-                <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
-                  {PlatformLogo}
-                </div>
-                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">{PlatformName}</span>
-              </div>
-            )}
-            <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
+            </motion.span>
+            <div className="mx-auto min-w-0 max-w-[min(152px,44vw)] overflow-visible">
+              <AnimatePresence initial={false} mode="popLayout">
+                {isSynchronizing ? (
+                  <motion.div
+                    key="syncing-label"
+                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="stats-lc-dense-label text-center text-[6.4px] font-black uppercase tracking-[0.18em]"
+                    style={{ color: syncAccent }}
+                  >
+                    SINCRONIZANDO
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="platform-label"
+                    initial={{ opacity: 0, y: 4, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex min-w-0 items-center justify-center gap-0.5 overflow-visible"
+                  >
+                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">OUVINDO NO</span>
+                    <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
+                      {PlatformLogo}
+                    </div>
+                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">{PlatformName}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <motion.span
+              className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
+              animate={{ opacity: isSynchronizing ? 0 : 1, y: isSynchronizing ? -1 : 0 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
               {formatTrackTime(durationMs)}
-            </span>
+            </motion.span>
           </div>
           <div className="w-full h-[5px] rounded-full bg-white/[0.16] overflow-visible relative">
-            <motion.div
-              key={progressAnimationKey}
-              className="h-full w-full rounded-full relative"
-              initial={{ scaleX: progressScale }}
-              animate={{ scaleX: isNowPlaying ? 1 : progressScale }}
-              transition={{
-                duration: isNowPlaying && progressAnimationMs && progressAnimationMs > 0
-                  ? Math.max(0.2, progressAnimationMs / 1000)
-                  : 0,
-                ease: 'linear'
-              }}
-              style={{
-                transformOrigin: 'left center',
-                background: progressFillGradient,
-                filter: 'brightness(1.22) saturate(1.42) contrast(1.08)',
-                boxShadow: assertiveProgressColor
-                  ? `0 0 11px ${withAlpha(assertiveProgressColor, 0.78)}, 0 0 24px ${withAlpha(assertiveProgressColor, 0.38)}`
-                  : '0 0 11px rgba(255,95,0,0.78), 0 0 24px rgba(255,95,0,0.38)'
-              }}
-            >
-              {/* Thumb */}
-              <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
-                style={{
-                  boxShadow: assertiveProgressColor
-                    ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.95)}, 0 0 22px ${withAlpha(assertiveProgressColor, 0.58)}`
-                    : '0 0 10px rgba(255,95,0,0.95), 0 0 22px rgba(255,95,0,0.58)',
-                  filter: 'brightness(1.18)'
+            <AnimatePresence initial={false} mode="sync">
+              <motion.div
+                key={isSynchronizing ? `sync:${progressAnimationKey}` : `playing:${progressAnimationKey}`}
+                className="h-full w-full rounded-full relative overflow-hidden"
+                initial={{ scaleX: progressScale, opacity: isSynchronizing ? 0.72 : 1 }}
+                animate={{
+                  scaleX: isSynchronizing ? 1 : (isNowPlaying ? progressTargetScale : progressScale),
+                  opacity: 1,
                 }}
-              />
-            </motion.div>
+                exit={{ opacity: 0 }}
+                transition={{
+                  duration: isSynchronizing
+                    ? 0.36
+                    : isNowPlaying && progressAnimationMs && progressAnimationMs > 0
+                      ? Math.max(0.2, progressAnimationMs / 1000)
+                      : 0,
+                  ease: isSynchronizing ? [0.16, 1, 0.3, 1] : 'linear'
+                }}
+                style={{
+                  transformOrigin: 'left center',
+                  background: progressFillGradient,
+                  filter: 'brightness(1.16) saturate(1.24) contrast(1.04)',
+                  boxShadow: assertiveProgressColor
+                    ? `0 0 9px ${withAlpha(assertiveProgressColor, 0.66)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.3)}`
+                    : '0 0 9px rgba(255,255,255,0.26), 0 0 18px rgba(255,255,255,0.14)'
+                }}
+              >
+                {isSynchronizing && (
+                  <EngineShimmer
+                    active={shouldRunAmbientMotion}
+                    duration={2.4}
+                    className="h-full"
+                    style={{ background: syncShimmerGradient }}
+                  />
+                )}
+                <motion.div
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
+                  animate={{ opacity: isSynchronizing ? 0 : 1, scale: isSynchronizing ? 0.72 : 1 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    boxShadow: assertiveProgressColor
+                      ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.86)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.48)}`
+                      : '0 0 10px rgba(255,255,255,0.5), 0 0 18px rgba(255,255,255,0.22)',
+                    filter: 'brightness(1.14)'
+                  }}
+                />
+              </motion.div>
+            </AnimatePresence>
           </div>
         </motion.div>
       )}
@@ -1230,7 +1363,9 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
   useEffect(() => {
     let isMounted = true;
 
-    if (fallbackArtworkPalette) {
+    setArtworkPalette(previous => previous ?? fallbackArtworkPalette);
+
+    if (!albumImage && fallbackArtworkPalette) {
       setArtworkPalette(fallbackArtworkPalette);
     }
 
@@ -1269,19 +1404,51 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
 
   const trackStatsKey = `${user.id}:${track?.id}`;
-  const playCount = userTrackStats[trackStatsKey];
+  const [headerTrackGroupStats, setHeaderTrackGroupStats] = useState<{ trackId: string; stats: Record<string, number> } | null>(null);
+  const localTrackGroupStats = headerTrackGroupStats?.trackId === String(track?.id || '')
+    ? headerTrackGroupStats.stats
+    : null;
+  const playCount = userTrackStats[trackStatsKey] ?? localTrackGroupStats?.[user.id];
+  const rankingMembersSignature = useMemo(() => {
+    return getCanonicalMembers(groupStats).map(member => member.id).filter(Boolean).join('|');
+  }, [groupStats]);
   const hasHydratedTrackRanking = useMemo(() => {
     if (!track?.id) return false;
-    const members = getCanonicalMembers(groupStats);
-    if (members.length === 0) return false;
-    return members.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${track.id}`));
-  }, [groupStats, track?.id, userTrackStats]);
+    const memberIds = rankingMembersSignature ? rankingMembersSignature.split('|') : [];
+    if (memberIds.length === 0) return false;
+    return memberIds.every((memberId) => Object.prototype.hasOwnProperty.call(userTrackStats, `${memberId}:${track.id}`));
+  }, [rankingMembersSignature, track?.id, userTrackStats]);
 
   useEffect(() => {
-    if (track?.id && !hasHydratedTrackRanking) {
+    if (track?.id && rankingMembersSignature && !hasHydratedTrackRanking) {
       fetchTrackStatsForAll(track.id);
     }
-  }, [track?.id, fetchTrackStatsForAll, hasHydratedTrackRanking]);
+  }, [track?.id, fetchTrackStatsForAll, hasHydratedTrackRanking, rankingMembersSignature]);
+
+  useEffect(() => {
+    const trackId = track?.id ? String(track.id) : '';
+    if (!trackId) {
+      setHeaderTrackGroupStats(null);
+      return;
+    }
+    if (!rankingMembersSignature || hasHydratedTrackRanking) return;
+
+    let cancelled = false;
+    const cancelFallbackFetch = motionRuntime.scheduleTask(() => {
+      statsService.fetchEntityGroupStats('track', trackId)
+        .then((stats) => {
+          if (!cancelled) setHeaderTrackGroupStats({ trackId, stats });
+        })
+        .catch(() => {
+          if (!cancelled) setHeaderTrackGroupStats(null);
+        });
+    }, 950, 'interaction', 'leo-header-ranking-fallback');
+
+    return () => {
+      cancelled = true;
+      cancelFallbackFetch();
+    };
+  }, [hasHydratedTrackRanking, rankingMembersSignature, track?.id]);
 
   const allTrackArenaUsers = useMemo(() => {
     if (!track?.id) return [];
@@ -1289,7 +1456,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
       .map(u => ({
         id: u.id,
         name: u.name,
-        plays: userTrackStats[`${u.id}:${track?.id}`] || 0,
+        plays: userTrackStats[`${u.id}:${track?.id}`] ?? localTrackGroupStats?.[u.id] ?? 0,
         avatar: coreUtils.getUserAvatar(u.id, u.avatar)
       }))
       .sort((a, b) => b.plays - a.plays);
@@ -1299,7 +1466,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
       if (b.id === user.id) return -1;
       return a.name.localeCompare(b.name);
     });
-  }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id, liveNowPlayingByUserId]);
+  }, [groupStats, userTrackStats, track?.id, hiddenUsers, user.id, liveNowPlayingByUserId, localTrackGroupStats]);
 
   const trackArenaUsers = allTrackArenaUsers;
   const arenaPageSize = ARENA_BADGE_VISIBLE_SLOTS;
@@ -1635,7 +1802,15 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
     <div ref={headerMotionRef} className={cn(
       "relative -mt-3 px-5 sm:px-8 overflow-visible",
       visualIsLive ? "mb-4" : "mb-2"
-    )}>
+    )}
+    data-stats-lc-leo-header-track-id={track?.id || ''}
+    data-stats-lc-leo-header-ranking-hidden={hideRankingBadge ? 'true' : 'false'}
+    data-stats-lc-leo-header-ranking-hydrated={hasHydratedTrackRanking ? 'true' : 'false'}
+    data-stats-lc-leo-header-ranking-source={hasHydratedTrackRanking ? 'store' : localTrackGroupStats ? 'local' : 'pending'}
+    data-stats-lc-leo-header-ranking-member-count={rankingMembersSignature ? String(rankingMembersSignature.split('|').length) : '0'}
+    data-stats-lc-leo-header-arena-count={String(allTrackArenaUsers.length)}
+    data-stats-lc-leo-header-others-played={othersPlayed ? 'true' : 'false'}
+    data-stats-lc-leo-header-play-count={playCount == null ? '' : String(playCount)}>
       <div className={cn(
         "w-full relative overflow-visible",
         visualIsLive ? "min-h-[334px] sm:min-h-[410px]" : "min-h-[306px] sm:min-h-[376px]"
@@ -1747,10 +1922,10 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
               <div
                 className="pointer-events-none absolute inset-[3%] rounded-full"
                 style={{
-                  background: 'radial-gradient(circle at 50% 54%, rgba(0,0,0,0.09) 0%, rgba(0,0,0,0.14) 54%, rgba(0,0,0,0.21) 72%, transparent 82%)',
+                  background: 'radial-gradient(circle at 50% 54%, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0.08) 62%, transparent 78%)',
                   boxShadow: visualIsLive
-                    ? '0 16px 28px rgba(0,0,0,0.23), 0 0 0 1px rgba(255,255,255,0.08), 0 0 34px rgba(0,0,0,0.17)'
-                    : '0 12px 22px rgba(0,0,0,0.19), 0 0 0 1px rgba(255,255,255,0.06), 0 0 24px rgba(0,0,0,0.13)'
+                    ? '0 16px 30px rgba(0,0,0,0.2), 0 0 34px rgba(0,0,0,0.12)'
+                    : '0 12px 24px rgba(0,0,0,0.16), 0 0 24px rgba(0,0,0,0.1)'
                 }}
               />
               <VinylRecord
@@ -1948,6 +2123,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                          <LiveTrackProgress
                             progressMs={livePlayback.progressMs}
                             progressPercent={livePlayback.progressPercent}
+                            progressTargetPercent={livePlayback.progressTargetPercent}
                             progressAnimationMs={livePlayback.progressAnimationMs}
                             progressAnimationKey={livePlayback.progressAnimationKey}
                             durationMs={durationMs || undefined}
@@ -1985,6 +2161,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               whileTap={{ scale: 0.94 }}
                               className={cn(
                                 "leo-soft-badge pointer-events-auto relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                                showRankingSummary ? "order-2" : "order-1",
                                 visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
                               )}
                               aria-label="Abrir letra"
@@ -2013,7 +2190,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               className={cn(
-                              "leo-soft-badge flex cursor-pointer items-center rounded-full",
+                              "leo-soft-badge order-1 flex cursor-pointer items-center rounded-full",
                               visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
                             )}>
                               <Star className={cn(
@@ -2035,7 +2212,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               onClick={handleArenaSummaryClick}
                               whileTap={{ scale: 0.98 }}
-                              className="pointer-events-auto relative flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
+                              className="pointer-events-auto relative order-1 flex h-[58px] max-w-[calc(100vw-112px)] shrink cursor-pointer items-center group/arena"
                             >
                               <div
                                 ref={arenaTrailRef}
