@@ -199,8 +199,8 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
             aria-expanded={filtersOpen}
           >
             <h2 className="text-[34px] font-black leading-none tracking-[-0.035em] text-white">Replay</h2>
-            <span className="glass-aura inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/62">
-              {filterLabel}
+            <span className="glass-aura inline-flex min-w-0 max-w-[150px] shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase text-white/62">
+              <span className="stats-lc-compact-label">{filterLabel}</span>
               <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", filtersOpen && "rotate-180")} />
             </span>
           </button>
@@ -215,7 +215,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                   type="button"
                   onClick={() => setMetricMode(option.key)}
                   className={cn(
-                    "rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] transition-[background-color,color,transform]",
+                    "stats-lc-compact-label rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase transition-[background-color,color,transform]",
                     metricMode === option.key ? "bg-orange-500 text-black" : "text-white/42"
                   )}
                   aria-pressed={metricMode === option.key}
@@ -249,7 +249,7 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
                 key={tab.key}
                 onClick={() => selectTab(tab.key)}
                 className={cn(
-                  "shrink-0 rounded-full px-3 py-2 text-[11px] font-black uppercase tracking-[0.12em] transition-colors",
+                  "stats-lc-compact-label shrink-0 rounded-full px-3 py-2 text-[11px] font-black uppercase transition-colors",
                   activeTab === tab.key
                     ? "bg-white/[0.06] text-orange-400 shadow-[0_10px_26px_rgba(0,0,0,0.28)]"
                     : "text-white/38"

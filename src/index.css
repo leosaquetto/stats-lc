@@ -558,6 +558,36 @@
   display: none;
 }
 
+.stats-lc-compact-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.12;
+  letter-spacing: 0.07em;
+}
+
+.stats-lc-dense-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.1;
+  letter-spacing: 0.055em;
+}
+
+@media (max-width: 420px) {
+  .stats-lc-compact-label {
+    letter-spacing: 0.045em;
+  }
+
+  .stats-lc-dense-label {
+    letter-spacing: 0.035em;
+  }
+}
+
 /* Scroll snap para cards de destaque */
 [data-home-horizontal-scroll="true"] > article > div > div {
   scroll-snap-type: x mandatory;

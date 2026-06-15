@@ -759,15 +759,15 @@ export const LiveTrackProgress = memo(({
             className="flex flex-col gap-1.5 w-full"
           >
             <div className="mb-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
-              <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">OUVIU NO</span>
-              <div className="flex min-w-0 items-center justify-center gap-1 overflow-hidden">
+              <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">OUVIU NO</span>
+              <div className="flex shrink-0 items-center justify-center gap-1 overflow-visible">
                 <div className="text-white/35 flex items-center overflow-visible">
                   {PlatformLogo}
                 </div>
-                <span className="text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{PlatformName}</span>
+                <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">{PlatformName}</span>
               </div>
               <span className="text-[7px] font-black text-white/18" aria-hidden="true">•</span>
-              <span className="max-w-full text-[7px] font-black text-white/35 uppercase tracking-[0.12em] whitespace-nowrap">{timeLabel}</span>
+              <span className="stats-lc-dense-label max-w-[140px] text-[7px] font-black text-white/35 uppercase">{timeLabel}</span>
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full w-full bg-white/20" />
@@ -781,12 +781,12 @@ export const LiveTrackProgress = memo(({
           >
             <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-1">
               <span className="text-[8px] font-black text-white/35 uppercase tracking-[0.08em] opacity-0">0:00</span>
-              <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
-                <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+              <div className="mx-auto flex min-w-0 max-w-[min(138px,42vw)] items-center justify-center gap-0.5 overflow-visible">
+                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/35 uppercase">OUVINDO NO</span>
                 <div className="text-white/35 flex items-center overflow-visible scale-[0.88]">
                   {PlatformLogo}
                 </div>
-                <span className="text-[5.8px] font-black text-white/35 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
+                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/35 uppercase">{PlatformName}</span>
               </div>
               <span className="text-[8px] font-black text-white/35 uppercase tracking-[0.08em] opacity-0">0:00</span>
             </div>
@@ -826,12 +826,12 @@ export const LiveTrackProgress = memo(({
                 SINCRONIZANDO
               </EngineBreathe>
             ) : (
-              <div className="mx-auto flex max-w-[96px] items-center justify-center gap-0.5 min-w-0 overflow-visible">
-                <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">OUVINDO NO</span>
+              <div className="mx-auto flex min-w-0 max-w-[min(138px,42vw)] items-center justify-center gap-0.5 overflow-visible">
+                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">OUVINDO NO</span>
                 <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
                   {PlatformLogo}
                 </div>
-                <span className="text-[5.8px] font-black text-white/40 uppercase tracking-[0.08em] whitespace-nowrap">{PlatformName}</span>
+                <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">{PlatformName}</span>
               </div>
             )}
             <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums">
@@ -1815,7 +1815,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                       )}>
                         <AnimatedNumber key={user.id} value={streamsToday} startFrom={0} adaptive />
                       </span>
-                      <span className="text-[6px] sm:text-[6.5px] font-black uppercase tracking-[0.16em] text-white/60 leading-none whitespace-nowrap truncate">
+                      <span className="stats-lc-dense-label text-[6px] sm:text-[6.5px] font-black uppercase text-white/60">
                         TOTAL HOJE
                       </span>
                     </div>

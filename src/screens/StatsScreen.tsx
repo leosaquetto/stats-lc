@@ -1842,7 +1842,7 @@ export default function StatsScreen() {
                 setStatsPeriod(f);
               }}
               className={clsx(
-                "filter-pill relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-2 py-3 text-center text-[10.5px] font-black uppercase tracking-[0.14em] transition-[background-color,color,filter,transform] duration-200",
+                "filter-pill stats-lc-compact-label relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-1.5 py-3 text-center text-[10px] font-black uppercase transition-[background-color,color,filter,transform] duration-200",
                 activeFilter === f
                   ? "bg-white/[0.055] text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.25)]"
                   : "text-white/45 hover:bg-white/[0.035] hover:text-white/75"
@@ -1867,7 +1867,7 @@ export default function StatsScreen() {
                 onClick={() => setActiveStatsSection(section.id)}
                 aria-current={isActive ? 'page' : undefined}
                 className={clsx(
-                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-[color,transform] duration-200 active:scale-[0.96]",
+                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7.5px] font-black uppercase transition-[color,transform] duration-200 active:scale-[0.96]",
                   isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
                 )}
               >
@@ -1880,7 +1880,7 @@ export default function StatsScreen() {
                   />
                 )}
                 <Icon className="relative h-3.5 w-3.5" />
-                <span className="relative">{section.label}</span>
+                <span className="stats-lc-compact-label relative block w-full px-0.5 text-center">{section.label}</span>
               </button>
             );
           })}

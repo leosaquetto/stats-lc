@@ -313,7 +313,7 @@ const HomeHighlightPeriodControls = ({
           initial={{ opacity: 0, y: -3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="max-w-[116px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/76"
+          className="stats-lc-compact-label max-w-[126px] text-[9px] font-black uppercase text-white/76"
         >
           {activeLabel}
         </motion.span>
@@ -365,7 +365,7 @@ const HomeHighlightPeriodControls = ({
                   } : {}}
                   whileTap={{ scale: 0.98 }}
                   className={cn(
-                    "flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-colors relative overflow-hidden",
+                    "flex items-center gap-2 rounded-[16px] px-2.5 py-2 text-left text-[10px] font-black uppercase transition-colors relative overflow-hidden",
                     activeTab === tab.key
                       ? "bg-orange-500/16 text-orange-100"
                       : "text-white/46"
@@ -382,7 +382,7 @@ const HomeHighlightPeriodControls = ({
                     />
                   )}
                   <Clock3 className="h-3.5 w-3.5 shrink-0 relative z-10" />
-                  <span className="relative z-10">{tab.label}</span>
+                  <span className="stats-lc-compact-label relative z-10">{tab.label}</span>
                 </motion.button>
               ))}
             </div>
