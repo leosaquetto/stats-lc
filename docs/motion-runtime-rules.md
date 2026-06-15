@@ -113,7 +113,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Nao empilhe multiplos `EngineBreathe` em uma mesma bolha/avatar pequeno. Prefira camadas radiais estaticas e deixe no maximo uma camada viva ligada ao avatar ou estado principal.
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
    - Quando um elemento possui transform imperativo de drag/scroll, entrada e saida finitas devem viver em um wrapper visual interno. Nunca deixe Motion e `requestAnimationFrame` escreverem `transform` no mesmo no.
-   - Na entrada em fileirinha do RankingSummary, o wrapper externo ja nasce no slot final de `36px`; somente o wrapper interno parte visualmente do primeiro slot e se distribui em sequencia com stagger perceptivel de `180ms`. A saida faz o caminho inverso.
+   - Na entrada em fileirinha do RankingSummary, os wrappers externos dos avatares e do `+N` ja nascem nos slots finais de `36px`; somente os wrappers visuais internos partem do primeiro slot e se distribuem em sequencia com stagger perceptivel de `180ms`. A saida faz o caminho inverso.
 
 15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.
    - Home, Stats, Circulo e Ajustes devem permanecer sob `PersistentRouteScene`/React `Activity`; trocar de secao alterna a cena visivel sem remontar toda a arvore.

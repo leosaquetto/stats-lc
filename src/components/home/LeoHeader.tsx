@@ -1064,7 +1064,10 @@ type ArenaDomCache = {
 };
 
 const setArenaText = (element: HTMLElement, value: string) => {
-  if (element.textContent !== value) element.textContent = value;
+  const visualElement = element.firstElementChild?.getAttribute('data-arena-more-visual') === 'true'
+    ? element.firstElementChild as HTMLElement
+    : element;
+  if (visualElement.textContent !== value) visualElement.textContent = value;
 };
 
 const setArenaStyle = (
@@ -1085,14 +1088,17 @@ const setArenaStyle = (
     transformOrigin?: string;
   }
 ) => {
-  if (background !== undefined && element.style.background !== (background ?? '')) {
-    element.style.background = background ?? '';
+  const visualElement = element.firstElementChild?.getAttribute('data-arena-more-visual') === 'true'
+    ? element.firstElementChild as HTMLElement
+    : element;
+  if (background !== undefined && visualElement.style.background !== (background ?? '')) {
+    visualElement.style.background = background ?? '';
   }
-  if (boxShadow !== undefined && element.style.boxShadow !== (boxShadow ?? '')) {
-    element.style.boxShadow = boxShadow ?? '';
+  if (boxShadow !== undefined && visualElement.style.boxShadow !== (boxShadow ?? '')) {
+    visualElement.style.boxShadow = boxShadow ?? '';
   }
-  if (color !== undefined && element.style.color !== (color ?? '')) {
-    element.style.color = color ?? '';
+  if (color !== undefined && visualElement.style.color !== (color ?? '')) {
+    visualElement.style.color = color ?? '';
   }
   if (element.style.opacity !== opacity) element.style.opacity = opacity;
   if (element.style.transform !== transform) element.style.transform = transform;
@@ -2338,10 +2344,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                                     <div
                                       data-arena-right-more="true"
                                       key={`arena-more-${rightHiddenArenaCount}`}
-                                      className={cn(
-                                        "pointer-events-none absolute left-0 top-1/2 z-[1] flex h-10 min-w-10 origin-left items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:h-11 sm:min-w-11",
-                                        "leo-soft-badge text-white/86"
-                                      )}
+                                      className="pointer-events-none absolute left-0 top-1/2 z-[1] h-10 min-w-10 origin-left sm:h-11 sm:min-w-11"
                                       style={{
                                         opacity: 1,
                                         transform: `translate3d(${ARENA_BADGE_RIGHT_MORE_LEFT}px, -50%, 0) scale(1)`,
@@ -2349,18 +2352,24 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                                       }}
                                       aria-hidden="true"
                                     >
-                                      <motion.span
-                                        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.18 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.16 }}
+                                      <motion.div
+                                        data-arena-more-visual="true"
+                                        className="leo-soft-badge flex h-full min-w-10 items-center justify-center rounded-full px-2 text-[10px] font-black leading-none text-white/86 shadow-[0_14px_20px_rgba(0,0,0,0.42)] backdrop-blur-md sm:min-w-11"
+                                        initial={shouldReduceMotion
+                                          ? false
+                                          : { opacity: 0, x: -ARENA_BADGE_RIGHT_MORE_LEFT, scale: 0.18, rotate: -9 }}
+                                        animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                                        exit={shouldReduceMotion
+                                          ? { opacity: 0 }
+                                          : { opacity: 0, x: -ARENA_BADGE_RIGHT_MORE_LEFT, scale: 0.16, rotate: 8 }}
                                         transition={{
-                                          duration: shouldReduceMotion ? 0.01 : 0.42,
+                                          duration: shouldReduceMotion ? 0.01 : 0.52,
                                           delay: shouldReduceMotion ? 0 : visibleArenaCount * 0.18,
                                           ease: [0.34, 1.56, 0.64, 1],
                                         }}
                                       >
                                         +{rightHiddenArenaCount}
-                                      </motion.span>
+                                      </motion.div>
                                     </div>
                                   </>
                                 )}
