@@ -26,12 +26,44 @@ git diff --check
 ## Fluxo Padrao
 
 1. Veja `git status --short` antes de editar.
-2. Leia os arquivos reais envolvidos com `rg`/`sed`.
-3. Mantenha o escopo estreito.
-4. Nao reverta mudancas existentes do usuario.
-5. Use `apply_patch` para edicoes manuais.
-6. Rode `npm run lint`; rode `npm run build` para alteracoes centrais ou UI.
-7. Nao faca commit sem pedido explicito.
+1. Leia os arquivos reais envolvidos com `rg`/`sed`.
+1. Mantenha o escopo estreito.
+1. Nao reverta mudancas existentes do usuario.
+1. Use `apply_patch` para edicoes manuais.
+1. Rode `npm run lint`; rode `npm run build` para alteracoes centrais ou UI.
+1. Nao faca commit sem pedido explicito — exceto em runs longas com /goal, onde commits por subtarefa sao esperados.
+
+## Goals e Runs Longas
+
+- Ao iniciar um `/goal`, crie ou atualize `docs/PROGRESS.md` imediatamente com:
+  - objetivo ativo (copiado literalmente do /goal)
+  - lista de subtarefas pendentes
+  - subtarefas concluidas (com commit sha)
+  - proximo passo concreto
+- Apos cada compaction, leia `docs/PROGRESS.md` antes de qualquer acao.
+- Nunca emita summary/result/diff summary/relatorio final se ainda ha subtarefas abertas em `docs/PROGRESS.md`.
+- Ao finalizar uma subtarefa, faca commit com mensagem descritiva e atualize `docs/PROGRESS.md` antes de avancar.
+- So emita a resposta final quando lint + build + validacao visual + PROGRESS.md estiverem todos OK.
+
+## Riscos Restantes
+
+- Riscos identificados no meio da tarefa devem ser tratados imediatamente — nunca apenas reportados no Relatorio Final.
+- Se ao montar o Relatorio Final o agente identificar um risco que ainda nao foi tratado, ele deve VOLTAR a trabalhar nele antes de emitir qualquer resposta final.
+- O campo “riscos restantes” do Relatorio Final e exclusivo para riscos que genuinamente estao fora do escopo da tarefa atual ou requerem decisao do usuario — nao para trabalho pendente que o agente pode resolver sozinho.
+- Exemplos de risco que o agente DEVE tratar antes de finalizar: lint warning novo, build com warning em arquivo tocado, comportamento visual nao validado em 390x844.
+- Exemplos de risco legitimo para reportar sem tratar: decisao de produto, mudanca de escopo, dependencia de API externa fora do controle do agente.
+
+## Criterios de Conclusao
+
+Uma tarefa so esta completa quando TODOS os itens abaixo estao satisfeitos:
+
+1. `npm run lint` passou sem erros.
+1. `npm run build` passou sem warnings novos em arquivos tocados.
+1. Validacao visual confirmada no browser em `390×844` — ou limitacao relatada explicitamente.
+1. `docs/PROGRESS.md` atualizado com status final e sem subtarefas abertas (apenas em runs com /goal).
+1. Relatorio Final emitido conforme template da secao **Relatorio Final**.
+
+Nao emitir resposta final antes de atingir 100% desses criterios.
 
 ## Validacao Visual
 
@@ -117,7 +149,7 @@ Regras importantes:
 ### Comportamentos Protegidos Da Home
 
 - `Seus Destaques` deve preservar o palco orbital fluido atual: cards absolutos em orbit mode, item principal em destaque, satelites/cartoes alternando profundidade com `transform`, `opacity`, `filter: blur(...)` e `z-index`; nao converter para lista, grid estatico ou cards empilhados sem duas confirmacoes explicitas do usuario.
-- `Top 1 do Circulo` e `Stats Alike` da Home sao exemplos de animacao desejada no app. Preservar aneis, camadas frente/fundo, blur de profundidade, badges e troca suave por `transform`. Nao remover, achatar, trocar por fallback simples, nem "otimizar" esse comportamento para algo menos orbital sem o usuario confirmar duas vezes.
+- `Top 1 do Circulo` e `Stats Alike` da Home sao exemplos de animacao desejada no app. Preservar aneis, camadas frente/fundo, blur de profundidade, badges e troca suave por `transform`. Nao remover, achatar, trocar por fallback simples, nem “otimizar” esse comportamento para algo menos orbital sem o usuario confirmar duas vezes.
 
 ## LeoHeader E Vinil
 
@@ -183,6 +215,6 @@ Inclua:
 - scroll mobile preservado? sim/nao;
 - lint;
 - build;
-- riscos restantes;
+- riscos restantes (apenas os que requerem decisao do usuario — ver secao Riscos Restantes);
 - comando de commit sugerido;
 - confirmar que nao commitou, salvo pedido explicito.
