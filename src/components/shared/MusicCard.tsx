@@ -8,9 +8,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Play, Disc } from 'lucide-react';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
-import { SmartImage, MarqueeText, MusicPlatformBadge } from './CommonUI';
+import { EngineEqualizer, SmartImage, MarqueeText, MusicPlatformBadge } from './CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -51,6 +52,8 @@ export const MusicCard = React.memo(({
 }: MusicCardProps) => {
   const animationDuration = useStatsStore(state => state.animationDuration) || 0.4;
   const animationDelay = useStatsStore(state => state.animationDelay) || 0.04;
+  const motionRuntime = useMotionRuntime();
+  const shouldRunAmbientMotion = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const isLeo = userId === "leo";
   const accentColor = isLeo ? "#FF9F0A" : "#FFFFFF";
   const trackImage = coreUtils.getAvatarUrl(userId, imageUrl);
@@ -127,17 +130,7 @@ export const MusicCard = React.memo(({
             />
             {isNowPlaying && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-[1px] z-10">
-                 <div className="flex items-end gap-[1.5px] h-2.5">
-                    {[0,1,2].map(i => (
-                      <motion.div
-                        key={i}
-                        animate={{ scaleY: [0.2, 1, 0.4] }}
-                        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }}
-                        className="h-full w-[1.5px] origin-bottom rounded-full bg-white"
-                        style={{ willChange: 'transform' }}
-                      />
-                    ))}
-                 </div>
+                 <EngineEqualizer active={shouldRunAmbientMotion} className="h-2.5" barClassName="bg-white" />
               </div>
             )}
           </div>
@@ -238,7 +231,7 @@ export const MusicCard = React.memo(({
             }}
             whileHover={{ scale: 1.12, backgroundColor: "#ea580c" }}
             whileTap={{ scale: 0.9 }}
-            className="h-9 w-9 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer shrink-0 ml-1 z-30 border border-white/10 hover:border-white/20 self-center"
+            className="h-9 w-9 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-[background-color,border-color,box-shadow,transform] duration-200 cursor-pointer shrink-0 ml-1 z-30 border border-white/10 hover:border-white/20 self-center"
             title="Ouvir no serviço de streaming"
           >
             <Play className="h-3.5 w-3.5 fill-current ml-0.5" />

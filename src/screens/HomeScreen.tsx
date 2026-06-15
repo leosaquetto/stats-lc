@@ -21,12 +21,15 @@ import { getSelectableReplayYears } from '../lib/replayYears';
 import { LeoHeader } from '../components/home/LeoHeader';
 import { FriendsMonthlyHighlights } from '../components/home/FriendsMonthlyHighlights';
 import { StatsAlike } from '../components/home/StatsAlike';
-import { ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
+import { EngineBreathe, EngineDrift, EnginePulse, EngineShimmer, EngineSpin, EngineSpinner, ShimmerOverlay, SmartImage, preloadSmartImages } from '../components/shared/CommonUI';
 import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
+import { setRuntimeCacheEntry } from '../lib/memoryRuntime';
+import { LazyModalFallback } from '../components/shared/LazyModalFallback';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
 const loadUserHistoryModal = () => import('../components/modals/UserHistoryModal').then(module => ({ default: module.UserHistoryModal }));
 const loadTrackLeaderboardModule = () => import('../components/modals/TrackLeaderboardModal');
@@ -152,11 +155,22 @@ const getProfileSlugCandidates = (user: any) => {
 };
 
 const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?: string }) => (
-  <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-3 rounded-[28px] border border-white/10 bg-white/[0.035] px-5 py-8 text-center shadow-[0_20px_60px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-    <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
-    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-white/55">{label}</span>
+  <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-col items-center justify-center gap-3 rounded-[28px] bg-black/24 px-5 py-8 text-center">
+    <div className="ranking-badge flex h-14 min-w-14 items-center justify-center rounded-[21px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_30px_rgba(249,115,22,0.22),inset_0_1px_0_rgba(255,255,255,0.1)]">
+      <EngineSpinner className="h-5 w-5 text-orange-300">
+        <Loader2 className="h-full w-full" />
+      </EngineSpinner>
+    </div>
+    <span className="text-[10px] font-black uppercase tracking-[0.22em] text-orange-200/68">{label}</span>
   </div>
 );
+
+const HOME_ENTRY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const getHomeEntryTransition = (delay = 0) => ({
+  delay,
+  duration: 0.38,
+  ease: HOME_ENTRY_EASE,
+});
 
 const getReplayItemCount = (item: any) => Number(item?.playedCount || item?.playcount || item?.streams || item?.count || 0) || 0;
 const getReplayItemArtist = (item: any) => {
@@ -315,7 +329,7 @@ const HomeHighlightPeriodControls = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="stats-lc-glass-popover fixed z-50 max-h-[min(480px,calc(100vh-120px))] overflow-y-auto rounded-[24px] p-2.5 no-scrollbar"
+            className="stats-lc-glass-popover fixed z-50 max-h-[min(480px,calc(100svh-120px))] overflow-y-auto rounded-[24px] p-2.5 no-scrollbar"
             style={{
               left: menuPosition.left,
               top: menuPosition.top,
@@ -366,11 +380,11 @@ const HomeHighlightPeriodControls = ({
 
             {activeTab === 'week' && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-2 border-t border-white/[0.06] pt-2"
+                initial={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                animate={{ opacity: 1, y: 0, scaleY: 1 }}
+                exit={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 origin-top border-t border-white/[0.06] pt-2"
               >
                 <div className="grid grid-cols-2 gap-1">
                   {[
@@ -415,11 +429,11 @@ const HomeHighlightPeriodControls = ({
 
             {activeTab === 'month' && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-2 border-t border-white/[0.06] pt-2"
+                initial={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                animate={{ opacity: 1, y: 0, scaleY: 1 }}
+                exit={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 origin-top border-t border-white/[0.06] pt-2"
               >
                 <div className="mb-2 grid grid-cols-4 gap-1">
                   {years.map((year, index) => {
@@ -494,11 +508,11 @@ const HomeHighlightPeriodControls = ({
 
             {activeTab === 'year' && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-2 border-t border-white/[0.06] pt-2"
+                initial={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                animate={{ opacity: 1, y: 0, scaleY: 1 }}
+                exit={{ opacity: 0, y: -4, scaleY: 0.98 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-2 origin-top border-t border-white/[0.06] pt-2"
               >
 	                <div className="grid grid-cols-4 gap-1">
                   {years.map((year, index) => {
@@ -1027,22 +1041,26 @@ const HomeHighlightOrbitStage = ({
       </div>
       <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
         <motion.div
-          className={cn("rounded-full border border-dashed border-orange-500/16", visualConfig.dashScale)}
+          className={visualConfig.dashScale}
           initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
           animate={{
             opacity: [0, 0.3, 0.5],
             scale: 1,
-            rotate: shouldRunAmbientMotion && isCentered ? 360 : 0,
+            rotate: 0,
           }}
           transition={{
             opacity: { duration: 0.6, ease: 'easeOut' },
             scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-            rotate: shouldRunAmbientMotion && isCentered
-              ? { duration: 58, repeat: Infinity, ease: 'linear' }
-              : { duration: 0.5 }
+            rotate: { duration: 0.5 }
           }}
           style={{ x: dashOffsetX, willChange: 'transform' }}
-        />
+        >
+          <EngineSpin
+            active={shouldRunAmbientMotion && isCentered}
+            duration={58}
+            className="h-full w-full rounded-full border border-dashed border-orange-500/16"
+          />
+        </motion.div>
       </div>
       <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
         <motion.div
@@ -1248,25 +1266,18 @@ const HomeOrbitalHighlights = ({
                 className="absolute inset-0 z-50 flex items-center justify-center rounded-[34px] bg-black/40 backdrop-blur-sm"
               >
                 <div className="relative">
-                  <motion.div
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.6, 1, 0.6],
-                    }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
+                  <EngineBreathe
+                    active
+                    duration={1.5}
+                    fromOpacity={0.6}
+                    fromScale={1}
+                    toOpacity={1}
+                    toScale={1.2}
                     className="h-8 w-8 rounded-full border-2 border-orange-500/30 border-t-orange-500"
                   />
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      ease: "linear",
-                    }}
+                  <EngineSpin
+                    active
+                    duration={1}
                     className="absolute inset-0 h-8 w-8 rounded-full border-2 border-transparent border-t-orange-500"
                   />
                 </div>
@@ -1404,7 +1415,7 @@ const HomePerceptions = ({
     const controller = new AbortController();
     statsService.getLatestDiscovery(userId, controller.signal)
       .then((response) => {
-        latestDiscoveryCache.set(userId, response);
+        setRuntimeCacheEntry(latestDiscoveryCache, userId, response, 'tiny');
         setLatestDiscovery(response);
       })
       .catch(() => undefined);
@@ -1487,10 +1498,11 @@ const HomePerceptions = ({
         {...interactionProps}
       >
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[198px] w-[198px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
-        <motion.div
+        <EngineSpin
+          active={shouldRunAmbientMotion}
           className="pointer-events-none absolute left-1/2 top-[46%] h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
-          animate={shouldRunAmbientMotion ? { rotate: -360 } : {}}
-          transition={shouldRunAmbientMotion ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
+          duration={46}
+          reverse
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.035] blur-2xl" />
 
@@ -1513,21 +1525,20 @@ const HomePerceptions = ({
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: 0.025 * relative }}
               style={{ width: position.size, height: position.size }}
             >
-              <motion.div
+              <EngineDrift
+                active={shouldRunAmbientMotion}
                 className="relative h-full w-full"
-                animate={shouldRunAmbientMotion ? {
-                  y: [0, relative % 2 === 0 ? 2 : -2, 0],
-                  rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
-                } : {}}
-                transition={shouldRunAmbientMotion ? {
-                  duration: 6.2 + relative * 0.45,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                } : {}}
+                duration={6.2 + relative * 0.45}
+                rotateA={relative % 2 === 0 ? -0.45 : 0.45}
+                rotateB={0}
+                xA={0}
+                xB={0}
+                yA={relative % 2 === 0 ? 2 : -2}
+                yB={0}
               >
                 {item.image ? <SmartImage src={item.image} className="h-full w-full object-cover" rounded="none" fallback={item.title} /> : null}
                 <div className="absolute inset-0 bg-black/20" />
-              </motion.div>
+              </EngineDrift>
             </motion.div>
           );
         })}
@@ -1542,9 +1553,15 @@ const HomePerceptions = ({
             exit={{ opacity: 0, scale: 0.94, x: direction * -28 }}
             transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 0.7 }}
           >
-            <motion.div
-              animate={shouldRunAmbientMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-              transition={shouldRunAmbientMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            <EngineDrift
+              active={shouldRunAmbientMotion}
+              duration={9.5}
+              rotateA={0.35}
+              rotateB={-0.25}
+              xA={0}
+              xB={0}
+              yA={-4}
+              yB={2}
               className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
             >
               {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}
@@ -1552,7 +1569,7 @@ const HomePerceptions = ({
               <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
                 <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
               </div>
-            </motion.div>
+            </EngineDrift>
             <div className="min-w-0 self-center">
               <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{activePerception.title}</span>
               <p className="mt-1.5 line-clamp-4 text-[12px] font-black leading-snug text-white/92">{activePerception.text}</p>
@@ -1869,7 +1886,8 @@ export default function HomeScreen() {
   const toastIdRef = useRef(0);
   const wasHomeReadyAtMountRef = useRef(hasBootReadySession());
   const hasReleasedHomeRef = useRef(wasHomeReadyAtMountRef.current);
-  const shouldSkipHomeEntryMotion = wasHomeReadyAtMountRef.current;
+  const shouldReduceHomeEntryMotion = useReducedMotion();
+  const shouldSkipHomeEntryMotion = shouldReduceHomeEntryMotion === true;
 
   useEffect(() => {
     if (!hasReleasedHomeRef.current) return;
@@ -2008,7 +2026,11 @@ export default function HomeScreen() {
       setIsVisualWarmupReady(false);
     }
 
-    const visualPreparation = preloadSmartImages(urls);
+    const visualPreparation = preloadSmartImages(urls, {
+      limit: 12,
+      priority: 'critical',
+      timeoutMs: HOME_CRITICAL_WARMUP_TIMEOUT_MS,
+    });
     if (document.visibilityState === 'hidden') {
       setIsVisualWarmupReady(true);
       return () => {
@@ -2078,14 +2100,24 @@ export default function HomeScreen() {
     setRefreshProgress(steps[0].progress);
     setProcessedItems(steps[0].items);
 
-    const timer = window.setInterval(() => {
+    let cancelled = false;
+    let cancelTask = () => {};
+    const advanceStep = () => {
+      if (cancelled) return;
       index = Math.min(index + 1, steps.length - 1);
       setRefreshStepText(steps[index].text);
       setRefreshProgress(steps[index].progress);
       setProcessedItems(steps[index].items);
-    }, 700);
+      if (index < steps.length - 1) {
+        cancelTask = motionRuntimeScheduler.scheduleTask(advanceStep, 700, 'interaction');
+      }
+    };
+    cancelTask = motionRuntimeScheduler.scheduleTask(advanceStep, 700, 'interaction');
 
-    return () => window.clearInterval(timer);
+    return () => {
+      cancelled = true;
+      cancelTask();
+    };
   }, [isRefreshing]);
   
   useEffect(() => {
@@ -2560,7 +2592,7 @@ export default function HomeScreen() {
           />
 
           <AnimatePresence>
-            <React.Suspense key="home-detail-modals" fallback={<HomeSectionLoader label="Abrindo detalhe" />}>
+            <React.Suspense key="home-detail-modals" fallback={<LazyModalFallback />}>
               {viewingFullHistoryUser && (
                 <UserHistoryModal 
                   user={viewingFullHistoryUser} 
@@ -2707,12 +2739,18 @@ export default function HomeScreen() {
                   <div className="relative">
                     <div className="h-8 w-8 rounded-full bg-orange-500/10 border border-orange-500/20 flex items-center justify-center relative overflow-hidden">
                        <ShimmerOverlay duration={2} />
-                       <RefreshCcw className="h-4 w-4 text-orange-500 animate-spin" />
+                       <EngineSpinner className="h-4 w-4 text-orange-500">
+                         <RefreshCcw className="h-full w-full" />
+                       </EngineSpinner>
                     </div>
-                    <motion.div 
+                    <EngineBreathe
+                      active
                       className="absolute -inset-1 rounded-full border border-orange-500/30"
-                      animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity }}
+                      duration={2}
+                      fromOpacity={0.3}
+                      fromScale={1}
+                      toOpacity={0.6}
+                      toScale={1.2}
                     />
                   </div>
                   <div className="flex flex-col">
@@ -2755,16 +2793,17 @@ export default function HomeScreen() {
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
                 {/* Secondary Pulse Animation */}
-                <motion.div 
-                  className="absolute inset-0 bg-orange-500/20"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                <EngineShimmer
+                  active
+                  duration={1.5}
+                  className="absolute inset-y-0 bg-orange-500/20"
+                  style={{ background: 'rgba(249,115,22,0.2)' }}
                 />
               </div>
             </div>
             
             {/* Background Glow */}
-            <div className="absolute -inset-10 bg-orange-500/10 blur-[60px] -z-10 rounded-full animate-pulse-slow" />
+            <div className="stats-lc-engine-loop absolute -inset-10 bg-orange-500/10 blur-[60px] -z-10 rounded-full animate-pulse-slow" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -2791,16 +2830,20 @@ export default function HomeScreen() {
                  ) : (
                    <AlertTriangle className="h-7 w-7 text-orange-500 relative z-10" />
                  )}
-                 <motion.span 
-                   animate={{ opacity: [0.3, 1, 0.3] }}
-                   transition={{ duration: 2, repeat: Infinity }}
+                 <EngineBreathe
+                   active
+                   duration={2}
+                   fromOpacity={0.3}
+                   fromScale={1}
+                   toOpacity={1}
+                   toScale={1}
                    className="absolute -top-1 -right-1 flex h-4 w-4"
                  >
-                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-20"></span>
+                   <EnginePulse active className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-20" duration={1.8} />
                    <span className="relative inline-flex rounded-full h-4 w-4 bg-orange-500/20 flex items-center justify-center">
                       <div className="h-1.5 w-1.5 bg-orange-500 rounded-full" />
                    </span>
-                 </motion.span>
+                 </EngineBreathe>
                </div>
 
                <div className="max-w-md relative z-10 flex flex-col gap-3">
@@ -2834,7 +2877,9 @@ export default function HomeScreen() {
                    className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black uppercase tracking-[0.15em] shadow-[0_10px_25px_rgba(234,88,12,0.3)] active:scale-95 transition-[background-color,opacity,transform] disabled:opacity-50 disabled:cursor-wait"
                  >
                    {isLoading || isRefreshing ? (
-                     <Loader2 className="h-4 w-4 animate-spin" />
+                     <EngineSpinner className="h-4 w-4">
+                       <Loader2 className="h-full w-full" />
+                     </EngineSpinner>
                    ) : (
                      <RefreshCcw className="h-4 w-4" />
                    )}
@@ -2862,14 +2907,17 @@ export default function HomeScreen() {
           >
             <motion.div
               key={primaryUser.id}
-              initial={{ opacity: 0, y: 8 }}
+              initial={shouldSkipHomeEntryMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              transition={getHomeEntryTransition(0)}
               className="flex flex-col gap-3 overflow-visible"
             >
-              <div 
+              <motion.div
                 className="relative -mt-[4px] touch-pan-y overflow-visible"
+                initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.985 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={getHomeEntryTransition(0.02)}
               >
                 <LeoHeader
                   user={primaryUser}
@@ -2878,16 +2926,21 @@ export default function HomeScreen() {
                   onTrackClick={handleOpenMusicDetail}
                   isHighlighted={headerHighlight}
                 />
-              </div>
+              </motion.div>
 
-              <div className={cn("px-4 sm:px-6 lg:px-8", friendActivityOffset)}>
+              <motion.div
+                className={cn("px-4 sm:px-6 lg:px-8", friendActivityOffset)}
+                initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 16, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={getHomeEntryTransition(0.12)}
+              >
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
                   onTrackClick={handleOpenMusicDetail}
                   onFriendClick={(friend) => setViewingFullHistoryUser(friend)}
                   onViewAll={() => navigate('/circle')}
                 />
-              </div>
+              </motion.div>
             </motion.div>
           </div>
         ) : groupStats && !isLoading ? (
@@ -2910,27 +2963,33 @@ export default function HomeScreen() {
       )}
 
       {isAppReady && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
-        <HomeOrbitalHighlights
-          totalMinutes={replayTotalMinutesCount}
-          totalPlays={replayTotalPlaysCount}
-          artists={replayArtists}
-          tracks={replayTracks}
-          albums={replayAlbums}
-          activeTab={replayActiveTab}
-          selectedSubValues={replaySelectedSubValues}
-          onActiveTabChange={setReplayActiveTab}
-          onSelectedSubValuesChange={setReplaySelectedSubValues}
-          onItemClick={handleOpenMusicDetail}
-        />
+        <motion.div
+          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={getHomeEntryTransition(0.2)}
+        >
+          <HomeOrbitalHighlights
+            totalMinutes={replayTotalMinutesCount}
+            totalPlays={replayTotalPlaysCount}
+            artists={replayArtists}
+            tracks={replayTracks}
+            albums={replayAlbums}
+            activeTab={replayActiveTab}
+            selectedSubValues={replaySelectedSubValues}
+            onActiveTabChange={setReplayActiveTab}
+            onSelectedSubValuesChange={setReplaySelectedSubValues}
+            onItemClick={handleOpenMusicDetail}
+          />
+        </motion.div>
       )}
 
       {isAppReady && (
       <motion.div
-        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        transition={getHomeEntryTransition(0.08)}
+        className="content-auto-safe px-4 sm:px-6 lg:px-8"
       >
         <FriendsMonthlyHighlights
           periodQuery={replayPeriodQuery}
@@ -2942,10 +3001,10 @@ export default function HomeScreen() {
 
       {isAppReady && (
       <motion.div
-        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        transition={getHomeEntryTransition(0.12)}
         className="content-auto-safe px-4 sm:px-6 lg:px-8"
       >
         <HomeInsights onFriendClick={(friend) => setViewingFullHistoryUser(friend)} />
@@ -2954,11 +3013,11 @@ export default function HomeScreen() {
 
       {isAppReady && (
       <motion.div
-        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8"
+        transition={getHomeEntryTransition(0.16)}
+        className="content-auto-safe px-4 sm:px-6 lg:px-8"
       >
         <StatsAlike />
       </motion.div>
@@ -2966,10 +3025,10 @@ export default function HomeScreen() {
 
       {isAppReady && primaryUser && (
         <motion.div
-          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={getHomeEntryTransition(0.2)}
           className="content-auto-safe"
         >
           <HomeRecentPlays

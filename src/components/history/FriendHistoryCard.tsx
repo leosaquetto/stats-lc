@@ -1,6 +1,6 @@
 import React, { useState, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ShimmerOverlay, Skeleton, SmartImage } from '../shared/CommonUI';
+import { EngineEqualizer, EnginePulse, ShimmerOverlay, Skeleton, SmartImage } from '../shared/CommonUI';
 import { cn } from '../../lib/utils';
 import { coreUtils } from '../../services/statsCore';
 import { getArtistListString } from '../../lib/artistUtils';
@@ -34,31 +34,14 @@ interface FriendHistoryCardProps {
 
 // Ícone de equalizer para o header (ao vivo no card)
 const EqualizerIcon = () => (
-  <div className="flex items-end gap-[1.5px] h-3 mr-2">
-    {[...Array(3)].map((_, i) => (
-      <motion.div
-        key={i}
-        className="h-full w-[2px] origin-bottom rounded-[1px] bg-orange-500 will-change-transform"
-        animate={{ scaleY: [0.3, 1, 0.4] }}
-        transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.15 }}
-      />
-    ))}
-  </div>
+  <EngineEqualizer active barWidth="2px" className="mr-2 h-3" barClassName="rounded-[1px] bg-orange-500" />
 );
 
 // Ícone animado para "ouvindo agora" nos itens da lista - ondas de rádio
 const LiveWaveIcon = () => (
   <div className="relative h-5 w-5 flex items-center justify-center">
-    <motion.div
-      className="absolute inset-0 rounded-full border border-orange-500/60"
-      animate={{ scale: [1, 1.6], opacity: [0.6, 0] }}
-      transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut" }}
-    />
-    <motion.div
-      className="absolute inset-[3px] rounded-full border border-orange-500/50"
-      animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
-      transition={{ duration: 1.2, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
-    />
+    <EnginePulse active className="absolute inset-0 rounded-full border border-orange-500/60" />
+    <EnginePulse active className="absolute inset-[3px] rounded-full border border-orange-500/50 [animation-delay:0.3s]" />
     <div className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.8)]" />
   </div>
 );
@@ -360,13 +343,11 @@ export const FriendHistoryCard = memo(({
                 rounded="full"
               />
               {isLive && (
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1], opacity: [1, 0.7, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
+                <div
                   className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 bg-orange-500 rounded-full border-2 border-[#050505] flex items-center justify-center shadow-lg"
                 >
-                  <div className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
-                </motion.div>
+                  <EnginePulse active className="h-1.5 w-1.5 rounded-full bg-white" duration={1.8} />
+                </div>
               )}
             </div>
 
@@ -523,7 +504,7 @@ export const FriendHistoryCard = memo(({
                             animate={{ opacity: 1, scale: 1 }}
                             className="flex items-center gap-1 bg-orange-500/15 px-1.5 py-0.5 rounded-full border border-orange-500/25 shrink-0"
                           >
-                            <div className="h-1 w-1 rounded-full bg-orange-400 animate-ping" />
+                            <EnginePulse active className="h-1 w-1 rounded-full bg-orange-400" duration={1.5} />
                             <span className="text-[6px] font-black text-orange-400 uppercase tracking-widest leading-none">Inédito</span>
                           </motion.div>
                         )}
@@ -571,7 +552,7 @@ export const FriendHistoryCard = memo(({
               <button
                 onClick={handleLoadMoreInline}
                 disabled={isInlineLoadingMore}
-                className="w-full rounded-2xl border border-white/[0.055] bg-white/[0.025] px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/34 transition-all hover:bg-white/[0.055] hover:text-white/60 active:scale-[0.99] disabled:opacity-40"
+                className="w-full rounded-2xl border border-white/[0.055] bg-white/[0.025] px-4 py-2 text-[8px] font-black uppercase tracking-[0.2em] text-white/34 transition-[background-color,border-color,color,opacity,transform] duration-200 hover:bg-white/[0.055] hover:text-white/60 active:scale-[0.99] disabled:opacity-40"
               >
                 {isInlineLoadingMore ? 'Carregando' : 'Carregar mais'}
               </button>
@@ -582,7 +563,7 @@ export const FriendHistoryCard = memo(({
                 e.stopPropagation();
                 onFullHistoryClick?.(user);
               }}
-              className="w-full rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.22em] text-white/40 hover:text-white/70 hover:bg-white/[0.06] active:scale-[0.99] transition-all flex items-center justify-center gap-2 group"
+              className="w-full rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.22em] text-white/40 hover:text-white/70 hover:bg-white/[0.06] active:scale-[0.99] transition-[background-color,border-color,color,opacity,transform] duration-200 flex items-center justify-center gap-2 group"
             >
               <ExternalLink className="h-3 w-3 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
               Ver histórico completo

@@ -24,7 +24,9 @@ import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { notificationService } from '../services/notificationService';
 import { SnapshotHistoryModal } from '../components/shared/SnapshotHistoryModal';
+import { EngineSpinner } from '../components/shared/CommonUI';
 import { PremiumScreenHeader } from '../components/shared/PremiumScreenShell';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
 import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
 import type { UserStats } from '../types/stats';
 import {
@@ -60,6 +62,8 @@ const getFirstName = (name?: string) => (name || '').trim().split(/\s+/)[0] || n
 const sectionDivider = <div className="h-px w-full bg-white/5" />;
 
 export default function SettingsScreen() {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateSettings = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const groupStats = useStatsStore(state => state.groupStats);
   const featuredUserId = useStatsStore(state => state.featuredUserId);
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
@@ -354,6 +358,8 @@ export default function SettingsScreen() {
           title="Usuário em destaque"
           description="Define quem guia a Home. A troca reinicia a Home para carregar o perfil completo."
           action={<Users className="h-4 w-4" />}
+          entranceIndex={0}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
@@ -375,6 +381,8 @@ export default function SettingsScreen() {
           title="Visibilidade"
           description="Ocultar membros afeta listas e rankings, sem resetar o usuário em destaque."
           action={<EyeOff className="h-4 w-4" />}
+          entranceIndex={1}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-5">
             <div className="flex items-center justify-between gap-3">
@@ -432,6 +440,8 @@ export default function SettingsScreen() {
           title="Ordem do histórico"
           description="Controla a ordem dos cards de histórico e atividade no painel principal."
           action={<Clock className="h-4 w-4" />}
+          entranceIndex={2}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-5">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -497,6 +507,8 @@ export default function SettingsScreen() {
           title="Snaps"
           description="Nome da Arena e galeria de snapshots usados em relatórios e compartilhamentos."
           action={<ImageIcon className="h-4 w-4" />}
+          entranceIndex={3}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-5">
             <div className="flex flex-col gap-3">
@@ -552,6 +564,8 @@ export default function SettingsScreen() {
           title="Notificações Push"
           description="Alertas locais da Arena e Web Push para novos Orbits e Orbits ouvidos."
           action={<Bell className="h-4 w-4" />}
+          entranceIndex={4}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-5">
             <PreferenceRow
@@ -614,6 +628,8 @@ export default function SettingsScreen() {
           title="Sincronização"
           description="Atualização completa do banco local."
           action={<Database className="h-4 w-4" />}
+          entranceIndex={5}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-5">
             <button
@@ -630,7 +646,13 @@ export default function SettingsScreen() {
               }}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-4 text-[11px] font-black uppercase tracking-[0.1em] text-white shadow-[0_10px_25px_rgba(249,115,22,0.15)] transition-[background-color,box-shadow,transform,opacity] duration-200 active:scale-[0.98] disabled:cursor-wait disabled:opacity-50"
             >
-              {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isRefreshing ? (
+                <EngineSpinner className="h-4 w-4">
+                  <Loader2 className="h-full w-full" />
+                </EngineSpinner>
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
               {isRefreshing ? 'Atualizando...' : 'Atualizar banco completo'}
             </button>
             {(import.meta as any).env.DEV && (
@@ -650,6 +672,8 @@ export default function SettingsScreen() {
           title="Cache local"
           description="Ações de manutenção deste navegador/app."
           action={<AlertTriangle className="h-4 w-4 text-orange-400" />}
+          entranceIndex={6}
+          animateEntrance={shouldAnimateSettings}
         >
           <SettingsPanel className="flex flex-col gap-4">
             <div className="rounded-2xl border border-orange-500/12 bg-orange-500/7 p-3 text-[10px] font-medium leading-relaxed text-orange-300/80">
@@ -661,7 +685,13 @@ export default function SettingsScreen() {
               disabled={isResettingApp}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-orange-500/20 bg-orange-500/10 text-[11px] font-black uppercase tracking-[0.12em] text-orange-400 transition-[background-color,border-color,color,transform,opacity] duration-200 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {isResettingApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isResettingApp ? (
+                <EngineSpinner className="h-4 w-4">
+                  <Loader2 className="h-full w-full" />
+                </EngineSpinner>
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
               {isResettingApp ? 'Limpando...' : 'Limpar e reiniciar'}
             </button>
           </SettingsPanel>

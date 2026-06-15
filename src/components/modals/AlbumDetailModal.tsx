@@ -142,7 +142,7 @@ export const AlbumDetailModal = memo(({
           <button
             onClick={() => setShowArenaView(!showArenaView)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all",
+              "px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-[background-color,color,opacity,transform] duration-200",
               showArenaView
                 ? "bg-orange-500 text-white"
                 : "bg-white/10 text-white/50 hover:bg-white/15"

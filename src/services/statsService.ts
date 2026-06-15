@@ -10,6 +10,7 @@ import { coreUtils, GROUP_USERS } from './statsCore';
 import { getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getStoreAdapter } from './storeAdapter';
 import { buildTopItemsCacheKey, sanitizeTopItems } from '../lib/topItemUtils';
+import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 
 const getBaseUrl = () => {
   const envBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || (import.meta as any).env?.VITE_STATS_API_BASE_URL;
@@ -440,10 +441,11 @@ const fetchFromApi = async <T>(
   const shouldUseResponseCache = endpoint !== '/api/group-live' && endpoint !== '/api/live-probe';
 
   if (!forceRefresh && useDedupe && shouldUseResponseCache) {
-    const cached = apiResponseCache.get(cacheKey);
+    const cached = readRuntimeCacheEntry(apiResponseCache, cacheKey);
     if (cached && cached.expiresAt > now) {
       return cached.data as T;
     }
+    if (cached) apiResponseCache.delete(cacheKey);
   }
 
   if (!forceRefresh && useDedupe) {
@@ -457,10 +459,10 @@ const fetchFromApi = async <T>(
     try {
       const response = await api.get(endpoint, { params: finalParams, signal: requestOptions.signal });
       if (!forceRefresh && shouldUseResponseCache) {
-        apiResponseCache.set(cacheKey, {
+        setRuntimeCacheEntry(apiResponseCache, cacheKey, {
           data: response.data,
           expiresAt: Date.now() + getApiResponseCacheTtl(endpoint),
-        });
+        }, 'small');
       }
       return response.data;
     } catch (error: any) {

@@ -21,13 +21,14 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineSpinner, SmartImage } from '../shared/CommonUI';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { getVisibleMembers } from '../../lib/memberSelectors';
 import { getMainArtistName } from '../../lib/artistUtils';
 import { FixedSizeList as List } from 'react-window';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 type EntityKind = 'album' | 'artist';
 type EntityTab = 'summary' | 'tracks' | 'circle' | 'history' | 'lyrics';
@@ -257,6 +258,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const members = useMemo(() => getVisibleMembers(groupStats, hiddenUsers), [groupStats, hiddenUsers]);
+  useModalMotionScope();
 
   const entityId = getEntityId(entity);
   const entityName = getEntityName(entity, kind);
@@ -502,6 +504,7 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
 
   return (
     <motion.div
+      data-stats-lc-modal-surface="true"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -514,8 +517,8 @@ const EntityStatsModal = ({ user, entity, kind, onClose, onTrackClick }: EntityS
         exit={{ y: '100%', opacity: 0.92 }}
         transition={{ type: 'spring', damping: 32, stiffness: 320 }}
         className={cn(
-          "bottom-track-stats-body-backdrop relative flex max-h-[78dvh] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px]",
-          activeTab === 'summary' ? "h-auto" : "h-[78dvh]"
+          "bottom-track-stats-body-backdrop relative flex max-h-[78svh] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px]",
+          activeTab === 'summary' ? "h-auto" : "h-[78svh]"
         )}
         onClick={(event) => event.stopPropagation()}
       >
@@ -1050,7 +1053,13 @@ const HistoryContent = ({ items, loading, hasMore, onLoadMore, onLyrics }: { ite
           disabled={loading}
           className="mt-2 flex w-full items-center justify-center gap-2 rounded-[22px] border border-white/10 bg-white/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-white/60 transition-colors hover:bg-white/[0.08] disabled:opacity-50"
         >
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <History className="h-4 w-4" />}
+          {loading ? (
+            <EngineSpinner className="h-4 w-4">
+              <Loader2 className="h-full w-full" />
+            </EngineSpinner>
+          ) : (
+            <History className="h-4 w-4" />
+          )}
           {loading ? 'Carregando' : 'Ver mais historico'}
         </button>
       )}
@@ -1080,7 +1089,12 @@ const LyricsContent = ({ track, loading, lyrics, lyricsUrl, status, onCopy, onSh
 
       <div className="rounded-[30px] border border-white/10 bg-black/25 p-5">
         {loading ? (
-          <div className="flex items-center gap-2 text-[11px] font-bold text-white/45"><Loader2 className="h-4 w-4 animate-spin" /> {status || 'Buscando letra...'}</div>
+          <div className="flex items-center gap-2 text-[11px] font-bold text-white/45">
+            <EngineSpinner className="h-4 w-4">
+              <Loader2 className="h-full w-full" />
+            </EngineSpinner>
+            {status || 'Buscando letra...'}
+          </div>
         ) : lyrics ? (
           <pre className="whitespace-pre-wrap font-sans text-[13px] font-semibold leading-7 text-white/78">{lyrics}</pre>
         ) : (
@@ -1093,7 +1107,13 @@ const LyricsContent = ({ track, loading, lyrics, lyricsUrl, status, onCopy, onSh
 
 const EmptyState = ({ icon: Icon, text, spinning = false }: { icon: React.ElementType; text: string; spinning?: boolean }) => (
   <div className="flex flex-col items-center justify-center rounded-[30px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-12 text-center">
-    <Icon className={cn("mb-3 h-8 w-8 text-white/20", spinning && "animate-spin")} />
+    {spinning ? (
+      <EngineSpinner className="mb-3 h-8 w-8 text-white/20">
+        <Icon className="h-full w-full" />
+      </EngineSpinner>
+    ) : (
+      <Icon className="mb-3 h-8 w-8 text-white/20" />
+    )}
     <span className="text-[12px] font-bold text-white/42">{text}</span>
   </div>
 );

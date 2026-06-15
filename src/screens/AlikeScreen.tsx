@@ -417,7 +417,13 @@ export default function AlikeScreen({ embedded = false }: AlikeScreenProps) {
               )}
             >
               {selectedFriendId === aff.friend.id && (
-                <motion.div layoutId="active-affinity" className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-rose-500/5 pointer-events-none" />
+                <motion.div
+                  className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-rose-500/5 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.16 }}
+                />
               )}
               <div className="flex items-center justify-between z-10 w-full relative">
                 <SmartImage 

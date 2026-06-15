@@ -22,7 +22,7 @@ export const WeeklyReportTemplate: React.FC<WeeklyReportTemplateProps> = ({
   return (
     <div id="weekly-report-capture" className="w-[1080px] h-[1920px] bg-black p-20 flex flex-col gap-12 font-sans overflow-hidden text-white relative">
         {/* Abstract Background pattern */}
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-orange-500/10 blur-[120px] rounded-full -mr-40 -mt-40 animate-pulse" />
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-orange-500/10 blur-[120px] rounded-full -mr-40 -mt-40" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-blue-500/10 blur-[100px] rounded-full -ml-40 -mb-40" />
 
         {/* Header */}

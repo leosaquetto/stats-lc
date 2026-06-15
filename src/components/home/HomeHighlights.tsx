@@ -11,6 +11,10 @@ import { getVisibleMembers } from '../../lib/memberSelectors';
 import { statsService } from '../../services/statsService';
 import { UserStats } from '../../types/stats';
 import {
+  EngineBreathe,
+  EngineDrift,
+  EnginePulse,
+  EngineSpin,
   SmartImage,
   SectionHeader,
   ShimmerOverlay,
@@ -22,6 +26,7 @@ import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router-dom';
 import { animationTokens, easeOutQuart } from '../../lib/animationTokens';
 import { useMotionRuntime } from '../../hooks/useMotionRuntime';
+import { motionRuntime } from '../../lib/motionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -71,28 +76,52 @@ const getOrbitCenterClearance = (size: 'large' | 'normal' | 'small') => {
 const ArenaAnimatedNumber = React.memo(({ value }: { value: number }) => {
   const numberRef = React.useRef<HTMLSpanElement | null>(null);
   const previousValueRef = React.useRef(0);
+  const animationStateRef = React.useRef<{
+    endValue: number;
+    startTime?: number;
+    startValue: number;
+  } | null>(null);
+  const runtimeSnapshot = useMotionRuntime();
 
   React.useEffect(() => {
-    const startValue = previousValueRef.current;
-    const startedAt = performance.now();
-    let frame = 0;
+    if (previousValueRef.current === value) return;
 
-    const renderFrame = (now: number) => {
-      const progress = Math.min((now - startedAt) / animationTokens.durationMs.arenaNumber, 1);
+    if (!runtimeSnapshot.canRunMotion || runtimeSnapshot.prefersReducedMotion) {
+      animationStateRef.current = null;
+      previousValueRef.current = value;
+      if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(value);
+      return;
+    }
+
+    const startValue = previousValueRef.current;
+    animationStateRef.current = { endValue: value, startValue };
+
+    let unsubscribe = () => {};
+    unsubscribe = motionRuntime.subscribeFrame(({ now }) => {
+      const state = animationStateRef.current;
+      if (!state) {
+        unsubscribe();
+        return;
+      }
+
+      if (state.startTime === undefined) state.startTime = now;
+      const progress = Math.min((now - state.startTime) / animationTokens.durationMs.arenaNumber, 1);
       const eased = easeOutQuart(progress);
-      const displayValue = Math.round(startValue + (value - startValue) * eased);
+      const displayValue = Math.round(state.startValue + (state.endValue - state.startValue) * eased);
       if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(displayValue);
 
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(renderFrame);
-      } else {
-        previousValueRef.current = value;
+      if (progress >= 1) {
+        previousValueRef.current = state.endValue;
+        animationStateRef.current = null;
+        unsubscribe();
       }
-    };
+    }, { maxFps: 60, priority: 'interaction' });
 
-    frame = window.requestAnimationFrame(renderFrame);
-    return () => window.cancelAnimationFrame(frame);
-  }, [value]);
+    return () => {
+      animationStateRef.current = null;
+      unsubscribe();
+    };
+  }, [runtimeSnapshot.canRunMotion, runtimeSnapshot.prefersReducedMotion, value]);
 
   return <span ref={numberRef}>{coreUtils.formatNumber(previousValueRef.current)}</span>;
 });
@@ -188,16 +217,13 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
           {/* Header */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.6, 1, 0.6]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: canAnimateStage ? Infinity : 0,
-                  ease: "easeInOut"
-                }}
+              <EngineBreathe
+                active={canAnimateStage}
+                duration={2}
+                fromOpacity={0.6}
+                fromScale={1}
+                toOpacity={1}
+                toScale={1.2}
                 className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.8)]"
               />
               <span className="text-[12px] font-black uppercase tracking-[0.34em] text-white/58">Pulso Orbital</span>
@@ -229,28 +255,36 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                 />
               </svg>
               {/* Light dots on rings */}
-              <motion.div
-                animate={canAnimateStage ? { opacity: [0.3, 0.8, 0.3], scale: [0.9, 1.2, 0.9] } : { opacity: 0.45, scale: 1 }}
-                transition={{ duration: 3, repeat: canAnimateStage ? Infinity : 0, ease: "easeInOut" }}
+              <EngineBreathe
+                active={canAnimateStage}
+                duration={3}
+                fromOpacity={0.3}
+                fromScale={0.9}
+                toOpacity={0.8}
+                toScale={1.2}
                 className="absolute h-[268px] w-[268px]"
               >
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-orange-500/60 blur-[1px]" />
-              </motion.div>
-              <motion.div
-                animate={canAnimateStage ? { opacity: [0.4, 0.9, 0.4], scale: [1, 1.3, 1] } : { opacity: 0.5, scale: 1 }}
-                transition={{ duration: 4, repeat: canAnimateStage ? Infinity : 0, ease: "easeInOut", delay: 1.5 }}
+              </EngineBreathe>
+              <EngineBreathe
+                active={canAnimateStage}
+                duration={4}
+                fromOpacity={0.4}
+                fromScale={1}
+                toOpacity={0.9}
+                toScale={1.3}
                 className="absolute h-[338px] w-[338px]"
               >
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-green-500/50 blur-[1px]" />
-              </motion.div>
-              <motion.div
-                animate={canAnimateStage ? { rotate: 360 } : { rotate: 0 }}
-                transition={{ duration: 34, repeat: canAnimateStage ? Infinity : 0, ease: "linear" }}
+              </EngineBreathe>
+              <EngineSpin
+                active={canAnimateStage}
+                duration={34}
                 className="absolute h-[304px] w-[304px]"
               >
                 <div className="absolute left-[14%] top-[12%] h-2 w-2 rounded-full border border-white/16 bg-white/[0.08] shadow-[0_0_14px_rgba(255,255,255,0.2)]" />
                 <div className="absolute bottom-[7%] right-[24%] h-1.5 w-1.5 rounded-full bg-orange-400/55 shadow-[0_0_18px_rgba(249,115,22,0.6)]" />
-              </motion.div>
+              </EngineSpin>
             </div>
 
             {/* Center Stats */}
@@ -298,15 +332,17 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                       zIndex: isLeader ? 34 : 24,
                     }}
                   >
-                    <motion.div
+                    <EngineDrift
+                      active={canAnimateStage}
                       className="relative"
-                      animate={canAnimateStage ? { y: [0, -3, 0] } : { y: 0 }}
-                      transition={{
-                        duration: 5 + i * 0.5,
-                        repeat: canAnimateStage ? Infinity : 0,
-                        ease: "easeInOut",
-                        delay: i * 0.3
-                      }}
+                      delay={i * 0.3}
+                      duration={5 + i * 0.5}
+                      rotateA={0}
+                      rotateB={0}
+                      xA={0}
+                      xB={0}
+                      yA={-3}
+                      yB={0}
                     >
                       <div
                         className={cn(
@@ -336,7 +372,7 @@ export const LiveGroupOverview = React.memo(({ users, lastUpdate }: { users: Use
                           <ArenaAnimatedNumber value={streamsToday} />
                         </span>
                       </div>
-                    </motion.div>
+                    </EngineDrift>
                   </motion.div>
                 );
               })}
@@ -552,20 +588,14 @@ export const FriendsLiveCarousel = React.memo(() => {
               className="glass-card min-w-[180px] max-w-[220px] p-4 flex items-center gap-3 relative overflow-hidden transition-[background-color,border-color,transform,opacity] border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.05] active:scale-95"
             >
               <div className="relative shrink-0">
-                <motion.div
-                   animate={shouldReduceMotion ? {} : {
-                     boxShadow: [
-                       "0 0 0 0px rgba(249, 115, 22, 0)",
-                       "0 0 0 4px rgba(249, 115, 22, 0.3)",
-                       "0 0 0 0px rgba(249, 115, 22, 0)"
-                     ]
-                   }}
-                   transition={{
-                     duration: 2,
-                     repeat: shouldReduceMotion ? 0 : Infinity,
-                     ease: "easeInOut"
-                   }}
-                   className="h-12 w-12 rounded-full p-0.5 bg-gradient-to-tr from-orange-500 to-yellow-500"
+                <EngineBreathe
+                   active={!shouldReduceMotion}
+                   duration={2}
+                   fromOpacity={1}
+                   fromScale={1}
+                   toOpacity={1}
+                   toScale={1.04}
+                   className="h-12 w-12 rounded-full p-0.5 bg-gradient-to-tr from-orange-500 to-yellow-500 shadow-[0_0_0_3px_rgba(249,115,22,0.18)]"
                 >
                   <div className="h-full w-full rounded-full bg-[#0a0a0a] overflow-hidden">
                     <SmartImage 
@@ -575,7 +605,7 @@ export const FriendsLiveCarousel = React.memo(() => {
                       rounded="full"
                     />
                   </div>
-                </motion.div>
+                </EngineBreathe>
                 <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full bg-orange-500 border border-[#0a0a0a] flex items-center justify-center">
                   <Headphones className="h-2 w-2 text-white" />
                 </div>
@@ -707,11 +737,7 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
           icon={<Flame className="h-3.5 w-3.5 text-orange-500" />}
           action={loading ? (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-              <motion.span
-                className="h-1.5 w-1.5 rounded-full bg-orange-500"
-                animate={shouldRunAmbientMotion ? { scale: [1, 1.6, 1], opacity: [0.6, 1, 0.6] } : { scale: 1, opacity: 0.75 }}
-                transition={shouldRunAmbientMotion ? { duration: 1.2, repeat: Infinity } : { duration: 0.16 }}
-              />
+              <EnginePulse active={shouldRunAmbientMotion} className="h-1.5 w-1.5 rounded-full bg-orange-500" />
               <span className="text-[7px] font-black uppercase tracking-widest text-orange-400">Atualizando</span>
             </div>
           ) : null}

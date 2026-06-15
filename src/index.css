@@ -41,6 +41,7 @@
   :root {
     --brand: #ff5f00;
     --stroke: rgba(255,255,255,0.10);
+    --stats-lc-engine-runtime-scale: 1;
   }
 
   html,
@@ -52,8 +53,27 @@
   }
 
   html {
-    overflow-y: scroll;
-    scrollbar-gutter: stable;
+    overflow-y: auto;
+  }
+
+  @media (max-width: 639px) {
+    html {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+      display: none;
+    }
+  }
+
+  @media (min-width: 640px) {
+    html {
+      overflow-y: scroll;
+      scrollbar-gutter: stable;
+    }
   }
 
   body {
@@ -75,11 +95,184 @@
   position: fixed;
   inset: 0;
   z-index: -1;
+  background:
+    radial-gradient(ellipse 78% 54% at 8% 4%, rgba(37, 99, 235, 0.055), transparent 72%),
+    radial-gradient(ellipse 68% 48% at 92% 82%, rgba(147, 51, 234, 0.05), transparent 72%);
+  contain: strict;
 }
 
 .content-auto-safe {
   content-visibility: auto;
   contain-intrinsic-size: auto 520px;
+}
+
+.stats-lc-engine-loop {
+  backface-visibility: hidden;
+  will-change: auto;
+}
+
+.stats-lc-engine-loop[data-active="false"],
+.stats-lc-engine-loop[data-active="false"] *,
+.stats-lc-engine-loop[data-active="false"]::before,
+.stats-lc-engine-loop[data-active="false"]::after {
+  animation: none !important;
+  will-change: auto !important;
+}
+
+.stats-lc-engine-equalizer {
+  gap: 1.5px;
+}
+
+.stats-lc-engine-equalizer > span {
+  width: var(--stats-lc-engine-bar-width, 1.5px);
+  transform: scaleY(0.45);
+}
+
+.stats-lc-engine-equalizer > span:nth-child(2) {
+  transform: scaleY(0.82);
+}
+
+.stats-lc-engine-equalizer > span:nth-child(3) {
+  transform: scaleY(0.32);
+}
+
+.stats-lc-engine-equalizer[data-active="true"] > span {
+  animation: eq-bar-1 calc(0.8s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
+  will-change: transform;
+}
+
+.stats-lc-engine-equalizer[data-active="true"] > span:nth-child(2) {
+  animation: eq-bar-2 calc(0.66s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out 0.12s infinite;
+}
+
+.stats-lc-engine-equalizer[data-active="true"] > span:nth-child(3) {
+  animation: eq-bar-3 calc(0.74s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out 0.24s infinite;
+}
+
+@keyframes stats-lc-engine-pulse {
+  0%, 100% { opacity: 0.72; transform: scale(1); }
+  50% { opacity: 0.28; transform: scale(1.7); }
+}
+
+.stats-lc-engine-pulse {
+  opacity: 0.72;
+  transform: scale(1);
+}
+
+.stats-lc-engine-pulse[data-active="true"] {
+  animation: stats-lc-engine-pulse calc(var(--stats-lc-engine-duration, 2s) * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out var(--stats-lc-engine-delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes stats-lc-engine-breathe {
+  0%, 100% {
+    opacity: var(--stats-lc-engine-from-opacity, 0.72);
+    transform: scale(var(--stats-lc-engine-from-scale, 0.97));
+  }
+  50% {
+    opacity: var(--stats-lc-engine-to-opacity, 1);
+    transform: scale(var(--stats-lc-engine-to-scale, 1.03));
+  }
+}
+
+.stats-lc-engine-breathe {
+  opacity: var(--stats-lc-engine-from-opacity, 0.72);
+  transform: scale(var(--stats-lc-engine-from-scale, 0.97));
+}
+
+.stats-lc-engine-breathe[data-active="true"] {
+  animation: stats-lc-engine-breathe calc(var(--stats-lc-engine-duration, 2.4s) * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes stats-lc-engine-spin {
+  to { rotate: 360deg; }
+}
+
+.stats-lc-engine-spin {
+  rotate: 0deg;
+}
+
+.stats-lc-engine-spin[data-active="true"] {
+  animation: stats-lc-engine-spin calc(var(--stats-lc-engine-duration, 20s) * var(--stats-lc-engine-runtime-scale, 1)) linear infinite;
+  will-change: rotate;
+}
+
+.stats-lc-engine-spin[data-active="true"][data-reverse="true"] {
+  animation-direction: reverse;
+}
+
+@keyframes stats-lc-engine-drift {
+  0%, 100% {
+    translate: 0 0;
+    rotate: 0deg;
+  }
+  38% {
+    translate: var(--stats-lc-engine-x-a, 8px) var(--stats-lc-engine-y-a, -5px);
+    rotate: var(--stats-lc-engine-rotate-a, 0.6deg);
+  }
+  72% {
+    translate: var(--stats-lc-engine-x-b, -5px) var(--stats-lc-engine-y-b, 4px);
+    rotate: var(--stats-lc-engine-rotate-b, -0.4deg);
+  }
+}
+
+.stats-lc-engine-drift {
+  rotate: 0deg;
+  translate: 0 0;
+}
+
+.stats-lc-engine-drift[data-active="true"] {
+  animation: stats-lc-engine-drift calc(var(--stats-lc-engine-duration, 12s) * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out var(--stats-lc-engine-delay, 0s) infinite;
+  will-change: translate, rotate;
+}
+
+@keyframes stats-lc-engine-tonearm-drift {
+  0% { transform: rotate(0deg); }
+  60% { transform: rotate(-1.18deg); }
+  100% { transform: rotate(-0.42deg); }
+}
+
+.stats-lc-engine-tonearm-drift {
+  transform: rotate(0deg);
+  transform-box: view-box;
+}
+
+.stats-lc-engine-tonearm-drift[data-active="true"] {
+  animation: stats-lc-engine-tonearm-drift calc(42s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out alternate infinite;
+  will-change: transform;
+}
+
+@keyframes stats-lc-engine-shimmer {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(50%, 0, 0); }
+}
+
+.stats-lc-engine-shimmer {
+  transform: translate3d(-100%, 0, 0);
+}
+
+.stats-lc-engine-shimmer-soft {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%);
+}
+
+.stats-lc-engine-shimmer-strong {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+}
+
+.stats-lc-engine-shimmer[data-active="true"] {
+  animation: stats-lc-engine-shimmer calc(var(--stats-lc-engine-duration, 2.5s) * var(--stats-lc-engine-runtime-scale, 1)) linear infinite;
+  will-change: transform;
+}
+
+@keyframes stats-lc-engine-marquee {
+  0%, 12% { transform: translate3d(0, 0, 0); }
+  88%, 100% { transform: translate3d(calc(-1 * var(--stats-lc-engine-distance, 0px)), 0, 0); }
+}
+
+.stats-lc-engine-marquee[data-active="true"] {
+  animation: stats-lc-engine-marquee calc(var(--stats-lc-engine-duration, 12s) * var(--stats-lc-engine-runtime-scale, 1)) linear infinite;
+  will-change: transform;
 }
 
 .stable-bottom-bar {
@@ -408,27 +601,9 @@
   mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
 @keyframes stats-lc-skeleton-shimmer {
   0% { transform: translate3d(-45%, 0, 0) rotate(18deg); }
   100% { transform: translate3d(45%, 0, 0) rotate(18deg); }
-}
-
-.animate-shimmer {
-  animation: shimmer 2.5s infinite linear;
-}
-
-@keyframes pulse-wave {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(1.5); opacity: 0; }
-}
-
-.animate-pulse-wave {
-  animation: pulse-wave 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 @keyframes pulse-slow {
@@ -457,7 +632,8 @@
 }
 
 .ranking-badge {
-  @apply transition-all duration-500 ease-in-out overflow-hidden relative;
+  @apply duration-500 ease-in-out overflow-hidden relative;
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform, min-width;
 }
 
 .ranking-badge::after {
@@ -477,23 +653,6 @@
 
 .scrolling-touch {
   -webkit-overflow-scrolling: touch;
-}
-
-@keyframes spin-vinyl {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.animate-spin-vinyl {
-  animation: spin-vinyl 15s linear infinite;
-}
-
-@keyframes vinyl-record-spin {
-  to { transform: rotate(360deg); }
-}
-
-.animate-vinyl-record-spin {
-  animation: vinyl-record-spin 9s linear infinite;
 }
 
 @keyframes vinyl-record-idle {
@@ -543,20 +702,12 @@
   }
 }
 
-.vinyl-record-spin {
-  animation: vinyl-record-spin 3s linear infinite;
+.vinyl-record-idle[data-active="true"] {
+  animation: vinyl-record-idle calc(12s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
 }
 
-.vinyl-record-idle {
-  animation: vinyl-record-idle 12s ease-in-out infinite;
-}
-
-.vinyl-record-aura {
-  animation: vinyl-record-aura 6s ease-in-out infinite;
-}
-
-.vinyl-reflection-spin {
-  animation: vinyl-record-spin 8s linear infinite;
+.vinyl-record-aura[data-active="true"] {
+  animation: vinyl-record-aura calc(6s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
 }
 
 .stats-lc-grain {
@@ -579,28 +730,37 @@
 .stats-lc-ambient-drift-secondary {
   backface-visibility: hidden;
   transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+.stats-lc-ambient-drift-primary[data-active="true"] {
+  animation: stats-lc-ambient-drift-primary calc(3.8s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
   will-change: transform, opacity;
 }
 
-.stats-lc-ambient-drift-primary {
-  animation: stats-lc-ambient-drift-primary 3.8s ease-in-out infinite;
-}
-
-.stats-lc-ambient-drift-secondary {
-  animation: stats-lc-ambient-drift-secondary 4.7s ease-in-out infinite;
+.stats-lc-ambient-drift-secondary[data-active="true"] {
+  animation: stats-lc-ambient-drift-secondary calc(4.7s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 .stats-lc-artwork-drift {
-  animation: stats-lc-artwork-drift 5.2s ease-in-out infinite;
   backface-visibility: hidden;
   background-repeat: no-repeat;
   transform: translate3d(0, 0, 0) scale(1.08);
+  will-change: auto;
+}
+
+.stats-lc-artwork-drift[data-active="true"] {
+  animation: stats-lc-artwork-drift calc(5.2s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
   will-change: transform;
 }
 
 .stats-lc-ambient-idle-breathe {
-  animation: stats-lc-ambient-idle-breathe 8.5s ease-in-out infinite;
   transform-origin: 50% 44%;
+}
+
+.stats-lc-ambient-idle-breathe[data-active="true"] {
+  animation: stats-lc-ambient-idle-breathe calc(8.5s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
 }
 
 .stats-lc-ambient-idle-freeze {
@@ -636,9 +796,13 @@
 }
 
 .stats-lc-track-marquee {
-  animation: track-title-marquee var(--track-title-duration, 12s) linear infinite;
   backface-visibility: hidden;
   transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+.stats-lc-track-marquee[data-active="true"] {
+  animation: track-title-marquee calc(var(--track-title-duration, 12s) * var(--stats-lc-engine-runtime-scale, 1)) linear infinite;
   will-change: transform;
 }
 
@@ -651,6 +815,38 @@ body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
   animation-play-state: paused;
 }
 
+body[data-stats-lc-modal-open="true"] .stats-lc-engine-loop,
+body[data-stats-lc-modal-open="true"] .stats-lc-engine-loop *,
+body[data-stats-lc-modal-open="true"] .stats-lc-engine-loop::before,
+body[data-stats-lc-modal-open="true"] .stats-lc-engine-loop::after {
+  animation-play-state: paused !important;
+  will-change: auto !important;
+}
+
+body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"],
+body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"] *,
+body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"]::before,
+body[data-stats-lc-modal-open="true"] [data-stats-lc-modal-surface="true"] .stats-lc-engine-loop[data-active="true"]::after {
+  animation-play-state: running !important;
+}
+
+html[data-stats-lc-motion-enabled="false"] *,
+html[data-stats-lc-motion-enabled="false"] *::before,
+html[data-stats-lc-motion-enabled="false"] *::after {
+  animation-play-state: paused !important;
+  transition-delay: 0ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-stats-lc-motion-tier="balanced"] {
+  --stats-lc-engine-runtime-scale: 1.55;
+}
+
+html[data-stats-lc-motion-tier="conserve"],
+html[data-stats-lc-motion-enabled="false"] {
+  --stats-lc-engine-runtime-scale: 2.4;
+}
+
 html[data-stats-lc-motion-tier="conserve"] .vinyl-record-idle,
 html[data-stats-lc-motion-tier="conserve"] .vinyl-record-aura,
 html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-drift-primary,
@@ -661,6 +857,113 @@ html[data-stats-lc-motion-tier="conserve"] .animate-pulse-slow,
 html[data-stats-lc-motion-tier="conserve"] .animate-pulse,
 html[data-stats-lc-motion-tier="conserve"] .animate-ping {
   animation-play-state: paused;
+  will-change: auto !important;
+}
+
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-engine-loop,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-engine-loop *,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-engine-loop::before,
+html[data-stats-lc-motion-tier="conserve"] .stats-lc-engine-loop::after,
+html[data-stats-lc-motion-enabled="false"] .stats-lc-engine-loop,
+html[data-stats-lc-motion-enabled="false"] .stats-lc-engine-loop *,
+html[data-stats-lc-motion-enabled="false"] .stats-lc-engine-loop::before,
+html[data-stats-lc-motion-enabled="false"] .stats-lc-engine-loop::after {
+  animation-play-state: paused !important;
+  will-change: auto !important;
+}
+
+html[data-stats-lc-motion-tier="balanced"] :where(
+  .glass,
+  .glass-aura,
+  .glass-aura-orange,
+  .liquid-glass,
+  .liquid-glass-card,
+  .liquid-glass-modal,
+  .leo-glass-badge,
+  .leo-soft-badge,
+  .stats-lc-glass-popover,
+  .stats-lc-soft-white-glass,
+  .bottom-track-stats-body-backdrop,
+  .bottom-track-stats-surface,
+  .bottom-track-controls-button,
+  .bottom-track-lyrics-modal,
+  .stats-lc-frosted-modal-glass
+) {
+  -webkit-backdrop-filter: blur(18px) saturate(145%) !important;
+  backdrop-filter: blur(18px) saturate(145%) !important;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.075) !important;
+}
+
+html[data-stats-lc-motion-tier="conserve"] :where(
+  .glass,
+  .glass-aura,
+  .glass-aura-orange,
+  .liquid-glass,
+  .liquid-glass-card,
+  .liquid-glass-modal,
+  .leo-glass-badge,
+  .leo-soft-badge,
+  .stats-lc-glass-popover,
+  .stats-lc-soft-white-glass,
+  .bottom-track-stats-body-backdrop,
+  .bottom-track-stats-surface,
+  .bottom-track-controls-button,
+  .bottom-track-lyrics-modal,
+  .stats-lc-frosted-modal-glass
+) {
+  -webkit-backdrop-filter: blur(8px) saturate(115%) !important;
+  backdrop-filter: blur(8px) saturate(115%) !important;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+}
+
+html[data-stats-lc-motion-tier="balanced"] :where(
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-\[4px\],
+  .backdrop-blur-\[6px\]
+) {
+  -webkit-backdrop-filter: blur(14px) saturate(135%) !important;
+  backdrop-filter: blur(14px) saturate(135%) !important;
+}
+
+html[data-stats-lc-motion-tier="conserve"] :where(
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl,
+  .backdrop-blur-2xl,
+  .backdrop-blur-\[4px\],
+  .backdrop-blur-\[6px\]
+) {
+  -webkit-backdrop-filter: blur(6px) saturate(110%) !important;
+  backdrop-filter: blur(6px) saturate(110%) !important;
+}
+
+html[data-stats-lc-motion-tier="balanced"] :where(
+  .blur-2xl,
+  .blur-3xl,
+  .blur-\[60px\],
+  .blur-\[80px\],
+  .blur-\[120px\]
+) {
+  filter: blur(34px) !important;
+}
+
+html[data-stats-lc-motion-tier="conserve"] :where(
+  .blur-xl,
+  .blur-2xl,
+  .blur-3xl,
+  .blur-\[60px\],
+  .blur-\[80px\],
+  .blur-\[120px\]
+) {
+  filter: blur(18px) !important;
+  opacity: 0.58;
 }
 
 @keyframes eq-bar-1 {

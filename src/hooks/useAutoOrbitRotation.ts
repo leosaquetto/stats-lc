@@ -3,8 +3,8 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react';
+import { motionRuntime as motionRuntimeLib } from '../lib/motionRuntime';
 import { useMotionRuntime } from './useMotionRuntime';
-import { usePageVisibility } from './useViewportMotionGate';
 
 interface AutoOrbitRotationOptions {
   enabled: boolean;
@@ -19,8 +19,8 @@ export const useAutoOrbitRotation = ({
 }: AutoOrbitRotationOptions) => {
   const onAdvanceRef = useRef(onAdvance);
   const [isInteracting, setIsInteracting] = useState(false);
-  const isPageVisible = usePageVisibility();
   const motionRuntime = useMotionRuntime();
+  const isPageVisible = motionRuntime.isPageVisible;
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
@@ -30,8 +30,23 @@ export const useAutoOrbitRotation = ({
   useEffect(() => {
     if (!enabled || !isPageVisible || isInteracting || !motionRuntime.canRunMotion || motionRuntime.tier === 'conserve') return;
     const multiplier = motionRuntime.tier === 'balanced' ? 1.65 : 1;
-    const timer = window.setTimeout(() => onAdvanceRef.current(), intervalMs * multiplier);
-    return () => window.clearTimeout(timer);
+    const delayMs = intervalMs * multiplier;
+    let cancelled = false;
+    let cancelTask = () => {};
+
+    const scheduleAdvance = () => {
+      cancelTask = motionRuntimeLib.scheduleTask(() => {
+        if (cancelled) return;
+        onAdvanceRef.current();
+        scheduleAdvance();
+      }, delayMs, 'ambient');
+    };
+
+    scheduleAdvance();
+    return () => {
+      cancelled = true;
+      cancelTask();
+    };
   }, [enabled, generation, intervalMs, isInteracting, isPageVisible, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   const restart = useCallback(() => {

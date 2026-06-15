@@ -7,38 +7,54 @@ type ViewportMotionGateOptions = {
   rootMargin?: string;
 };
 
-export const usePrefersReducedMotion = () => {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-
-    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setPrefersReducedMotion(media.matches);
-
-    update();
-    media.addEventListener?.('change', update);
-    return () => media.removeEventListener?.('change', update);
-  }, []);
-
-  return prefersReducedMotion;
+type ViewportObserverCallback = (isIntersecting: boolean) => void;
+type ViewportObserverPool = {
+  callbacks: Map<Element, Set<ViewportObserverCallback>>;
+  observer: IntersectionObserver;
 };
 
-export const usePageVisibility = () => {
-  const [isPageVisible, setIsPageVisible] = useState(
-    typeof document === 'undefined' || document.visibilityState !== 'hidden'
-  );
+const viewportObserverPools = new Map<string, ViewportObserverPool>();
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return undefined;
+const observeViewport = (
+  node: Element,
+  rootMargin: string,
+  callback: ViewportObserverCallback,
+) => {
+  let pool = viewportObserverPools.get(rootMargin);
+  if (!pool) {
+    const callbacks = new Map<Element, Set<ViewportObserverCallback>>();
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        callbacks.get(entry.target)?.forEach((listener) => listener(entry.isIntersecting));
+      });
+    }, { rootMargin });
+    pool = { callbacks, observer };
+    viewportObserverPools.set(rootMargin, pool);
+  }
 
-    const handleVisibility = () => setIsPageVisible(document.visibilityState !== 'hidden');
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
+  const callbacks = pool.callbacks.get(node) ?? new Set<ViewportObserverCallback>();
+  const shouldObserve = callbacks.size === 0;
+  callbacks.add(callback);
+  pool.callbacks.set(node, callbacks);
+  if (shouldObserve) pool.observer.observe(node);
 
-  return isPageVisible;
+  return () => {
+    const activePool = viewportObserverPools.get(rootMargin);
+    const activeCallbacks = activePool?.callbacks.get(node);
+    if (!activePool || !activeCallbacks) return;
+    activeCallbacks.delete(callback);
+    if (activeCallbacks.size) return;
+    activePool.callbacks.delete(node);
+    activePool.observer.unobserve(node);
+    if (activePool.callbacks.size) return;
+    activePool.observer.disconnect();
+    viewportObserverPools.delete(rootMargin);
+  };
 };
+
+export const usePrefersReducedMotion = () => useMotionRuntime().prefersReducedMotion;
+
+export const usePageVisibility = () => useMotionRuntime().isPageVisible;
 
 export const useViewportMotionGate = <T extends HTMLElement>({
   initialVisible = true,
@@ -47,21 +63,14 @@ export const useViewportMotionGate = <T extends HTMLElement>({
 }: ViewportMotionGateOptions = {}) => {
   const ref = useRef<T | null>(null);
   const [isInViewport, setIsInViewport] = useState(initialVisible);
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const isPageVisible = usePageVisibility();
   const motionRuntime = useMotionRuntime();
+  const prefersReducedMotion = motionRuntime.prefersReducedMotion;
+  const isPageVisible = motionRuntime.isPageVisible;
 
   useEffect(() => {
     const node = ref.current;
     if (!node || typeof IntersectionObserver === 'undefined') return undefined;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsInViewport(entry.isIntersecting),
-      { rootMargin }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeViewport(node, rootMargin, setIsInViewport);
   }, [rootMargin]);
 
   const canAnimate = useMemo(

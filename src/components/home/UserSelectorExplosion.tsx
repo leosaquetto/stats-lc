@@ -6,10 +6,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineDrift, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,6 +36,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
   mode = 'header'
 }) => {
   const [lastTriggerPosition, setLastTriggerPosition] = useState(triggerPosition);
+  useModalMotionScope(isOpen);
 
   useEffect(() => {
     if (triggerPosition) setLastTriggerPosition(triggerPosition);
@@ -118,6 +120,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
         <>
           {/* Backdrop com fade - clique fora fecha */}
           <motion.div
+            data-stats-lc-modal-surface="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -129,6 +132,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
           {/* Avatares em órbita (sem mostrar o usuário principal) */}
           {positions.map(({ member, x, y, delay }, index) => (
             <motion.button
+              data-stats-lc-modal-surface="true"
               key={member.id}
               onClick={() => {
                 onSelectUser(member.id);
@@ -161,10 +165,17 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
               whileTap={{ scale: 0.9 }}
               className="fixed z-[201] -translate-x-1/2 -translate-y-1/2 cursor-pointer"
             >
-              <motion.div
+              <EngineDrift
+                active
                 className="relative group flex h-[84px] w-[72px] items-center justify-center"
-                animate={{ y: [0, -3, 0] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay }}
+                delay={delay}
+                duration={2.4}
+                rotateA={0}
+                rotateB={0}
+                xA={0}
+                xB={0}
+                yA={-3}
+                yB={0}
               >
                 <div className="relative z-10 h-14 w-14 overflow-hidden rounded-full bg-stone-900 shadow-[0_12px_28px_rgba(0,0,0,0.45)] ring-1 ring-white/10 transition-[box-shadow,opacity,transform] duration-200 group-hover:ring-orange-500/50">
                   <SmartImage
@@ -183,7 +194,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
                     </span>
                   </div>
                 </div>
-              </motion.div>
+              </EngineDrift>
             </motion.button>
           ))}
         </>

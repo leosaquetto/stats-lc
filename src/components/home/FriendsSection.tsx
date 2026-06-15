@@ -8,6 +8,7 @@ import { motion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { 
   SmartImage, 
+  EngineBreathe,
   MusicPlatformBadge, 
   TruncatedTooltipText,
   ShimmerOverlay 
@@ -79,13 +80,13 @@ export const FriendsHorizontalCard = React.memo(({
 
       <div className="relative">
         <div className={cn(
-          "h-14 w-14 rounded-[20px] p-[1.5px] transition-all duration-500 shadow-xl",
+          "h-14 w-14 rounded-[20px] p-[1.5px] transition-[background-color,box-shadow,opacity,transform] duration-500 shadow-xl",
           isActuallyLive ? "bg-gradient-to-tr from-orange-400 via-orange-500 to-yellow-500" : "bg-white/10"
         )}>
           <div className="h-full w-full rounded-[18px] bg-[#050505] overflow-hidden relative">
             <SmartImage 
               src={trackImage} 
-              className={cn("h-full w-full grayscale transition-all duration-700", isActuallyLive && "grayscale-0 scale-110")} 
+              className={cn("h-full w-full grayscale transition-[filter,transform] duration-700", isActuallyLive && "grayscale-0 scale-110")}
               fallback=""
             />
           </div>
@@ -120,13 +121,17 @@ export const FriendsHorizontalCard = React.memo(({
         )}
 
         {isActuallyLive ? (
-          <motion.div 
-            animate={shouldRunAmbientMotion ? { opacity: [0.7, 1, 0.7] } : { opacity: 0.82 }}
-            transition={shouldRunAmbientMotion ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.16 }}
+          <EngineBreathe
+            active={shouldRunAmbientMotion}
+            duration={2}
+            fromOpacity={0.7}
+            fromScale={1}
+            toOpacity={1}
+            toScale={1}
             className="mt-1 px-1.5 py-0.5 rounded bg-orange-500/10 border border-orange-500/20"
           >
             <span className="text-[7px] font-black text-orange-500 uppercase tracking-widest whitespace-nowrap">Ouvindo</span>
-          </motion.div>
+          </EngineBreathe>
         ) : (
           <div className="mt-1">
             <span className="text-[7px] font-black text-white/50 uppercase tracking-widest text-center px-1">

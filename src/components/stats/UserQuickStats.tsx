@@ -73,7 +73,7 @@ export const UserQuickStats: React.FC<UserQuickStatsProps> = ({ user, accentColo
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.1 }}
-          className="glass-card p-4 flex flex-col gap-4 border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all relative overflow-hidden group"
+          className="glass-card p-4 flex flex-col gap-4 border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-[background-color,border-color,box-shadow,opacity,transform] duration-200 relative overflow-hidden group"
         >
           <div className="absolute -right-4 -top-4 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity">
             <stat.icon className="h-16 w-16" />

@@ -24,6 +24,8 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { GroupGrowthChart } from '../battle/GroupGrowthChart';
 import { AlbumDetailModal } from './AlbumDetailModal';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 const ListAny = List as any;
 const AutoSizerAny = AutoSizer as any;
@@ -36,6 +38,9 @@ function cn(...inputs: ClassValue[]) {
 // Implementação consolidada de AlbumDetailModal agora importada de ./AlbumDetailModal.tsx
 
 const PresentationStatsView = ({ stats, user, loading }: any) => {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimatePresentation = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+
   if (loading) {
      return <div className="p-12 text-center text-white/40 uppercase tracking-widest text-xs font-black">Carregando Apresentação...</div>;
   }
@@ -67,11 +72,10 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
              </div>
              <div className="h-3 w-full bg-white/5 rounded-full mt-4 overflow-hidden shadow-inner">
                 <motion.div 
-                   initial={{ scaleX: 0 }}
+                   initial={shouldAnimatePresentation ? { scaleX: 0 } : false}
                    animate={{ scaleX: 1 }}
-                   transition={{ duration: 1.5, ease: "easeOut" }}
+                   transition={shouldAnimatePresentation ? { duration: 0.8, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                    className="h-full w-full origin-left bg-gradient-to-r from-orange-600 to-amber-400"
-                   style={{ willChange: 'transform' }}
                 />
              </div>
           </div>
@@ -87,11 +91,10 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
                 </div>
                 <div className="h-2 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
                    <motion.div 
-                      initial={{ scaleX: 0 }}
+                      initial={shouldAnimatePresentation ? { scaleX: 0 } : false}
                       animate={{ scaleX: Math.min(1, Math.max(monthlyPercent * 5, 5) / 100) }} // Exaggerated for visual effect if small
-                      transition={{ duration: 1.5, delay: 0.2, ease: "easeOut" }}
+                      transition={shouldAnimatePresentation ? { duration: 0.7, delay: 0.08, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                       className="h-full w-full origin-left bg-amber-400"
-                      style={{ willChange: 'transform' }}
                    />
                 </div>
              </div>
@@ -106,11 +109,10 @@ const PresentationStatsView = ({ stats, user, loading }: any) => {
                 </div>
                 <div className="h-2 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
                    <motion.div 
-                      initial={{ scaleX: 0 }}
+                      initial={shouldAnimatePresentation ? { scaleX: 0 } : false}
                       animate={{ scaleX: Math.min(1, Math.max(todayPercent * 50, 5) / 100) }} // Exaggerated for visual effect if small
-                      transition={{ duration: 1.5, delay: 0.4, ease: "easeOut" }}
+                      transition={shouldAnimatePresentation ? { duration: 0.7, delay: 0.14, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                       className="h-full w-full origin-left bg-green-400"
-                      style={{ willChange: 'transform' }}
                    />
                 </div>
              </div>
@@ -132,6 +134,9 @@ export const UserDetailModal = ({
   const isLeo = initialUser.id === "leo";
   const [activeTab, setActiveTab] = useState<'artists' | 'tracks' | 'albums'>('artists');
   const [presentationMode, setPresentationMode] = useState(false);
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateModal = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  useModalMotionScope();
   
   useEffect(() => {
     async function loadData() {
@@ -183,18 +188,20 @@ export const UserDetailModal = ({
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
+      initial={shouldAnimateModal ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center liquid-glass-overlay"
+      transition={{ duration: shouldAnimateModal ? 0.18 : 0.01 }}
+      className="fixed inset-0 z-50 flex h-[100svh] min-h-[100svh] items-end justify-center liquid-glass-overlay"
+      data-stats-lc-modal-surface="true"
       onClick={onClose}
     >
       <motion.div 
-        initial={{ y: "100%" }}
+        initial={shouldAnimateModal ? { y: "100%" } : false}
         animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="bg-[#050505] w-full h-[92vh] rounded-t-[48px] overflow-y-auto no-scrollbar border-t border-white/5 shadow-2xl"
+        exit={shouldAnimateModal ? { y: "100%" } : { opacity: 0 }}
+        transition={shouldAnimateModal ? { type: 'spring', damping: 30, stiffness: 300 } : { duration: 0.01 }}
+        className="bg-[#050505] w-full h-[92svh] rounded-t-[48px] overflow-y-auto no-scrollbar border-t border-white/5 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="relative h-64 overflow-hidden">
@@ -202,7 +209,7 @@ export const UserDetailModal = ({
              <button 
                onClick={() => setPresentationMode(!presentationMode)}
                className={cn(
-                  "h-11 px-3 glass rounded-2xl flex items-center gap-2 transition-all border border-white/5 shadow-2xl",
+                  "h-11 px-3 glass rounded-2xl flex items-center gap-2 transition-[background-color,border-color,color,box-shadow,transform] duration-200 border border-white/5 shadow-2xl",
                   presentationMode ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "text-white/40 hover:text-white/90 active:scale-95"
                )}
              >
@@ -211,7 +218,7 @@ export const UserDetailModal = ({
              </button>
              <button 
                onClick={onClose}
-               className="h-11 w-11 glass rounded-2xl flex items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all border border-white/5 shadow-2xl"
+               className="h-11 w-11 glass rounded-2xl flex items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-[background-color,border-color,color,box-shadow,transform] duration-200 border border-white/5 shadow-2xl"
              >
                <X className="h-5 w-5" />
              </button>
@@ -226,7 +233,7 @@ export const UserDetailModal = ({
            
            <div className="absolute inset-0 flex flex-col items-center justify-center pt-8">
               <div className={cn(
-                "h-32 w-32 rounded-[40px] p-1.5 shadow-2xl transition-all duration-500",
+                "h-32 w-32 rounded-[40px] p-1.5 shadow-2xl transition-[background-color,box-shadow,opacity,transform] duration-300",
                 isLeo ? "bg-orange-500/20" : "bg-white/5"
               )}>
                  <SmartImage 
@@ -247,10 +254,13 @@ export const UserDetailModal = ({
                 <div className="mt-4 flex flex-col items-center">
                   <MusicPlatformBadge track={initialUser.nowPlaying.track} showLabel />
                   <div className="flex items-center gap-1.5 mt-2">
-                    <div className={cn(
-                       "h-1 w-1 rounded-full",
-                       coreUtils.getPlaybackStatus(initialUser).status === "live" ? "bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-white/20"
-                    )} />
+                    <div
+                      className={cn(
+                        "h-1 w-1 rounded-full",
+                        coreUtils.getPlaybackStatus(initialUser).status === "live" ? "stats-lc-engine-loop stats-lc-engine-breathe bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" : "bg-white/20"
+                      )}
+                      data-active={coreUtils.getPlaybackStatus(initialUser).status === "live" ? "true" : undefined}
+                    />
                     <span className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">
                        {coreUtils.getPlaybackStatus(initialUser).label}
                     </span>
@@ -258,10 +268,13 @@ export const UserDetailModal = ({
                 </div>
               ) : (
                 <div className="flex items-center gap-2 mt-3">
-                   <div className={cn(
-                     "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]",
-                     loading ? "bg-white/20 animate-pulse" : "bg-green-500"
-                   )} />
+                   <div
+                     className={cn(
+                       "h-1.5 w-1.5 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.5)]",
+                       loading ? "stats-lc-engine-loop stats-lc-engine-breathe bg-white/20" : "bg-green-500"
+                     )}
+                     data-active={loading ? "true" : undefined}
+                   />
                    <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.25em]">
                       {loading ? "Sincronizando..." : "Sinal Inativo"}
                    </span>
@@ -323,7 +336,7 @@ export const UserDetailModal = ({
                             key={tab}
                             onClick={() => setActiveTab(tab)}
                             className={cn(
-                              "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all",
+                              "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-[background-color,color,box-shadow,transform] duration-200",
                               activeTab === tab ? "bg-white text-[#050505]" : "text-white/60"
                             )}
                           >
@@ -350,9 +363,10 @@ export const UserDetailModal = ({
                               rowComponent={({ index, style }: { index: number, style: any }) => (
                                 <div style={style} className="px-1 py-1">
                                   <motion.div 
-                                    initial={{ opacity: 0, x: -10 }}
+                                    initial={shouldAnimateModal && index < 6 ? { opacity: 0, x: -8 } : false}
                                     animate={{ opacity: 1, x: 0 }}
-                                    className="glass flex items-center justify-between px-3 py-2 rounded-[20px] border-white/5 group hover:bg-white/[0.08] transition-all h-full"
+                                    transition={shouldAnimateModal && index < 6 ? { delay: Math.min(index * 0.025, 0.12), duration: 0.22, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
+                                    className="glass flex items-center justify-between px-3 py-2 rounded-[20px] border-white/5 group hover:bg-white/[0.08] transition-[background-color,border-color,box-shadow,opacity,transform] duration-200 h-full"
                                   >
                                      <div className="flex items-center gap-3 min-w-0">
                                         <span className="text-[10px] font-black text-white/30 w-4 pl-1">#{index + 1}</span>
@@ -407,29 +421,35 @@ export const StatsBattleModal = ({
   onClose: () => void 
 }) => {
   const [showArenaCalc, setShowArenaCalc] = useState(false);
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateModal = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  useModalMotionScope();
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
+      initial={shouldAnimateModal ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center liquid-glass-overlay p-4"
+      transition={{ duration: shouldAnimateModal ? 0.18 : 0.01 }}
+      className="fixed inset-0 z-50 flex h-[100svh] min-h-[100svh] items-end justify-center liquid-glass-overlay p-4"
+      data-stats-lc-modal-surface="true"
       onClick={onClose}
     >
       <motion.div 
-        initial={{ y: "100%" }}
+        initial={shouldAnimateModal ? { y: "100%" } : false}
         animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="glass-card w-full max-w-lg rounded-t-[48px] p-8 max-h-[90vh] overflow-y-auto no-scrollbar relative"
+        exit={shouldAnimateModal ? { y: "100%" } : { opacity: 0 }}
+        transition={shouldAnimateModal ? { type: 'spring', damping: 25, stiffness: 200 } : { duration: 0.01 }}
+        className="glass-card w-full max-w-lg rounded-t-[48px] p-8 max-h-[90svh] overflow-y-auto no-scrollbar relative"
         onClick={e => e.stopPropagation()}
       >
         <AnimatePresence>
           {showArenaCalc && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={shouldAnimateModal ? { opacity: 0, scale: 0.94, y: 16 } : false}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={shouldAnimateModal ? { opacity: 0, scale: 0.94, y: 16 } : { opacity: 0 }}
+              transition={shouldAnimateModal ? { duration: 0.22, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
               className="absolute inset-x-8 top-24 bottom-24 z-[60] glass-card p-6 border-orange-500/30 flex flex-col items-center justify-center text-center gap-4 bg-black/90 backdrop-blur-3xl shadow-2xl"
             >
               <div className="h-12 w-12 rounded-full bg-orange-500/20 flex items-center justify-center mb-2">
@@ -444,7 +464,7 @@ export const StatsBattleModal = ({
               </p>
               <button 
                 onClick={() => setShowArenaCalc(false)}
-                className="mt-4 px-6 py-2 rounded-full bg-orange-500 text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-orange-500/20"
+                className="mt-4 px-6 py-2 rounded-full bg-orange-500 text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-[background-color,box-shadow,color,transform] duration-200 shadow-lg shadow-orange-500/20"
               >
                 Entendido
               </button>
@@ -470,7 +490,7 @@ export const StatsBattleModal = ({
           <button 
             type="button" 
             onClick={() => setShowArenaCalc(true)}
-            className="flex flex-col items-center group/arena-label hover:scale-110 active:scale-95 transition-all"
+            className="flex flex-col items-center group/arena-label hover:scale-110 active:scale-95 transition-transform duration-200"
           >
              <span className="text-4xl font-display font-black italic text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.4)]">VS</span>
              <span className="text-[9px] font-black text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.3)] mt-1.5 uppercase tracking-[0.3em]">Arena Battle</span>
@@ -496,6 +516,7 @@ export const StatsBattleModal = ({
               valB={coreUtils.formatNumber(userB.totalStreams || 0)}
               winner={ (userA.totalStreams || 0) > (userB.totalStreams || 0) ? 'A' : 'B' }
               delay={0.2}
+              shouldAnimate={shouldAnimateModal}
            />
            <BattleMetric 
               label="Tempo Ouvido" 
@@ -503,6 +524,7 @@ export const StatsBattleModal = ({
               valB={coreUtils.formatDuration(userB.totalDurationMs || 0)}
               winner={ (userA.totalDurationMs || 0) > (userB.totalDurationMs || 0) ? 'A' : 'B' }
               delay={0.32}
+              shouldAnimate={shouldAnimateModal}
            />
            <BattleMetric 
               label="Hoje" 
@@ -510,6 +532,7 @@ export const StatsBattleModal = ({
               valB={coreUtils.formatNumber(userB.streamsToday)}
               winner={ userA.streamsToday > userB.streamsToday ? 'A' : 'B' }
               delay={0.44}
+              shouldAnimate={shouldAnimateModal}
            />
         </div>
 
@@ -519,12 +542,14 @@ export const StatsBattleModal = ({
               itemsA={userA.topItems?.artists.slice(0, 3) || []} 
               itemsB={userB.topItems?.artists.slice(0, 3) || []} 
               delay={0.56}
+              shouldAnimate={shouldAnimateModal}
            />
            <ComparisonSection 
               title="Top Músicas do Mês" 
               itemsA={userA.topItems?.tracks.slice(0, 3) || []} 
               itemsB={userB.topItems?.tracks.slice(0, 3) || []} 
               delay={0.8}
+              shouldAnimate={shouldAnimateModal}
            />
         </div>
 
@@ -534,7 +559,7 @@ export const StatsBattleModal = ({
 
         <button 
           onClick={onClose}
-          className="w-full h-16 rounded-[24px] bg-white/5 border border-white/10 text-sm font-black uppercase tracking-widest active:scale-95 transition-all sticky bottom-0"
+          className="w-full h-16 rounded-[24px] bg-white/5 border border-white/10 text-sm font-black uppercase tracking-widest active:scale-95 transition-[background-color,border-color,color,transform] duration-200 sticky bottom-0"
         >
           Fechar Batalha
         </button>
@@ -543,28 +568,28 @@ export const StatsBattleModal = ({
   );
 };
 
-const BattleMetric = ({ label, valA, valB, winner, delay = 0 }: { label: string, valA: string, valB: string, winner: 'A' | 'B', delay?: number }) => (
+const BattleMetric = ({ label, valA, valB, winner, delay = 0, shouldAnimate }: { label: string, valA: string, valB: string, winner: 'A' | 'B', delay?: number, shouldAnimate: boolean }) => (
   <motion.div 
-    initial={{ opacity: 0, y: 15 }}
+    initial={shouldAnimate ? { opacity: 0, y: 15 } : false}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    transition={shouldAnimate ? { delay, duration: 0.35, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
     className="flex flex-col gap-2"
   >
     <motion.span 
-      initial={{ opacity: 0 }}
+      initial={shouldAnimate ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
-      transition={{ delay: delay + 0.1, duration: 0.3 }}
+      transition={shouldAnimate ? { delay: delay + 0.06, duration: 0.22 } : { duration: 0.01 }}
       className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em] text-center"
     >
       {label}
     </motion.span>
     <div className="flex items-center justify-between px-4 overflow-hidden">
        <motion.span 
-         initial={{ x: -20, opacity: 0 }}
+         initial={shouldAnimate ? { x: -20, opacity: 0 } : false}
          animate={{ x: 0, opacity: 1 }}
-         transition={{ delay: delay + 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+         transition={shouldAnimate ? { delay: delay + 0.1, duration: 0.32, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
          className={cn(
-           "text-xl font-display font-black tracking-tighter transition-all",
+           "text-xl font-display font-black tracking-tighter transition-[color,opacity,transform] duration-200",
            winner === 'A' ? "text-orange-500 scale-110" : "text-white/60"
          )}
        >
@@ -572,18 +597,18 @@ const BattleMetric = ({ label, valA, valB, winner, delay = 0 }: { label: string,
        </motion.span>
        
        <motion.div 
-         initial={{ scaleX: 0 }}
+         initial={shouldAnimate ? { scaleX: 0 } : false}
          animate={{ scaleX: 1 }}
-         transition={{ delay: delay + 0.2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+         transition={shouldAnimate ? { delay: delay + 0.12, duration: 0.36, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
          className="h-px flex-1 mx-4 bg-white/10 origin-center" 
        />
        
        <motion.span 
-         initial={{ x: 20, opacity: 0 }}
+         initial={shouldAnimate ? { x: 20, opacity: 0 } : false}
          animate={{ x: 0, opacity: 1 }}
-         transition={{ delay: delay + 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+         transition={shouldAnimate ? { delay: delay + 0.1, duration: 0.32, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
          className={cn(
-           "text-xl font-display font-black tracking-tighter transition-all",
+           "text-xl font-display font-black tracking-tighter transition-[color,opacity,transform] duration-200",
            winner === 'B' ? "text-orange-500 scale-110" : "text-white/60"
          )}
        >
@@ -593,12 +618,12 @@ const BattleMetric = ({ label, valA, valB, winner, delay = 0 }: { label: string,
   </motion.div>
 );
 
-const ComparisonSection = ({ title, itemsA, itemsB, delay = 0 }: { title: string, itemsA: TopItem[], itemsB: TopItem[], delay?: number }) => (
+const ComparisonSection = ({ title, itemsA, itemsB, delay = 0, shouldAnimate }: { title: string, itemsA: TopItem[], itemsB: TopItem[], delay?: number, shouldAnimate: boolean }) => (
   <div className="flex flex-col gap-6">
     <motion.div 
-      initial={{ opacity: 0, scale: 0.95 }}
+      initial={shouldAnimate ? { opacity: 0, scale: 0.95 } : false}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay, duration: 0.5 }}
+      transition={shouldAnimate ? { delay, duration: 0.3, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
       className="flex items-center gap-4"
     >
        <div className="h-px flex-1 bg-white/10" />
@@ -612,9 +637,9 @@ const ComparisonSection = ({ title, itemsA, itemsB, delay = 0 }: { title: string
         return (
           <div key={i} className="flex items-center justify-between gap-4 h-14 overflow-hidden">
             <motion.div 
-              initial={{ x: -25, opacity: 0 }}
+              initial={shouldAnimate ? { x: -25, opacity: 0 } : false}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: itemDelay, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              transition={shouldAnimate ? { delay: itemDelay, duration: 0.34, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
               className="flex flex-1 items-center gap-3 overflow-hidden"
             >
                {itemsA[i] ? (
@@ -636,18 +661,18 @@ const ComparisonSection = ({ title, itemsA, itemsB, delay = 0 }: { title: string
             </motion.div>
 
             <motion.span 
-              initial={{ opacity: 0, scale: 0.6 }}
+              initial={shouldAnimate ? { opacity: 0, scale: 0.6 } : false}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: itemDelay + 0.08, duration: 0.4 }}
+              transition={shouldAnimate ? { delay: itemDelay + 0.05, duration: 0.24 } : { duration: 0.01 }}
               className="text-[9px] font-black text-white/10 italic"
             >
               #{i+1}
             </motion.span>
 
             <motion.div 
-              initial={{ x: 25, opacity: 0 }}
+              initial={shouldAnimate ? { x: 25, opacity: 0 } : false}
               animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: itemDelay, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              transition={shouldAnimate ? { delay: itemDelay, duration: 0.34, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
               className="flex flex-1 items-center gap-3 overflow-hidden justify-end text-right"
             >
                {itemsB[i] ? (

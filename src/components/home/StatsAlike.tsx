@@ -9,7 +9,7 @@ import { useStatsStore } from '../../store/useStatsStore';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
 import { UserStats, TopItem } from '../../types/stats';
-import { SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
+import { EngineBreathe, EngineDrift, SmartImage, SectionHeader, ShimmerOverlay, Skeleton } from '../shared/CommonUI';
 import { HeartHandshake, ChevronLeft, ChevronRight, Sparkles, Flame } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,6 +20,7 @@ import {
   normalizeTopItemForType,
 } from '../../lib/topItemUtils';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
+import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -492,7 +493,7 @@ export const StatsAlike = React.memo(() => {
       }
 
       if (controller.signal.aborted) return;
-      cachedApiTrackFallbackByKey.set(apiFallbackKey, fallback);
+      setRuntimeCacheEntry(cachedApiTrackFallbackByKey, apiFallbackKey, fallback, 'small');
       setApiTrackFallback(fallback);
     };
 
@@ -690,15 +691,16 @@ export const StatsAlike = React.memo(() => {
                 onClick={() => position !== 0 && goToAlikeIndex(idx)}
                 style={{ willChange: isOrbitVisible ? 'transform, opacity' : 'auto' }}
               >
-                <motion.div
-                  animate={shouldReduceMotion || !shouldRunAmbientMotion ? {} : {
-                    x: [0, idx % 2 === 0 ? 10 : -8, idx % 3 === 0 ? -5 : 4, 0],
-                    y: [0, idx % 2 === 0 ? -7 : 8, idx % 3 === 0 ? 5 : -4, 0],
-                    rotate: [0, idx % 2 === 0 ? 0.8 : -0.9, idx % 3 === 0 ? -0.4 : 0.5, 0]
-                  }}
-                  transition={shouldReduceMotion || !shouldRunAmbientMotion
-                    ? { duration: 0.18 }
-                    : { duration: 15 + idx * 3, repeat: Infinity, ease: "easeInOut", delay: idx * 0.8 }}
+                <EngineDrift
+                  active={!shouldReduceMotion && shouldRunAmbientMotion}
+                  delay={idx * 0.8}
+                  duration={15 + idx * 3}
+                  rotateA={idx % 2 === 0 ? 0.8 : -0.9}
+                  rotateB={idx % 3 === 0 ? -0.4 : 0.5}
+                  xA={idx % 2 === 0 ? 10 : -8}
+                  xB={idx % 3 === 0 ? -5 : 4}
+                  yA={idx % 2 === 0 ? -7 : 8}
+                  yB={idx % 3 === 0 ? 5 : -4}
                 >
                   <AlikeOrbitalItem
                     connection={conn}
@@ -708,7 +710,7 @@ export const StatsAlike = React.memo(() => {
                     featuredUserAvatar={featuredUser?.avatar}
                     featuredUserId={effectiveFeaturedUserId}
                   />
-                </motion.div>
+                </EngineDrift>
               </motion.div>
             );
           })}
@@ -877,9 +879,13 @@ const AlikeOrbitalItem = ({
               fallback=""
             />
             {isCentered && isOrbitVisible && shouldRunAmbientMotion && (
-              <motion.div 
-                animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0, 0.3] }}
-                transition={{ duration: 4, repeat: Infinity }}
+              <EngineBreathe
+                active
+                duration={4}
+                fromOpacity={0.3}
+                fromScale={1}
+                toOpacity={0}
+                toScale={1.2}
                 className={cn(
                   "absolute inset-[-4px] border-2 -z-10",
                   type === 'artist' ? 'rounded-full' : 'rounded-[28px]',

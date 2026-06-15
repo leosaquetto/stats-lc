@@ -3,11 +3,12 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Clock3, Music2, Sparkles, UserCircle } from 'lucide-react';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineDrift, EngineSpin, SmartImage } from '../shared/CommonUI';
 import { MONTHS_SHORT, type ReplayFilterPeriod, type ReplaySelectedSubValues } from '../home/replayUtils';
 import { useAutoOrbitRotation } from '../../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
 import { cn } from '../../lib/utils';
+import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 const latestDiscoveryCache = new Map<string, any>();
 const REPLAY_MONTHS_LONG = MONTHS_SHORT.map((month, index) => (
@@ -126,7 +127,7 @@ export const PerceptionsPanel = ({
     const controller = new AbortController();
     statsService.getLatestDiscovery(userId, controller.signal)
       .then((response) => {
-        latestDiscoveryCache.set(userId, response);
+        setRuntimeCacheEntry(latestDiscoveryCache, userId, response, 'tiny');
         setLatestDiscovery(response);
       })
       .catch(() => undefined);
@@ -209,10 +210,11 @@ export const PerceptionsPanel = ({
         {...interactionProps}
       >
         <div className="pointer-events-none absolute left-1/2 top-[46%] h-[198px] w-[198px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/[0.055]" />
-        <motion.div
+        <EngineSpin
+          active={shouldRunAmbientMotion}
           className="pointer-events-none absolute left-1/2 top-[46%] h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-orange-500/14"
-          animate={shouldRunAmbientMotion ? { rotate: -360 } : {}}
-          transition={shouldRunAmbientMotion ? { duration: 46, repeat: Infinity, ease: 'linear' } : {}}
+          duration={46}
+          reverse
         />
         <div className="pointer-events-none absolute left-1/2 top-[48%] h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full bg-orange-500/[0.035] blur-2xl" />
 
@@ -235,21 +237,20 @@ export const PerceptionsPanel = ({
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1], delay: 0.025 * relative }}
               style={{ width: position.size, height: position.size }}
             >
-              <motion.div
+              <EngineDrift
+                active={shouldRunAmbientMotion}
                 className="relative h-full w-full"
-                animate={shouldRunAmbientMotion ? {
-                  y: [0, relative % 2 === 0 ? 2 : -2, 0],
-                  rotate: [0, relative % 2 === 0 ? -0.45 : 0.45, 0],
-                } : {}}
-                transition={shouldRunAmbientMotion ? {
-                  duration: 6.2 + relative * 0.45,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                } : {}}
+                duration={6.2 + relative * 0.45}
+                rotateA={relative % 2 === 0 ? -0.45 : 0.45}
+                rotateB={0}
+                xA={0}
+                xB={0}
+                yA={relative % 2 === 0 ? 2 : -2}
+                yB={0}
               >
                 {item.image ? <SmartImage src={item.image} className="h-full w-full object-cover" rounded="none" fallback={item.title} /> : null}
                 <div className="absolute inset-0 bg-black/20" />
-              </motion.div>
+              </EngineDrift>
             </motion.div>
           );
         })}
@@ -264,9 +265,15 @@ export const PerceptionsPanel = ({
             exit={{ opacity: 0, scale: 0.94, x: direction * -28 }}
             transition={{ type: 'spring', stiffness: 250, damping: 25, mass: 0.7 }}
           >
-            <motion.div
-              animate={shouldRunAmbientMotion ? { y: [0, -4, 2, 0], rotate: [0, 0.35, -0.25, 0] } : {}}
-              transition={shouldRunAmbientMotion ? { duration: 9.5, repeat: Infinity, ease: 'easeInOut' } : {}}
+            <EngineDrift
+              active={shouldRunAmbientMotion}
+              duration={9.5}
+              rotateA={0.35}
+              rotateB={-0.25}
+              xA={0}
+              xB={0}
+              yA={-4}
+              yB={2}
               className="relative h-[78px] w-[78px] overflow-hidden rounded-[24px] bg-black shadow-[0_18px_42px_rgba(0,0,0,0.45)]"
             >
               {activePerception.image ? <SmartImage src={activePerception.image} className="h-full w-full object-cover" rounded="none" fallback={activePerception.title} /> : null}
@@ -274,7 +281,7 @@ export const PerceptionsPanel = ({
               <div className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-xl bg-orange-600/90 shadow-[0_10px_24px_rgba(0,0,0,0.35)]">
                 <ActivePerceptionIcon className="h-3.5 w-3.5 text-white" />
               </div>
-            </motion.div>
+            </EngineDrift>
             <div className="min-w-0 self-center">
               <span className="block text-[8px] font-black uppercase tracking-[0.22em] text-orange-300">{activePerception.title}</span>
               <p className="mt-1.5 line-clamp-4 text-[12px] font-black leading-snug text-white/92">{activePerception.text}</p>

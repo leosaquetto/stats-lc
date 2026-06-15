@@ -21,20 +21,27 @@ import { clsx } from 'clsx';
 import { SmartImage } from '../MusicUI';
 import { UserStats } from '../../types/stats';
 import { coreUtils } from '../../services/statsCore';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 interface FriendsStatsComparerProps {
   members: UserStats[];
   onArtistClick?: (artist: any) => void;
 }
 
+const percentScale = (value: number) => Math.max(0, Math.min(1, value / 100));
+const statsSurfaceTransition = "transition-[background-color,border-color,box-shadow,color,opacity,transform] duration-300";
+const statsControlTransition = "transition-[background-color,border-color,color,box-shadow,opacity,transform] duration-200";
+
 export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsComparerProps) => {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateComparer = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   // Initialize friends for comparison
   const [userAId, setUserAId] = useState<string>(members[0]?.id || '');
   const [userBId, setUserBId] = useState<string>(members[1]?.id || members[0]?.id || '');
-  
+
   // Tab controller: overview, artists, tracks, albums
   const [activeTab, setActiveTab] = useState<'overview' | 'artists' | 'tracks' | 'albums'>('overview');
-  
+
   // Selection state
   const [selectingFor, setSelectingFor] = useState<'none' | 'A' | 'B'>('none');
 
@@ -74,7 +81,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
     const artistsB = userB.topItems?.artists || [];
     const normArtistsASet = new Set(artistsA.map(a => norm(a.name)));
     const normArtistsBSet = new Set(artistsB.map(b => norm(b.name)));
-    
+
     const top5ArtistsA = new Set(artistsA.slice(0, 5).map(a => norm(a.name)));
     const top5ArtistsB = new Set(artistsB.slice(0, 5).map(b => norm(b.name)));
 
@@ -99,7 +106,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
     const tracksA = userA.topItems?.tracks || [];
     const tracksB = userB.topItems?.tracks || [];
     const getTrackName = (t: any) => t.name || t.track?.name || '';
-    
+
     // Helper to check if two music items match flexibly
     const itemsMatch = (itemA: any, itemB: any, type: 'track' | 'album') => {
       const getName = type === 'track' ? getTrackName : getAlbumName;
@@ -109,7 +116,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
 
       const nA = norm(nameA);
       const nB = norm(nameB);
-      
+
       const nameMatch = nA === nB || (nA.includes(nB) && nB.length > 5) || (nB.includes(nA) && nA.length > 5);
       if (!nameMatch) return false;
 
@@ -157,7 +164,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
     const albumsA = userA.topItems?.albums || [];
     const albumsB = userB.topItems?.albums || [];
     const getAlbumName = (al: any) => al.name || al.albumName || '';
-    
+
     const sharedAlbums = albumsB.filter(b => albumsA.some(a => itemsMatch(a, b, 'album')));
     const uniqueAlbumsA = albumsA.filter(a => !albumsB.some(b => itemsMatch(a, b, 'album')));
     const uniqueAlbumsB = albumsB.filter(b => !albumsA.some(a => itemsMatch(a, b, 'album')));
@@ -185,7 +192,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
     score += sharedArtists.length * 15; // +15% per artist in common
     score += sharedTracks.length * 18;  // +18% per track in common
     score += sharedAlbums.length * 12;  // +12% per album in common
-    
+
     if (score > 97) score = 98;
     if (sharedArtists.length === 0 && sharedTracks.length === 0 && sharedAlbums.length === 0) {
       const streamDiff = Math.abs((userA.totalStreams || 0) - (userB.totalStreams || 0));
@@ -306,23 +313,23 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
       {/* Selector Deck */}
       <div className="glass-card p-5 border-white/5 relative overflow-hidden flex flex-col items-center">
         <div className="absolute inset-0 bg-gradient-to-b from-orange-500/[0.02] to-transparent pointer-events-none" />
-        
+
         <div className="flex items-center justify-between w-full gap-4 relative z-10">
           {/* Card Friend A */}
-          <button 
+          <button
             type="button"
             onClick={() => setSelectingFor(selectingFor === 'A' ? 'none' : 'A')}
             className={clsx(
-              "flex-1 flex flex-col items-center gap-3 p-3 rounded-[24px] border transition-all active:scale-95 duration-200",
+              "flex-1 flex flex-col items-center gap-3 p-3 rounded-[24px] border transition-[background-color,border-color,color,transform] active:scale-95 duration-200",
               selectingFor === 'A' ? "bg-orange-600/15 border-orange-500/30" : "bg-white/[0.02] border-white/5 hover:bg-white/[0.05]"
             )}
           >
             <div className="relative h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-orange-500 to-amber-400">
-               <SmartImage 
-                 src={coreUtils.getUserAvatar(userA.id, userA.avatar)} 
-                 className="h-full w-full rounded-full border border-black animate-none" 
-                 fallback={userA.name} 
-                 rounded="full" 
+               <SmartImage
+                 src={coreUtils.getUserAvatar(userA.id, userA.avatar)}
+                 className="h-full w-full rounded-full border border-black animate-none"
+                 fallback={userA.name}
+                 rounded="full"
                />
                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-orange-600 border border-white/10 text-[6px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full text-white whitespace-nowrap">
                  Amigo A
@@ -338,37 +345,37 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
 
           {/* VS Bridge */}
           <div className="flex flex-col items-center shrink-0">
-            <button 
+            <button
               type="button"
               onClick={swapUsers}
-              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 shadow-lg hover:bg-orange-600 hover:border-orange-500/20 text-white/60 hover:text-white transition-all transform hover:rotate-180 duration-500 active:scale-90"
+              className="h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 shadow-lg hover:bg-orange-600 hover:border-orange-500/20 text-white/60 hover:text-white transition-[background-color,border-color,color,transform] transform hover:rotate-180 duration-500 active:scale-90"
               title="Trocar Amigos"
             >
               <ArrowRightLeft className="h-3 w-3" />
             </button>
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('showArenaExpl'))}
-              className="text-[9px] font-black italic text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.3)] mt-1.5 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+              className="text-[9px] font-black italic text-orange-500 drop-shadow-[0_0_15px_rgba(249,115,22,0.3)] mt-1.5 hover:scale-110 active:scale-95 transition-[color,opacity,transform] duration-200 cursor-pointer"
             >
               VS
             </button>
           </div>
 
           {/* Card Friend B */}
-          <button 
+          <button
             type="button"
             onClick={() => setSelectingFor(selectingFor === 'B' ? 'none' : 'B')}
             className={clsx(
-              "flex-1 flex flex-col items-center gap-3 p-3 rounded-[24px] border transition-all active:scale-95 duration-200",
+              "flex-1 flex flex-col items-center gap-3 p-3 rounded-[24px] border transition-[background-color,border-color,color,transform] active:scale-95 duration-200",
               selectingFor === 'B' ? "bg-orange-600/15 border-orange-500/30" : "bg-white/[0.02] border-white/5 hover:bg-white/[0.05]"
             )}
           >
             <div className="relative h-14 w-14 rounded-full p-0.5 bg-gradient-to-tr from-amber-400 to-yellow-300">
-               <SmartImage 
-                 src={coreUtils.getUserAvatar(userB.id, userB.avatar)} 
-                 className="h-full w-full rounded-full border border-black animate-none" 
-                 fallback={userB.name} 
-                 rounded="full" 
+               <SmartImage
+                 src={coreUtils.getUserAvatar(userB.id, userB.avatar)}
+                 className="h-full w-full rounded-full border border-black animate-none"
+                 fallback={userB.name}
+                 rounded="full"
                />
                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-amber-500 border border-white/10 text-[6px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full text-white whitespace-nowrap">
                  Amigo B
@@ -387,10 +394,11 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
         <AnimatePresence>
           {selectingFor !== 'none' && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="w-full mt-4 border-t border-white/5 pt-4 overflow-hidden shadow-inner"
+              initial={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+              animate={{ opacity: 1, y: 0, scaleY: 1 }}
+              exit={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+              transition={{ duration: shouldAnimateComparer ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full mt-4 origin-top border-t border-white/5 pt-4 shadow-inner"
             >
               <p className="text-[9px] font-black uppercase tracking-widest text-white/40 text-center mb-3">
                 Selecionar Amigo {selectingFor === 'A' ? 'A' : 'B'}
@@ -408,7 +416,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       setSelectingFor('none');
                     }}
                     className={clsx(
-                      "flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all border",
+                      "flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-[background-color,border-color,color,opacity,transform] duration-200 border active:scale-[0.98]",
                       (selectingFor === 'A' ? userAId : userBId) === m.id
                         ? "bg-orange-500/10 border-orange-500/30 text-white"
                         : "bg-white/[0.01] border-transparent hover:bg-white/[0.04] text-white/50 hover:text-white"
@@ -433,7 +441,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={clsx(
-                "flex-1 py-2 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all text-center cursor-pointer",
+                "flex-1 py-2 flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-[background-color,color,box-shadow,transform] duration-200 text-center cursor-pointer active:scale-[0.98]",
                 activeTab === tab.id
                   ? "bg-white text-black shadow-lg"
                   : "text-white/40 hover:text-white/70 hover:bg-white/[0.02]"
@@ -450,10 +458,10 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
+          initial={shouldAnimateComparer ? { opacity: 0, y: 10 } : { opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.25 }}
+          exit={shouldAnimateComparer ? { opacity: 0, y: -10 } : { opacity: 1, y: 0 }}
+          transition={{ duration: shouldAnimateComparer ? 0.22 : 0.01, ease: [0.16, 1, 0.3, 1] }}
         >
           {activeTab === 'overview' && (() => {
             const duelCategories = [
@@ -525,7 +533,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     </div>
 
                     <p className="text-[10px] text-white/50 max-w-xs mt-1 leading-relaxed">
-                      {comparisonData.score >= 70 ? 
+                      {comparisonData.score >= 70 ?
                         "Seu gosto musical bate de forma fenomenal! Vocês ouvem frequentemente os mesmos caminhos sonoros." :
                         comparisonData.score >= 35 ?
                         "Sintonia maravilhosa! Vocês compartilham alguns grandes destaques e artistas queridos das mesmas frequências." :
@@ -540,18 +548,19 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       <Sparkles className="h-3 w-3 text-orange-500" />
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Destaques do Confronto</span>
                    </div>
-                   
+
                    <div className="grid grid-cols-1 gap-3">
                      {duelCategories.map((category) => {
                        const isWinnerA = category.valA > category.valB;
                        const isWinnerB = category.valB > category.valA;
                        const isTie = category.valA === category.valB;
-                       
+
                        return (
-                         <div 
+                         <div
                            key={category.title}
                            className={clsx(
-                             "glass-card p-4 border transition-all duration-300 relative overflow-hidden flex flex-col gap-3",
+                             "glass-card p-4 border relative overflow-hidden flex flex-col gap-3",
+                             statsSurfaceTransition,
                              isWinnerA ? "border-orange-500/10 bg-gradient-to-br from-orange-500/[0.02] to-transparent hover:border-orange-500/20" :
                              isWinnerB ? "border-amber-500/10 bg-gradient-to-br from-amber-500/[0.02] to-transparent hover:border-amber-500/20" :
                              "border-white/5 hover:bg-white/[0.03]"
@@ -565,7 +574,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                                  {category.title}
                                </span>
                              </div>
-                             
+
                              {/* Winner Crown Badge */}
                              {!isTie && (
                                <span className={clsx(
@@ -662,14 +671,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                         {coreUtils.formatNumber(streamsTotalB)}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/5 flex overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-orange-600 to-orange-400 h-full rounded-l-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionStreamsA}%` }} 
+                    <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+                      <div
+                        className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-gradient-to-r from-orange-600 to-orange-400 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionStreamsA)})` }}
                       />
-                      <div 
-                        className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-r-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionStreamsB}%` }} 
+                      <div
+                        className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionStreamsB)})` }}
                       />
                     </div>
                   </div>
@@ -685,14 +694,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                         {coreUtils.formatDuration(durationB)}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/5 flex overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-orange-600 to-orange-400 h-full rounded-l-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionDurationA}%` }} 
+                    <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+                      <div
+                        className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-gradient-to-r from-orange-600 to-orange-400 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionDurationA)})` }}
                       />
-                      <div 
-                        className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-r-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionDurationB}%` }} 
+                      <div
+                        className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionDurationB)})` }}
                       />
                     </div>
                   </div>
@@ -708,14 +717,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                         {todayStreamsB}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/5 flex overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-orange-600 to-orange-400 h-full rounded-l-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionTodayA}%` }} 
+                    <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+                      <div
+                        className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-gradient-to-r from-orange-600 to-orange-400 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionTodayA)})` }}
                       />
-                      <div 
-                        className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-r-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionTodayB}%` }} 
+                      <div
+                        className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionTodayB)})` }}
                       />
                     </div>
                   </div>
@@ -731,14 +740,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                         {coreUtils.formatNumber(monthStreamsB)}
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-white/5 flex overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-orange-600 to-orange-400 h-full rounded-l-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionMonthA}%` }} 
+                    <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+                      <div
+                        className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-gradient-to-r from-orange-600 to-orange-400 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionMonthA)})` }}
                       />
-                      <div 
-                        className="bg-gradient-to-r from-amber-400 to-yellow-300 h-full rounded-r-full transition-all duration-500 ease-out" 
-                        style={{ width: `${proportionMonthB}%` }} 
+                      <div
+                        className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-gradient-to-r from-amber-400 to-yellow-300 transition-transform duration-500 ease-out"
+                        style={{ transform: `scaleX(${percentScale(proportionMonthB)})` }}
                       />
                     </div>
                   </div>
@@ -756,7 +765,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                   {comparisonData.artists.sharedSorted.length > 0 ? (
                     <div className="flex flex-col gap-2.5">
                       {comparisonData.artists.sharedSorted.slice(0, 5).map((artist, i) => (
-                        <div key={i} className="flex flex-col gap-1.5 p-2 rounded-2xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] transition-all cursor-pointer" onClick={() => onArtistClick?.(artist)}>
+                        <div key={i} className={clsx("flex flex-col gap-1.5 p-2 rounded-2xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] cursor-pointer", statsControlTransition)} onClick={() => onArtistClick?.(artist)}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5 min-w-0">
                                <div className="relative shrink-0">
@@ -782,25 +791,25 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                               <span className="text-[7px] text-white/30 uppercase tracking-tighter">Streams Totais</span>
                             </div>
                           </div>
-                          
+
                           {/* Comparison Bar */}
-                          <div className="h-1 rounded-full bg-white/5 flex overflow-hidden">
-                            <div 
-                              className="bg-orange-500 h-full transition-all duration-700 ease-out" 
-                              style={{ width: `${(artist.playsA / (artist.combinedPlays || 1)) * 100}%` }} 
+                          <div className="relative h-1 overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className="absolute inset-y-0 left-0 w-full origin-left bg-orange-500 transition-transform duration-700 ease-out"
+                              style={{ transform: `scaleX(${artist.playsA / (artist.combinedPlays || 1)})` }}
                             />
-                            <div 
-                              className="bg-amber-400 h-full transition-all duration-700 ease-out" 
-                              style={{ width: `${(artist.playsB / (artist.combinedPlays || 1)) * 100}%` }} 
+                            <div
+                              className="absolute inset-y-0 right-0 w-full origin-right bg-amber-400 transition-transform duration-700 ease-out"
+                              style={{ transform: `scaleX(${artist.playsB / (artist.combinedPlays || 1)})` }}
                             />
                           </div>
                         </div>
                       ))}
-                      
+
                       {comparisonData.artists.sharedSorted.length > 5 && (
-                        <button 
+                        <button
                           onClick={() => setActiveTab('artists')}
-                          className="flex items-center justify-center gap-2 py-2 mt-1 rounded-xl bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 transition-all group"
+                          className={clsx("flex items-center justify-center gap-2 py-2 mt-1 rounded-xl bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/10 group", statsControlTransition)}
                         >
                           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-orange-500/80 group-hover:text-orange-500">
                              Ver todos os {comparisonData.artists.shared.length} em comum
@@ -833,12 +842,13 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     {comparisonData.artists.allA.slice(0, 5).map((item, idx) => {
                       const isShared = comparisonData.artists.setB.has(norm(item.name));
                       return (
-                        <div key={`allA-${idx}`} 
+                        <div key={`allA-${idx}`}
                           onClick={() => onArtistClick?.(item)}
                           className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 cursor-pointer group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden cursor-pointer group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-orange-500/30"
                         )}>
                           {!isShared && (
@@ -852,7 +862,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[11px] font-black text-white truncate leading-tight">{item.name}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambos Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambos Ouvem
                               </span>
                             )}
                           </div>
@@ -875,12 +885,13 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     {comparisonData.artists.allB.slice(0, 5).map((item, idx) => {
                       const isShared = comparisonData.artists.setA.has(norm(item.name));
                       return (
-                        <div key={`allB-${idx}`} 
+                        <div key={`allB-${idx}`}
                           onClick={() => onArtistClick?.(item)}
                           className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 cursor-pointer group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden cursor-pointer group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-amber-500/30"
                         )}>
                           {!isShared && (
@@ -894,7 +905,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[11px] font-black text-white truncate leading-tight">{item.name}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambos Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambos Ouvem
                               </span>
                             )}
                           </div>
@@ -916,7 +927,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     <span className="text-[10px] font-black uppercase tracking-wider text-white font-display">Artistas em Comum ({comparisonData.artists.shared.length})</span>
                   </div>
                   {comparisonData.artists.shared.length > 5 && (
-                    <button 
+                    <button
                       onClick={() => setShowAllSharedArtists(!showAllSharedArtists)}
                       className="text-[8px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors"
                     >
@@ -927,14 +938,15 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                 {comparisonData.artists.sharedSorted.length > 0 ? (
                   <div className="flex flex-col gap-2">
                     {(showAllSharedArtists ? comparisonData.artists.sharedSorted : comparisonData.artists.sharedSorted.slice(0, 5)).map((artist, idx) => (
-                      <motion.div 
-                        key={`sharedArtist-${idx}`} 
-                        layout
-                        initial={{ opacity: 0, y: 10 }}
+                      <motion.div
+                        key={`sharedArtist-${idx}`}
+                        initial={shouldAnimateComparer ? { opacity: 0, y: 10 } : false}
                         animate={{ opacity: 1, y: 0 }}
+                        transition={shouldAnimateComparer ? { delay: Math.min(idx * 0.025, 0.16), duration: 0.24, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                         onClick={() => onArtistClick?.(artist)}
                         className={clsx(
-                          "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] transition-all relative overflow-hidden cursor-pointer",
+                          "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] relative overflow-hidden cursor-pointer",
+                          statsSurfaceTransition,
                           artist.inBothTop5 ? "bg-orange-500/[0.04] border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.05)]" : "bg-white/[0.02] border-white/5"
                         )}
                       >
@@ -944,7 +956,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                           <div className="flex flex-col flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-bold text-white/95 truncate">{artist.name}</span>
-                              {artist.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20 animate-pulse"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
+                              {artist.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
                             </div>
                           </div>
                         </div>
@@ -962,14 +974,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             {coreUtils.formatNumber(artist.playsB)} plays
                           </span>
                         </div>
-                        <div className="h-1 rounded-full bg-white/5 flex overflow-hidden mt-1 mx-1">
-                          <div 
-                            className="bg-orange-500 h-full rounded-l-full" 
-                            style={{ width: `${(artist.playsA / (artist.combinedPlays || 1)) * 100}%` }} 
+                        <div className="relative mx-1 mt-1 h-1 overflow-hidden rounded-full bg-white/5">
+                          <div
+                            className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-orange-500"
+                            style={{ transform: `scaleX(${artist.playsA / (artist.combinedPlays || 1)})` }}
                           />
-                          <div 
-                            className="bg-amber-400 h-full rounded-r-full" 
-                            style={{ width: `${(artist.playsB / (artist.combinedPlays || 1)) * 100}%` }} 
+                          <div
+                            className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-amber-400"
+                            style={{ transform: `scaleX(${artist.playsB / (artist.combinedPlays || 1)})` }}
                           />
                         </div>
                       </motion.div>
@@ -993,7 +1005,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     <span className="text-[9px] font-black text-orange-500 uppercase tracking-wider mb-1 truncate">Apenas {userA.name}</span>
                     <div className="flex flex-col gap-1.5">
                       {comparisonData.artists.uniqueA.slice(0, 5).map((artist, i) => (
-                        <div key={`uniqueA-${i}`} 
+                        <div key={`uniqueA-${i}`}
                           onClick={() => onArtistClick?.(artist)}
                           className="flex items-center justify-between gap-2 cursor-pointer group">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1014,7 +1026,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     <span className="text-[9px] font-black text-amber-500 uppercase tracking-wider mb-1 truncate">Apenas {userB.name}</span>
                     <div className="flex flex-col gap-1.5">
                       {comparisonData.artists.uniqueB.slice(0, 5).map((artist, i) => (
-                        <div key={`uniqueB-${i}`} 
+                        <div key={`uniqueB-${i}`}
                           onClick={() => onArtistClick?.(artist)}
                           className="flex items-center justify-between gap-2 cursor-pointer group">
                           <div className="flex items-center gap-2 min-w-0">
@@ -1051,9 +1063,10 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       const isShared = comparisonData.tracks.setB.has(norm(name));
                       return (
                         <div key={idx} className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-orange-500/30"
                         )}>
                           {!isShared && (
@@ -1068,7 +1081,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[8px] text-white/40 truncate leading-none mt-0.5">{item.artists?.[0]?.name || 'Artista'}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1 font-sans">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambas Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambas Ouvem
                               </span>
                             )}
                           </div>
@@ -1093,9 +1106,10 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       const isShared = comparisonData.tracks.setA.has(norm(name));
                       return (
                         <div key={idx} className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-amber-500/30"
                         )}>
                           {!isShared && (
@@ -1110,7 +1124,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[8px] text-white/40 truncate leading-none mt-0.5">{item.artists?.[0]?.name || 'Artista'}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1 font-sans">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambas Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambas Ouvem
                               </span>
                             )}
                           </div>
@@ -1132,7 +1146,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     <span className="text-[10px] font-black uppercase tracking-wider text-white font-display">Músicas em Comum ({comparisonData.tracks.shared.length})</span>
                   </div>
                   {comparisonData.tracks.shared.length > 5 && (
-                    <button 
+                    <button
                       onClick={() => setShowAllSharedTracks(!showAllSharedTracks)}
                       className="text-[8px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors"
                     >
@@ -1145,13 +1159,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     {(showAllSharedTracks ? comparisonData.tracks.sharedSorted : comparisonData.tracks.sharedSorted.slice(0, 5)).map((track, idx) => {
                       const name = getTrackName(track);
                       return (
-                        <motion.div 
-                          key={`sharedTrack-${idx}`} 
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
+                        <motion.div
+                          key={`sharedTrack-${idx}`}
+                          initial={shouldAnimateComparer ? { opacity: 0, y: 10 } : false}
                           animate={{ opacity: 1, y: 0 }}
+                          transition={shouldAnimateComparer ? { delay: Math.min(idx * 0.025, 0.16), duration: 0.24, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                           className={clsx(
-                            "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] transition-all relative overflow-hidden",
+                            "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] relative overflow-hidden",
+                            statsSurfaceTransition,
                             track.inBothTop5 ? "bg-orange-500/[0.04] border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.05)]" : "bg-white/[0.02] border-white/5"
                           )}
                         >
@@ -1161,7 +1176,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <div className="flex flex-col min-w-0 pr-1 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold text-white/95 truncate leading-tight">{name}</span>
-                                {track.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20 animate-pulse"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
+                                {track.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
                               </div>
                               <span className="text-[8px] text-white/40 uppercase tracking-wider mt-0.5">{track.artists?.[0]?.name || 'Cantor'}</span>
                             </div>
@@ -1180,14 +1195,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                               {coreUtils.formatNumber(track.playsB)} plays
                             </span>
                           </div>
-                          <div className="h-1 rounded-full bg-white/5 flex overflow-hidden mt-1 mx-1">
-                            <div 
-                              className="bg-orange-500 h-full rounded-l-full" 
-                              style={{ width: `${(track.playsA / (track.combinedPlays || 1)) * 100}%` }} 
+                          <div className="relative mx-1 mt-1 h-1 overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-orange-500"
+                              style={{ transform: `scaleX(${track.playsA / (track.combinedPlays || 1)})` }}
                             />
-                            <div 
-                              className="bg-amber-400 h-full rounded-r-full" 
-                              style={{ width: `${(track.playsB / (track.combinedPlays || 1)) * 100}%` }} 
+                            <div
+                              className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-amber-400"
+                              style={{ transform: `scaleX(${track.playsB / (track.combinedPlays || 1)})` }}
                             />
                           </div>
                         </motion.div>
@@ -1266,9 +1281,10 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       const isShared = comparisonData.albums.setB.has(norm(name));
                       return (
                         <div key={idx} className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-orange-500/30"
                         )}>
                           {!isShared && (
@@ -1283,7 +1299,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[8px] text-white/40 truncate leading-none mt-0.5">{item.artists?.[0]?.name || 'Artista'}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1 font-sans">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambos Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambos Ouvem
                               </span>
                             )}
                           </div>
@@ -1308,9 +1324,10 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                       const isShared = comparisonData.albums.setA.has(norm(name));
                       return (
                         <div key={idx} className={clsx(
-                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden transition-all duration-300 group",
-                          isShared 
-                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]" 
+                          "flex items-center gap-2 border p-2.5 rounded-2xl relative overflow-hidden group",
+                          statsSurfaceTransition,
+                          isShared
+                            ? "bg-orange-500/10 border-orange-500/20 shadow-[0_0_15px_rgba(249,115,22,0.06)]"
                             : "bg-white/[0.01] border-white/5 hover:bg-white/[0.03] border-l-2 border-l-amber-500/30"
                         )}>
                           {!isShared && (
@@ -1325,7 +1342,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <span className="text-[8px] text-white/40 truncate leading-none mt-0.5">{item.artists?.[0]?.name || 'Artista'}</span>
                             {isShared && (
                               <span className="text-[7px] text-orange-400 font-black uppercase mt-0.5 tracking-wider flex items-center gap-1 font-sans">
-                                <Sparkles className="h-2 w-2 shrink-0 animate-pulse" /> Ambos Ouvem
+                                <Sparkles className="h-2 w-2 shrink-0" /> Ambos Ouvem
                               </span>
                             )}
                           </div>
@@ -1347,7 +1364,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     <span className="text-[10px] font-black uppercase tracking-wider text-white font-display">Álbuns em Comum ({comparisonData.albums.shared.length})</span>
                   </div>
                   {comparisonData.albums.shared.length > 5 && (
-                    <button 
+                    <button
                       onClick={() => setShowAllSharedAlbums(!showAllSharedAlbums)}
                       className="text-[8px] font-black uppercase tracking-widest text-orange-500 hover:text-orange-400 transition-colors"
                     >
@@ -1360,13 +1377,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                     {(showAllSharedAlbums ? comparisonData.albums.sharedSorted : comparisonData.albums.sharedSorted.slice(0, 5)).map((album, idx) => {
                       const name = getAlbumName(album);
                       return (
-                        <motion.div 
-                          key={`sharedAlbum-${idx}`} 
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
+                        <motion.div
+                          key={`sharedAlbum-${idx}`}
+                          initial={shouldAnimateComparer ? { opacity: 0, y: 10 } : false}
                           animate={{ opacity: 1, y: 0 }}
+                          transition={shouldAnimateComparer ? { delay: Math.min(idx * 0.025, 0.16), duration: 0.24, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                           className={clsx(
-                            "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] transition-all relative overflow-hidden",
+                            "flex flex-col gap-2 border p-3 rounded-2xl hover:bg-white/[0.04] relative overflow-hidden",
+                            statsSurfaceTransition,
                             album.inBothTop5 ? "bg-orange-500/[0.04] border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.05)]" : "bg-white/[0.02] border-white/5"
                           )}
                         >
@@ -1376,7 +1394,7 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                             <div className="flex flex-col min-w-0 pr-1 flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-[11px] font-bold text-white/95 truncate leading-tight">{name}</span>
-                                {album.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20 animate-pulse"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
+                                {album.inBothTop5 && <span className="text-[7px] font-black uppercase tracking-widest bg-orange-600 text-white px-1.5 py-0.5 rounded-full shrink-0 flex items-center gap-0.5 shadow-lg shadow-orange-600/20"><Flame className="h-2 w-2" /> Top 5 Ambos</span>}
                               </div>
                               <span className="text-[8px] text-white/40 uppercase tracking-wider mt-0.5">{album.artists?.[0]?.name || 'Cantor'}</span>
                             </div>
@@ -1395,14 +1413,14 @@ export const FriendsStatsComparer = ({ members, onArtistClick }: FriendsStatsCom
                               {coreUtils.formatNumber(album.playsB)} plays
                             </span>
                           </div>
-                          <div className="h-1 rounded-full bg-white/5 flex overflow-hidden mt-1 mx-1">
-                            <div 
-                              className="bg-orange-500 h-full rounded-l-full" 
-                              style={{ width: `${(album.playsA / (album.combinedPlays || 1)) * 100}%` }} 
+                          <div className="relative mx-1 mt-1 h-1 overflow-hidden rounded-full bg-white/5">
+                            <div
+                              className="absolute inset-y-0 left-0 w-full origin-left rounded-l-full bg-orange-500"
+                              style={{ transform: `scaleX(${album.playsA / (album.combinedPlays || 1)})` }}
                             />
-                            <div 
-                              className="bg-amber-400 h-full rounded-r-full" 
-                              style={{ width: `${(album.playsB / (album.combinedPlays || 1)) * 100}%` }} 
+                            <div
+                              className="absolute inset-y-0 right-0 w-full origin-right rounded-r-full bg-amber-400"
+                              style={{ transform: `scaleX(${album.playsB / (album.combinedPlays || 1)})` }}
                             />
                           </div>
                         </motion.div>

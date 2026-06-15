@@ -29,12 +29,11 @@ import {
   Sparkles,
   Flame,
   ChevronLeft,
-  ChevronRight,
-  Loader2
+  ChevronRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
-import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
+import { EngineSpinner, SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -42,9 +41,12 @@ import { trackEvent, identifyUser } from '../services/analyticsService';
 import { ShareButton } from '../components/shared/ShareButton';
 import { PerceptionsPanel } from '../components/stats/PerceptionsPanel';
 import type { ReplayFilterPeriod, ReplaySelectedSubValues } from '../components/home/replayUtils';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
 import { getStartOfTodaySP, getStartOfWeekSP, getStartOfMonthSP, getStartOfYearSP, getHourSP, formatDateSP } from '../lib/time';
 import { getVisibleMembers } from '../lib/memberSelectors';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
+import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 
 const DailyActivityHeatmap = lazy(() => import('../components/stats/DailyActivityHeatmap').then(module => ({ default: module.DailyActivityHeatmap })));
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
@@ -151,12 +153,14 @@ const MeasuredActivityAreaChart = ({ data, chartMetric, accentColor }: { data: a
   return (
     <div ref={containerRef} className="h-full w-full min-h-[224px] min-w-0">
       {size.width > 1 && size.height > 1 ? (
-        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><RefreshCcw className="h-5 w-5 text-white/10 animate-spin" /></div>}>
+        <Suspense fallback={<div className="h-full w-full flex items-center justify-center"><EngineSpinner className="h-5 w-5 text-white/10"><RefreshCcw className="h-full w-full" /></EngineSpinner></div>}>
           <ActivityAreaChart data={data} chartMetric={chartMetric} accentColor={accentColor} width={width} height={height} />
         </Suspense>
       ) : (
         <div className="h-full w-full flex items-center justify-center">
-          <RefreshCcw className="h-5 w-5 text-white/10 animate-spin" />
+          <EngineSpinner className="h-5 w-5 text-white/10">
+            <RefreshCcw className="h-full w-full" />
+          </EngineSpinner>
         </div>
       )}
     </div>
@@ -170,6 +174,7 @@ interface TopRankingRowProps {
   members: any[];
   currentUserId: string;
   onTrackClick?: (track: any) => void;
+  shouldAnimate: boolean;
 }
 
 const getStatsItemArtistName = (item: any) => {
@@ -203,7 +208,7 @@ const getStatsItemArtistName = (item: any) => {
   return '';
 };
 
-const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrackClick }: TopRankingRowProps) => {
+const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrackClick, shouldAnimate }: TopRankingRowProps) => {
   const rowRef = useRef<HTMLDivElement>(null);
   
   const displayArtistName = useMemo(() => {
@@ -240,9 +245,13 @@ const TopRankingRow = ({ item, index, activeType, members, currentUserId, onTrac
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={shouldAnimate ? { opacity: 0, y: 12 } : { opacity: 1, y: 0 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.35), ease: "easeOut" }}
+      transition={{
+        delay: shouldAnimate ? Math.min(index * 0.035, 0.24) : 0,
+        duration: shouldAnimate ? 0.2 : 0.01,
+        ease: [0.16, 1, 0.3, 1],
+      }}
       className="mb-1.5"
     >
       <div 
@@ -322,45 +331,77 @@ const StatsEmptyPanel = ({
   title: string;
   description: string;
   action?: ReactNode;
-}) => (
-  <div className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.045] to-transparent" />
-    <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-orange-500/[0.12] blur-3xl" />
-    <div className="relative z-10 flex items-start gap-4">
-      <div className="glass-aura-orange flex h-12 w-12 shrink-0 items-center justify-center rounded-[22px] text-white shadow-[0_0_24px_rgba(249,115,22,0.16)]">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300/85">{eyebrow}</span>
-        <h2 className="mt-2 text-lg font-black leading-tight tracking-tight text-white">{title}</h2>
-        <p className="mt-2 max-w-[240px] text-[12px] font-semibold leading-relaxed text-white/46">{description}</p>
-        {action && <div className="mt-4">{action}</div>}
-      </div>
-    </div>
-  </div>
-);
+}) => {
+  const runtime = useMotionRuntime();
+  const shouldAnimate = runtime.canRunMotion && runtime.tier !== 'conserve';
 
-const StatsRankingLoading = () => (
-  <div className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
-    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.04] to-transparent" />
-    <div className="relative z-10 flex flex-col gap-3">
-      {[0, 1, 2].map((item) => (
-        <div key={`stats-ranking-loading-${item}`} className="flex items-center gap-3 rounded-[24px] border border-white/[0.055] bg-white/[0.025] p-3">
-          <div className="stats-lc-skeleton-shimmer h-11 w-11 rounded-full" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <div className="stats-lc-skeleton-shimmer h-3 w-2/3 rounded-full" />
-            <div className="stats-lc-skeleton-shimmer h-2 w-1/3 rounded-full opacity-60" />
-          </div>
-          <div className="stats-lc-skeleton-shimmer h-8 w-14 rounded-full opacity-70" />
+  return (
+    <motion.div
+      initial={shouldAnimate ? { opacity: 0, y: 12, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={shouldAnimate ? { opacity: 0, y: -8, scale: 0.99 } : { opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: shouldAnimate ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+      className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+      style={{ willChange: shouldAnimate ? 'transform, opacity' : 'auto' }}
+    >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.045] to-transparent" />
+      <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-orange-500/[0.12] blur-3xl" />
+      <div className="relative z-10 flex items-start gap-4">
+        <div className="glass-aura-orange flex h-12 w-12 shrink-0 items-center justify-center rounded-[22px] text-white shadow-[0_0_24px_rgba(249,115,22,0.16)]">
+          <Icon className="h-5 w-5" />
         </div>
-      ))}
-      <div className="flex items-center justify-center gap-2 pt-1 text-[9px] font-black uppercase tracking-[0.22em] text-white/24">
-        <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
-        Buscando rankings
+        <div className="min-w-0 flex-1">
+          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-orange-300/85">{eyebrow}</span>
+          <h2 className="mt-2 text-lg font-black leading-tight tracking-tight text-white">{title}</h2>
+          <p className="mt-2 max-w-[240px] text-[12px] font-semibold leading-relaxed text-white/46">{description}</p>
+          {action && <div className="mt-4">{action}</div>}
+        </div>
       </div>
-    </div>
-  </div>
-);
+    </motion.div>
+  );
+};
+
+const StatsRankingLoading = () => {
+  const runtime = useMotionRuntime();
+  const shouldAnimate = runtime.canRunMotion && runtime.tier !== 'conserve';
+
+  return (
+    <motion.div
+      initial={shouldAnimate ? { opacity: 0, y: 10, scale: 0.99 } : { opacity: 1, y: 0, scale: 1 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={shouldAnimate ? { opacity: 0, y: -8, scale: 0.99 } : { opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: shouldAnimate ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+      className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
+      style={{ willChange: shouldAnimate ? 'transform, opacity' : 'auto' }}
+    >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.04] to-transparent" />
+      <div className="relative z-10 flex flex-col gap-3">
+        {[0, 1, 2].map((item) => (
+          <motion.div
+            key={`stats-ranking-loading-${item}`}
+            initial={shouldAnimate ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: shouldAnimate ? 0.18 : 0.01, delay: shouldAnimate ? item * 0.04 : 0, ease: [0.16, 1, 0.3, 1] }}
+            className="flex items-center gap-3 rounded-[24px] border border-white/[0.055] bg-white/[0.025] p-3"
+          >
+            <Skeleton className="h-11 w-11 rounded-full border-white/[0.035]" rounded="full" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-3 w-2/3 rounded-full border-white/[0.035]" rounded="full" />
+              <Skeleton className="h-2 w-1/3 rounded-full border-white/[0.035] opacity-60" rounded="full" />
+            </div>
+            <Skeleton className="h-8 w-14 rounded-full border-white/[0.035] opacity-70" rounded="full" />
+          </motion.div>
+        ))}
+        <div className="flex items-center justify-center gap-2 pt-1 text-[9px] font-black uppercase tracking-[0.22em] text-white/24">
+          <EngineSpinner className="h-3.5 w-3.5">
+            <RefreshCcw className="h-full w-full" />
+          </EngineSpinner>
+          Buscando rankings
+        </div>
+      </div>
+    </motion.div>
+  );
+};
 
 type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
@@ -433,6 +474,8 @@ const getReplayItemMinutes = (source: any, type: ItemType) => {
 };
 
 export default function StatsScreen() {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateStats = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const [activeFilter, setActiveFilter] = useState<Filter>('Mês');
   const [activeType, setActiveType] = useState<ItemType>('artists');
   const [activeStatsSection, setActiveStatsSection] = useState<StatsSection>('overview');
@@ -1607,12 +1650,11 @@ export default function StatsScreen() {
   }, [activeFilter]);
 
   useEffect(() => {
-    if (insights.length <= 1) return;
-    const timer = setTimeout(() => {
+    if (insights.length <= 1 || !motionRuntime.canRunMotion) return;
+    return motionRuntimeScheduler.scheduleTask(() => {
       setCurrentInsightIndex((prev) => (prev + 1) % insights.length);
-    }, 6000); // 6 seconds before next auto-rotation
-    return () => clearTimeout(timer);
-  }, [currentInsightIndex, insights.length]);
+    }, 6000, 'ambient');
+  }, [currentInsightIndex, insights.length, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1832,9 +1874,9 @@ export default function StatsScreen() {
                 {isActive && (
                   <motion.span
                     className="absolute inset-0 rounded-2xl border border-orange-500/20 bg-orange-500/10"
-                    initial={{ opacity: 0, scale: 0.94 }}
+                    initial={shouldAnimateStats ? { opacity: 0, scale: 0.94 } : { opacity: 1, scale: 1 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldAnimateStats ? 0.16 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                   />
                 )}
                 <Icon className="relative h-3.5 w-3.5" />
@@ -1848,18 +1890,19 @@ export default function StatsScreen() {
       <AnimatePresence mode="sync" initial={false}>
         <motion.div
           key={activeStatsSection}
-          initial={{ opacity: 0, x: 12 }}
+          initial={shouldAnimateStats ? { opacity: 0, x: 12 } : { opacity: 1, x: 0 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -8 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          exit={shouldAnimateStats ? { opacity: 0, x: -8 } : { opacity: 1, x: 0 }}
+          transition={{ duration: shouldAnimateStats ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col gap-3"
         >
       {activeStatsSection === 'overview' && (
         <>
           {/* Hero Summary Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={shouldAnimateStats ? { opacity: 0, y: 20 } : { opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: shouldAnimateStats ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
             key={`hero-summary-${activeFilter}`}
             className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
           >
@@ -1965,9 +2008,10 @@ export default function StatsScreen() {
                 return (
                   <motion.div
                     key={`stats-insight-${currentInsightIndex}`}
-                    initial={{ opacity: 0, y: 8, scale: 0.985 }}
+                    initial={shouldAnimateStats ? { opacity: 0, y: 8, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -8, scale: 0.985 }}
+                    exit={shouldAnimateStats ? { opacity: 0, y: -8, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: shouldAnimateStats ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                     className="glass-aura relative overflow-hidden rounded-[28px] px-5 py-4"
                     style={{ willChange: 'transform, opacity' }}
                   >
@@ -2021,7 +2065,7 @@ export default function StatsScreen() {
           </div>
 
           {hasReplayItems ? (
-            <Suspense fallback={<div className="glass-aura h-48 rounded-[32px] animate-pulse" />}>
+            <Suspense fallback={<div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-aura h-48 rounded-[32px]" />}>
               <ReplaySection
                 topArtists={replaySourceItems.artists.slice(0, 20).map((a: any) => ({
                   id: a.id || a.name,
@@ -2159,7 +2203,9 @@ export default function StatsScreen() {
                   </div>
                 ) : isChartLoading && dailyEvolutionData.length === 0 ? (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <RefreshCcw className="h-6 w-6 text-white/10 animate-spin" />
+                    <EngineSpinner className="h-6 w-6 text-white/10">
+                      <RefreshCcw className="h-full w-full" />
+                    </EngineSpinner>
                   </div>
                 ) : (() => {
                   // Check if all data points are zero
@@ -2191,7 +2237,7 @@ export default function StatsScreen() {
             {/* Distribuição Horária */}
             <div className="transition-opacity duration-300">
               {chartError ? null : isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
-                <div className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 animate-pulse shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-white/30" />
@@ -2223,7 +2269,7 @@ export default function StatsScreen() {
                         Distribuição baseada em amostra de {chartCoverageLabel} reproduções
                       </p>
                     )}
-                    <Suspense fallback={<div className="glass-card p-6 border-white/5 h-36 animate-pulse" />}>
+                    <Suspense fallback={<div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-card p-6 border-white/5 h-36" />}>
                       <DailyActivityHeatmap
                         data={hourlyDistributionData}
                         accentColor={accentColor}
@@ -2302,10 +2348,10 @@ export default function StatsScreen() {
           <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={`ranking-list-${activeType}`}
-              initial={{ opacity: 0, y: 15 }}
+              initial={shouldAnimateStats ? { opacity: 0, y: 15 } : { opacity: 1, y: 0 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.35, ease: [0.21, 1.02, 0.43, 1.01] }}
+              exit={shouldAnimateStats ? { opacity: 0, y: -10 } : { opacity: 1, y: 0 }}
+              transition={{ duration: shouldAnimateStats ? 0.35 : 0.01, ease: [0.21, 1.02, 0.43, 1.01] }}
               className={clsx(
                 "flex flex-col gap-2.5 transition-opacity duration-300",
                 isTopItemsLoading && filteredTopItems.length > 0 ? "opacity-35 pointer-events-none" : "opacity-100"
@@ -2338,6 +2384,7 @@ export default function StatsScreen() {
                       activeType={activeType}
                       members={members}
                       currentUserId={CURRENT_USER_ID}
+                      shouldAnimate={shouldAnimateStats}
                       onTrackClick={(clickedItem: any) => {
                         setSelectedTrack({
                           ...clickedItem,
@@ -2404,7 +2451,7 @@ export default function StatsScreen() {
       </AnimatePresence>
 
       {/* MODALS PERSISTENCE LAYER */}
-      <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
+      <Suspense fallback={<LazyModalFallback />}>
         <AnimatePresence>
           {battleOpponent && user && (
             <StatsBattleModal 

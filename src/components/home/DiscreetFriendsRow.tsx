@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
-import { SmartImage } from '../shared/CommonUI';
+import { EnginePulse, SmartImage } from '../shared/CommonUI';
 
 export const DiscreetFriendsRow = ({ 
   friends, 
@@ -64,7 +64,7 @@ export const DiscreetFriendsRow = ({
         onHoverStart={() => setIsExpanded(true)}
         onHoverEnd={() => setIsExpanded(false)}
       >
-        <AnimatePresence mode="popLayout" initial={false}>
+        <AnimatePresence initial={false}>
           {activeFriends.map((user, index) => {
             const track = user.nowPlaying?.track;
             const artistName = track?.artists
@@ -76,23 +76,23 @@ export const DiscreetFriendsRow = ({
 
             return (
               <motion.div
-                layout
                 key={user.id}
                 initial={{ opacity: 0, scale: 0.8, x: 20 }}
                 animate={{ 
                   opacity: 1, 
                   scale: 1,
                   x: 0,
-                  marginLeft: index === 0 ? 0 : isExpanded ? 8 : -30,
-                  width: isExpanded ? 160 : 64,
                   zIndex: index
                 }}
                 exit={{ opacity: 0, scale: 0.8, x: -20 }}
                 transition={{ 
                   type: "spring", 
                   stiffness: 450, 
-                  damping: 35,
-                  layout: { duration: 0.4 } 
+                  damping: 35
+                }}
+                style={{
+                  marginLeft: index === 0 ? 0 : isExpanded ? 8 : -30,
+                  width: isExpanded ? 160 : 64,
                 }}
                 whileHover={{ y: -6, scale: 1.05, zIndex: 100 }}
                 whileTap={{ scale: 0.95 }}
@@ -112,7 +112,7 @@ export const DiscreetFriendsRow = ({
                        boxShadow: isNew ? ["0 0 25px rgba(249,115,22,0.8)", "0 4px 16px rgba(0,0,0,0)"] : "0 4px 16px rgba(0,0,0,0)"
                      }}
                      transition={{ duration: isNew ? 2 : 0.5, ease: "easeOut", repeat: isNew ? 1 : 0 }}
-                     className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-stone-900/90 backdrop-blur-3xl border border-white/10 shadow-2xl ring-2 ring-stone-950 group-hover:border-orange-500/40 group-hover:shadow-[0_4px_20px_rgba(249,115,22,0.4)] transition-all overflow-hidden h-[42px] w-full"
+                     className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full bg-stone-900/90 backdrop-blur-3xl border border-white/10 shadow-2xl ring-2 ring-stone-950 group-hover:border-orange-500/40 group-hover:shadow-[0_4px_20px_rgba(249,115,22,0.4)] transition-[border-color,box-shadow,opacity,transform] duration-200 overflow-hidden h-[42px] w-full"
                   >
                     {/* Avatar with Ring Border */}
                     <div className="relative z-10 shrink-0">
@@ -125,7 +125,7 @@ export const DiscreetFriendsRow = ({
                         />
                       </div>
                     {/* Live Indicator */}
-                    <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-orange-500 border-2 border-stone-950 animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.8)]" />
+                    <EnginePulse active className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-stone-950 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]" duration={1.8} />
                   </div>
 
                     {/* Info Column */}

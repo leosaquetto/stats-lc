@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motionRuntime } from '../../lib/motionRuntime';
 
 interface VinylTonearmProps {
   isPlaying?: boolean;
@@ -36,13 +37,7 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
   const liftOpacity = tonearmState === 'rest' ? 0.58 : tonearmState === 'lifted' ? 0.88 : 0.96;
   const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const shouldGrooveDrift = tonearmState === 'playing' && shouldRunAmbientMotion && !isDragging && !shouldReduceMotion;
-  const tonearmGroupTransition = shouldGrooveDrift
-    ? {
-        rotate: { duration: 42, repeat: Infinity, repeatType: 'mirror' as const, ease: 'easeInOut' as const },
-        opacity: { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const },
-        scale: { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const },
-      }
-    : { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] as const };
+  const tonearmGroupTransition = { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] as const };
   const angleRadians = angle * Math.PI / 180;
   const unitX = Math.cos(angleRadians);
   const unitY = Math.sin(angleRadians);
@@ -110,6 +105,11 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
     levelRef.current = nextLevel;
     setLevel(nextLevel);
   }, [tonearmState]);
+
+  useEffect(() => {
+    if (!shouldGrooveDrift) return undefined;
+    return motionRuntime.registerCompositorLoop('tonearm');
+  }, [shouldGrooveDrift]);
 
   const updateFromClientPoint = (clientX: number, clientY: number, svgElement: SVGSVGElement | null) => {
     const rect = svgElement?.getBoundingClientRect();
@@ -296,8 +296,13 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
           </g>
 
           <motion.g
-            animate={{ rotate: shouldGrooveDrift ? [0, -1.18, -0.42] : 0, opacity: liftOpacity, scale: liftScale }}
+            animate={{ opacity: liftOpacity, scale: liftScale }}
             transition={tonearmGroupTransition}
+            style={{ transformOrigin: `${pivotX}px ${pivotY}px` }}
+          >
+          <g
+            className="stats-lc-engine-loop stats-lc-engine-tonearm-drift"
+            data-active={shouldGrooveDrift ? 'true' : 'false'}
             style={{ transformOrigin: `${pivotX}px ${pivotY}px` }}
           >
           <motion.line
@@ -390,6 +395,7 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
             transition={transition}
             fill="rgba(251,146,60,0.78)"
           />
+          </g>
           </motion.g>
         </g>
       </motion.svg>

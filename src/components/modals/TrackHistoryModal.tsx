@@ -4,12 +4,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X, History, Users, RefreshCcw, Send } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
-import { clsx } from 'clsx';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 interface TrackHistoryModalProps {
   track: any;
@@ -19,6 +20,9 @@ interface TrackHistoryModalProps {
 export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onClose }) => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateModal = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  useModalMotionScope();
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -43,17 +47,20 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      data-stats-lc-modal-surface="true"
+      initial={shouldAnimateModal ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: shouldAnimateModal ? 0.18 : 0.01 }}
       className="fixed inset-0 z-[70] flex items-center justify-center liquid-glass-overlay p-4"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        initial={shouldAnimateModal ? { scale: 0.94, opacity: 0, y: 18 } : false}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-        className="relative liquid-glass-modal w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        exit={shouldAnimateModal ? { scale: 0.94, opacity: 0, y: 18 } : { opacity: 0 }}
+        transition={shouldAnimateModal ? { duration: 0.24, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
+        className="relative liquid-glass-modal w-full max-w-lg rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[85svh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header BG Accent */}
@@ -69,7 +76,7 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
 
         <div className="p-8 pb-4 relative z-10 flex flex-col items-center text-center">
           <div className="relative h-28 w-28 mb-6">
-            <div className="absolute -inset-4 rounded-[32px] bg-orange-500/20 blur-2xl animate-pulse" />
+            <div className="stats-lc-engine-loop stats-lc-engine-breathe absolute -inset-4 rounded-[32px] bg-orange-500/20 blur-2xl" data-active={shouldAnimateModal ? "true" : "false"} />
             <SmartImage 
               src={track.image || track.album?.image} 
               className="h-full w-full shadow-2xl relative z-10 border border-white/20" 
@@ -119,7 +126,11 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
             {loading ? (
               <div className="flex flex-col gap-2">
                 {[1, 2, 3, 4].map(i => (
-                  <div key={i} className="h-16 w-full rounded-2xl bg-white/[0.02] border border-white/5 animate-pulse" />
+                  <div
+                    key={i}
+                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-16 w-full rounded-2xl border border-white/5"
+                    data-active={shouldAnimateModal ? "true" : "false"}
+                  />
                 ))}
               </div>
             ) : history.length > 0 ? (
@@ -128,11 +139,11 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
                 return (
                   <motion.div
                     key={`${item.id}-${idx}`}
-                    initial={{ opacity: 0, y: 15 }}
+                    initial={shouldAnimateModal ? { opacity: 0, y: 14 } : false}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: Math.min(idx * 0.05, 0.3) }}
-                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all"
+                    transition={shouldAnimateModal ? { delay: Math.min(idx * 0.035, 0.22), duration: 0.28, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-[background-color,border-color,transform] duration-200"
                   >
                     <div className="flex items-center gap-3">
                       <SmartImage 

@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineBreathe, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -29,6 +30,8 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
   onSelectUser,
   onClose
 }) => {
+  useModalMotionScope(isOpen);
+
   if (!isOpen) return null;
 
   // Ordenar usuários alfabeticamente
@@ -40,13 +43,14 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
         <>
           {/* Backdrop com blur - cobrindo toda a tela incluindo rodapé */}
           <motion.div
+            data-stats-lc-modal-surface="true"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
             className="fixed inset-0 z-[200] liquid-glass-overlay touch-none"
-            style={{ minHeight: '100dvh' }}
+            style={{ minHeight: '100svh' }}
             onTouchStart={(e) => e.preventDefault()}
             onTouchMove={(e) => e.preventDefault()}
           />
@@ -59,7 +63,10 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
           />
 
           {/* Container para logo + modal */}
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[201] flex flex-col items-center gap-8">
+          <div
+            data-stats-lc-modal-surface="true"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[201] flex flex-col items-center gap-8"
+          >
             {/* Logo fora/acima do card */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
@@ -144,15 +151,19 @@ export const UserSelectorModal: React.FC<UserSelectorModalProps> = ({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
             >
-              <motion.div
-                animate={{ scale: [1, 1.1, 1], opacity: [0.8, 1, 0.8] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              <EngineBreathe
+                active
+                duration={2}
+                fromOpacity={0.8}
+                fromScale={1}
+                toOpacity={1}
+                toScale={1.1}
                 className="text-orange-500 flex justify-center"
               >
                 <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21,0-4,1.79-4,4s1.79,4,4,4,4-1.79,4-4V7h4V3h-6z"/>
                 </svg>
-              </motion.div>
+              </EngineBreathe>
             </motion.div>
 
             {/* Footer com powered by stats.fm */}

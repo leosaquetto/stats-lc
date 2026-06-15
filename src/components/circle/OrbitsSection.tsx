@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowRight, Check, Clock3, Eye, Headphones, Inbox, Loader2, MessageCircle, Music2, Send, Search, Sparkles, Trash2, UserPlus } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineSpinner, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { getArtistListString } from '../../lib/artistUtils';
 import { orbitService, type Orbit, type OrbitBox, type OrbitSummary } from '../../services/orbitService';
@@ -430,7 +430,9 @@ export function OrbitsSection({ currentUserId, members }: { currentUserId?: stri
           </div>
         ) : status === 'loading' ? (
           <div className="mt-5 flex items-center justify-center gap-3 rounded-[24px] border border-white/7 bg-white/[0.02] py-8 text-white/35">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <EngineSpinner className="h-5 w-5">
+              <Loader2 className="h-full w-full" />
+            </EngineSpinner>
             <span className="text-[10px] font-black uppercase tracking-[0.18em]">Carregando Orbits</span>
           </div>
         ) : status === 'pending-api' ? (

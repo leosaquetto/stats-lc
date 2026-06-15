@@ -12,13 +12,17 @@ import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
-import { AnimatedNumber, SmartImage } from './shared/CommonUI';
+import { AnimatedNumber, EngineBreathe, EngineEqualizer, EngineShimmer, EngineSpinner, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
 import type { LyricsFullResponse, LyricsMatch } from '../types/stats';
 import { preloadRouteModule } from '../lib/routePreloads';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
+import { useCompositorLoopTelemetry } from '../hooks/useCompositorLoopTelemetry';
+import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
+import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
+import { useModalMotionScope } from '../hooks/useModalMotionScope';
 
 const NAV_ITEMS = [
   { label: 'Início', icon: Home, path: '/', activePaths: ['/'] },
@@ -36,23 +40,11 @@ const preloadRouteModules = (path: string) => {
 
 const EqualizerIcon = () => {
   const motionRuntime = useMotionRuntime();
-  const shouldAnimate = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
-
   return (
-    <div className="flex items-end gap-[1.5px] h-3 w-3.5 shrink-0 select-none pb-[1px]" aria-hidden="true">
-      <span
-        style={{ animation: shouldAnimate ? 'eq-bar-1 0.8s ease-in-out infinite' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.45)' }}
-        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
-      />
-      <span
-        style={{ animation: shouldAnimate ? 'eq-bar-2 0.6s ease-in-out infinite 0.15s' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.8)' }}
-        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
-      />
-      <span
-        style={{ animation: shouldAnimate ? 'eq-bar-3 0.7s ease-in-out infinite 0.3s' : 'none', transform: shouldAnimate ? undefined : 'scaleY(0.32)' }}
-        className="h-full w-[1.5px] bg-orange-500 rounded-full inline-block origin-bottom shrink-0"
-      />
-    </div>
+    <EngineEqualizer
+      active={motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve'}
+      className="h-3 w-3.5 shrink-0 select-none pb-[1px]"
+    />
   );
 };
 
@@ -95,9 +87,51 @@ const StatsFmMark = ({ className = "h-4 w-4" }: { className?: string }) => (
   </svg>
 );
 
-const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
+const RouteIntentCover = () => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+    className="pointer-events-none fixed inset-0 z-[45] flex h-[100svh] min-h-[100svh] items-center justify-center overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
+    data-stats-lc-route-intent-cover="true"
+  >
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+      transition={{ duration: 0.22, delay: 0.03, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col items-center justify-center gap-4"
+    >
+      <div className="ranking-badge relative flex h-14 min-w-14 items-center justify-center rounded-[22px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_32px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]">
+        <EngineSpinner className="h-5 w-5 text-orange-300">
+          <Loader2 className="h-full w-full" />
+        </EngineSpinner>
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-[0.26em] text-orange-200/70">Carregando seção</span>
+    </motion.div>
+  </motion.div>
+);
+
+const BottomNavigation = React.memo(({
+  pathname,
+  onRouteIntent,
+}: {
+  pathname: string;
+  onRouteIntent?: (path: string) => void;
+}) => {
+  const motionRuntime = useMotionRuntime();
   const activeNavIndex = Math.max(0, NAV_ITEMS.findIndex(item => item.activePaths.includes(pathname)));
   const navAnimationKey = pathname;
+  const shouldAnimateNav = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const navGlassFilter = motionRuntime.tier === 'conserve'
+    ? 'blur(8px) saturate(125%)'
+    : motionRuntime.tier === 'balanced'
+      ? 'blur(14px) saturate(155%)'
+      : 'blur(24px) saturate(190%)';
+  const navGlassShadow = motionRuntime.tier === 'conserve'
+    ? '0 8px 24px -12px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.08)'
+    : '0 12px 40px -10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.10)';
 
   return (
     <nav className="w-full pb-[calc(env(safe-area-inset-bottom)+12px)] pointer-events-auto mx-auto">
@@ -106,9 +140,9 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
           className="relative overflow-hidden rounded-[9999px]"
           style={{
             background: 'rgba(20,20,20,0.50)',
-            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-            backdropFilter: 'blur(24px) saturate(190%)',
-            boxShadow: '0 12px 40px -10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.10)',
+            WebkitBackdropFilter: navGlassFilter,
+            backdropFilter: navGlassFilter,
+            boxShadow: navGlassShadow,
             border: 'none',
           }}
         >
@@ -117,11 +151,18 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
             <motion.div
               className="pointer-events-none absolute bottom-1.5 left-1.5 top-1.5 w-[calc((100%_-_0.75rem)/4)] rounded-[9999px] bg-white/[0.15]"
               animate={{ x: `calc(${activeNavIndex} * 100%)` }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: shouldAnimateNav ? 0.24 : 0.01, ease: [0.16, 1, 0.3, 1] }}
             />
             {NAV_ITEMS.map((item, index) => {
               const isActive = index === activeNavIndex;
               const Icon = item.icon;
+              const handlePreloadIntent = () => {
+                preloadRouteModules(item.path);
+              };
+              const handleNavigateIntent = () => {
+                handlePreloadIntent();
+                if (item.path !== pathname) onRouteIntent?.(item.path);
+              };
 
               return (
                 <Link
@@ -129,19 +170,23 @@ const BottomNavigation = React.memo(({ pathname }: { pathname: string }) => {
                   to={item.path}
                   aria-label={item.label}
                   onFocus={() => preloadRouteModules(item.path)}
-                  onPointerEnter={() => preloadRouteModules(item.path)}
-                  onTouchStart={() => preloadRouteModules(item.path)}
+                  onPointerEnter={handlePreloadIntent}
+                  onPointerDown={handlePreloadIntent}
+                  onTouchStart={handlePreloadIntent}
+                  onClick={handleNavigateIntent}
                   className="relative flex flex-col items-center justify-center gap-1 outline-none touch-manipulation select-none"
                 >
                   <motion.div
                     key={`${item.path}-${isActive ? navAnimationKey : 'idle'}`}
                     className="relative z-10 flex items-center justify-center"
-                    initial={isActive ? { scale: 0.92, rotate: -3, y: 2 } : false}
+                    initial={isActive && shouldAnimateNav ? { scale: 0.92, rotate: -3, y: 2 } : false}
                     animate={isActive
-                      ? { scale: [0.92, 1.13, 1.02], rotate: [-3, 4, 0], y: [2, -2, 0] }
+                      ? shouldAnimateNav
+                        ? { scale: [0.92, 1.13, 1.02], rotate: [-3, 4, 0], y: [2, -2, 0] }
+                        : { scale: 1, rotate: 0, y: 0 }
                       : { scale: 1, rotate: 0, y: 0 }}
-                    whileTap={{ scale: 0.94 }}
-                    transition={{ duration: isActive ? 0.42 : 0.2, ease: [0.16, 1, 0.3, 1] }}
+                    whileTap={shouldAnimateNav ? { scale: 0.94 } : undefined}
+                    transition={{ duration: shouldAnimateNav ? (isActive ? 0.42 : 0.2) : 0.01, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <div className="relative flex h-7 w-7 items-center justify-center">
                       <Icon
@@ -682,8 +727,12 @@ const normalizeBottomTrackRecentItems = (items: any[]) => items
 const getLyricsCacheKey = (trackName: string, artistName: string) => `${trackName.trim().toLowerCase()}::${artistName.trim().toLowerCase()}`;
 
 const readExpiringCache = <T,>(cache: Map<string, { expiresAt: number; data: T }>, key: string) => {
-  const cached = cache.get(key);
-  if (!cached || cached.expiresAt <= Date.now()) return null;
+  const cached = readRuntimeCacheEntry(cache, key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
   return cached.data;
 };
 
@@ -731,7 +780,7 @@ const loadLyricsMatch = (trackName: string, artistName: string) => {
 
   const promise = statsService.fetchLyricsMatch(trackName, artistName)
     .then((match) => {
-      lyricsMatchCache.set(key, { data: match, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      setRuntimeCacheEntry(lyricsMatchCache, key, { data: match, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL }, 'medium');
       return match;
     })
     .finally(() => lyricsInFlight.delete(inFlightKey));
@@ -750,8 +799,8 @@ const loadLyricsFull = (trackName: string, artistName: string) => {
 
   const promise = statsService.fetchLyricsFull(trackName, artistName)
     .then((response) => {
-      lyricsFullCache.set(key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
-      lyricsMatchCache.set(key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      setRuntimeCacheEntry(lyricsFullCache, key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL }, 'small');
+      setRuntimeCacheEntry(lyricsMatchCache, key, { data: response, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL }, 'medium');
       return response;
     })
     .finally(() => lyricsInFlight.delete(inFlightKey));
@@ -876,7 +925,7 @@ const loadBottomTrackStatsPanelData = async ({
     };
     const existing = bottomTrackStatsCache.get(cacheKey);
     if (mode === 'full' || !existing || !existing.data.hydration.social) {
-      bottomTrackStatsCache.set(cacheKey, { data: snapshot, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL });
+      setRuntimeCacheEntry(bottomTrackStatsCache, cacheKey, { data: snapshot, expiresAt: Date.now() + BOTTOM_TRACK_STATS_CACHE_TTL }, 'small');
     }
     return snapshot;
   })().finally(() => inFlightMap.delete(cacheKey));
@@ -932,6 +981,12 @@ const ModalScrollingAlbumName = ({ albumName }: { albumName: string }) => {
   const measureRef = React.useRef<HTMLSpanElement | null>(null);
   const [scrollDistance, setScrollDistance] = React.useState(0);
   const shouldScroll = scrollDistance > 0;
+  const {
+    ref: marqueeMotionRef,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLSpanElement>({ rootMargin: '120px' });
+  const shouldRunMarquee = shouldScroll && shouldRunAmbientMotion;
+  useCompositorLoopTelemetry(shouldRunMarquee, 'marquee');
 
   React.useEffect(() => {
     const measure = () => {
@@ -958,7 +1013,9 @@ const ModalScrollingAlbumName = ({ albumName }: { albumName: string }) => {
     >
       {shouldScroll ? (
         <span
-          className="stats-lc-track-marquee flex w-max whitespace-nowrap text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28"
+          ref={marqueeMotionRef}
+          className="stats-lc-engine-loop stats-lc-track-marquee flex w-max whitespace-nowrap text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28"
+          data-active={shouldRunMarquee ? 'true' : 'false'}
           style={{
             '--track-title-distance': `${scrollDistance}px`,
             '--track-title-duration': `${Math.min(15, Math.max(6, albumName.length * 0.28))}s`,
@@ -986,6 +1043,12 @@ const ModalScrollingTrackTitle = ({ title, wide = false }: { title: string; wide
   const measureRef = React.useRef<HTMLSpanElement | null>(null);
   const [scrollDistance, setScrollDistance] = React.useState(0);
   const shouldScroll = scrollDistance > 0;
+  const {
+    ref: marqueeMotionRef,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLSpanElement>({ rootMargin: '120px' });
+  const shouldRunMarquee = shouldScroll && shouldRunAmbientMotion;
+  useCompositorLoopTelemetry(shouldRunMarquee, 'marquee');
 
   React.useEffect(() => {
     const measure = () => {
@@ -1013,7 +1076,9 @@ const ModalScrollingTrackTitle = ({ title, wide = false }: { title: string; wide
     >
       {shouldScroll ? (
         <span
-          className="stats-lc-track-marquee flex w-max whitespace-nowrap text-[22px] font-black leading-[1.02] text-white"
+          ref={marqueeMotionRef}
+          className="stats-lc-engine-loop stats-lc-track-marquee flex w-max whitespace-nowrap text-[22px] font-black leading-[1.02] text-white"
+          data-active={shouldRunMarquee ? 'true' : 'false'}
           style={{
             '--track-title-distance': `${scrollDistance}px`,
             '--track-title-duration': `${Math.min(18, Math.max(8, title.length * 0.34))}s`,
@@ -1068,11 +1133,11 @@ const ModalMetricValue = ({
 }) => {
   const displayValue = ready ? value : fallbackValue;
   if (typeof displayValue === 'number') return <AnimatedNumber value={displayValue} />;
-  return <span className="stats-lc-skeleton-shimmer block h-5 w-12 rounded-full" />;
+  return <span className="stats-lc-engine-loop stats-lc-skeleton-shimmer block h-5 w-12 rounded-full" />;
 };
 
 const ModalSkeleton = ({ className = "" }: { className?: string }) => (
-  <span className={clsx("stats-lc-skeleton-shimmer block rounded-full", className)} />
+  <span className={clsx("stats-lc-engine-loop stats-lc-skeleton-shimmer block rounded-full", className)} />
 );
 
 const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
@@ -1120,6 +1185,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [isLyricsOpen, setIsLyricsOpen] = React.useState(false);
   const [isAnimationDone, setIsAnimationDone] = React.useState(false);
   const [isLyricsAnimationDone, setIsLyricsAnimationDone] = React.useState(false);
+  useModalMotionScope(isOpen);
 
   React.useEffect(() => {
     if (!isLyricsOpen) {
@@ -1346,6 +1412,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const isBubbleLive = panelUser?.nowPlaying?.isNow === true && playbackIndex === 0 && !hasExternalPlayback;
   const shouldAnimateBubble = isBubbleLive && !isModalVisible && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const bubbleAccentColor = bubbleDominantColor || '#ff5f00';
+  const bubbleGlassFilter = motionRuntime.tier === 'conserve'
+    ? 'blur(8px) saturate(125%)'
+    : motionRuntime.tier === 'balanced'
+      ? 'blur(14px) saturate(155%)'
+      : 'blur(24px) saturate(190%)';
+  const bubbleGlassShadow = motionRuntime.tier === 'conserve'
+    ? '0 8px 24px -12px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.08)'
+    : '0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10)';
   const isAppleMusicUser = panelUser?.platform?.primary === 'appleMusic' || panelUser?.platform === 'appleMusic' || panelUser?.nowPlaying?.platform === 'appleMusic';
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
@@ -1997,39 +2071,41 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             "pointer-events-auto z-[1001] flex h-[54px] w-[54px] touch-manipulation items-center justify-center overflow-hidden rounded-full bg-black/[0.24] shadow-[0_12px_38px_-14px_rgba(0,0,0,0.72)] backdrop-blur-2xl",
             "absolute inset-0"
           )}
-          style={isBubbleLive ? {
-            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-            backdropFilter: 'blur(24px) saturate(190%)',
-            boxShadow: '0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10)',
-          } : {
-            WebkitBackdropFilter: 'blur(24px) saturate(190%)',
-            backdropFilter: 'blur(24px) saturate(190%)',
-            boxShadow: '0 12px 38px -14px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.10)',
+          style={{
+            WebkitBackdropFilter: bubbleGlassFilter,
+            backdropFilter: bubbleGlassFilter,
+            boxShadow: bubbleGlassShadow,
           }}
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
           {shouldAnimateBubble ? (
             <>
-              <motion.span
-                aria-hidden="true"
+              <EngineBreathe
+                active
                 className="pointer-events-none absolute inset-0 rounded-full"
+                duration={2.2}
+                fromOpacity={0.24}
+                fromScale={1}
+                toOpacity={0.68}
+                toScale={1}
                 style={{
                   background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
                   filter: 'saturate(1.65) contrast(1.08)',
                 }}
-                animate={{ opacity: [0.24, 0.68, 0.24] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
               />
-              <motion.span
-                aria-hidden="true"
+              <EngineBreathe
+                active
                 className="pointer-events-none absolute inset-[2px] rounded-full"
+                duration={2.2}
+                fromOpacity={0.2}
+                fromScale={1}
+                toOpacity={0.46}
+                toScale={1}
                 style={{
                   background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 34%, rgba(255,255,255,0.06) 62%, transparent 100%)',
                   mixBlendMode: 'screen',
                 }}
-                animate={{ opacity: [0.2, 0.46, 0.2] }}
-                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
               />
             </>
           ) : isBubbleLive ? (
@@ -2059,34 +2135,44 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               className="pointer-events-none absolute inset-0 rounded-full bg-white/[0.03]"
             />
           )}
-          <motion.div
+          <EngineBreathe
+            active={shouldAnimateBubble}
             className="relative z-10 flex h-[34px] w-[34px] items-center justify-center"
-            animate={shouldAnimateBubble ? { scale: [0.97, 1.09, 0.97] } : { scale: 1 }}
-            transition={shouldAnimateBubble ? { duration: 2.6, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.18, ease: 'easeOut' }}
+            duration={2.6}
+            fromOpacity={1}
+            fromScale={shouldAnimateBubble ? 0.97 : 1}
+            toOpacity={1}
+            toScale={shouldAnimateBubble ? 1.09 : 1}
           >
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence initial={false}>
               <motion.div
-                key={bubbleArtistImage || 'fallback'}
+                key={`${bubbleTrackId || bubbleTrackTitle}:${bubbleArtistImage || 'fallback'}`}
                 className="absolute inset-0 h-full w-full rounded-full overflow-hidden flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
                 style={{ backfaceVisibility: 'hidden' }}
                 initial={{
                   opacity: 0,
-                  scale: 0.3,
-                  rotate: -120,
+                  x: -34,
+                  scale: 0.84,
+                  rotate: -48,
+                  zIndex: 2,
                 }}
                 animate={{
                   opacity: 1,
+                  x: 0,
                   scale: 1,
                   rotate: 0,
+                  zIndex: 2,
                 }}
                 exit={{
                   opacity: 0,
-                  scale: 0.3,
-                  rotate: 120,
+                  x: 24,
+                  scale: 0.92,
+                  rotate: 34,
+                  zIndex: 1,
                 }}
                 transition={{
-                  duration: 0.64,
-                  ease: [0.34, 1.56, 0.64, 1],
+                  duration: 0.46,
+                  ease: [0.16, 1, 0.3, 1],
                 }}
               >
                 {bubbleArtistImage ? (
@@ -2096,12 +2182,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 )}
               </motion.div>
             </AnimatePresence>
-          </motion.div>
+          </EngineBreathe>
         </motion.button>
       </div>
 
       {typeof document !== 'undefined' && isOpen && createPortal(
           <div
+            data-stats-lc-modal-surface="true"
             className={clsx(
               "fixed inset-0 z-[1205]",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
@@ -2139,7 +2226,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+140px)] pt-12 pointer-events-none">
             <motion.section
               ref={modalRef}
-              initial={{ opacity: 1, y: '100vh', scale: 0.9 }}
+              initial={{ opacity: 1, y: '100svh', scale: 0.9 }}
               onPointerDownCapture={(event) => {
                 if (!isModalVisible) return;
                 if (selectedTrackLink) return;
@@ -2236,7 +2323,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               data-animation-done={isAnimationDone}
               animate={{
                 opacity: 1,
-                y: isModalVisible ? 0 : '100vh',
+                y: isModalVisible ? 0 : '100svh',
                 scale: isModalVisible ? 1 : 0.96,
               }}
               transition={{
@@ -2426,13 +2513,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       >
                         {isReleaseDayFirstListen && (
                           <span className="absolute inset-0 rounded-full">
-                            <span
-                              className="absolute inset-0 opacity-50"
-                              style={{
-                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                                backgroundSize: '200% 100%',
-                                animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                              }}
+                            <EngineShimmer
+                              active
+                              duration={2.5}
+                              className="opacity-50"
+                              style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
                             />
                           </span>
                         )}
@@ -2527,13 +2612,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   >
                     {isReleaseDayFirstListen && (
                       <span className="absolute inset-0 rounded-full">
-                        <span
-                          className="absolute inset-0 opacity-50"
-                          style={{
-                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                            backgroundSize: '200% 100%',
-                            animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                          }}
+                        <EngineShimmer
+                          active
+                          duration={2.5}
+                          className="opacity-50"
+                          style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
                         />
                       </span>
                     )}
@@ -2564,13 +2647,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       className="relative inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-0.5 overflow-hidden whitespace-nowrap rounded-full bg-orange-400/70 px-1.5 text-[7px] font-black leading-none tracking-[0.04em] text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)]"
                       title="Primeiros ouvintes do círculo"
                     >
-                      <span
-                        className="pointer-events-none absolute inset-0 opacity-50"
-                        style={{
-                          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                          backgroundSize: '200% 100%',
-                          animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                        }}
+                      <EngineShimmer
+                        active
+                        duration={2.5}
+                        className="pointer-events-none opacity-50"
+                        style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
                       />
                       <span className="relative z-10 flex -space-x-1.5">
                         {firstDayGroup.slice(0, 3).map((listener, idx) => (
@@ -2609,13 +2690,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     )}>
                       {isReleaseDayFirstListen && (
                         <div className="absolute inset-0 overflow-hidden rounded-full">
-                          <div
-                            className="absolute inset-0 opacity-50"
-                            style={{
-                              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
-                              backgroundSize: '200% 100%',
-                              animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                            }}
+                          <EngineShimmer
+                            active
+                            duration={2.5}
+                            className="opacity-50"
+                            style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)' }}
                           />
                         </div>
                       )}
@@ -2723,13 +2802,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   >
                     {isReleaseDayFirstListen && (
                       <div className="absolute inset-0 z-0 overflow-hidden rounded-full pointer-events-none">
-                        <div
-                          className="absolute inset-0 opacity-50"
-                          style={{
-                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)',
-                            backgroundSize: '200% 100%',
-                            animation: 'shimmer-orange 2.5s ease-in-out infinite',
-                          }}
+                        <EngineShimmer
+                          active
+                          duration={2.5}
+                          className="opacity-50"
+                          style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
                         />
                       </div>
                     )}
@@ -2796,7 +2873,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         : "border-0 text-white/72 hover:text-white"
                     )}
                   >
-                    {lyricsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />}
+                    {lyricsLoading ? (
+                      <EngineSpinner className="h-4 w-4">
+                        <Loader2 className="h-full w-full" />
+                      </EngineSpinner>
+                    ) : (
+                      <BookOpen className="h-4 w-4 text-current" strokeWidth={2.4} />
+                    )}
                     <span className="whitespace-nowrap">
                       {lyricsLoading ? 'Buscando' : lyricsMatch?.hasLyrics === false ? 'Letra indisponível' : 'Ver letra'}
                     </span>
@@ -2877,7 +2960,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       }
                     }}
                     style={{
-                      height: '82dvh',
+                      height: '82svh',
                       touchAction: 'none',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
                       transform: isLyricsOpen && isLyricsAnimationDone ? 'none' : undefined,
@@ -2933,7 +3016,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <div className="mt-4 flex-1 select-none overflow-hidden flex flex-col min-h-0">
                     {lyricsLoading ? (
                       <div className="flex flex-1 items-center justify-center">
-                        <Loader2 className="h-5 w-5 animate-spin text-orange-300" />
+                        <EngineSpinner className="h-5 w-5 text-orange-300">
+                          <Loader2 className="h-full w-full" />
+                        </EngineSpinner>
                       </div>
                     ) : cleanedLyricsText ? (
                       <div
@@ -3142,8 +3227,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   });
 
   const [showSyncFooter, setShowSyncFooter] = React.useState(false);
+  const [viewportWidth, setViewportWidth] = React.useState(() => {
+    if (typeof window === 'undefined') return 480;
+    return window.innerWidth;
+  });
 
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
+  const [pendingRoutePath, setPendingRoutePath] = React.useState<string | null>(null);
+  const [showRouteIntentCover, setShowRouteIntentCover] = React.useState(false);
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
 
@@ -3156,6 +3247,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     handleScroll(); // Check initial scroll position
 
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  React.useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   React.useEffect(() => {
@@ -3182,6 +3279,32 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
+
+  React.useEffect(() => {
+    if (!pendingRoutePath) {
+      setShowRouteIntentCover(false);
+      return;
+    }
+
+    const isHomeIntent = pendingRoutePath === '/';
+    const routeReached = pendingRoutePath === location.pathname;
+    if (routeReached && !isHomeIntent) {
+      setShowRouteIntentCover(false);
+      setPendingRoutePath(null);
+      return;
+    }
+
+    const revealTimer = window.setTimeout(() => setShowRouteIntentCover(true), isHomeIntent ? 60 : 90);
+    const safetyTimer = window.setTimeout(() => {
+      setShowRouteIntentCover(false);
+      setPendingRoutePath(null);
+    }, isHomeIntent ? 760 : 2200);
+
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(safetyTimer);
+    };
+  }, [location.pathname, pendingRoutePath]);
 
   React.useEffect(() => {
     const handleHomeReady = (event: Event) => {
@@ -3220,6 +3343,11 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
   const isHomeRoute = location.pathname === '/';
   const shouldGateHome = isHomeRoute && !homeReady;
+  const syncTrayExpandedWidth = Math.max(280, Math.min(viewportWidth - 24, 456));
+  const syncTrayCompactWidth = 94;
+  const syncTrayCompactHeight = 36;
+  const syncTrayExpandedHeight = 76;
+  const syncTrayPrimaryMember = activeMembersSorted[0];
 
   return (
     <div
@@ -3251,169 +3379,226 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {children}
       </main>
 
+      <AnimatePresence>
+        {showRouteIntentCover && <RouteIntentCover />}
+      </AnimatePresence>
+
       {/* Tab Bar (Floating Bottom Nav) */}
       <div className={clsx(
         "stable-bottom-bar fixed bottom-0 left-0 right-0 z-50 flex flex-col items-center pointer-events-none gap-2",
         shouldGateHome && "hidden"
       )}>
         {/* Sync Info Footer - aparece apenas quando scrollar */}
-        <AnimatePresence>
+        <AnimatePresence initial={false}>
           {showSyncFooter && lastUpdate && activeMembersSorted.length > 0 && (
             <motion.div
-              initial={{ y: 50, opacity: 0 }}
+              initial={{ y: 38, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 50, opacity: 0 }}
+              exit={{ y: 34, opacity: 0 }}
               transition={{
                 type: "spring",
-                stiffness: 300,
-                damping: 25,
-                mass: 0.8
+                stiffness: 360,
+                damping: 32,
+                mass: 0.78
               }}
-              onClick={() => {
-                if (syncDidDragRef.current) {
-                  syncDidDragRef.current = false;
-                  return;
-                }
-                toggleSyncInfo();
-              }}
-              className={clsx(
-                "pointer-events-auto flex items-center mb-1 select-none group relative transition-[background-color,border-color,box-shadow,opacity,transform] duration-300 overflow-hidden text-left cursor-pointer",
-                shouldShowExpanded
-                  ? "leo-soft-badge rounded-full py-1.5 px-3 min-h-[44px] gap-2 w-[min(95vw,456px)] shadow-[0_12px_36px_rgba(0,0,0,0.5)] border border-white/[0.08]"
-                  : "leo-soft-badge rounded-full h-7 pl-2.5 pr-2 gap-1.5"
-              )}
-              title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
+              className="pointer-events-none mb-1 flex h-[84px] w-full justify-center px-3"
             >
-              <motion.div 
-                className={clsx(
-                  "flex items-center min-w-0 w-full",
-                  shouldShowExpanded ? "gap-2" : "gap-1"
-                )}
+              <div
+                className="relative flex items-center justify-center"
+                style={{ width: syncTrayExpandedWidth, height: syncTrayExpandedHeight }}
               >
-                <motion.div 
-                  className={clsx(
-                    "flex items-center min-w-0 transition-[background-color,opacity,transform] duration-300 w-full",
-                    shouldShowExpanded 
-                      ? "overflow-x-auto no-scrollbar py-1.5 px-0.5 gap-1.5 snap-x snap-mandatory"
-                      : "-space-x-1.5"
-                  )}
-                  onPointerDown={(event) => {
-                    syncDidDragRef.current = false;
-                    syncPointerStartRef.current = {
-                      x: event.clientX,
-                      y: event.clientY,
-                      scrollLeft: event.currentTarget.scrollLeft,
-                    };
+                <motion.div
+                  aria-hidden="true"
+                  className="absolute left-1/2 top-1/2 rounded-full bg-black/48 shadow-[0_14px_42px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.09),inset_0_-1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl will-change-transform"
+                  style={{
+                    width: syncTrayExpandedWidth,
+                    height: syncTrayExpandedHeight,
+                    x: '-50%',
+                    y: '-50%',
+                    transformOrigin: 'center',
                   }}
-                  onPointerMove={(event) => {
-                    const start = syncPointerStartRef.current;
-                    if (!start) return;
-                    const deltaX = Math.abs(event.clientX - start.x);
-                    const deltaY = Math.abs(event.clientY - start.y);
-                    const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
-                    if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
-                      syncDidDragRef.current = true;
+                  initial={false}
+                  animate={{
+                    scaleX: shouldShowExpanded ? 1 : syncTrayCompactWidth / syncTrayExpandedWidth,
+                    scaleY: shouldShowExpanded ? 1 : syncTrayCompactHeight / syncTrayExpandedHeight,
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 390,
+                    damping: 34,
+                    mass: 0.74,
+                  }}
+                />
+                <button
+                  type="button"
+                  style={{
+                    width: shouldShowExpanded ? syncTrayExpandedWidth : syncTrayCompactWidth,
+                    height: shouldShowExpanded ? syncTrayExpandedHeight : syncTrayCompactHeight,
+                  }}
+                  onClick={() => {
+                    if (syncDidDragRef.current) {
+                      syncDidDragRef.current = false;
+                      return;
                     }
+                    toggleSyncInfo();
                   }}
-                  onPointerUp={() => {
-                    syncPointerStartRef.current = null;
-                  }}
-                  onPointerCancel={() => {
-                    syncPointerStartRef.current = null;
-                  }}
+                  className="pointer-events-auto relative z-10 flex cursor-pointer select-none items-center justify-center overflow-hidden rounded-full text-left outline-none active:scale-[0.99]"
+                  title={shouldShowExpanded ? "Minimizar informações" : "Exibir informações de sincronização"}
+                  aria-label={shouldShowExpanded ? "Minimizar sincronização do grupo" : "Expandir sincronização do grupo"}
                 >
-                  {activeMembersSorted.map((user, index) => {
-                    const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
-                    const userTrack = user.nowPlaying?.track;
-                    const uSongName = userTrack?.name || "Nenhuma música";
-                    const uArtistName = userTrack?.artists
-                      ? (typeof userTrack.artists[0] === 'string' ? userTrack.artists[0] : (userTrack.artists[0] as any)?.name || "Artista")
-                      : "Artista";
-                    const isBubbleHighlighted = highlightedBubbles[user.id];
-
-                    return (
-                      <motion.div 
-                        key={user.id}
-                        animate={isBubbleHighlighted ? {
-                          scale: [1, 1.2, 1],
-                        } : {}}
-                        transition={{ duration: 2, ease: "easeInOut" }}
-                        className={clsx(
-                          "flex items-center gap-2 min-w-0 transition-[background-color,border-color,opacity,transform] duration-300",
-                          shouldShowExpanded
-                            ? "leo-soft-badge flex-1 shrink min-w-[50px] max-w-[130px] snap-start hover:bg-white/[0.12] pr-2.5 pl-1.5 py-1.5 rounded-full hover:scale-[1.02] active:scale-[0.98]"
-                            : "shrink-0",
-                          isBubbleHighlighted && !shouldShowExpanded && "relative z-30"
-                        )}
+                  <AnimatePresence initial={false} mode="wait">
+                    {shouldShowExpanded ? (
+                      <motion.div
+                        key="expanded-sync-tray"
+                        className="flex h-full w-full min-w-0 items-center justify-center gap-2 overflow-x-auto overflow-y-hidden px-3 no-scrollbar scrolling-touch"
+                        initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                        onPointerDown={(event) => {
+                          syncDidDragRef.current = false;
+                          syncPointerStartRef.current = {
+                            x: event.clientX,
+                            y: event.clientY,
+                            scrollLeft: event.currentTarget.scrollLeft,
+                          };
+                        }}
+                        onPointerMove={(event) => {
+                          const start = syncPointerStartRef.current;
+                          if (!start) return;
+                          const deltaX = Math.abs(event.clientX - start.x);
+                          const deltaY = Math.abs(event.clientY - start.y);
+                          const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
+                          if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
+                            syncDidDragRef.current = true;
+                          }
+                        }}
+                        onPointerUp={() => {
+                          syncPointerStartRef.current = null;
+                        }}
+                        onPointerCancel={() => {
+                          syncPointerStartRef.current = null;
+                        }}
                       >
-                        {/* Avatar container with Equalizer Overlay (only when expanded) */}
-                        <motion.div 
-                          className="relative shrink-0"
-                          animate={isBubbleHighlighted ? {
-                            scale: [1, 1.08, 1]
-                          } : {}}
-                          transition={{ duration: 2, ease: "easeInOut" }}
-                          style={{ borderRadius: "9999px" }}
-                        >
-                          <div className={clsx(
-                            "h-6.5 w-6.5 rounded-full ring-[1px] ring-white/10 overflow-hidden bg-stone-900 flex items-center justify-center transition-transform duration-300",
-                            !shouldShowExpanded && "scale-[0.77]"
-                          )}>
-                            <SmartImage 
-                              src={userAvatar} 
-                              className="h-full w-full object-cover" 
-                              rounded="full" 
-                              fallback={user.name?.charAt(0) || "👤"}
-                            />
-                          </div>
-                          
-                          {/* Status Indicator (Equalizer) - overlay on bottom right (ONLY WHEN EXPANDED) */}
-                          {shouldShowExpanded && user.nowPlaying?.isNow && (
-                            <div className="absolute -bottom-1 -right-1 z-10 flex scale-[0.6] items-center justify-center transition-[opacity,transform] duration-300">
-                              <EqualizerIcon />
-                            </div>
-                          )}
-                        </motion.div>
+                        {activeMembersSorted.map((user, idx) => {
+                          const userAvatar = coreUtils.getUserAvatar(user.id, user.avatar);
+                          const userTrack = user.nowPlaying?.track;
+                          const uSongName = userTrack?.name || "Nenhuma música";
+                          const uArtistName = userTrack?.artists
+                            ? (typeof userTrack.artists[0] === 'string' ? userTrack.artists[0] : (userTrack.artists[0] as any)?.name || "Artista")
+                            : "Artista";
+                          const isBubbleHighlighted = highlightedBubbles[user.id];
 
-                        {/* Music info */}
-                        <AnimatePresence initial={false}>
-                          {shouldShowExpanded && (
+                          return (
                             <motion.div
-                              initial={{ opacity: 0, x: -5 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -5 }}
-                              transition={{ duration: 0.25 }}
-                              className="flex min-w-0 flex-1 flex-col overflow-hidden text-left"
+                              key={user.id}
+                              layout="position"
+                              initial={{ opacity: 0, x: -18, rotate: -2.5, scale: 0.96 }}
+                              animate={isBubbleHighlighted ? { opacity: 1, x: 0, rotate: 0, scale: [1, 1.045, 1] } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
+                              exit={{ opacity: 0, x: 18, rotate: 2, scale: 0.96 }}
+                              transition={{
+                                layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+                                duration: isBubbleHighlighted ? 1.1 : 0.24,
+                                delay: Math.min(idx * 0.025, 0.08),
+                                ease: [0.16, 1, 0.3, 1],
+                              }}
+                              className="leo-soft-badge flex min-w-[188px] max-w-[254px] flex-[0_0_auto] items-center gap-2.5 rounded-full py-2 pl-2 pr-4 active:scale-[0.98]"
                             >
-                              <span className="text-[10px] font-bold text-white/95 truncate leading-tight tracking-tight">
-                                {uSongName}
-                              </span>
-                              <span className="text-[8.5px] font-medium text-white/40 truncate leading-none mt-0.5 tracking-tight">
-                                {uArtistName}
-                              </span>
+                              <div className="relative shrink-0">
+                                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                                  <AnimatePresence initial={false} mode="popLayout">
+                                    <motion.div
+                                      key={`${user.id}:${userAvatar}`}
+                                      className="h-full w-full"
+                                      initial={{ opacity: 0, x: -10, rotate: -8, scale: 0.96 }}
+                                      animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
+                                      exit={{ opacity: 0, x: 10, rotate: 8, scale: 0.98 }}
+                                      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                    >
+                                      <SmartImage
+                                        src={userAvatar}
+                                        className="h-full w-full object-cover"
+                                        rounded="full"
+                                        fallback={user.name?.charAt(0) || ""}
+                                      />
+                                    </motion.div>
+                                  </AnimatePresence>
+                                </div>
+                                {user.nowPlaying?.isNow && (
+                                  <div className="absolute -bottom-0.5 -right-0.5 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/78">
+                                    <EqualizerIcon />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex min-w-0 flex-1 flex-col">
+                                <AnimatePresence initial={false} mode="wait">
+                                  <motion.span
+                                    key={`${user.id}:${uSongName}`}
+                                    className="truncate text-[13px] font-black leading-tight text-white"
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -5 }}
+                                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                                  >
+                                    {uSongName}
+                                  </motion.span>
+                                </AnimatePresence>
+                                <span className="mt-0.5 truncate text-[10px] font-bold leading-none text-white/42">
+                                  {uArtistName}
+                                </span>
+                              </div>
                             </motion.div>
-                          )}
-                        </AnimatePresence>
+                          );
+                        })}
                       </motion.div>
-                    );
-                  })}
-                </motion.div>
-
-                {/* Global Equalizer in Minimized mode when someone is playing */}
-                {!shouldShowExpanded && activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
-                  <motion.div className="opacity-80">
-                    <EqualizerIcon />
-                  </motion.div>
-                )}
-              </motion.div>
-          </motion.div>
+                    ) : (
+                      <motion.div
+                        key="compact-sync-tray"
+                        className="flex h-full items-center justify-center gap-2 px-2"
+                        initial={{ opacity: 0, y: 7, scale: 0.92 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                        transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        {syncTrayPrimaryMember && (
+                          <div className="h-7 w-7 overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                            <AnimatePresence initial={false} mode="popLayout">
+                              <motion.div
+                                key={`${syncTrayPrimaryMember.id}:${coreUtils.getUserAvatar(syncTrayPrimaryMember.id, syncTrayPrimaryMember.avatar)}`}
+                                className="h-full w-full"
+                                initial={{ opacity: 0, x: -9, rotate: -10, scale: 0.94 }}
+                                animate={{ opacity: 1, x: 0, rotate: 0, scale: 1 }}
+                                exit={{ opacity: 0, x: 9, rotate: 8, scale: 0.98 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                              >
+                                <SmartImage
+                                  src={coreUtils.getUserAvatar(syncTrayPrimaryMember.id, syncTrayPrimaryMember.avatar)}
+                                  className="h-full w-full object-cover"
+                                  rounded="full"
+                                  fallback={syncTrayPrimaryMember.name?.charAt(0) || ""}
+                                />
+                              </motion.div>
+                            </AnimatePresence>
+                          </div>
+                        )}
+                        {activeMembersSorted.some(u => u.nowPlaying?.isNow) && (
+                          <div className="opacity-90">
+                            <EqualizerIcon />
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </button>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
         <div className="flex w-full max-w-[480px] items-center justify-center gap-2 px-3">
           {/* Navigation - Liquid Glass Capsule */}
           <div className="min-w-0 flex-1">
-            <BottomNavigation pathname={location.pathname} />
+            <BottomNavigation pathname={location.pathname} onRouteIntent={setPendingRoutePath} />
           </div>
           <BottomTrackStatsBubble user={playingUser} />
         </div>
@@ -3421,15 +3606,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Background Atmosphere */}
       <div className="app-background pointer-events-none overflow-hidden">
-        <div className="stats-lc-ambient-drift-primary absolute top-[-10%] left-[-10%] h-[50%] w-[70%]">
-          <div className="absolute inset-0 rounded-full bg-blue-600/[0.07] blur-[120px] transform-gpu" />
-        </div>
-        <div className="stats-lc-ambient-drift-secondary absolute bottom-[10%] right-[-10%] h-[40%] w-[60%]">
-          <div className="absolute inset-0 rounded-full bg-purple-600/[0.07] blur-[120px] transform-gpu" />
-        </div>
-        
         {/* Subtle Noise Texture */}
-        <div className="absolute inset-0 opacity-[0.015] mix-blend-overlay bg-[url('https://transparenttextures.com/patterns/asfalt-dark.png')]" />
+        <div className="stats-lc-grain absolute inset-0 opacity-[0.015] mix-blend-overlay" />
       </div>
     </div>
   );

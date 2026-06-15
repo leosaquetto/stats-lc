@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<Props, State> {
               {/* Button */}
               <button
                 onClick={this.handleReload}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 py-3 font-bold text-white transition-all hover:bg-orange-600 active:scale-95"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 py-3 font-bold text-white transition-[background-color,opacity,transform] duration-200 hover:bg-orange-600 active:scale-95"
               >
                 <RefreshCcw className="h-4 w-4" />
                 Atualizar agora
@@ -136,14 +136,14 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex w-full gap-3">
               <button
                 onClick={this.handleReload}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white/10 px-6 py-3 font-bold text-white transition-all hover:bg-white/20 active:scale-95"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-white/10 px-6 py-3 font-bold text-white transition-[background-color,opacity,transform] duration-200 hover:bg-white/20 active:scale-95"
               >
                 <RefreshCcw className="h-4 w-4" />
                 Recarregar
               </button>
               <button
                 onClick={() => (window.location.href = '/')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 py-3 font-bold text-white transition-all hover:bg-orange-600 active:scale-95"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-orange-500 px-6 py-3 font-bold text-white transition-[background-color,opacity,transform] duration-200 hover:bg-orange-600 active:scale-95"
               >
                 Ir para Home
               </button>

@@ -11,13 +11,14 @@ import {
   Search, 
   History, 
   TrendingUp, 
-  Award,
   Music4
 } from 'lucide-react';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineSpinner, SmartImage } from '../shared/CommonUI';
 import { UserAlbumStatsModal } from './EntityStatsModal';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 interface UserAlbumHistoryModalProps {
   user: any;
@@ -33,6 +34,9 @@ export const UserAlbumHistoryModal = ({
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedAlbum, setSelectedAlbum] = useState<any>(null);
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateModal = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  useModalMotionScope();
 
   const fetchAlbumHistory = async () => {
     setLoading(true);
@@ -72,18 +76,20 @@ export const UserAlbumHistoryModal = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      data-stats-lc-modal-surface="true"
+      initial={shouldAnimateModal ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: shouldAnimateModal ? 0.18 : 0.01 }}
       className="fixed inset-0 z-[60] flex items-end justify-center liquid-glass-overlay"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: "100%" }}
+        initial={shouldAnimateModal ? { y: "100%" } : false}
         animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-        className="liquid-glass-modal w-full max-w-lg h-[88vh] rounded-t-[48px] overflow-hidden shadow-2xl flex flex-col"
+        exit={shouldAnimateModal ? { y: "100%" } : { opacity: 0 }}
+        transition={shouldAnimateModal ? { type: 'spring', damping: 30, stiffness: 300 } : { duration: 0.01 }}
+        className="liquid-glass-modal w-full max-w-lg h-[88svh] rounded-t-[48px] overflow-hidden shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -98,7 +104,9 @@ export const UserAlbumHistoryModal = ({
                     rounded="full"
                   />
                   <div className="absolute -bottom-1 -right-1 bg-orange-600 border border-black h-5 w-5 rounded-full flex items-center justify-center text-[9px] text-white">
-                    <Disc className="h-3 w-3 animate-spin duration-3000" />
+                    <EngineSpinner className="h-3 w-3" duration={3}>
+                      <Disc className="h-full w-full" />
+                    </EngineSpinner>
                   </div>
                 </div>
                 <div className="flex flex-col min-w-0">
@@ -125,7 +133,7 @@ export const UserAlbumHistoryModal = ({
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
-                    className={`flex-1 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    className={`flex-1 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-[background-color,border-color,color,box-shadow,transform] duration-200 ${
                       isActive 
                         ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/30' 
                         : 'bg-white/[0.02] border border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white/90'
@@ -145,7 +153,7 @@ export const UserAlbumHistoryModal = ({
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Pesquisar álbum ou artista..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 transition-all"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 focus:outline-none focus:border-white/20 transition-[background-color,border-color,color] duration-200"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30 text-white">
                   <Search className="h-4 w-4" />
@@ -167,7 +175,11 @@ export const UserAlbumHistoryModal = ({
            {loading ? (
              <div className="flex flex-col gap-3.5 py-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div key={i} className="h-20 w-full bg-white/[0.02] border border-white/5 rounded-3xl animate-pulse flex items-center px-4 gap-4">
+                  <div
+                    key={i}
+                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-20 w-full border border-white/5 rounded-3xl flex items-center px-4 gap-4"
+                    data-active={shouldAnimateModal ? "true" : "false"}
+                  >
                     <div className="h-5 w-5 bg-white/5 rounded-full" />
                     <div className="h-12 w-12 bg-white/5 rounded-2xl" />
                     <div className="flex flex-col flex-1 gap-2">
@@ -184,12 +196,12 @@ export const UserAlbumHistoryModal = ({
                   return (
                     <motion.div 
                       key={`${album.id}-${idx}`}
-                      initial={{ opacity: 0, y: 20 }}
+                      initial={shouldAnimateModal ? { opacity: 0, y: 16 } : false}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
-                      transition={{ delay: Math.min(idx * 0.05, 0.3), duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      transition={shouldAnimateModal ? { delay: Math.min(idx * 0.035, 0.22), duration: 0.3, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                       onClick={() => setSelectedAlbum(album)}
-                      className="flex items-center gap-4 p-3 bg-white/[0.01] border border-white/5 rounded-3xl hover:bg-white/[0.04] transition-all cursor-pointer group active:scale-[0.99]"
+                      className="flex items-center gap-4 p-3 bg-white/[0.01] border border-white/5 rounded-3xl hover:bg-white/[0.04] transition-[background-color,border-color,transform] duration-200 cursor-pointer group active:scale-[0.99]"
                     >
                       {/* Rank Number */}
                       <span className="text-[11px] font-black font-mono text-white/25 w-6 text-center group-hover:text-orange-500 transition-colors">
@@ -217,7 +229,7 @@ export const UserAlbumHistoryModal = ({
                       </div>
 
                       {/* Plays Badge */}
-                      <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 px-3 py-1.5 rounded-full group-hover:bg-orange-500/10 group-hover:border-orange-500/20 shrink-0 transition-all">
+                      <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 px-3 py-1.5 rounded-full group-hover:bg-orange-500/10 group-hover:border-orange-500/20 shrink-0 transition-[background-color,border-color,transform] duration-200">
                         <TrendingUp className="h-3 w-3 text-white/40 group-hover:text-orange-500" />
                         <span className="text-[10px] font-black text-white/80 group-hover:text-orange-400 font-mono">
                           {coreUtils.formatNumber(album.playCount)}

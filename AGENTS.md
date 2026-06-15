@@ -92,6 +92,8 @@ Regras importantes:
 
 ## Home E Performance
 
+- Para qualquer patch visual, de animacao, modal, loader, tray, rota ou loop,
+  siga tambem `docs/motion-runtime-rules.md`.
 - Tudo que a Home precisa mostrar sem placeholders deve ser preparado antes de liberar a splash quando possivel.
 - Depois que a Home liberou, refresh/live update nao deve voltar para splash.
 - Nao criar request loops em `useEffect`.

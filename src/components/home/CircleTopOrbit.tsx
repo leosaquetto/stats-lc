@@ -6,7 +6,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { UserStats, TopItem } from '../../types/stats';
-import { OrbitPagerIndicator, SmartImage } from '../shared/CommonUI';
+import { EngineDrift, OrbitPagerIndicator, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { useStatsStore } from '../../store/useStatsStore';
 import { clsx, type ClassValue } from 'clsx';
@@ -199,7 +199,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                         type="button"
                         onClick={() => goToIndex(index)}
                         className={cn(
-                          "relative h-10 w-10 overflow-hidden rounded-full border transition-all active:scale-90",
+                          "relative h-10 w-10 overflow-hidden rounded-full border transition-[border-color,box-shadow,opacity,transform] duration-200 active:scale-90",
                           isActive ? "border-orange-500 ring-2 ring-orange-500/30" : "border-white/10 opacity-65 hover:opacity-100"
                         )}
                         aria-label={`Abrir Top 1 de ${member.name}`}
@@ -261,9 +261,9 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                   className="absolute left-1/2 top-[50%] w-[318px]"
                   style={{ willChange: isOrbitVisible ? 'transform, opacity' : 'auto' }}
                 >
-                  <motion.div
-                    animate={shouldReduceMotion || !shouldRunAmbientMotion ? {} : { x: [0, 8, -5, 0], y: [0, -5, 4, 0], rotate: [0, 0.6, -0.4, 0] }}
-                    transition={shouldReduceMotion || !shouldRunAmbientMotion ? { duration: 0.18 } : { duration: 16, repeat: Infinity, ease: 'easeInOut' }}
+                  <EngineDrift
+                    active={!shouldReduceMotion && shouldRunAmbientMotion}
+                    duration={16}
                     className="relative flex flex-col items-center"
                   >
                     <div className="relative z-10 grid w-full grid-cols-3 gap-1.5">
@@ -271,7 +271,7 @@ export const CircleTopOrbit = React.memo(({ members, periodTops, periodLabel }: 
                       <CircleTopInlineItem item={memberTrack} icon={<Music className="h-3 w-3 text-white/20" />} label="faixa" rounded="lg" index={1} shouldReduceMotion={shouldReduceMotion} />
                       <CircleTopInlineItem item={memberAlbum} icon={<Disc className="h-3 w-3 text-white/20" />} label="álbum" rounded="lg" index={2} shouldReduceMotion={shouldReduceMotion} />
                     </div>
-                  </motion.div>
+                  </EngineDrift>
                 </motion.div>
               );
             })}

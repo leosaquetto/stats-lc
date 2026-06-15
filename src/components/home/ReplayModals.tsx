@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Share2, Star } from 'lucide-react';
 import { SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 interface Artist {
   id: string;
@@ -72,17 +73,21 @@ const ReplayModalShell = ({
   period: string;
   showMore?: boolean;
   children: React.ReactNode;
-}) => (
-  <AnimatePresence>
-    {isOpen && (
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 24 }}
-        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed inset-0 z-[220] overflow-y-auto bg-black text-white"
-      >
-        <div className="min-h-full px-5 pb-[150px] pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
+}) => {
+  useModalMotionScope(isOpen);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          data-stats-lc-modal-surface="true"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 24 }}
+          transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-[220] h-[100svh] overflow-y-auto bg-black text-white"
+        >
+          <div className="min-h-full px-5 pb-[150px] pt-[calc(1.5rem+env(safe-area-inset-top,0px))]">
           <div className="mb-9 flex items-center justify-between">
             <button
               onClick={onClose}
@@ -109,11 +114,12 @@ const ReplayModalShell = ({
           </header>
 
           {children}
-        </div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 export const TopArtistsModal: React.FC<TopArtistsModalProps> = ({ isOpen, onClose, artists, period, onArtistClick }) => {
   const limitedArtists = artists.slice(0, 20);

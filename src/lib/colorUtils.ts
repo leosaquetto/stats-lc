@@ -3,10 +3,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { motionRuntime } from './motionRuntime';
+
 // Cache para cores extraídas
 const colorCache = new Map<string, string>();
 const paletteCache = new Map<string, ArtworkPalette>();
-const MAX_CACHE_SIZE = 100;
+const pendingPalettePromises = new Map<string, Promise<ArtworkPalette>>();
+
+type PaletteJob = {
+  order: number;
+  promise: Promise<ArtworkPalette>;
+  resolve: (palette: ArtworkPalette) => void;
+  source: string;
+};
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+};
+
+const paletteQueue: PaletteJob[] = [];
+
+let activePaletteJobs = 0;
+let paletteDrainTimer: number | null = null;
+let paletteJobOrder = 0;
+let paletteRuntimeSubscriptionReady = false;
+
+const getDeviceMemory = () => (
+  typeof navigator === 'undefined'
+    ? 8
+    : (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8
+);
+
+const getPaletteCacheBudget = () => {
+  const deviceMemory = getDeviceMemory();
+  if (deviceMemory <= 4) return 48;
+  if (deviceMemory <= 8) return 80;
+  return 120;
+};
+
+const getCanvasSampleSize = (full: number, balanced: number, conserve: number) => {
+  const tier = motionRuntime.getSnapshot().tier;
+  if (tier === 'conserve') return conserve;
+  if (tier === 'balanced') return balanced;
+  return full;
+};
 
 export interface ArtworkPaletteCandidate {
   hex: string;
@@ -324,7 +363,7 @@ function chooseProgressCandidate(
 
 function getAverageCanvasColor(img: HTMLImageElement): string | null {
   const canvas = document.createElement('canvas');
-  const size = 96;
+  const size = getCanvasSampleSize(96, 72, 56);
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -356,7 +395,7 @@ function getAverageCanvasColor(img: HTMLImageElement): string | null {
 
 function getSmartCanvasPalette(img: HTMLImageElement): ArtworkPalette | null {
   const canvas = document.createElement('canvas');
-  const size = 112;
+  const size = getCanvasSampleSize(112, 88, 64);
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -447,11 +486,7 @@ function getSmartCanvasPalette(img: HTMLImageElement): ArtworkPalette | null {
  * Get a stable artwork palette using local canvas sampling.
  * Includes caching to avoid reprocessing the same images.
  */
-export function getArtworkPalette(imageSrc: string): Promise<ArtworkPalette> {
-  if (paletteCache.has(imageSrc)) {
-    return Promise.resolve(paletteCache.get(imageSrc)!);
-  }
-
+function extractArtworkPalette(imageSrc: string): Promise<ArtworkPalette> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
@@ -502,6 +537,119 @@ export function getArtworkPalette(imageSrc: string): Promise<ArtworkPalette> {
   });
 }
 
+const syncPaletteDataset = () => {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  root.dataset.statsLcPaletteQueue = String(paletteQueue.length);
+  root.dataset.statsLcPaletteActive = String(activePaletteJobs);
+  root.dataset.statsLcPaletteCached = String(paletteCache.size);
+  root.dataset.statsLcPaletteBudget = String(getPaletteCacheBudget());
+};
+
+const getMaxConcurrentPaletteJobs = () => (
+  motionRuntime.getSnapshot().tier === 'full' ? 2 : 1
+);
+
+const drainPaletteQueue = () => {
+  paletteDrainTimer = null;
+  if (typeof window === 'undefined') return;
+  if (!motionRuntime.getSnapshot().isPageVisible) {
+    syncPaletteDataset();
+    return;
+  }
+
+  const maxConcurrent = getMaxConcurrentPaletteJobs();
+  while (activePaletteJobs < maxConcurrent && paletteQueue.length > 0) {
+    const job = paletteQueue.shift();
+    if (!job) continue;
+
+    activePaletteJobs += 1;
+    syncPaletteDataset();
+    extractArtworkPalette(job.source)
+      .then(job.resolve)
+      .finally(() => {
+        pendingPalettePromises.delete(job.source);
+        activePaletteJobs = Math.max(0, activePaletteJobs - 1);
+        syncPaletteDataset();
+        schedulePaletteDrain();
+      });
+  }
+
+  syncPaletteDataset();
+};
+
+const schedulePaletteDrain = () => {
+  if (typeof window === 'undefined' || paletteDrainTimer !== null) return;
+  ensurePaletteRuntimeSubscription();
+  const requestIdleCallback = (window as IdleWindow).requestIdleCallback;
+  paletteDrainTimer = requestIdleCallback
+    ? requestIdleCallback(drainPaletteQueue, { timeout: 180 })
+    : window.setTimeout(drainPaletteQueue, 0);
+};
+
+const trimPaletteCaches = () => {
+  const budget = getPaletteCacheBudget();
+  while (paletteCache.size > budget) {
+    const firstKey = paletteCache.keys().next().value;
+    if (!firstKey) break;
+    paletteCache.delete(firstKey);
+    colorCache.delete(firstKey);
+  }
+  while (colorCache.size > budget) {
+    const firstKey = colorCache.keys().next().value;
+    if (!firstKey) break;
+    colorCache.delete(firstKey);
+  }
+};
+
+const ensurePaletteRuntimeSubscription = () => {
+  if (paletteRuntimeSubscriptionReady || typeof window === 'undefined') return;
+  paletteRuntimeSubscriptionReady = true;
+  motionRuntime.subscribe(() => {
+    trimPaletteCaches();
+    if (motionRuntime.getSnapshot().isPageVisible) schedulePaletteDrain();
+    syncPaletteDataset();
+  });
+};
+
+const queuePaletteExtraction = (imageSrc: string) => {
+  const pending = pendingPalettePromises.get(imageSrc);
+  if (pending) return pending;
+
+  let resolveJob: (palette: ArtworkPalette) => void = () => {};
+  const promise = new Promise<ArtworkPalette>((resolve) => {
+    resolveJob = resolve;
+  });
+  const job: PaletteJob = {
+    order: paletteJobOrder++,
+    promise,
+    resolve: resolveJob,
+    source: imageSrc,
+  };
+
+  pendingPalettePromises.set(imageSrc, promise);
+  paletteQueue.push(job);
+  paletteQueue.sort((a, b) => a.order - b.order);
+  schedulePaletteDrain();
+  syncPaletteDataset();
+  return promise;
+};
+
+export function getArtworkPalette(imageSrc: string): Promise<ArtworkPalette> {
+  if (paletteCache.has(imageSrc)) {
+    return Promise.resolve(paletteCache.get(imageSrc)!);
+  }
+
+  if (typeof window === 'undefined' || typeof Image === 'undefined') {
+    const palette = createFallbackPalette();
+    cachePalette(imageSrc, palette);
+    cacheColor(imageSrc, palette.vinylColor);
+    return Promise.resolve(palette);
+  }
+
+  return queuePaletteExtraction(imageSrc);
+}
+
 /**
  * Get a stable accent color from the artwork using local canvas sampling.
  * Includes caching to avoid reprocessing the same images.
@@ -516,7 +664,7 @@ export function getDominantColor(imageSrc: string): Promise<string> {
 }
 
 function cacheEntry<T>(cache: Map<string, T>, imageSrc: string, value: T): void {
-  if (cache.size >= MAX_CACHE_SIZE) {
+  if (cache.size >= getPaletteCacheBudget()) {
     const firstKey = cache.keys().next().value;
     if (firstKey) cache.delete(firstKey);
   }

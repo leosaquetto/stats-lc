@@ -13,10 +13,299 @@ import { LOGO_ORANGE, LOGO_BLACK_ORANGE } from '../../constants';
 import { useStatsStore } from '../../store/useStatsStore';
 import { animationTokens, easeOutQuart } from '../../lib/animationTokens';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
+import { useCompositorLoopTelemetry } from '../../hooks/useCompositorLoopTelemetry';
+import { motionRuntime } from '../../lib/motionRuntime';
+import { hasImageAssetLoaded, markImageAssetLoaded, preloadImageAssets } from '../../lib/assetRuntime';
+import { setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+type EngineLoopPriority = 'ambient' | 'focus';
+
+const useEngineLoopState = <T extends HTMLElement>(
+  active: boolean,
+  kind: string,
+  priority: EngineLoopPriority = 'ambient',
+) => {
+  const {
+    canAnimate,
+    ref,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<T>({
+    initialVisible: priority === 'focus',
+    rootMargin: priority === 'focus' ? '80px' : '56px',
+  });
+  const shouldRun = active && (priority === 'focus' ? canAnimate : shouldRunAmbientMotion);
+  useCompositorLoopTelemetry(shouldRun, kind);
+
+  return { ref, shouldRun };
+};
+
+export const EngineEqualizer = memo(({
+  active,
+  barWidth = '1.5px',
+  className = '',
+  barClassName = 'bg-orange-500',
+  priority = 'ambient',
+}: {
+  active: boolean;
+  barWidth?: string;
+  className?: string;
+  barClassName?: string;
+  priority?: EngineLoopPriority;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLDivElement>(active, 'equalizer', priority);
+
+  return (
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className={cn('stats-lc-engine-loop stats-lc-engine-equalizer flex items-end', className)}
+      data-active={shouldRun ? 'true' : 'false'}
+      style={{ '--stats-lc-engine-bar-width': barWidth } as React.CSSProperties}
+    >
+      {[0, 1, 2].map((index) => (
+        <span
+          key={index}
+          className={cn('h-full origin-bottom rounded-full', barClassName)}
+        />
+      ))}
+    </div>
+  );
+});
+
+EngineEqualizer.displayName = 'EngineEqualizer';
+
+export const EnginePulse = memo(({
+  active,
+  className = '',
+  delay = 0,
+  duration = 2,
+  priority = 'ambient',
+  style,
+}: {
+  active: boolean;
+  className?: string;
+  delay?: number;
+  duration?: number;
+  priority?: EngineLoopPriority;
+  style?: React.CSSProperties;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLSpanElement>(active, 'pulse', priority);
+  return (
+    <span
+      ref={ref}
+      aria-hidden="true"
+      className={cn('stats-lc-engine-loop stats-lc-engine-pulse', className)}
+      data-active={shouldRun ? 'true' : 'false'}
+      style={{
+        ...style,
+        '--stats-lc-engine-delay': `${delay}s`,
+        '--stats-lc-engine-duration': `${duration}s`,
+      } as React.CSSProperties}
+    />
+  );
+});
+
+EnginePulse.displayName = 'EnginePulse';
+
+export const EngineBreathe = memo(({
+  active,
+  children,
+  className = '',
+  duration = 2.4,
+  fromOpacity = 0.72,
+  fromScale = 0.97,
+  priority = 'ambient',
+  style,
+  toOpacity = 1,
+  toScale = 1.03,
+}: {
+  active: boolean;
+  children?: React.ReactNode;
+  className?: string;
+  duration?: number;
+  fromOpacity?: number;
+  fromScale?: number;
+  priority?: EngineLoopPriority;
+  style?: React.CSSProperties;
+  toOpacity?: number;
+  toScale?: number;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLDivElement>(active, 'breathe', priority);
+  return (
+    <div
+      ref={ref}
+      aria-hidden={children ? undefined : 'true'}
+      className={cn('stats-lc-engine-loop stats-lc-engine-breathe', className)}
+      data-active={shouldRun ? 'true' : 'false'}
+      style={{
+        ...style,
+        '--stats-lc-engine-duration': `${duration}s`,
+        '--stats-lc-engine-from-opacity': fromOpacity,
+        '--stats-lc-engine-from-scale': fromScale,
+        '--stats-lc-engine-to-opacity': toOpacity,
+        '--stats-lc-engine-to-scale': toScale,
+      } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+});
+
+EngineBreathe.displayName = 'EngineBreathe';
+
+export const EngineSpin = memo(({
+  active,
+  children,
+  className = '',
+  duration = 20,
+  priority = 'ambient',
+  reverse = false,
+  style,
+}: {
+  active: boolean;
+  children?: React.ReactNode;
+  className?: string;
+  duration?: number;
+  priority?: EngineLoopPriority;
+  reverse?: boolean;
+  style?: React.CSSProperties;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLDivElement>(active, 'spin', priority);
+  return (
+    <div
+      ref={ref}
+      className={cn('stats-lc-engine-loop stats-lc-engine-spin', className)}
+      data-active={shouldRun ? 'true' : 'false'}
+      data-reverse={reverse ? 'true' : 'false'}
+      style={{
+        ...style,
+        '--stats-lc-engine-duration': `${duration}s`,
+      } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+});
+
+EngineSpin.displayName = 'EngineSpin';
+
+export const EngineSpinner = memo(({
+  active = true,
+  children,
+  className = '',
+  duration = 1.05,
+  reverse = false,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  className?: string;
+  duration?: number;
+  reverse?: boolean;
+}) => (
+  <EngineSpin
+    active={active}
+    className={cn('inline-flex shrink-0 items-center justify-center align-middle leading-none', className)}
+    duration={duration}
+    priority="focus"
+    reverse={reverse}
+  >
+    {children}
+  </EngineSpin>
+));
+
+EngineSpinner.displayName = 'EngineSpinner';
+
+export const EngineDrift = memo(({
+  active,
+  children,
+  className = '',
+  delay = 0,
+  duration = 12,
+  priority = 'ambient',
+  rotateA = 0.6,
+  rotateB = -0.4,
+  style,
+  xA = 8,
+  xB = -5,
+  yA = -5,
+  yB = 4,
+}: {
+  active: boolean;
+  children?: React.ReactNode;
+  className?: string;
+  delay?: number;
+  duration?: number;
+  priority?: EngineLoopPriority;
+  rotateA?: number;
+  rotateB?: number;
+  style?: React.CSSProperties;
+  xA?: number;
+  xB?: number;
+  yA?: number;
+  yB?: number;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLDivElement>(active, 'drift', priority);
+  return (
+    <div
+      ref={ref}
+      className={cn('stats-lc-engine-loop stats-lc-engine-drift', className)}
+      data-active={shouldRun ? 'true' : 'false'}
+      style={{
+        ...style,
+        '--stats-lc-engine-delay': `${delay}s`,
+        '--stats-lc-engine-duration': `${duration}s`,
+        '--stats-lc-engine-rotate-a': `${rotateA}deg`,
+        '--stats-lc-engine-rotate-b': `${rotateB}deg`,
+        '--stats-lc-engine-x-a': `${xA}px`,
+        '--stats-lc-engine-x-b': `${xB}px`,
+        '--stats-lc-engine-y-a': `${yA}px`,
+        '--stats-lc-engine-y-b': `${yB}px`,
+      } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  );
+});
+
+EngineDrift.displayName = 'EngineDrift';
+
+export const EngineShimmer = ({
+  active,
+  className = '',
+  duration,
+  priority = 'ambient',
+  style,
+  strong = false,
+}: {
+  active: boolean;
+  className?: string;
+  duration: number;
+  priority?: EngineLoopPriority;
+  style?: React.CSSProperties;
+  strong?: boolean;
+}) => {
+  const { ref, shouldRun } = useEngineLoopState<HTMLDivElement>(active, 'shimmer', priority);
+  return (
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className={cn(
+        'stats-lc-engine-loop stats-lc-engine-shimmer absolute inset-y-0 left-0 w-[200%]',
+        strong ? 'stats-lc-engine-shimmer-strong' : 'stats-lc-engine-shimmer-soft',
+        className,
+      )}
+      data-active={shouldRun ? 'true' : 'false'}
+      style={{
+        ...style,
+        '--stats-lc-engine-duration': `${duration}s`,
+      } as React.CSSProperties}
+    />
+  );
+};
 
 export const OrbitPagerIndicator = memo(({
   count,
@@ -69,17 +358,14 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >
-      <motion.div 
+      <EngineBreathe
+        active={shouldRunAmbientMotion}
         className="absolute inset-0 rounded-full bg-orange-500/20 blur-md"
-        animate={shouldRunAmbientMotion ? {
-          scale: [1, 1.3, 1],
-          opacity: [0.2, 0.4, 0.2]
-        } : { scale: 1, opacity: 0.22 }}
-        transition={{ 
-          duration: 4, 
-          repeat: shouldRunAmbientMotion ? Infinity : 0,
-          ease: "easeInOut" 
-        }}
+        duration={4}
+        fromOpacity={0.2}
+        fromScale={1}
+        toOpacity={0.4}
+        toScale={1.3}
       />
       
       {variant === 'orange' ? (
@@ -91,51 +377,9 @@ export const StatsLCLogo = ({ size = 32, className = "", variant = "orange" }: {
   );
 };
 
-const loadedImageSrcs = new Set<string>();
-const preloadingImageSrcs = new Map<string, Promise<void>>();
 const stableImageSrcByKey = new Map<string, string>();
 
-export const preloadSmartImages = (sources: Array<string | undefined | null>) => {
-  if (typeof window === 'undefined') return Promise.resolve();
-
-  const uniqueSources = Array.from(new Set(
-    sources
-      .map((source) => typeof source === 'string' ? source : '')
-      .filter((source) => source.trim().length > 5 && !source.includes('private.webp'))
-  ));
-
-  return Promise.allSettled(uniqueSources.map((source) => {
-    if (loadedImageSrcs.has(source)) return Promise.resolve();
-
-    const existing = preloadingImageSrcs.get(source);
-    if (existing) return existing;
-
-    const promise = new Promise<void>((resolve) => {
-      const image = new Image();
-      const done = () => {
-        loadedImageSrcs.add(source);
-        preloadingImageSrcs.delete(source);
-        resolve();
-      };
-      const timeout = window.setTimeout(done, 1800);
-
-      image.onload = () => {
-        window.clearTimeout(timeout);
-        if (image.decode) {
-          image.decode().then(done).catch(done);
-        } else {
-          done();
-        }
-      };
-      image.onerror = done;
-      image.decoding = 'async';
-      image.src = source;
-    });
-
-    preloadingImageSrcs.set(source, promise);
-    return promise;
-  })).then(() => undefined);
-};
+export const preloadSmartImages = preloadImageAssets;
 
 export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "👤", rounded = "2xl" }: { src?: string, fallbackSrc?: string, cacheKey?: string, className?: string, fallback?: string, rounded?: string }) => {
   const inputSrc = (typeof src === 'string' ? src : ((src as any)?.url || "")).trim();
@@ -149,13 +393,14 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const previousDisplaySrc = lastGoodSrcRef.current || cachedStableSrc;
 
   const [error, setError] = useState(false);
-  const [loading, setLoading] = useState(() => inputSrc ? loadedImageSrcs.has(inputSrc) === false : true);
+  const [loading, setLoading] = useState(() => inputSrc ? !hasImageAssetLoaded(inputSrc) : true);
   const [showFallback, setShowFallback] = useState(false);
   const shimmerDuration = useStatsStore(state => state.shimmerDuration) || 2.8;
   const {
     ref: imageFrameRef,
+    isInViewport,
     shouldRunAmbientMotion,
-  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
+  } = useViewportMotionGate<HTMLDivElement>({ initialVisible: false, rootMargin: '220px' });
   const imageRef = useRef<HTMLImageElement>(null);
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
@@ -174,7 +419,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
       setOverrideSrc('');
       setError(false);
       setShowFallback(false);
-      setLoading(!!inputSrc && !loadedImageSrcs.has(inputSrc));
+      setLoading(!!inputSrc && !hasImageAssetLoaded(inputSrc));
     }
 
     if (!cacheKey) return;
@@ -187,7 +432,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   useEffect(() => {
     setError(false);
     setShowFallback(false);
-    setLoading(!!displaySrc && !loadedImageSrcs.has(displaySrc));
+    setLoading(!!displaySrc && !hasImageAssetLoaded(displaySrc));
 
     if (!displaySrc || displaySrc.includes("private.webp")) {
       const timer = setTimeout(() => setShowFallback(true), 400);
@@ -201,8 +446,8 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
     if (image.complete && image.naturalWidth > 0) {
       lastGoodSrcRef.current = imageSrc;
-      if (cacheKey) stableImageSrcByKey.set(cacheKey, imageSrc);
-      loadedImageSrcs.add(imageSrc);
+      if (cacheKey) setRuntimeCacheEntry(stableImageSrcByKey, cacheKey, imageSrc, 'large');
+      markImageAssetLoaded(imageSrc);
       setLoading(false);
       setShowFallback(false);
     }
@@ -220,6 +465,9 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
   const shouldShowFallback = !hasDisplayableSrc && showFallback && !previousDisplaySrc;
   const shouldKeepPreviousImage = previousBelongsToCurrentKey && !!previousDisplaySrc && (loading || error || previousDisplaySrc !== imageSrc);
+  const shouldLoadEagerly = isInViewport || hasImageAssetLoaded(imageSrc);
+  const imageLoadingMode = shouldLoadEagerly ? 'eager' : 'lazy';
+  const imageFetchPriority = shouldLoadEagerly ? 'high' : 'low';
 
   return (
     <div ref={imageFrameRef} className={cn("relative overflow-hidden bg-white/5", className, `rounded-${rounded}`)}>
@@ -228,30 +476,16 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
           src={previousDisplaySrc}
           className={cn("absolute inset-0 h-full w-full object-cover", `rounded-${rounded}`)}
           referrerPolicy="no-referrer"
-          loading="eager"
+          loading={imageLoadingMode}
+          fetchPriority={imageFetchPriority}
+          decoding="async"
           alt=""
           aria-hidden="true"
         />
       )}
       {loading && (
         <div className="absolute inset-0 bg-white/[0.02] overflow-hidden">
-          <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%)',
-              width: '200%',
-              height: '100%',
-            }}
-            initial={{ x: '-100%' }}
-            animate={shouldRunAmbientMotion ? { x: '100%' } : { x: '-100%' }}
-            transition={shouldRunAmbientMotion
-              ? {
-                  repeat: Infinity,
-                  duration: shimmerDuration,
-                  ease: "linear",
-                }
-              : { duration: 0.16 }}
-          />
+          <EngineShimmer active={shouldRunAmbientMotion} duration={shimmerDuration} strong />
         </div>
       )}
       {shouldShowFallback ? (
@@ -265,12 +499,14 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
           src={imageSrc}
           className={cn("h-full w-full object-cover transition-opacity duration-300", loading ? "opacity-0" : "opacity-100", `rounded-${rounded}`)}
           referrerPolicy="no-referrer"
-          loading="eager"
+          loading={imageLoadingMode}
+          fetchPriority={imageFetchPriority}
+          decoding="async"
           ref={imageRef}
           onLoad={() => {
             lastGoodSrcRef.current = imageSrc;
-            if (cacheKey) stableImageSrcByKey.set(cacheKey, imageSrc);
-            loadedImageSrcs.add(imageSrc);
+            if (cacheKey) setRuntimeCacheEntry(stableImageSrcByKey, cacheKey, imageSrc, 'large');
+            markImageAssetLoaded(imageSrc);
             setLoading(false);
             setError(false);
             setShowFallback(false);
@@ -337,6 +573,12 @@ export const ScrollingText = ({ text, className, speed = 30 }: { text: string; c
   const [scrollWidth, setScrollWidth] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
+  const {
+    ref: marqueeMotionRef,
+    shouldRunAmbientMotion,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '160px' });
+  const shouldRunMarquee = shouldAnimate && shouldRunAmbientMotion;
+  useCompositorLoopTelemetry(shouldRunMarquee, 'marquee');
 
   useEffect(() => {
     const check = () => {
@@ -363,19 +605,18 @@ export const ScrollingText = ({ text, className, speed = 30 }: { text: string; c
       </span>
       
       {shouldAnimate ? (
-        <motion.div
-          animate={{ x: [0, -(scrollWidth + 32)] }}
-          transition={{
-            duration: Math.max(scrollWidth / speed, 8),
-            repeat: Infinity,
-            ease: "linear",
-            repeatDelay: 3
-          }}
-          className="flex w-max whitespace-nowrap"
+        <div
+          ref={marqueeMotionRef}
+          className="stats-lc-engine-loop stats-lc-engine-marquee flex w-max whitespace-nowrap"
+          data-active={shouldRunMarquee ? 'true' : 'false'}
+          style={{
+            '--stats-lc-engine-distance': `${scrollWidth + 32}px`,
+            '--stats-lc-engine-duration': `${Math.max(scrollWidth / speed, 8) + 3}s`,
+          } as React.CSSProperties}
         >
           <span className="shrink-0 pr-8">{text}</span>
           <span className="shrink-0 pr-8">{text}</span>
-        </motion.div>
+        </div>
       ) : (
         <div className="truncate w-full block whitespace-nowrap">
           {text}
@@ -413,22 +654,7 @@ const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: 
 
   return (
     <div ref={shimmerRef} className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
-      <motion.div
-        className="absolute inset-0"
-        initial={{ x: '-100%' }}
-        animate={shouldRunAmbientMotion ? { x: '100%' } : { x: '-100%' }}
-        transition={shouldRunAmbientMotion
-          ? {
-              repeat: Infinity,
-              duration,
-              ease: "linear",
-            }
-          : { duration: 0.16 }}
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.02) 20%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.02) 80%, transparent 100%)',
-          willChange: shouldRunAmbientMotion ? 'transform' : 'auto'
-        }}
-      />
+      <EngineShimmer active={shouldRunAmbientMotion} duration={duration} />
     </div>
   );
 };
@@ -437,7 +663,7 @@ export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { class
   <div className={cn(
     "relative overflow-hidden bg-white/[0.03] border border-white/[0.05]", 
     `rounded-${rounded}`,
-    !shimmer && "animate-pulse",
+    !shimmer && "stats-lc-engine-loop",
     className
   )}>
     {shimmer && <ShimmerOverlay />}
@@ -455,22 +681,24 @@ export const AnimatedNumber = ({
 }) => {
   const {
     ref: numberRef,
-    isInViewport,
-    prefersReducedMotion,
+    canAnimate,
   } = useViewportMotionGate<HTMLSpanElement>({ rootMargin: '120px' });
   const initialValue = startFrom == null ? value : startFrom;
   const initialValueRef = useRef(initialValue);
   const displayValueRef = useRef(initialValue);
   const prevValueRef = useRef(initialValue);
-  const requestRef = useRef<number | undefined>(undefined);
-  const startTimeRef = useRef<number | undefined>(undefined);
+  const animationStateRef = useRef<{
+    duration: number;
+    endValue: number;
+    startTime?: number;
+    startValue: number;
+  } | null>(null);
 
   useEffect(() => {
     if (prevValueRef.current === value) return;
 
-    if (!isInViewport || prefersReducedMotion) {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      startTimeRef.current = undefined;
+    if (!canAnimate) {
+      animationStateRef.current = null;
       prevValueRef.current = value;
       displayValueRef.current = value;
       if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(value);
@@ -490,31 +718,36 @@ export const AnimatedNumber = ({
         )
       : animationTokens.durationMs.number;
 
-    const animate = (time: number) => {
-      if (!startTimeRef.current) startTimeRef.current = time;
-      const elapsed = time - startTimeRef.current;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Quartic out easing for smoother finish
+    animationStateRef.current = { duration, endValue, startValue };
+
+    let unsubscribe = () => {};
+    unsubscribe = motionRuntime.subscribeFrame(({ now }) => {
+      const state = animationStateRef.current;
+      if (!state) {
+        unsubscribe();
+        return;
+      }
+
+      if (state.startTime === undefined) state.startTime = now;
+      const elapsed = now - state.startTime;
+      const progress = Math.min(elapsed / state.duration, 1);
       const easeProgress = easeOutQuart(progress);
-      const current = Math.floor(startValue + (endValue - startValue) * easeProgress);
+      const current = Math.floor(state.startValue + (state.endValue - state.startValue) * easeProgress);
       displayValueRef.current = current;
       if (numberRef.current) numberRef.current.textContent = coreUtils.formatNumber(current);
 
-      if (progress < 1) {
-        requestRef.current = requestAnimationFrame(animate);
-      } else {
-        prevValueRef.current = endValue;
-        startTimeRef.current = undefined;
+      if (progress >= 1) {
+        prevValueRef.current = state.endValue;
+        animationStateRef.current = null;
+        unsubscribe();
       }
-    };
+    }, { maxFps: 60, priority: 'interaction' });
 
-    requestRef.current = requestAnimationFrame(animate);
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      startTimeRef.current = undefined;
+      animationStateRef.current = null;
+      unsubscribe();
     };
-  }, [adaptive, value, isInViewport, prefersReducedMotion, numberRef]);
+  }, [adaptive, canAnimate, value, numberRef]);
 
   return <span ref={numberRef}>{coreUtils.formatNumber(initialValueRef.current)}</span>;
 };

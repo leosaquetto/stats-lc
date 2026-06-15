@@ -1,8 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Share2, Download, Check, Loader2, Palette, ChevronRight, Layout } from 'lucide-react';
 import { snapshotService, ShareTemplate } from '../../services/snapshotService';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx } from 'clsx';
+import { EngineSpin } from './CommonUI';
+import { motionRuntime as motionRuntimeScheduler } from '../../lib/motionRuntime';
 
 interface ShareButtonProps {
   targetRef: React.RefObject<HTMLElement>;
@@ -27,10 +29,25 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
   const [status, setStatus] = useState<'idle' | 'selecting' | 'capturing' | 'shared' | 'error'>('idle');
   const [activeTemplate, setActiveTemplate] = useState<ShareTemplate>('glass');
   const menuRef = useRef<HTMLDivElement>(null);
+  const resetStatusCancelRef = useRef<null | (() => void)>(null);
+
+  useEffect(() => () => {
+    resetStatusCancelRef.current?.();
+  }, []);
+
+  const scheduleIdleReset = () => {
+    resetStatusCancelRef.current?.();
+    resetStatusCancelRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      resetStatusCancelRef.current = null;
+      setStatus('idle');
+    }, 3000, 'interaction');
+  };
 
   const startCapture = async (template: ShareTemplate) => {
     if (!targetRef.current) return;
-    
+
+    resetStatusCancelRef.current?.();
+    resetStatusCancelRef.current = null;
     setStatus('capturing');
     setActiveTemplate(template);
     
@@ -45,16 +62,16 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
         const shared = await snapshotService.shareImage(dataUrl, title);
         setStatus(shared ? 'shared' : 'idle');
         if (shared) {
-          setTimeout(() => setStatus('idle'), 3000);
+          scheduleIdleReset();
         }
       } else {
         setStatus('error');
-        setTimeout(() => setStatus('idle'), 3000);
+        scheduleIdleReset();
       }
     } catch (err) {
       console.error(err);
       setStatus('error');
-      setTimeout(() => setStatus('idle'), 3000);
+      scheduleIdleReset();
     }
   };
 
@@ -85,15 +102,13 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
       >
         <AnimatePresence mode="wait">
           {status === 'capturing' ? (
-            <motion.div
+            <EngineSpin
+              active
+              duration={1}
               key="loading"
-              initial={{ opacity: 0, rotate: 0 }}
-              animate={{ opacity: 1, rotate: 360 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
             >
               <Loader2 className="h-4 w-4" />
-            </motion.div>
+            </EngineSpin>
           ) : status === 'shared' ? (
             <motion.div
               key="success"

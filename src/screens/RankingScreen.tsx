@@ -7,9 +7,9 @@
 import { lazy, Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { useStatsStore } from '../store/useStatsStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, ChevronDown, Loader2, Swords, Share2 } from 'lucide-react';
+import { Award, Trophy, Users, Flame, TrendingUp, TrendingDown, RefreshCcw, AlertTriangle, ChevronDown, Swords, Share2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
+import { EnginePulse, EngineSpin, EngineSpinner, SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
 import { GlobalStatsComparer } from '../components/stats/GlobalStatsComparer';
 import { GROUP_USERS, coreUtils } from '../services/statsCore';
 import { UserStats } from '../types/stats';
@@ -17,6 +17,8 @@ import { statsService } from '../services/statsService';
 import { ShareButton } from '../components/shared/ShareButton';
 import { getVisibleMembers } from '../lib/memberSelectors';
 import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
+import { LazyModalFallback } from '../components/shared/LazyModalFallback';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
 
 const UserDetailModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.UserDetailModal })));
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
@@ -44,7 +46,7 @@ const RankingCard = ({ user, i, rankingType, isLeo, onClick, trend }: any) => {
         <div className="relative">
           <div 
             className={clsx(
-              "ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-[background-color,border-color,color,transform] duration-500",
+              "stats-lc-engine-loop ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-[background-color,border-color,color,transform] duration-500",
               trend > 0 
                 ? "bg-green-500/10 border-green-400/40 text-green-400 glow-up" 
                 : trend < 0
@@ -80,7 +82,11 @@ const RankingCard = ({ user, i, rankingType, isLeo, onClick, trend }: any) => {
                 </h3>
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
-                 <div className={clsx("h-1.5 w-1.5 rounded-full", user.streamsToday > 30 ? "bg-orange-500 animate-pulse" : "bg-white/10")} />
+                 {user.streamsToday > 30 ? (
+                   <EnginePulse active className="h-1.5 w-1.5 rounded-full bg-orange-500" duration={1.8} />
+                 ) : (
+                   <div className="h-1.5 w-1.5 rounded-full bg-white/10" />
+                 )}
                  <span className="text-[9px] text-white/20 uppercase font-black tracking-[0.15em]">
                     {i === 0 ? "Lendário" : "Membro Ativo"}
                  </span>
@@ -128,6 +134,7 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
   const setFeaturedUserId = useStatsStore(state => state.setFeaturedUserId);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const { executeWithCooldown } = useRefreshCooldown(2000);
+  const motionRuntime = useMotionRuntime();
   const [activeRange, setActiveRange] = useState<Range>('months');
   const [rankingType, setRankingType] = useState<'streams' | 'duration'>('streams');
   const [rankingsData, setRankingsData] = useState<Record<string, { count: number, durationMs: number }>>({});
@@ -149,6 +156,7 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
     [members, featuredUserId]
   );
   const effectiveFeaturedUserId = featuredUser?.id || featuredUserId || '';
+  const shouldAnimateSelector = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   
   useEffect(() => {
     let cancelled = false;
@@ -327,7 +335,7 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
 
   return (
     <div className={clsx("flex flex-col px-4", embedded ? "gap-4 pb-2" : "gap-6 pb-32")}>
-      <Suspense fallback={<div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm"><Loader2 className="h-5 w-5 animate-spin text-orange-400" /></div>}>
+      <Suspense fallback={<LazyModalFallback />}>
         <AnimatePresence>
           {selectedUser && (
             <UserDetailModal 
@@ -358,6 +366,9 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
         )}
         <div className="flex gap-2 relative">
           <button 
+                type="button"
+                aria-label="Focar perfil"
+                aria-expanded={showUserSelector}
                 onClick={() => setShowUserSelector(!showUserSelector)} 
                 className={clsx(
                   "h-10 w-10 glass rounded-2xl flex items-center justify-center transition-[background-color,border-color,transform] duration-200 active:scale-[0.96]",
@@ -367,7 +378,9 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
                  <Users className="h-4 w-4 text-white/40" />
           </button>
           <button onClick={executeWithCooldown(() => fetchGroupLive())} className="h-10 w-10 glass rounded-2xl flex items-center justify-center">
-             <RefreshCcw className={clsx("h-4 w-4 text-white/50", (isGlobalLoading || isLocalLoading) && "animate-spin")} />
+             <EngineSpinner active={isGlobalLoading || isLocalLoading} className="h-4 w-4 text-white/50">
+               <RefreshCcw className="h-full w-full" />
+             </EngineSpinner>
           </button>
 
           <AnimatePresence>
@@ -388,9 +401,18 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
                 >
                   <div className="text-[9px] font-bold uppercase tracking-widest text-white/20 px-3 py-2 mb-1">Focar Perfil</div>
                   <div className="flex flex-col gap-1">
-                    {members.map((u) => (
-                      <button
+                    {members.map((u, index) => (
+                      <motion.button
                         key={u.id}
+                        type="button"
+                        initial={shouldAnimateSelector ? { opacity: 0, y: 6, scale: 0.985 } : false}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={shouldAnimateSelector ? { opacity: 0, y: -3, scale: 0.99 } : undefined}
+                        transition={{
+                          duration: shouldAnimateSelector ? 0.18 : 0.01,
+                          delay: shouldAnimateSelector ? Math.min(index, 5) * 0.024 : 0,
+                          ease: [0.16, 1, 0.3, 1],
+                        }}
                         onClick={() => {
                           setFeaturedUserId(u.id);
                           // setShowUserSelector(false);
@@ -419,7 +441,7 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
                         )}>
                           {u.name}
                         </span>
-                      </button>
+                      </motion.button>
                     ))}
                   </div>
                 </motion.div>
@@ -579,9 +601,9 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
                  >
                     <SmartImage src={sortedUsers[0].avatar} className="h-full w-full" fallback="" rounded="full" />
                  </div>
-                 <motion.div 
-                   animate={{ rotate: 360 }}
-                   transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                 <EngineSpin
+                   active
+                   duration={15}
                    className="absolute inset-[-12px] border-2 border-dashed border-white/5 rounded-full"
                  />
               </div>

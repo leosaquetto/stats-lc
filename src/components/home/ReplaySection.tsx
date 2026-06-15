@@ -6,7 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { ChevronDown, ChevronRight, Share2 } from 'lucide-react';
-import { AnimatedNumber, SmartImage } from '../shared/CommonUI';
+import { AnimatedNumber, EngineShimmer, SmartImage } from '../shared/CommonUI';
 import { coreUtils } from '../../services/statsCore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -181,10 +181,11 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
       <div className="pointer-events-none absolute -right-28 top-0 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(255,179,45,0.22)_0%,rgba(239,92,38,0.12)_42%,rgba(0,0,0,0)_72%)]" />
       {isLoading && (
         <div className="absolute left-0 right-0 top-2 h-px overflow-hidden rounded-full bg-white/5">
-          <motion.div
-            className="h-full w-1/2 rounded-full bg-orange-500/70"
-            animate={{ x: ['-100%', '220%'] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+          <EngineShimmer
+            active
+            duration={1.2}
+            className="h-full rounded-full"
+            style={{ background: 'rgba(249,115,22,0.7)' }}
           />
         </div>
       )}

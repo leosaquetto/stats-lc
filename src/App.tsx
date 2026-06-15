@@ -10,12 +10,14 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStatsStore } from './store/useStatsStore';
 import { RefreshCcw } from 'lucide-react';
 import { motion } from 'motion/react';
+import { EngineSpinner } from './components/shared/CommonUI';
 import {
   loadCircleScreen,
   loadHomeScreen,
   loadSettingsScreen,
   loadStatsScreen,
 } from './lib/routePreloads';
+import { useMotionRuntime } from './hooks/useMotionRuntime';
 
 const HomeScreen = lazy(loadHomeScreen);
 const StatsScreen = lazy(loadStatsScreen);
@@ -47,12 +49,27 @@ const isChunkLoadError = (error: unknown) => {
 };
 
 const RouteLoader = () => (
-  <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 bg-[#050505] px-6 text-center">
-    <div className="relative h-14 w-14 rounded-full border border-orange-500/25 bg-orange-500/10 flex items-center justify-center shadow-[0_0_30px_rgba(249,115,22,0.22)]">
-      <RefreshCcw className="h-5 w-5 text-orange-400 animate-spin" />
-    </div>
-    <span className="text-[10px] font-black uppercase tracking-[0.26em] text-white/55">Carregando seção</span>
-  </div>
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+    data-stats-lc-route-loader="true"
+    className="pointer-events-none fixed inset-0 z-[44] flex h-[100svh] min-h-[100svh] w-screen min-w-0 flex-col items-center justify-center gap-4 overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom,0px)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
+  >
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.22, delay: 0.03, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-col items-center justify-center gap-4"
+    >
+      <div className="ranking-badge relative flex h-14 min-w-14 items-center justify-center rounded-[22px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_32px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]">
+        <EngineSpinner className="h-5 w-5 text-orange-300">
+          <RefreshCcw className="h-full w-full" />
+        </EngineSpinner>
+      </div>
+      <span className="text-[10px] font-black uppercase tracking-[0.26em] text-orange-200/70">Carregando seção</span>
+    </motion.div>
+  </motion.div>
 );
 
 class RouteErrorBoundary extends Component<
@@ -180,15 +197,19 @@ class RouteErrorBoundary extends Component<
 
 function AppRoutes() {
   const location = useLocation();
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateRoute = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const routeKey = `${location.pathname}${location.search}`;
 
   return (
-    <RouteErrorBoundary routeKey={`${location.pathname}${location.search}`}>
-      <Suspense fallback={<RouteLoader />}>
+    <RouteErrorBoundary routeKey={routeKey}>
+      <Suspense key={routeKey} fallback={<RouteLoader />}>
         <motion.div
-          key={`${location.pathname}${location.search}`}
-          initial={{ opacity: 0, x: 10 }}
+          key={routeKey}
+          className="w-full min-w-0"
+          initial={shouldAnimateRoute ? { opacity: 0, x: 10 } : { opacity: 1, x: 0 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: shouldAnimateRoute ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
         >
           <Routes location={location}>
             <Route path="/" element={<HomeScreen />} />
@@ -371,22 +392,42 @@ export default function App() {
   useEffect(() => {
     const safePollingFrequency = Math.max(25, pollingFrequency);
     const intervalTime = safePollingFrequency * 1000;
+    let cancelled = false;
+    let running = false;
+    let timer = 0;
 
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchGroupLive();
+    const scheduleNext = () => {
+      window.clearTimeout(timer);
+      if (cancelled || document.visibilityState !== 'visible') return;
+      timer = window.setTimeout(() => {
+        void runPoll();
+      }, intervalTime);
+    };
+
+    const runPoll = async (refreshImmediately = true) => {
+      if (cancelled || running || document.visibilityState !== 'visible') return;
+      running = true;
+      try {
+        await fetchGroupLive(refreshImmediately);
+      } finally {
+        running = false;
+        scheduleNext();
       }
-    }, intervalTime);
+    };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchGroupLive(false);
+        void runPoll(false);
+      } else {
+        window.clearTimeout(timer);
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    scheduleNext();
 
     return () => {
-      clearInterval(interval);
+      cancelled = true;
+      window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [fetchGroupLive, pollingFrequency]);

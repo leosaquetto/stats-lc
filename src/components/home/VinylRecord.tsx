@@ -10,6 +10,8 @@ import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
 import { VinylTonearm } from './VinylTonearm';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
+import { useCompositorLoopTelemetry } from '../../hooks/useCompositorLoopTelemetry';
+import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../../lib/memoryRuntime';
 
 interface VinylRecordProps {
   albumImage: string;
@@ -48,17 +50,14 @@ const vinylTextureCache = new Map<string, { seed: number; variant: number }>();
 
 const getTextureProfile = (albumImage: string, dominantColor: string) => {
   const key = albumImage || dominantColor || 'no-cover';
-  const cached = vinylTextureCache.get(key);
+  const cached = readRuntimeCacheEntry(vinylTextureCache, key);
   if (cached) return cached;
 
   const seed = hashString(key);
   const variant = 0;
   const profile = { seed, variant };
 
-  if (vinylTextureCache.size > 120) {
-    vinylTextureCache.delete(vinylTextureCache.keys().next().value);
-  }
-  vinylTextureCache.set(key, profile);
+  setRuntimeCacheEntry(vinylTextureCache, key, profile, 'small');
   return profile;
 };
 
@@ -71,20 +70,6 @@ const getRotationFromTransform = (transform: string) => {
     return null;
   }
 };
-
-const decodeVinylImage = (source: string) => new Promise<void>((resolve, reject) => {
-  const image = new Image();
-  image.decoding = 'async';
-  image.onload = () => {
-    if (!image.decode) {
-      resolve();
-      return;
-    }
-    image.decode().then(resolve).catch(reject);
-  };
-  image.onerror = () => reject(new Error(`Unable to load vinyl artwork: ${source}`));
-  image.src = source;
-});
 
 const getVisualIdentity = (_playbackKey: string | undefined, albumImage: string) => (
   albumImage || 'vinyl-placeholder'
@@ -140,7 +125,8 @@ export const VinylRecord = ({
     prefersReducedMotion,
     canAnimate,
     shouldRunAmbientMotion,
-  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '220px' });
+    motionTier,
+  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '96px' });
   const initialIdentity = getVisualIdentity(playbackKey, albumImage);
   const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
     albumImage,
@@ -163,6 +149,7 @@ export const VinylRecord = ({
   const manualPlaybackStartRef = useRef(false);
   const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
+  useCompositorLoopTelemetry(canAnimate && (shouldSpin || shouldRunAmbientMotion), 'vinyl');
   const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
   const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
   incomingVisualRef.current = { albumImage, dominantColor, identity: incomingIdentity, playbackKey };
@@ -237,8 +224,11 @@ export const VinylRecord = ({
 
       if (albumImage) {
         try {
-          await preloadSmartImages([albumImage]);
-          await decodeVinylImage(albumImage);
+          await preloadSmartImages([albumImage], {
+            limit: 1,
+            priority: 'critical',
+            timeoutMs: 1400,
+          });
         } catch {
           // Keep the previous decoded artwork instead of flashing an unloaded cover.
         }
@@ -473,6 +463,14 @@ export const VinylRecord = ({
     previousPlayingRef.current = shouldSpin;
     return () => stopSpin('instant');
   }, [phase, shouldAnimateSpin, shouldSpin]);
+
+  useEffect(() => {
+    const animation = spinAnimationRef.current;
+    if (!animation || !shouldSpin) return;
+    if (canAnimate && isVisible) animation.play();
+    else animation.pause();
+  }, [canAnimate, isVisible, shouldSpin]);
+
   const splatterStreaks = useMemo(() => {
     if (textureVariant !== 2) return [];
     return Array.from({ length: 48 }, (_, i) => {
@@ -537,10 +535,10 @@ export const VinylRecord = ({
       <AnimatePresence>
         {!shouldSpin && shouldRunAmbientMotion && (
           <div
-            className="vinyl-record-aura absolute inset-[-8%] rounded-full pointer-events-none z-0"
+            className="stats-lc-engine-loop vinyl-record-aura absolute inset-[-8%] rounded-full pointer-events-none z-0"
+            data-active="true"
             style={{
-              background: `radial-gradient(circle at center, ${withAlpha(safeDominantColor, 0.25)} 0%, transparent 70%)`,
-              filter: 'blur(12px)',
+              background: `radial-gradient(circle at center, ${withAlpha(safeDominantColor, 0.22)} 0%, ${withAlpha(safeDominantColor, 0.1)} 38%, transparent 72%)`,
             }}
           />
         )}
@@ -558,7 +556,10 @@ export const VinylRecord = ({
         exit={transitionMotion.exit}
         transition={transitionMotion.transition}
       >
-      <div className={`relative h-full w-full ${!shouldSpin && shouldRunAmbientMotion ? "vinyl-record-idle" : ""}`}>
+      <div
+        className={`relative h-full w-full ${!shouldSpin && shouldRunAmbientMotion ? "stats-lc-engine-loop vinyl-record-idle" : ""}`}
+        data-active={!shouldSpin && shouldRunAmbientMotion ? "true" : "false"}
+      >
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[4%] w-[4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/70" />
       <div
         ref={(node) => {
@@ -603,13 +604,31 @@ export const VinylRecord = ({
           <div
             className="absolute rounded-full pointer-events-none z-[10]"
             style={{
-              inset: isMulticolorVinyl ? '-12%' : '-24%',
+              inset: isMulticolorVinyl
+                ? motionTier === 'conserve'
+                  ? '-6%'
+                  : motionTier === 'balanced'
+                    ? '-9%'
+                    : '-12%'
+                : motionTier === 'conserve'
+                  ? '-12%'
+                  : motionTier === 'balanced'
+                    ? '-18%'
+                    : '-24%',
               backgroundImage: `url("${visualSnapshot.albumImage}")`,
               backgroundPosition: 'center',
               backgroundSize: 'cover',
               filter: isMulticolorVinyl
-                ? 'blur(14px) saturate(2.2) contrast(1.12)'
-                : 'blur(34px) saturate(2.1) contrast(1.14)',
+                ? motionTier === 'conserve'
+                  ? 'blur(8px) saturate(1.75) contrast(1.08)'
+                  : motionTier === 'balanced'
+                    ? 'blur(11px) saturate(2) contrast(1.1)'
+                    : 'blur(14px) saturate(2.2) contrast(1.12)'
+                : motionTier === 'conserve'
+                  ? 'blur(16px) saturate(1.65) contrast(1.08)'
+                  : motionTier === 'balanced'
+                    ? 'blur(24px) saturate(1.9) contrast(1.11)'
+                    : 'blur(34px) saturate(2.1) contrast(1.14)',
               mixBlendMode: 'color',
               opacity: isMulticolorVinyl
                 ? (shouldSpin ? 0.9 : 0.72)
@@ -792,7 +811,7 @@ export const VinylRecord = ({
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-900 z-10">
                   <div className="w-2/3 h-2/3 rounded-full border border-white/5 bg-stone-800 flex items-center justify-center shadow-lg">
-                    <Disc className="w-1/2 h-1/2 text-white/20 animate-pulse-slow" />
+                    <Disc className="stats-lc-engine-loop w-1/2 h-1/2 text-white/20 animate-pulse-slow" />
                   </div>
                 </div>
               )}

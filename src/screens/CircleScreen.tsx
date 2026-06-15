@@ -11,12 +11,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LiveGroupOverview, LiveGroupOverviewSkeleton } from '../components/home/HomeHighlights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { OrbitsSection } from '../components/circle/OrbitsSection';
-import { SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
+import { EngineSpinner, SectionHeader, ShimmerOverlay, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
 import { orbitService, type OrbitSummary } from '../services/orbitService';
 import { useStatsStore } from '../store/useStatsStore';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
+import { useMotionRuntime } from '../hooks/useMotionRuntime';
+import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 
 const loadRankingScreen = () => import('./RankingScreen');
 const loadAlikeScreen = () => import('./AlikeScreen');
@@ -308,19 +310,14 @@ function CirclePulseInsights({ members, featuredUserId }: { members: any[]; feat
 
 const CircleTabLoader = ({ label }: { label: string }) => (
   <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
-    <Loader2 className="h-6 w-6 animate-spin text-orange-400/80" />
+    <EngineSpinner className="h-6 w-6 text-orange-400/80">
+      <Loader2 className="h-full w-full" />
+    </EngineSpinner>
     <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">{label}</p>
   </div>
 );
 
-const CircleModalLoader = () => (
-  <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-sm">
-    <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[#141414]/95 px-5 py-3">
-      <Loader2 className="h-4 w-4 animate-spin text-orange-400" />
-      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/55">Abrindo detalhes</span>
-    </div>
-  </div>
-);
+const CircleModalLoader = () => <LazyModalFallback label="Abrindo detalhes" />;
 
 function OrbitSummaryPreview({ currentUserId, onOpen }: { currentUserId?: string; onOpen: () => void }) {
   const [summary, setSummary] = useState<OrbitSummary>(emptyOrbitSummary);
@@ -591,7 +588,9 @@ function DuelsSection() {
   if (status === 'loading' && duels.length === 0) {
     return (
       <div className="mx-4 flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
-        <Loader2 className="h-6 w-6 animate-spin text-orange-400/80" />
+        <EngineSpinner className="h-6 w-6 text-orange-400/80">
+          <Loader2 className="h-full w-full" />
+        </EngineSpinner>
         <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">Montando duelos</p>
       </div>
     );
@@ -882,9 +881,17 @@ function CircleOrbitsTab() {
 }
 
 function CircleArenaTab() {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateCircle = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+
   return (
     <div className="flex flex-col gap-4">
-      <section className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(255,255,255,0.1),transparent_26%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+      <motion.section
+        className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),radial-gradient(circle_at_88%_0%,rgba(255,255,255,0.1),transparent_26%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
+        initial={shouldAnimateCircle ? { opacity: 0, y: 12, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: shouldAnimateCircle ? 0.24 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
             <Trophy className="h-5 w-5" />
@@ -897,7 +904,7 @@ function CircleArenaTab() {
             Live
           </span>
         </div>
-      </section>
+      </motion.section>
 
       <Suspense fallback={<CircleTabLoader label="Carregando ranking da arena" />}>
         <RankingScreen embedded />
@@ -909,6 +916,8 @@ function CircleArenaTab() {
 }
 
 function CircleAffinityTab() {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateCircle = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const groupStats = useStatsStore(state => state.groupStats);
   const hiddenUsers = useStatsStore(state => state.hiddenUsers);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
@@ -920,7 +929,12 @@ function CircleAffinityTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl">
+      <motion.section
+        className="mx-4 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_18%_16%,rgba(249,115,22,0.18),transparent_34%),linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)] backdrop-blur-2xl"
+        initial={shouldAnimateCircle ? { opacity: 0, y: 12, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: shouldAnimateCircle ? 0.24 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+      >
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/20 bg-orange-500/10 text-orange-300">
             <HeartHandshake className="h-5 w-5" />
@@ -943,31 +957,43 @@ function CircleAffinityTab() {
             <p className="mt-1 text-2xl font-black leading-none text-white">{artistMatches.length}</p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       <section className="mx-4 flex flex-col gap-2">
         {status === 'loading' && featuredMatches.length === 0 ? (
           <div className="flex min-h-14 items-center justify-center gap-2 rounded-[24px] bg-white/[0.025] px-4 backdrop-blur-xl">
-            <Loader2 className="h-5 w-5 animate-spin text-orange-400/80" />
+            <EngineSpinner className="h-5 w-5 text-orange-400/80">
+              <Loader2 className="h-full w-full" />
+            </EngineSpinner>
             <span className="text-[8px] font-black uppercase tracking-[0.16em] text-white/36">Atualizando pulso</span>
           </div>
         ) : featuredMatches.length > 0 ? (
-          featuredMatches.map((item) => (
-            <article key={`${item.matchType}-${getSimultaneousItemTime(item)}-${getSimultaneousTitle(item)}`} className="flex items-center gap-3 rounded-[26px] border border-white/7 bg-white/[0.028] p-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/18 bg-orange-500/10 text-orange-200">
-                {item.matchType === 'track' ? <Headphones className="h-5 w-5" /> : <HeartHandshake className="h-5 w-5" />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[8px] font-black uppercase tracking-[0.16em] text-orange-200/70">
-                  {item.matchType === 'track' ? 'Faixa simultânea' : 'Artista simultâneo'}
-                </p>
-                <h2 className="mt-1 truncate text-sm font-black leading-tight text-white/90">{getSimultaneousTitle(item)}</h2>
-                <p className="mt-0.5 truncate text-[10px] font-semibold text-white/38">
-                  {getSimultaneousUsersLabel(item)} · {formatCompactDuration(Date.now() - getSimultaneousItemTime(item))}
-                </p>
-              </div>
-            </article>
-          ))
+          <AnimatePresence initial={false}>
+            {featuredMatches.map((item, index) => (
+              <motion.article
+                key={`${item.matchType}-${getSimultaneousItemTime(item)}-${getSimultaneousTitle(item)}`}
+                layout="position"
+                initial={shouldAnimateCircle ? { opacity: 0, x: -14, scale: 0.985 } : { opacity: 1, x: 0, scale: 1 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={shouldAnimateCircle ? { opacity: 0, x: 12, scale: 0.985 } : { opacity: 1, x: 0, scale: 1 }}
+                transition={{ duration: shouldAnimateCircle ? 0.24 : 0.01, delay: shouldAnimateCircle ? Math.min(index * 0.035, 0.12) : 0, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center gap-3 rounded-[26px] border border-white/7 bg-white/[0.028] p-3"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-500/18 bg-orange-500/10 text-orange-200">
+                  {item.matchType === 'track' ? <Headphones className="h-5 w-5" /> : <HeartHandshake className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[8px] font-black uppercase tracking-[0.16em] text-orange-200/70">
+                    {item.matchType === 'track' ? 'Faixa simultânea' : 'Artista simultâneo'}
+                  </p>
+                  <h2 className="mt-1 truncate text-sm font-black leading-tight text-white/90">{getSimultaneousTitle(item)}</h2>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-white/38">
+                    {getSimultaneousUsersLabel(item)} · {formatCompactDuration(Date.now() - getSimultaneousItemTime(item))}
+                  </p>
+                </div>
+              </motion.article>
+            ))}
+          </AnimatePresence>
         ) : (
           <div className="flex min-h-[118px] flex-col items-center justify-center gap-2 rounded-[28px] border border-white/5 bg-white/[0.02] px-6 text-center">
             <HeartHandshake className="h-6 w-6 text-orange-300/70" />
@@ -994,6 +1020,8 @@ const getRequestedTab = (search: string, initialTab: CircleTab) => {
 export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateCircle = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const [activeTab, setActiveTab] = useState<CircleTab>(() => getRequestedTab(location.search, initialTab));
 
   useEffect(() => {
@@ -1028,9 +1056,9 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
                 {isActive && (
                   <motion.span
                     className="absolute inset-0 rounded-2xl border border-orange-500/20 bg-orange-500/10"
-                    initial={{ opacity: 0, scale: 0.94 }}
+                    initial={shouldAnimateCircle ? { opacity: 0, scale: 0.94 } : { opacity: 1, scale: 1 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldAnimateCircle ? 0.16 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                   />
                 )}
                 <Icon className="relative h-3.5 w-3.5" />
@@ -1044,10 +1072,10 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
       <AnimatePresence mode="sync" initial={false}>
         <motion.div
           key={activeTab}
-          initial={{ opacity: 0, x: 12 }}
+          initial={shouldAnimateCircle ? { opacity: 0, x: 12 } : { opacity: 1, x: 0 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -8 }}
-          transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+          exit={shouldAnimateCircle ? { opacity: 0, x: -8 } : { opacity: 1, x: 0 }}
+          transition={{ duration: shouldAnimateCircle ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col gap-5"
         >
       {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} />}

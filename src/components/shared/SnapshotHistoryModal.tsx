@@ -4,6 +4,7 @@ import { X, Image as ImageIcon, Share2, Trash2, Calendar, Clock } from 'lucide-r
 import { snapshotService, SnapshotItem } from '../../services/snapshotService';
 import { clsx } from 'clsx';
 import { coreUtils } from '../../services/statsCore';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 
 interface SnapshotHistoryModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface SnapshotHistoryModalProps {
 
 export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOpen, onClose }) => {
   const [history, setHistory] = useState<SnapshotItem[]>([]);
+  useModalMotionScope(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -32,7 +34,10 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div
+      data-stats-lc-modal-surface="true"
+      className="fixed inset-0 z-[100] flex h-[100svh] items-center justify-center p-4"
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -45,7 +50,7 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-2xl liquid-glass-modal rounded-[40px] overflow-hidden flex flex-col max-h-[80vh]"
+        className="relative w-full max-w-2xl liquid-glass-modal rounded-[40px] overflow-hidden flex flex-col max-h-[80svh]"
       >
         <div className="p-8 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -80,7 +85,6 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
               {history.map((item) => (
                 <motion.div 
                   key={item.id}
-                  layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="group relative flex flex-col rounded-3xl overflow-hidden bg-white/[0.03] border border-white/5"
@@ -105,13 +109,13 @@ export const SnapshotHistoryModal: React.FC<SnapshotHistoryModalProps> = ({ isOp
                     <div className="flex items-center gap-2">
                        <button 
                         onClick={() => handleShare(item)}
-                        className="p-2 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white transition-all"
+                        className="p-2 rounded-xl bg-orange-500/10 hover:bg-orange-500 text-orange-500 hover:text-white transition-[background-color,color,transform] duration-200 active:scale-95"
                        >
                          <Share2 className="h-3.5 w-3.5" />
                        </button>
                        <button 
                         onClick={() => handleDelete(item.id)}
-                        className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all"
+                        className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-[background-color,color,transform] duration-200 active:scale-95"
                        >
                          <Trash2 className="h-3.5 w-3.5" />
                        </button>

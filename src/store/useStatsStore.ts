@@ -12,6 +12,7 @@ import { coreUtils } from '../services/statsCore';
 import { attachLiveNowPlayingToMember, dedupeIds, getCanonicalMembers, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getDominantColor } from '../lib/colorUtils';
 import { buildTopItemsCacheKey } from '../lib/topItemUtils';
+import { preloadImageAssets } from '../lib/assetRuntime';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -429,24 +430,16 @@ const getLiveArtworkUrl = (user: any) => {
 };
 
 const preloadLiveAssets = async (users: any[]) => {
-  if (typeof window === 'undefined' || typeof Image === 'undefined') return;
+  if (typeof window === 'undefined') return;
   const urls = getLiveAssetUrls(users).slice(0, 12);
   if (urls.length === 0) return;
 
   await Promise.race([
-    Promise.allSettled(urls.map((url) => new Promise<void>((resolve) => {
-      const image = new Image();
-      const done = () => resolve();
-      const timer = window.setTimeout(done, 1200);
-      image.onload = () => {
-        window.clearTimeout(timer);
-        if (image.decode) image.decode().then(done).catch(done);
-        else done();
-      };
-      image.onerror = done;
-      image.decoding = 'async';
-      image.src = url;
-    }))).then(() => undefined),
+    preloadImageAssets(urls, {
+      limit: 8,
+      priority: 'visible',
+      timeoutMs: 1200,
+    }),
     new Promise<void>((resolve) => window.setTimeout(resolve, 1500)),
   ]);
 };

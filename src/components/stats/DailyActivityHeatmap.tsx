@@ -108,7 +108,7 @@ export const DailyActivityHeatmap: React.FC<DailyActivityHeatmapProps> = ({
               <div 
                 key={range.label} 
                 className={clsx(
-                  "p-3 rounded-2xl border transition-all",
+                  "p-3 rounded-2xl border transition-[background-color,border-color,opacity,transform] duration-200",
                   isPeak ? "bg-white/[0.03] border-white/10" : "bg-transparent border-transparent"
                 )}
               >

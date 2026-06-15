@@ -1,6 +1,7 @@
 import { statsService } from './statsService';
 import { useStatsStore } from '../store/useStatsStore';
 import { getCanonicalMembers } from '../lib/memberSelectors';
+import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 
 const ENTITY_STATS_TTL_MS = 5 * 60 * 1000;
 const TRACK_HISTORY_TTL_MS = 5 * 60 * 1000;
@@ -14,16 +15,17 @@ export const statsCacheService = {
   async fetchEntityStats(userId: string, type: 'track' | 'artist' | 'album', id: string, range?: string): Promise<number> {
     const cacheKey = `${userId}:${type}:${id}${range ? ':'+range : ''}`;
     
-    const cachedEntityStats = this._entityStatsCache.get(cacheKey);
+    const cachedEntityStats = readRuntimeCacheEntry<string, { value: number; expiresAt: number }>(this._entityStatsCache, cacheKey);
     if (cachedEntityStats && cachedEntityStats.expiresAt > Date.now()) {
       return cachedEntityStats.value;
     }
+    if (cachedEntityStats) this._entityStatsCache.delete(cacheKey);
     if (this._entityStatsInFlight.has(cacheKey)) {
       return this._entityStatsInFlight.get(cacheKey)!;
     }
 
     const promise = statsService.fetchEntityStats(userId, type, id, range).then(count => {
-       this._entityStatsCache.set(cacheKey, { value: count, expiresAt: Date.now() + ENTITY_STATS_TTL_MS });
+       setRuntimeCacheEntry(this._entityStatsCache, cacheKey, { value: count, expiresAt: Date.now() + ENTITY_STATS_TTL_MS }, 'medium');
        return count;
     }).catch(() => 0).finally(() => {
        this._entityStatsInFlight.delete(cacheKey);
@@ -38,16 +40,17 @@ export const statsCacheService = {
   _trackHistoryInFlight: new Map<string, Promise<any[]>>(),
 
   async getTrackGlobalHistory(trackId: string): Promise<any[]> {
-    const cachedTrackHistory = this._trackHistoryCache.get(trackId);
+    const cachedTrackHistory = readRuntimeCacheEntry<string, { items: any[]; expiresAt: number }>(this._trackHistoryCache, trackId);
     if (cachedTrackHistory && cachedTrackHistory.expiresAt > Date.now()) {
       return cachedTrackHistory.items;
     }
+    if (cachedTrackHistory) this._trackHistoryCache.delete(trackId);
     if (this._trackHistoryInFlight.has(trackId)) {
       return this._trackHistoryInFlight.get(trackId)!;
     }
 
     const promise = statsService.getTrackGlobalHistory(trackId).then(items => {
-       this._trackHistoryCache.set(trackId, { items, expiresAt: Date.now() + TRACK_HISTORY_TTL_MS });
+       setRuntimeCacheEntry(this._trackHistoryCache, trackId, { items, expiresAt: Date.now() + TRACK_HISTORY_TTL_MS }, 'small');
        return items;
     }).finally(() => {
        this._trackHistoryInFlight.delete(trackId);

@@ -1,8 +1,11 @@
-type MotionRuntimeTier = 'full' | 'balanced' | 'conserve';
+export type MotionRuntimeTier = 'full' | 'balanced' | 'conserve';
+export type MotionRuntimeFps = 30 | 60 | 120;
+export type MotionFramePriority = 'critical' | 'interaction' | 'ambient';
 
 export type MotionRuntimeSnapshot = {
   canRunMotion: boolean;
-  fps: 15 | 30 | 60;
+  displayFps: 60 | 120;
+  fps: MotionRuntimeFps;
   isPageVisible: boolean;
   prefersReducedMotion: boolean;
   saveData: boolean;
@@ -11,6 +14,20 @@ export type MotionRuntimeSnapshot = {
 
 type MotionRuntimeListener = () => void;
 type MotionFrameListener = (frame: { deltaMs: number; fps: MotionRuntimeSnapshot['fps']; now: number; tier: MotionRuntimeTier }) => void;
+type MotionFrameSubscriptionOptions = {
+  maxFps?: MotionRuntimeFps;
+  priority?: MotionFramePriority;
+};
+type MotionFrameSubscription = Required<MotionFrameSubscriptionOptions> & {
+  lastRunAt: number;
+  listener: MotionFrameListener;
+};
+type ScheduledMotionTask = {
+  callback: () => void;
+  id: number;
+  priority: MotionFramePriority;
+  runAt: number;
+};
 type NavigatorConnection = {
   addEventListener?: (type: 'change', listener: () => void) => void;
   effectiveType?: string;
@@ -18,14 +35,22 @@ type NavigatorConnection = {
 };
 
 const listeners = new Set<MotionRuntimeListener>();
-const frameListeners = new Set<MotionFrameListener>();
+const frameSubscriptions = new Map<MotionFrameListener, MotionFrameSubscription>();
+const scheduledTasks = new Map<number, ScheduledMotionTask>();
+const compositorLoops = new Map<number, string>();
 const longTaskWindow: number[] = [];
 const loafWindow: number[] = [];
 const PRESSURE_WINDOW_MS = 6_000;
+const FRAME_PRIORITY_WEIGHT: Record<MotionFramePriority, number> = {
+  critical: 0,
+  interaction: 1,
+  ambient: 2,
+};
 
 let mediaQuery: MediaQueryList | null = null;
 let snapshot: MotionRuntimeSnapshot = {
   canRunMotion: true,
+  displayFps: 60,
   fps: 60,
   isPageVisible: true,
   prefersReducedMotion: false,
@@ -37,6 +62,15 @@ let rafId: number | null = null;
 let lastFrameAt = 0;
 let lastEmitAt = 0;
 let pressureDecayTimer: number | null = null;
+let measuredDisplayFps: MotionRuntimeSnapshot['displayFps'] = 60;
+let lastSchedulerCostMs = 0;
+let maxSchedulerCostMs = 0;
+let lastSchedulerDatasetSyncAt = 0;
+let lastPressureScore = 0;
+let displayRateMeasured = false;
+let scheduledTaskId = 0;
+let scheduledTaskTimer: number | null = null;
+let compositorLoopId = 0;
 
 const getConnection = () => (
   typeof navigator === 'undefined'
@@ -58,17 +92,23 @@ const computeSnapshot = (): MotionRuntimeSnapshot => {
   const connection = getConnection();
   const saveData = Boolean(connection?.saveData);
   const weakConnection = connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g';
-  const pressureScore = longTaskWindow.length + loafWindow.length * 0.6;
-  const tier: MotionRuntimeTier = prefersReducedMotion || saveData || weakConnection || pressureScore >= 18
+  const pressureScore = longTaskWindow.length * 0.7 + loafWindow.length * 0.45;
+  lastPressureScore = Math.round(pressureScore * 10) / 10;
+  const tier: MotionRuntimeTier = prefersReducedMotion || saveData || weakConnection || pressureScore >= 14
     ? 'conserve'
-    : pressureScore >= 7
+    : pressureScore >= 5
       ? 'balanced'
       : 'full';
   const canRunMotion = isPageVisible && !prefersReducedMotion;
-  const fps = tier === 'full' ? 60 : tier === 'balanced' ? 30 : 15;
+  const fps: MotionRuntimeFps = tier === 'full'
+    ? measuredDisplayFps
+    : tier === 'balanced'
+      ? 60
+      : 30;
 
   return {
     canRunMotion,
+    displayFps: measuredDisplayFps,
     fps,
     isPageVisible,
     prefersReducedMotion,
@@ -79,6 +119,7 @@ const computeSnapshot = (): MotionRuntimeSnapshot => {
 
 const snapshotsEqual = (a: MotionRuntimeSnapshot, b: MotionRuntimeSnapshot) => (
   a.canRunMotion === b.canRunMotion &&
+  a.displayFps === b.displayFps &&
   a.fps === b.fps &&
   a.isPageVisible === b.isPageVisible &&
   a.prefersReducedMotion === b.prefersReducedMotion &&
@@ -93,7 +134,43 @@ const syncDataset = () => {
   const nextFps = String(snapshot.fps);
   if (root.dataset.statsLcMotionTier !== snapshot.tier) root.dataset.statsLcMotionTier = snapshot.tier;
   if (root.dataset.statsLcMotionFps !== nextFps) root.dataset.statsLcMotionFps = nextFps;
+  if (root.dataset.statsLcDisplayFps !== String(snapshot.displayFps)) root.dataset.statsLcDisplayFps = String(snapshot.displayFps);
   if (root.dataset.statsLcMotionEnabled !== nextEnabled) root.dataset.statsLcMotionEnabled = nextEnabled;
+  root.dataset.statsLcMotionListeners = String(frameSubscriptions.size);
+  root.dataset.statsLcMotionTasks = String(scheduledTasks.size);
+  root.dataset.statsLcCompositorLoops = String(compositorLoops.size);
+  root.dataset.statsLcMotionPressure = String(lastPressureScore);
+  root.dataset.statsLcRecentLoaf = String(loafWindow.length);
+  root.dataset.statsLcRecentLongTasks = String(longTaskWindow.length);
+  root.dataset.statsLcMotionFrameCostMs = String(Math.round(lastSchedulerCostMs * 100) / 100);
+  root.dataset.statsLcMotionMaxFrameCostMs = String(Math.round(maxSchedulerCostMs * 100) / 100);
+};
+
+const scheduleNextTask = () => {
+  if (typeof window === 'undefined') return;
+  if (scheduledTaskTimer !== null) window.clearTimeout(scheduledTaskTimer);
+  scheduledTaskTimer = null;
+  if (!scheduledTasks.size) return;
+
+  const nextRunAt = Math.min(...[...scheduledTasks.values()].map((task) => task.runAt));
+  scheduledTaskTimer = window.setTimeout(runScheduledTasks, Math.max(0, nextRunAt - performance.now()));
+};
+
+const runScheduledTasks = () => {
+  scheduledTaskTimer = null;
+  const now = performance.now();
+  const dueTasks = [...scheduledTasks.values()]
+    .filter((task) => task.runAt <= now + 1)
+    .sort((a, b) => FRAME_PRIORITY_WEIGHT[a.priority] - FRAME_PRIORITY_WEIGHT[b.priority]);
+
+  dueTasks.forEach((task) => {
+    scheduledTasks.delete(task.id);
+    if (task.priority === 'ambient' && (!snapshot.canRunMotion || snapshot.tier === 'conserve')) return;
+    task.callback();
+  });
+
+  syncDataset();
+  scheduleNextTask();
 };
 
 const emit = () => {
@@ -142,24 +219,76 @@ const setupObservers = () => {
 
 const frameLoop = (now: number) => {
   rafId = null;
-  if (!frameListeners.size || !snapshot.canRunMotion) return;
+  if (!frameSubscriptions.size || !snapshot.canRunMotion) return;
 
   const minDelta = 1000 / snapshot.fps;
   if (!lastFrameAt) lastFrameAt = now;
   if (now - lastEmitAt >= minDelta) {
-    const deltaMs = now - lastFrameAt;
+    const schedulerStartedAt = performance.now();
+    const runtimeDeltaMs = now - lastFrameAt;
     lastFrameAt = now;
     lastEmitAt = now;
-    const frame = { deltaMs, fps: snapshot.fps, now, tier: snapshot.tier };
-    frameListeners.forEach((listener) => listener(frame));
+    const frameBudgetMs = minDelta * 0.62;
+    const subscriptions = [...frameSubscriptions.values()].sort(
+      (a, b) => FRAME_PRIORITY_WEIGHT[a.priority] - FRAME_PRIORITY_WEIGHT[b.priority]
+    );
+
+    subscriptions.forEach((subscription) => {
+      if (snapshot.tier === 'conserve' && subscription.priority === 'ambient') return;
+      if (performance.now() - schedulerStartedAt >= frameBudgetMs && subscription.priority !== 'critical') return;
+
+      const targetFps = Math.min(snapshot.fps, subscription.maxFps) as MotionRuntimeFps;
+      const listenerMinDelta = 1000 / targetFps;
+      if (subscription.lastRunAt && now - subscription.lastRunAt < listenerMinDelta - 0.5) return;
+
+      const deltaMs = subscription.lastRunAt ? now - subscription.lastRunAt : runtimeDeltaMs;
+      subscription.lastRunAt = now;
+      subscription.listener({ deltaMs, fps: targetFps, now, tier: snapshot.tier });
+    });
+
+    lastSchedulerCostMs = performance.now() - schedulerStartedAt;
+    maxSchedulerCostMs = Math.max(maxSchedulerCostMs, lastSchedulerCostMs);
+    if (now - lastSchedulerDatasetSyncAt >= 500) {
+      lastSchedulerDatasetSyncAt = now;
+      syncDataset();
+    }
   }
 
   rafId = window.requestAnimationFrame(frameLoop);
 };
 
 const ensureFrameLoop = () => {
-  if (typeof window === 'undefined' || rafId !== null || !frameListeners.size || !snapshot.canRunMotion) return;
+  if (typeof window === 'undefined' || rafId !== null || !frameSubscriptions.size || !snapshot.canRunMotion) return;
   rafId = window.requestAnimationFrame(frameLoop);
+};
+
+const measureDisplayRefreshRate = () => {
+  if (typeof window === 'undefined' || document.visibilityState === 'hidden' || displayRateMeasured) return;
+
+  const samples: number[] = [];
+  let previousAt = 0;
+  const sample = (now: number) => {
+    if (document.visibilityState === 'hidden') return;
+    if (previousAt) {
+      const delta = now - previousAt;
+      if (delta > 4 && delta < 30) samples.push(delta);
+    }
+    previousAt = now;
+
+    if (samples.length < 24) {
+      window.requestAnimationFrame(sample);
+      return;
+    }
+
+    samples.sort((a, b) => a - b);
+    const medianDelta = samples[Math.floor(samples.length / 2)] || 16.67;
+    measuredDisplayFps = medianDelta <= 10.5 ? 120 : 60;
+    displayRateMeasured = true;
+    emit();
+    ensureFrameLoop();
+  };
+
+  window.requestAnimationFrame(sample);
 };
 
 export const initMotionRuntime = () => {
@@ -172,11 +301,15 @@ export const initMotionRuntime = () => {
 
   document.addEventListener('visibilitychange', () => {
     emit();
-    if (snapshot.canRunMotion) ensureFrameLoop();
+    if (snapshot.canRunMotion) {
+      measureDisplayRefreshRate();
+      ensureFrameLoop();
+    }
   });
   mediaQuery?.addEventListener?.('change', emit);
   getConnection()?.addEventListener?.('change', emit);
   setupObservers();
+  measureDisplayRefreshRate();
 };
 
 export const motionRuntime = {
@@ -186,13 +319,20 @@ export const motionRuntime = {
     listeners.add(listener);
     return () => listeners.delete(listener);
   },
-  subscribeFrame: (listener: MotionFrameListener) => {
+  subscribeFrame: (listener: MotionFrameListener, options: MotionFrameSubscriptionOptions = {}) => {
     initMotionRuntime();
-    frameListeners.add(listener);
+    frameSubscriptions.set(listener, {
+      lastRunAt: 0,
+      listener,
+      maxFps: options.maxFps ?? 120,
+      priority: options.priority ?? 'interaction',
+    });
+    syncDataset();
     ensureFrameLoop();
     return () => {
-      frameListeners.delete(listener);
-      if (!frameListeners.size && rafId !== null) {
+      frameSubscriptions.delete(listener);
+      syncDataset();
+      if (!frameSubscriptions.size && rafId !== null) {
         window.cancelAnimationFrame(rafId);
         rafId = null;
         lastFrameAt = 0;
@@ -200,6 +340,46 @@ export const motionRuntime = {
       }
     };
   },
+  scheduleTask: (
+    callback: () => void,
+    delayMs: number,
+    priority: MotionFramePriority = 'interaction',
+  ) => {
+    initMotionRuntime();
+    const id = ++scheduledTaskId;
+    scheduledTasks.set(id, {
+      callback,
+      id,
+      priority,
+      runAt: performance.now() + Math.max(0, delayMs),
+    });
+    syncDataset();
+    scheduleNextTask();
+    return () => {
+      if (!scheduledTasks.delete(id)) return;
+      syncDataset();
+      scheduleNextTask();
+    };
+  },
+  registerCompositorLoop: (kind: string) => {
+    initMotionRuntime();
+    const id = ++compositorLoopId;
+    compositorLoops.set(id, kind);
+    syncDataset();
+    return () => {
+      if (!compositorLoops.delete(id)) return;
+      syncDataset();
+    };
+  },
+  getSchedulerStats: () => ({
+    compositorLoops: compositorLoops.size,
+    displayFps: snapshot.displayFps,
+    listeners: frameSubscriptions.size,
+    maxSchedulerCostMs,
+    schedulerCostMs: lastSchedulerCostMs,
+    tasks: scheduledTasks.size,
+    targetFps: snapshot.fps,
+  }),
   shouldRunAmbient: (priority: 'ambient' | 'focus' = 'ambient') => (
     snapshot.canRunMotion && (priority === 'focus' || snapshot.tier !== 'conserve')
   ),

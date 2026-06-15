@@ -12,6 +12,8 @@ export function SettingsGroup({
   title,
   description,
   action,
+  entranceIndex = 0,
+  animateEntrance = true,
   children,
 }: {
   id: string;
@@ -19,10 +21,21 @@ export function SettingsGroup({
   title: string;
   description?: string;
   action?: React.ReactNode;
+  entranceIndex?: number;
+  animateEntrance?: boolean;
   children: React.ReactNode;
 }) {
+  const entranceDelay = Math.min(0.18, entranceIndex * 0.035);
+
   return (
-    <section id={id} className="scroll-mt-24 flex flex-col gap-2.5">
+    <motion.section
+      id={id}
+      className="scroll-mt-24 flex flex-col gap-2.5"
+      initial={animateEntrance ? { opacity: 0, y: 14, scale: 0.985 } : false}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: animateEntrance ? 0.28 : 0.01, delay: animateEntrance ? entranceDelay : 0, ease: [0.16, 1, 0.3, 1] }}
+      style={{ transform: 'translate3d(0, 0, 0)' }}
+    >
       <div className="flex items-end justify-between gap-3 px-1">
         <div className="min-w-0">
           <span className="text-[9px] font-black uppercase tracking-[0.24em] text-orange-400/70">
@@ -38,7 +51,7 @@ export function SettingsGroup({
         {action && <div className="shrink-0 text-white/25">{action}</div>}
       </div>
       {children}
-    </section>
+    </motion.section>
   );
 }
 

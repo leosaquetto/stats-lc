@@ -7,6 +7,7 @@ const getSnapshot = (): MotionRuntimeSnapshot => motionRuntime.getSnapshot();
 
 const getServerSnapshot = (): MotionRuntimeSnapshot => ({
   canRunMotion: false,
+  displayFps: 60,
   fps: 30,
   isPageVisible: true,
   prefersReducedMotion: false,

@@ -3,11 +3,13 @@ import { motion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
 import { statsCacheService } from '../../services/statsCacheService';
-import { SmartImage } from '../shared/CommonUI';
+import { EngineEqualizer, EnginePulse, EngineSpinner, SmartImage } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useStatsStore } from '../../store/useStatsStore';
 import { getArtistListString } from '../../lib/artistUtils';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
+import { useModalMotionScope } from '../../hooks/useModalMotionScope';
 import { BarChart3, BookOpen, ExternalLink, Loader2, Music2, Search, SlidersHorizontal, X } from 'lucide-react';
 
 function cn(...inputs: ClassValue[]) {
@@ -151,33 +153,28 @@ const openBottomTrackPanel = (user: any, item: any, panel: 'stats' | 'lyrics') =
   }));
 };
 
-const HistorySectionHeader = ({ label }: { label: string }) => (
-  <div className="sticky top-0 z-20 bg-[#090807]/88 px-1 pb-2 pt-3 backdrop-blur-xl">
-    <div className="flex items-center gap-3 border-b border-white/[0.06] pb-2">
-      {label === 'Agora' ? (
-        <div className="relative h-2.5 w-2.5 rounded-full bg-red-500">
-          <span className="absolute inset-0 rounded-full bg-red-500 animate-ping" />
-        </div>
-      ) : (
-        <div className="h-1.5 w-1.5 rounded-full bg-white/24" />
-      )}
-      <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">{label}</span>
-      {label === 'Agora' && (
-        <div className="flex h-2.5 items-end gap-[1.5px]">
-          {[0, 1, 2].map((index) => (
-            <motion.span
-              key={index}
-              animate={{ scaleY: [0.25, 1, 0.45] }}
-              transition={{ duration: 0.62, repeat: Infinity, delay: index * 0.1 }}
-              className="h-full w-[1.5px] origin-bottom rounded-full bg-red-500"
-              style={{ willChange: 'transform' }}
-            />
-          ))}
-        </div>
-      )}
+const HistorySectionHeader = ({ label }: { label: string }) => {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateNow = label === 'Agora' && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+
+  return (
+    <div className="sticky top-0 z-20 bg-[#090807]/88 px-1 pb-2 pt-3 backdrop-blur-xl">
+      <div className="flex items-center gap-3 border-b border-white/[0.06] pb-2">
+        {label === 'Agora' ? (
+          <div className="relative h-2.5 w-2.5 rounded-full bg-red-500">
+            <EnginePulse active={shouldAnimateNow} className="absolute inset-0 rounded-full bg-red-500 data-[active=false]:opacity-[0.45]" />
+          </div>
+        ) : (
+          <div className="h-1.5 w-1.5 rounded-full bg-white/24" />
+        )}
+        <span className="text-[9px] font-black uppercase tracking-[0.28em] text-white/42">{label}</span>
+        {label === 'Agora' && (
+          <EngineEqualizer active={shouldAnimateNow} className="h-2.5" barClassName="bg-red-500" />
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const HistoryActionButton = ({
   children,
@@ -325,7 +322,7 @@ const HistoryTrackRow = React.memo(({
           )}
           {trackItem.isLive && trackItem.durationMs && (
             <span className="mt-2 block h-1 overflow-hidden rounded-full bg-white/[0.08]">
-              <span className="block h-full rounded-full bg-orange-500" style={{ width: `${progress}%` }} />
+              <span className="block h-full w-full origin-left rounded-full bg-orange-500 transition-transform duration-300 ease-out" style={{ transform: `scaleX(${Math.max(0, Math.min(1, progress / 100))})` }} />
             </span>
           )}
         </div>
@@ -375,6 +372,9 @@ export const UserHistoryModal = ({
   const [trackFilter, setTrackFilter] = useState('');
   const [albumFilter, setAlbumFilter] = useState('');
   const [openRowKey, setOpenRowKey] = useState<string | null>(null);
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateModal = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  useModalMotionScope();
 
   const buildLiveItem = () => {
     if (!user.nowPlaying?.track) return null;
@@ -581,18 +581,20 @@ export const UserHistoryModal = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
+      data-stats-lc-modal-surface="true"
+      initial={shouldAnimateModal ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/72 px-0 pt-8 backdrop-blur-xl"
+      transition={{ duration: shouldAnimateModal ? 0.18 : 0.01 }}
+      className="fixed inset-0 z-[60] flex h-[100svh] min-h-[100svh] items-end justify-center bg-black/72 px-0 pt-8 backdrop-blur-xl"
       onClick={onClose}
     >
       <motion.div
-        initial={{ y: 50, opacity: 0 }}
+        initial={shouldAnimateModal ? { y: 44, opacity: 0 } : false}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 50, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="relative flex h-[min(92dvh,760px)] max-h-[calc(100dvh-env(safe-area-inset-bottom,0px)-18px)] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[36px] border border-white/[0.09] bg-[#090807]/94 shadow-[0_-24px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
+        exit={shouldAnimateModal ? { y: 44, opacity: 0 } : { opacity: 0 }}
+        transition={shouldAnimateModal ? { type: 'spring', damping: 25, stiffness: 300 } : { duration: 0.01 }}
+        className="relative flex h-[min(92svh,760px)] max-h-[calc(100svh-env(safe-area-inset-bottom,0px)-18px)] w-full max-w-[640px] flex-col overflow-hidden rounded-t-[36px] border border-white/[0.09] bg-[#090807]/94 shadow-[0_-24px_90px_rgba(0,0,0,0.72)] backdrop-blur-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/[0.06] to-transparent" />
@@ -627,7 +629,7 @@ export const UserHistoryModal = ({
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Pesquisar título, artista ou data..."
-                  className="w-full rounded-2xl border border-white/[0.09] bg-white/[0.055] py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 transition-all focus:border-white/20 focus:outline-none"
+                  className="w-full rounded-2xl border border-white/[0.09] bg-white/[0.055] py-3 pl-10 pr-4 text-xs font-semibold text-white placeholder:text-white/30 transition-[background-color,border-color,color] duration-200 focus:border-white/20 focus:outline-none"
                 />
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
                   <Search className="h-4 w-4" strokeWidth={2.2} />
@@ -638,15 +640,16 @@ export const UserHistoryModal = ({
                <button
                  type="button"
                  onClick={() => setShowFilters(true)}
-                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/12 bg-orange-500/10 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-orange-400 transition-all active:scale-[0.99]"
+                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-500/12 bg-orange-500/10 py-2.5 text-center text-[10px] font-black uppercase tracking-widest text-orange-400 transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.99]"
                >
                  <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={2.4} />
                  Filtros
                </button>
              ) : (
                <motion.div 
-                 initial={{ opacity: 0, y: -10 }}
+                 initial={shouldAnimateModal ? { opacity: 0, y: -10 } : false}
                  animate={{ opacity: 1, y: 0 }}
+                 transition={shouldAnimateModal ? { duration: 0.2, ease: [0.16, 1, 0.3, 1] } : { duration: 0.01 }}
                  className="flex flex-col gap-3.5 rounded-3xl border border-white/[0.07] bg-white/[0.035] p-4"
                >
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
@@ -684,7 +687,7 @@ export const UserHistoryModal = ({
                           type="button"
                           onClick={() => setDateFilter(opt.id)}
                           className={cn(
-                            "py-1.5 rounded-lg text-[9px] font-extrabold text-center border transition-all",
+                            "py-1.5 rounded-lg text-[9px] font-extrabold text-center border transition-[background-color,border-color,color,transform] duration-200",
                             dateFilter === opt.id
                               ? "bg-orange-500/20 border-orange-500/30 text-orange-400"
                               : "bg-white/5 border-white/5 text-white/50 hover:text-white"
@@ -759,7 +762,13 @@ export const UserHistoryModal = ({
         <div className="relative min-h-0 flex-1 overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom,0px)+14px)]">
            {loading ? (
              <div className="flex flex-col gap-3 py-4">
-                {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 w-full bg-white/5 rounded-2xl animate-pulse" />)}
+                {[1,2,3,4,5,6].map(i => (
+                  <div
+                    key={i}
+                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-16 w-full rounded-2xl"
+                    data-active={shouldAnimateModal ? "true" : "false"}
+                  />
+                ))}
              </div>
            ) : renderedListItems.length > 0 ? (
              <div
@@ -794,7 +803,13 @@ export const UserHistoryModal = ({
                      disabled={loadingMore}
                      className="mt-2 flex w-full items-center justify-center gap-3 rounded-3xl border border-white/[0.08] bg-white/[0.04] py-4 text-[10px] font-black uppercase tracking-[0.24em] text-orange-400 transition-[background-color,transform,opacity] active:scale-[0.99] disabled:opacity-55"
                    >
-                     {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                     {loadingMore ? (
+                       <EngineSpinner className="h-4 w-4">
+                         <Loader2 className="h-full w-full" />
+                       </EngineSpinner>
+                     ) : (
+                       <ExternalLink className="h-3.5 w-3.5" />
+                     )}
                      <span>{loadingMore ? "Carregando..." : "Carregar mais histórico"}</span>
                    </button>
                  ) : (

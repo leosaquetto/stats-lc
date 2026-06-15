@@ -6,12 +6,17 @@ import { SmartImage } from '../shared/CommonUI';
 import { UserStats } from '../../types/stats';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
+import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 
 interface GlobalStatsComparerProps {
   members: UserStats[];
 }
 
+const ratioScale = (value: number, max: number) => (max > 0 ? Math.max(0, Math.min(1, value / max)) : 0);
+
 export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
+  const motionRuntime = useMotionRuntime();
+  const shouldAnimateComparer = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const [userAId, setUserAId] = useState<string>(members[0]?.id || '');
   const [userBId, setUserBId] = useState<string>(members[1]?.id || members[0]?.id || '');
   const [selectingFor, setSelectingFor] = useState<'A' | 'B' | 'none'>('none');
@@ -96,7 +101,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
           <button 
             onClick={() => setSelectingFor(selectingFor === 'A' ? 'none' : 'A')}
             className={clsx(
-              "h-16 w-16 rounded-full p-1 transition-all relative overflow-hidden",
+              "h-16 w-16 rounded-full p-1 transition-[background-color,transform] duration-200 relative overflow-hidden",
               selectingFor === 'A' ? "bg-orange-500 scale-105" : "bg-white/10 hover:bg-white/20"
             )}
           >
@@ -108,7 +113,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
         {/* Swap Button */}
         <button 
           onClick={swapUsers}
-          className="h-10 w-10 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all text-orange-500 mx-2"
+          className="h-10 w-10 shrink-0 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 active:scale-95 transition-[background-color,border-color,color,transform] duration-200 text-orange-500 mx-2"
         >
           <Swords className="h-4 w-4" />
         </button>
@@ -118,7 +123,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
           <button 
             onClick={() => setSelectingFor(selectingFor === 'B' ? 'none' : 'B')}
             className={clsx(
-              "h-16 w-16 rounded-full p-1 transition-all relative overflow-hidden",
+              "h-16 w-16 rounded-full p-1 transition-[background-color,transform] duration-200 relative overflow-hidden",
               selectingFor === 'B' ? "bg-amber-400 scale-105" : "bg-white/10 hover:bg-white/20"
             )}
           >
@@ -132,10 +137,11 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
       <AnimatePresence>
         {selectingFor !== 'none' && (
           <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+            initial={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+            transition={{ duration: shouldAnimateComparer ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+            className="origin-top"
           >
             <div className="glass-card p-3 flex gap-3 overflow-x-auto no-scrollbar border-orange-500/30">
               {members.map(member => {
@@ -152,7 +158,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
                       setSelectingFor('none');
                     }}
                     className={clsx(
-                      "flex flex-col items-center gap-2 min-w-[64px] p-2 rounded-xl transition-all",
+                      "flex flex-col items-center gap-2 min-w-[64px] p-2 rounded-xl transition-[background-color,color,filter,opacity] duration-200",
                       isSelected ? "bg-white/10" : "hover:bg-white/5",
                       isOther && "opacity-30 grayscale cursor-not-allowed"
                     )}
@@ -191,8 +197,8 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
               </span>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <div 
-                  className={clsx("h-full rounded-full", streamsWinner === 'A' ? "bg-orange-500" : "bg-white/20")}
-                  style={{ width: `${(userA.totalStreams || 0) / (Math.max(userA.totalStreams || 0, userB.totalStreams || 0) || 1) * 100}%` }}
+                  className={clsx("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", streamsWinner === 'A' ? "bg-orange-500" : "bg-white/20")}
+                  style={{ transform: `scaleX(${ratioScale(userA.totalStreams || 0, Math.max(userA.totalStreams || 0, userB.totalStreams || 0))})` }}
                 />
               </div>
             </div>
@@ -208,8 +214,8 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
               </span>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex justify-end">
                 <div 
-                  className={clsx("h-full rounded-full", streamsWinner === 'B' ? "bg-amber-400" : "bg-white/20")}
-                  style={{ width: `${(userB.totalStreams || 0) / (Math.max(userA.totalStreams || 0, userB.totalStreams || 0) || 1) * 100}%` }}
+                  className={clsx("h-full w-full origin-right rounded-full transition-transform duration-500 ease-out", streamsWinner === 'B' ? "bg-amber-400" : "bg-white/20")}
+                  style={{ transform: `scaleX(${ratioScale(userB.totalStreams || 0, Math.max(userA.totalStreams || 0, userB.totalStreams || 0))})` }}
                 />
               </div>
             </div>
@@ -233,8 +239,8 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
               </span>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                 <div 
-                  className={clsx("h-full rounded-full", timeWinner === 'A' ? "bg-orange-500" : "bg-white/20")}
-                  style={{ width: `${(userA.totalDurationMs || 0) / (Math.max(userA.totalDurationMs || 0, userB.totalDurationMs || 0) || 1) * 100}%` }}
+                  className={clsx("h-full w-full origin-left rounded-full transition-transform duration-500 ease-out", timeWinner === 'A' ? "bg-orange-500" : "bg-white/20")}
+                  style={{ transform: `scaleX(${ratioScale(userA.totalDurationMs || 0, Math.max(userA.totalDurationMs || 0, userB.totalDurationMs || 0))})` }}
                 />
               </div>
             </div>
@@ -250,8 +256,8 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
               </span>
               <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden flex justify-end">
                 <div 
-                  className={clsx("h-full rounded-full", timeWinner === 'B' ? "bg-amber-400" : "bg-white/20")}
-                  style={{ width: `${(userB.totalDurationMs || 0) / (Math.max(userA.totalDurationMs || 0, userB.totalDurationMs || 0) || 1) * 100}%` }}
+                  className={clsx("h-full w-full origin-right rounded-full transition-transform duration-500 ease-out", timeWinner === 'B' ? "bg-amber-400" : "bg-white/20")}
+                  style={{ transform: `scaleX(${ratioScale(userB.totalDurationMs || 0, Math.max(userA.totalDurationMs || 0, userB.totalDurationMs || 0))})` }}
                 />
               </div>
             </div>
@@ -263,7 +269,7 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
           <button
             onClick={() => setShowArtistComparison(!showArtistComparison)}
             className={clsx(
-              "w-full py-3 rounded-2xl border transition-all flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest",
+              "w-full py-3 rounded-2xl border transition-[background-color,border-color,color,transform] duration-200 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest active:scale-[0.99]",
               showArtistComparison 
                 ? "bg-orange-500/20 border-orange-500/40 text-orange-500" 
                 : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
@@ -278,10 +284,11 @@ export const GlobalStatsComparer = ({ members }: GlobalStatsComparerProps) => {
         <AnimatePresence>
           {showArtistComparison && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
+              initial={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+              animate={{ opacity: 1, y: 0, scaleY: 1 }}
+              exit={shouldAnimateComparer ? { opacity: 0, y: -4, scaleY: 0.98 } : { opacity: 1, y: 0, scaleY: 1 }}
+              transition={{ duration: shouldAnimateComparer ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
+              className="origin-top"
             >
               <div className="flex flex-col gap-6 pt-4 border-t border-white/5">
                 {/* Common Section */}
