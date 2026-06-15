@@ -86,7 +86,7 @@ export const FriendsHorizontalCard = React.memo(({
           <div className="h-full w-full rounded-[18px] bg-[#050505] overflow-hidden relative">
             <SmartImage 
               src={trackImage} 
-              className={cn("h-full w-full grayscale transition-[filter,transform] duration-700", isActuallyLive && "grayscale-0 scale-110")}
+              className={cn("h-full w-full grayscale transition-transform duration-700", isActuallyLive && "grayscale-0 scale-110")}
               fallback=""
             />
           </div>

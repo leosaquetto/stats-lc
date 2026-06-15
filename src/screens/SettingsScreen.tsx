@@ -28,6 +28,7 @@ import { EngineSpinner } from '../components/shared/CommonUI';
 import { PremiumScreenHeader } from '../components/shared/PremiumScreenShell';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
 import { dedupeIds, getCanonicalMembers } from '../lib/memberSelectors';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 import type { UserStats } from '../types/stats';
 import {
   MemberCard,
@@ -116,10 +117,18 @@ export default function SettingsScreen() {
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('profile');
   const arenaNameSaveButtonRef = useRef<HTMLButtonElement | null>(null);
   const manualSectionUntilRef = useRef(0);
+  const cancelManualSectionTaskRef = useRef<(() => void) | null>(null);
+  const toastDismissTasksRef = useRef(new Map<string, () => void>());
   const featuredMember = useMemo(
     () => members.find(member => member.id === featuredUserId) || members[0],
     [featuredUserId, members]
   );
+
+  useEffect(() => () => {
+    cancelManualSectionTaskRef.current?.();
+    toastDismissTasksRef.current.forEach((cancel) => cancel());
+    toastDismissTasksRef.current.clear();
+  }, []);
 
   useEffect(() => {
     setArenaNameDraft(arenaName || '');
@@ -164,14 +173,22 @@ export default function SettingsScreen() {
     manualSectionUntilRef.current = Date.now() + 1500;
     setActiveSection(id);
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.setTimeout(() => setActiveSection(id), 900);
+    cancelManualSectionTaskRef.current?.();
+    cancelManualSectionTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      setActiveSection(id);
+      cancelManualSectionTaskRef.current = null;
+    }, 900, 'interaction');
   };
 
   const showToast = (title: string, message: string, type: ToastItem['type'] = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
     const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setToasts(prev => [...prev, { id, title, message, type, timestamp }]);
-    window.setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 4200);
+    const cancel = motionRuntimeScheduler.scheduleTask(() => {
+      toastDismissTasksRef.current.delete(id);
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 4200, 'interaction');
+    toastDismissTasksRef.current.set(id, cancel);
   };
 
   const handleFeaturedUserChange = (user: UserStats) => {
@@ -246,7 +263,7 @@ export default function SettingsScreen() {
           : 'Alertas locais foram ativados. O Push dos Orbits aguarda configuração do servidor.',
         orbitPushEnabled ? 'success' : 'info'
       );
-      window.setTimeout(() => notificationService.sendTestNotification(), 500);
+      motionRuntimeScheduler.scheduleTask(() => notificationService.sendTestNotification(), 500, 'interaction');
     } catch (error) {
       console.error(error);
       showToast('Erro na Configuração', 'Não foi possível registrar as notificações agora.', 'error');
@@ -284,7 +301,9 @@ export default function SettingsScreen() {
       }
 
       showToast('Cache Limpo', 'Reiniciando o app...', 'success');
-      await new Promise(resolve => window.setTimeout(resolve, 300));
+      await new Promise<void>(resolve => {
+        motionRuntimeScheduler.scheduleTask(resolve, 300, 'interaction');
+      });
       window.location.href = '/#/';
     } catch (error) {
       console.error('Failed to reset app:', error);

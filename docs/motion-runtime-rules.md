@@ -9,7 +9,8 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 1. Toda animacao recorrente deve passar pelo runtime central.
    - Use `motionRuntime`, `useMotionRuntime`, `useViewportMotionGate`, `useAutoOrbitRotation` ou os componentes `Engine*`.
    - Nao crie loops recorrentes locais com `setInterval`.
-   - `setTimeout` so e aceitavel para coreografia unica, debounce, safety timer ou I/O, e deve ter cleanup.
+   - Coreografia visual unica, delays de entrada, pulso, dismiss de toast e fallback visual devem usar `motionRuntime.scheduleTask(...)`.
+   - `setTimeout` cru so e aceitavel para polling/rede, timeout de API, safety timer funcional, asset queue ou I/O, e deve ter cleanup/cancelamento.
 
 2. Superficies quentes devem animar apenas propriedades de compositor.
    - Permitido: `opacity`, `transform`, `translate3d`, `scale`, `rotate`.

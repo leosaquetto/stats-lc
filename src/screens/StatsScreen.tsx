@@ -1807,9 +1807,9 @@ export default function StatsScreen() {
     setActiveType(type);
     setActiveStatsSection('rankings');
     window.requestAnimationFrame(() => {
-      window.setTimeout(() => {
+      motionRuntimeScheduler.scheduleTask(() => {
         document.getElementById('search-bar-ranking')?.scrollIntoView({ behavior: 'smooth' });
-      }, 80);
+      }, 80, 'interaction');
     });
   };
 

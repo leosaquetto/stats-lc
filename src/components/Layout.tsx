@@ -1221,6 +1221,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const lyricsRequestKeyRef = React.useRef('');
   const modalOpenTokenRef = React.useRef(0);
   const modalOpenedAtRef = React.useRef(Date.now());
+  const cancelLyricsMaskTaskRef = React.useRef<() => void>(() => {});
+  const cancelCloseModalTaskRef = React.useRef<() => void>(() => {});
+
+  React.useEffect(() => () => {
+    cancelLyricsMaskTaskRef.current();
+    cancelCloseModalTaskRef.current();
+    cancelToastDismissRef.current();
+  }, []);
 
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
   const panelUser = React.useMemo(() => {
@@ -1504,7 +1512,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
     if (preparedRecent.length >= 8) return;
 
-    const timer = window.setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       statsService.fetchRecent(panelUser.id, 20, 0)
         .then((freshItems) => {
           if (cancelled) return;
@@ -1516,11 +1524,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           writeBottomTrackSessionCache(`stats-lc-home-recent:${panelUser.id}`, nextRecent);
         })
         .catch(() => undefined);
-    }, isOpen ? 180 : 900);
+    }, isOpen ? 180 : 900, isOpen ? 'interaction' : 'ambient');
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
+      cancelTask();
     };
   }, [getHistoryCache, isOpen, panelUser, setHistoryCache]);
 
@@ -1545,7 +1553,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     setLyricsMatch(null);
     if (!isLyricsOpen) setLyricsLoading(false);
 
-    const idleId = window.setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       window.requestAnimationFrame(() => {
         loadLyricsMatch(track.name, artistName)
           .then((match) => {
@@ -1554,25 +1562,25 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           })
           .catch(() => undefined);
       });
-    }, 420);
+    }, 420, 'interaction');
     return () => {
       cancelled = true;
-      window.clearTimeout(idleId);
+      cancelTask();
     };
   }, [artistName, currentLyricsRequestKey, isOpen, isLyricsOpen, track?.name]);
 
   React.useEffect(() => {
     if (!track?.name || isOpen) return;
-    const timer = window.setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       loadLyricsMatch(track.name, artistName).catch(() => undefined);
-    }, 900);
-    return () => window.clearTimeout(timer);
+    }, 900, 'ambient');
+    return () => cancelTask();
   }, [artistName, isOpen, track?.name, trackId]);
 
   // Prefetch track stats in background when the song changes and the modal is closed
   React.useEffect(() => {
     if (!panelUser?.id || !trackId || isOpen) return;
-    const timer = window.setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       loadBottomTrackStatsPanelData({
         user: panelUser,
         trackId,
@@ -1583,16 +1591,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         knownTrackCount: knownUserTrackCount,
         mode: 'full',
       }).catch(() => undefined);
-    }, 800);
-    return () => window.clearTimeout(timer);
+    }, 800, 'ambient');
+    return () => cancelTask();
   }, [albumId, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
 
   React.useEffect(() => {
     if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
-    const timer = window.setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       fetchTrackStatsForAll(trackId).catch(() => undefined);
-    }, 760);
-    return () => window.clearTimeout(timer);
+    }, 760, 'interaction');
+    return () => cancelTask();
   }, [fetchTrackStatsForAll, hasHydratedTrackRanking, isOpen, members.length, trackId]);
 
   React.useEffect(() => {
@@ -1638,7 +1646,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       history: !!activePlayback?.timestamp,
       social: false,
     });
-    const fastTimer = window.setTimeout(() => {
+    const cancelFastTask = motionRuntimeScheduler.scheduleTask(() => {
       window.requestAnimationFrame(() => {
         loadBottomTrackStatsPanelData({
           user: panelUser,
@@ -1657,9 +1665,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           });
         }).catch(() => undefined);
       });
-    }, 0);
+    }, 0, 'interaction');
 
-    const fullTimer = window.setTimeout(() => {
+    const cancelFullTask = motionRuntimeScheduler.scheduleTask(() => {
       loadBottomTrackStatsPanelData({
         user: panelUser,
         trackId,
@@ -1677,12 +1685,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           panelDataKeyRef.current = panelCacheKey;
         });
       });
-    }, 180);
+    }, 180, 'interaction');
 
     return () => {
       cancelled = true;
-      window.clearTimeout(fastTimer);
-      window.clearTimeout(fullTimer);
+      cancelFastTask();
+      cancelFullTask();
     };
   }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, trackArtistsSignature, trackId]);
 
@@ -1770,10 +1778,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   const scheduleLyricsScrollMask = React.useCallback(() => {
     if (typeof window === 'undefined') return;
+    cancelLyricsMaskTaskRef.current();
     window.requestAnimationFrame(() => {
       updateLyricsScrollMask();
       window.requestAnimationFrame(updateLyricsScrollMask);
-      window.setTimeout(updateLyricsScrollMask, 180);
+      cancelLyricsMaskTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
+        updateLyricsScrollMask();
+        cancelLyricsMaskTaskRef.current = () => {};
+      }, 180, 'interaction');
     });
   }, [updateLyricsScrollMask]);
 
@@ -1798,12 +1810,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     setRecentPickerOpen(false);
     setIsAnimationDone(false);
     animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
-    window.setTimeout(() => {
+    cancelCloseModalTaskRef.current();
+    cancelCloseModalTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
       if (modalOpenTokenRef.current !== closeToken) return;
       setIsOpen(false);
       setPanel('stats');
       setExternalPlayback(null);
-    }, 520);
+      cancelCloseModalTaskRef.current = () => {};
+    }, 520, 'interaction');
   }, [historySwipeX]);
 
   const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
@@ -1827,6 +1841,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const handleOpenStats = React.useCallback((nextPanel: 'stats' | 'lyrics' = 'stats') => {
     const openToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = openToken;
+    cancelCloseModalTaskRef.current();
     modalOpenedAtRef.current = Date.now();
     ignoreBackdropClickUntilRef.current = window.performance.now() + 260;
 
@@ -3247,6 +3262,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [showRouteIntentCover, setShowRouteIntentCover] = React.useState(false);
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
+  const bubbleHighlightCancelersRef = React.useRef(new Map<string, () => void>());
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -3271,19 +3287,26 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       if (userId && userId !== featuredUserId) {
         const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!prefersReduced) {
+          bubbleHighlightCancelersRef.current.get(userId)?.();
           setHighlightedBubbles(prev => ({ ...prev, [userId]: true }));
-          setTimeout(() => {
+          const cancel = motionRuntimeScheduler.scheduleTask(() => {
+            bubbleHighlightCancelersRef.current.delete(userId);
             setHighlightedBubbles(prev => {
               const next = { ...prev };
               delete next[userId];
               return next;
             });
-          }, 2000);
+          }, 2000, 'interaction');
+          bubbleHighlightCancelersRef.current.set(userId, cancel);
         }
       }
     };
     window.addEventListener('nowPlayingChanged', handleNowPlaying);
-    return () => window.removeEventListener('nowPlayingChanged', handleNowPlaying);
+    return () => {
+      window.removeEventListener('nowPlayingChanged', handleNowPlaying);
+      bubbleHighlightCancelersRef.current.forEach((cancel) => cancel());
+      bubbleHighlightCancelersRef.current.clear();
+    };
   }, [featuredUserId]);
 
   React.useEffect(() => {
@@ -3304,15 +3327,19 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
-    const revealTimer = window.setTimeout(() => setShowRouteIntentCover(true), isHomeIntent ? 60 : 90);
-    const safetyTimer = window.setTimeout(() => {
+    const cancelReveal = motionRuntimeScheduler.scheduleTask(
+      () => setShowRouteIntentCover(true),
+      isHomeIntent ? 60 : 90,
+      'interaction',
+    );
+    const cancelSafety = motionRuntimeScheduler.scheduleTask(() => {
       setShowRouteIntentCover(false);
       setPendingRoutePath(null);
-    }, isHomeIntent ? 760 : 2200);
+    }, isHomeIntent ? 760 : 2200, 'interaction');
 
     return () => {
-      window.clearTimeout(revealTimer);
-      window.clearTimeout(safetyTimer);
+      cancelReveal();
+      cancelSafety();
     };
   }, [location.pathname, pendingRoutePath]);
 

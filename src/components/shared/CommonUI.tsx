@@ -435,8 +435,8 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
     setLoading(!!displaySrc && !hasImageAssetLoaded(displaySrc));
 
     if (!displaySrc || displaySrc.includes("private.webp")) {
-      const timer = setTimeout(() => setShowFallback(true), 400);
-      return () => clearTimeout(timer);
+      const cancelTask = motionRuntime.scheduleTask(() => setShowFallback(true), 400, 'interaction');
+      return () => cancelTask();
     }
   }, [displaySrc]);
 
@@ -590,11 +590,11 @@ export const ScrollingText = ({ text, className, speed = 30 }: { text: string; c
       }
     };
     check();
-    const t = setTimeout(check, 200);
+    const cancelCheck = motionRuntime.scheduleTask(check, 200, 'interaction');
     window.addEventListener('resize', check);
     return () => {
       window.removeEventListener('resize', check);
-      clearTimeout(t);
+      cancelCheck();
     };
   }, [text]);
 

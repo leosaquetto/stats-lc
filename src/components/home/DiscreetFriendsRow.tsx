@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { EnginePulse, SmartImage } from '../shared/CommonUI';
+import { motionRuntime } from '../../lib/motionRuntime';
 
 export const DiscreetFriendsRow = ({ 
   friends, 
@@ -44,11 +45,11 @@ export const DiscreetFriendsRow = ({
 
     if (newArrivals.size > 0) {
       setNewlyLiveIds(newArrivals);
-      const timer = setTimeout(() => {
+      const cancelTask = motionRuntime.scheduleTask(() => {
         setNewlyLiveIds(new Set());
-      }, 4000);
+      }, 4000, 'interaction');
       prevLiveIds.current = currentIds;
-      return () => clearTimeout(timer);
+      return () => cancelTask();
     }
     
     prevLiveIds.current = currentIds;

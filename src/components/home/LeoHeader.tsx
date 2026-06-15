@@ -1689,7 +1689,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
         </div>
         {track && (
           <div className={cn(
-            "absolute -right-[190px] -top-[58px] h-[360px] w-[360px] shrink-0 z-40 pointer-events-none transition-[filter] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            "absolute -right-[190px] -top-[58px] h-[360px] w-[360px] shrink-0 z-40 pointer-events-none"
           )}
           style={{
             filter: visualIsLive
@@ -2148,7 +2148,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                     yB={0}
                     className="relative mb-4 sm:mb-6"
                   >
-                    <StatsLCLogo size={34} className="opacity-55 grayscale transition-[filter,opacity,transform] duration-700 group-hover:opacity-95 group-hover:grayscale-0 sm:scale-110" />
+                    <StatsLCLogo size={34} className="opacity-55 grayscale transition-[opacity,transform] duration-700 group-hover:opacity-95 sm:scale-110" />
                     <div className="absolute inset-[-10px] bg-orange-500/10 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
                   </EngineDrift>
                   <span className="text-[11px] sm:text-[13px] font-black uppercase tracking-[0.4em] sm:tracking-[0.5em] text-white/40 drop-shadow-lg">Sinal de Fã</span>

@@ -19,6 +19,7 @@ import { getVisibleMembers } from '../lib/memberSelectors';
 import { useRefreshCooldown } from '../hooks/useRefreshCooldown';
 import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
 const UserDetailModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.UserDetailModal })));
 const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
@@ -274,11 +275,11 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
     
     // We update the ref after a delay to maintain the "up" state for visuals during this session
     // Or we update it immediately if we want to reset trends on every data refresh
-    const timer = setTimeout(() => {
+    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       prevRankings.current = newRankings;
-    }, 5000); // Keep the trend visible for 5s after a change
+    }, 5000, 'interaction'); // Keep the trend visible for 5s after a change
     
-    return () => clearTimeout(timer);
+    return () => cancelTask();
   }, [sortedUsers]);
 
   if (errorLocal) {

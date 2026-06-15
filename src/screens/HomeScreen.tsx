@@ -211,6 +211,7 @@ const HomeHighlightPeriodControls = ({
   const menuRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const cancelPulseRef = useRef<(() => void) | null>(null);
   const [menuPosition, setMenuPosition] = useState({ left: 16, top: 120, width: 272 });
   const shouldReduceMotion = useReducedMotion();
   const currentMonth = new Date().getMonth();
@@ -226,6 +227,10 @@ const HomeHighlightPeriodControls = ({
     { key: 'all', label: 'Total' }
   ];
   const activeLabel = getReplayFilterLabel(activeTab, selectedSubValues);
+
+  useEffect(() => () => {
+    cancelPulseRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -277,7 +282,11 @@ const HomeHighlightPeriodControls = ({
     if (tab !== activeTab) {
       setIsPulsing(true);
       onPeriodLoading?.();
-      setTimeout(() => setIsPulsing(false), 400);
+      cancelPulseRef.current?.();
+      cancelPulseRef.current = motionRuntimeScheduler.scheduleTask(() => {
+        setIsPulsing(false);
+        cancelPulseRef.current = null;
+      }, 400, 'interaction');
     }
     onActiveTabChange(tab);
     setIsOpen(false);
@@ -572,8 +581,13 @@ const HomeHighlightCategoryControl = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isPulsing, setIsPulsing] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const cancelPulseRef = useRef<(() => void) | null>(null);
   const shouldReduceMotion = useReducedMotion();
   const ActiveIcon = activeGroup.icon;
+
+  useEffect(() => () => {
+    cancelPulseRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -603,7 +617,11 @@ const HomeHighlightCategoryControl = ({
     onChange(key);
     setIsOpen(false);
 
-    setTimeout(() => setIsPulsing(false), 400);
+    cancelPulseRef.current?.();
+    cancelPulseRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      setIsPulsing(false);
+      cancelPulseRef.current = null;
+    }, 400, 'interaction');
   };
 
   return (
@@ -1140,8 +1158,8 @@ const HomeOrbitalHighlights = ({
   // Controlar loading state quando os dados mudam
   useEffect(() => {
     if (isLoadingPeriod) {
-      const timer = setTimeout(() => setIsLoadingPeriod(false), 800);
-      return () => clearTimeout(timer);
+      const cancelTask = motionRuntimeScheduler.scheduleTask(() => setIsLoadingPeriod(false), 800, 'interaction');
+      return () => cancelTask();
     }
   }, [artists, tracks, albums, isLoadingPeriod]);
 
@@ -1884,10 +1902,18 @@ export default function HomeScreen() {
     year: String(new Date().getFullYear())
   });
   const toastIdRef = useRef(0);
+  const cancelHeaderHighlightRef = useRef<(() => void) | null>(null);
+  const toastDismissTasksRef = useRef(new Map<string, () => void>());
   const wasHomeReadyAtMountRef = useRef(hasBootReadySession());
   const hasReleasedHomeRef = useRef(wasHomeReadyAtMountRef.current);
   const shouldReduceHomeEntryMotion = useReducedMotion();
   const shouldSkipHomeEntryMotion = shouldReduceHomeEntryMotion === true;
+
+  useEffect(() => () => {
+    cancelHeaderHighlightRef.current?.();
+    toastDismissTasksRef.current.forEach((cancel) => cancel());
+    toastDismissTasksRef.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!hasReleasedHomeRef.current) return;
@@ -1901,6 +1927,7 @@ export default function HomeScreen() {
     if (!isAppReady) return;
     window.__STATS_LC_HOME_READY__ = true;
     window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+    window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
   }, [isAppReady]);
 
   const allMembers = useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId) || [], [groupStats, liveNowPlayingByUserId]);
@@ -2038,17 +2065,22 @@ export default function HomeScreen() {
       };
     }
 
-    const timeout = new Promise<void>((resolve) => window.setTimeout(resolve, HOME_CRITICAL_WARMUP_TIMEOUT_MS));
+    let cancelWarmupTimeout = () => {};
+    const timeout = new Promise<void>((resolve) => {
+      cancelWarmupTimeout = motionRuntimeScheduler.scheduleTask(resolve, HOME_CRITICAL_WARMUP_TIMEOUT_MS, 'interaction');
+    });
     Promise.race([
       visualPreparation,
       timeout,
     ]).then(() => {
+      cancelWarmupTimeout();
       if (cancelled) return;
       setIsVisualWarmupReady(true);
     });
 
     return () => {
       cancelled = true;
+      cancelWarmupTimeout();
     };
   }, [homeWarmupImageUrls, primaryUser?.id]);
 
@@ -2058,25 +2090,32 @@ export default function HomeScreen() {
       if (userId === featuredUserId) {
         const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!prefersReduced) {
+          cancelHeaderHighlightRef.current?.();
           setHeaderHighlight(true);
-          const timer = setTimeout(() => {
+          cancelHeaderHighlightRef.current = motionRuntimeScheduler.scheduleTask(() => {
             setHeaderHighlight(false);
-          }, 3000);
-          return () => clearTimeout(timer);
+            cancelHeaderHighlightRef.current = null;
+          }, 3000, 'interaction');
         }
       }
     };
     window.addEventListener('nowPlayingChanged', handleNowPlaying);
-    return () => window.removeEventListener('nowPlayingChanged', handleNowPlaying);
+    return () => {
+      window.removeEventListener('nowPlayingChanged', handleNowPlaying);
+      cancelHeaderHighlightRef.current?.();
+      cancelHeaderHighlightRef.current = null;
+    };
   }, [featuredUserId]);
 
   const showToast = useCallback((title: string, message: string, type: 'success' | 'info' | 'error' = 'success') => {
     const id = `toast-${Date.now()}-${toastIdRef.current++}`;
     const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setToasts(prev => [...prev, { id, title, message, type, timestamp }]);
-    setTimeout(() => {
+    const cancel = motionRuntimeScheduler.scheduleTask(() => {
+      toastDismissTasksRef.current.delete(id);
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4500);
+    }, 4500, 'interaction');
+    toastDismissTasksRef.current.set(id, cancel);
   }, []);
 
   useEffect(() => {
@@ -2184,11 +2223,12 @@ export default function HomeScreen() {
     const ready = hasCoreData && isVisualWarmupReady && hasRecentBaseline;
 
     if (!ready) {
-      if (!hasReleasedHomeRef.current) {
+      const hasBootReady = hasBootReadySession();
+      if (!hasReleasedHomeRef.current && !hasBootReady && !isAppReady) {
         window.__STATS_LC_HOME_READY__ = false;
         window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: false } }));
+        setIsAppReady(false);
       }
-      setIsAppReady(false);
       return;
     }
 
@@ -2210,23 +2250,23 @@ export default function HomeScreen() {
       };
     }
 
-    let hiddenTabFallback = 0;
-    const timer = window.setTimeout(() => {
-      hiddenTabFallback = window.setTimeout(releaseHome, 280);
+    let cancelHiddenTabFallback = () => {};
+    const cancelReleaseDelay = motionRuntimeScheduler.scheduleTask(() => {
+      cancelHiddenTabFallback = motionRuntimeScheduler.scheduleTask(releaseHome, 280, 'interaction');
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          window.clearTimeout(hiddenTabFallback);
+          cancelHiddenTabFallback();
           releaseHome();
         });
       });
-    }, 120);
+    }, 120, 'interaction');
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
-      window.clearTimeout(hiddenTabFallback);
+      cancelReleaseDelay();
+      cancelHiddenTabFallback();
     };
-  }, [groupStats, isVisualWarmupReady, primaryUser, recentPrepState]);
+  }, [groupStats, isAppReady, isVisualWarmupReady, primaryUser, recentPrepState]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo

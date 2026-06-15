@@ -18,18 +18,23 @@ import {
   loadStatsScreen,
 } from './lib/routePreloads';
 import { useMotionRuntime } from './hooks/useMotionRuntime';
+import { motionRuntime as motionRuntimeScheduler } from './lib/motionRuntime';
 
 const HomeScreen = lazy(loadHomeScreen);
 const StatsScreen = lazy(loadStatsScreen);
 const SettingsScreen = lazy(loadSettingsScreen);
 const CircleScreen = lazy(loadCircleScreen);
 
+const waitForInteractionTask = (delayMs: number) => new Promise<void>((resolve) => {
+  motionRuntimeScheduler.scheduleTask(resolve, delayMs, 'interaction');
+});
+
 const preloadSecondaryRoutes = async (isCancelled: () => boolean) => {
   const loaders = [loadStatsScreen, loadCircleScreen, loadSettingsScreen];
   for (const load of loaders) {
     if (isCancelled() || document.visibilityState !== 'visible') return;
     await load().catch(() => undefined);
-    await new Promise<void>((resolve) => window.setTimeout(resolve, 350));
+    await waitForInteractionTask(350);
   }
 };
 
@@ -303,15 +308,22 @@ export default function App() {
     };
     window.addEventListener('storage', handleStorage);
 
+    let cancelled = false;
+    let cancelSettleSplash = () => {};
     const minVisibleUntil = Date.now() + 650;
     const settleSplash = () => {
       const delay = Math.max(0, minVisibleUntil - Date.now());
-      window.setTimeout(() => setInitialBootSettled(true), delay);
+      cancelSettleSplash();
+      cancelSettleSplash = motionRuntimeScheduler.scheduleTask(() => {
+        if (!cancelled) setInitialBootSettled(true);
+      }, delay, 'interaction');
     };
 
     fetchStats().then(settleSplash).catch(settleSplash);
 
     return () => {
+      cancelled = true;
+      cancelSettleSplash();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('storage', handleStorage);
@@ -327,7 +339,7 @@ export default function App() {
     if (connection?.saveData || connection?.effectiveType === '2g') return;
 
     let cancelled = false;
-    let timer = 0;
+    let cancelPreloadSchedule = () => {};
     let idleId: number | null = null;
     const idleWindow = window as Window & {
       requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
@@ -339,15 +351,16 @@ export default function App() {
       preloadSecondaryRoutes(() => cancelled).catch(() => undefined);
     };
     const schedule = () => {
-      if (cancelled || timer || idleId !== null) return;
-      timer = window.setTimeout(() => {
-        timer = 0;
+      if (cancelled || idleId !== null) return;
+      cancelPreloadSchedule();
+      cancelPreloadSchedule = motionRuntimeScheduler.scheduleTask(() => {
+        cancelPreloadSchedule = () => {};
         if (idleWindow.requestIdleCallback) {
           idleId = idleWindow.requestIdleCallback(run, { timeout: 5000 });
         } else {
           run();
         }
-      }, 2200);
+      }, 2200, 'ambient');
     };
     const handleHomeReady = (event: Event) => {
       if ((event as CustomEvent<{ ready?: boolean }>).detail?.ready === true) schedule();
@@ -359,7 +372,7 @@ export default function App() {
     return () => {
       cancelled = true;
       window.removeEventListener('stats-lc-home-ready', handleHomeReady);
-      window.clearTimeout(timer);
+      cancelPreloadSchedule();
       if (idleId !== null) idleWindow.cancelIdleCallback?.(idleId);
     };
   }, [initialBootSettled]);
@@ -379,14 +392,14 @@ export default function App() {
       return;
     }
 
-    const hiddenTabFallback = window.setTimeout(dismissSplash, 280);
+    const cancelHiddenTabFallback = motionRuntimeScheduler.scheduleTask(dismissSplash, 280, 'interaction');
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        window.clearTimeout(hiddenTabFallback);
+        cancelHiddenTabFallback();
         dismissSplash();
       });
     });
-    return () => window.clearTimeout(hiddenTabFallback);
+    return () => cancelHiddenTabFallback();
   }, [initialBootSettled]);
 
   useEffect(() => {
