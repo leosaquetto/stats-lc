@@ -8,7 +8,6 @@
 
 ## Subtarefas pendentes
 
-- [ ] Auditar os loops e filas restantes na Home, Circle, Stats e mini tray em viewport mobile.
 - [ ] Eliminar entradas abruptas restantes registradas em `docs/abrupt-entry-audit.md`.
 - [ ] Rodar validacao completa pos-commit em `390x844` para Home -> Stats -> Circle -> Settings -> Home, incluindo loaders, mini tray, letras e modais.
 - [ ] Atualizar as regras definitivas de animação/runtime para futuras edições por agentes.
@@ -30,9 +29,10 @@
 - [x] Foot sync compacto/expandido reduzido, centralizado e sem barra gigante/bolha preta indevida. Commit `ba959f7`.
 - [x] Tonearm manual preserva posicao solta e vinil reduz/retoma com transicoes transform-only. Commit `ba959f7`.
 - [x] `npm run lint`, `npm run build`, `npm run build:report`, `git diff --check` e varredura `transition-all|setInterval|100vh|100dvh` passaram no lote `ba959f7`.
+- [x] Auditoria de loops/filas em Home, Stats, Circle e Settings em `390x844`, com `LoAF=0`, overflow `0`, imagens quebradas `0`, console limpo e task/loop kinds registrados. Commit `b48db4d`.
 - [x] Validação Browser Home -> Stats -> Home sem overflow; cover de rota limpa após a transição.
 - [x] Validação Browser dos loops `Engine*`: elementos inativos ficam com `animation-name: none` e `animation-play-state: paused`.
 
 ## Próximo passo concreto
 
-Auditar loops e filas restantes na Home, Circle, Stats e mini tray em `390x844`, depois atacar as entradas abruptas que ainda restarem em `docs/abrupt-entry-audit.md`.
+Atacar as entradas abruptas que ainda restarem em `docs/abrupt-entry-audit.md`, com foco em entradas internas de Stats/Circle e fallbacks de modais/historico.
