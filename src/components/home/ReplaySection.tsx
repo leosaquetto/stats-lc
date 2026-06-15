@@ -19,6 +19,7 @@ import {
   type ReplayWeekMode
 } from './replayUtils';
 import { getSelectableReplayYears } from '../../lib/replayYears';
+import { motionRuntime } from '../../lib/motionRuntime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -142,14 +143,12 @@ export const ReplaySection: React.FC<ReplaySectionProps> = ({
 
     if (limitedTracks.length <= INITIAL_TRACK_ROWS) return undefined;
 
-    const scheduleIdle = window.requestIdleCallback || ((callback: IdleRequestCallback) => {
-      const timeoutId = window.setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 450);
-      return timeoutId as unknown as number;
-    });
-    const cancelIdle = window.cancelIdleCallback || ((id: number) => window.clearTimeout(id));
+    if (window.requestIdleCallback && window.cancelIdleCallback) {
+      const idleId = window.requestIdleCallback(() => setRenderFullTrackList(true), { timeout: 900 });
+      return () => window.cancelIdleCallback(idleId);
+    }
 
-    const idleId = scheduleIdle(() => setRenderFullTrackList(true), { timeout: 900 });
-    return () => cancelIdle(idleId);
+    return motionRuntime.scheduleTask(() => setRenderFullTrackList(true), 450, 'ambient');
   }, [activeTab, metricMode, selectedSubValues, limitedTracks.length]);
 
   const selectTab = (tab: ReplayFilterPeriod) => {

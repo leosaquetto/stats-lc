@@ -71,6 +71,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - `layout="position"` somente quando ha reposicionamento real de cards/listas.
 - `LazyModalFallback` para chunks de modal.
 - `RouteIntentCover` e `RouteLoader` para troca de rota.
+- Timeouts funcionais de rede, API, asset queue, palette queue, safety release, polling visibility-aware e sequenciamento de Web Animations API.
 
 ## Padroes Proibidos
 
@@ -82,6 +83,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - Loops CSS sem `stats-lc-engine-loop` quando forem recorrentes.
 - Novo loader local de modal quando `LazyModalFallback` resolve.
 - Nova politica paralela de motion fora de `motionRuntime`.
+- `setTimeout` local para delays de UI, toasts, pulsos, highlights, entrada de lista, fallback visual ou scroll de coreografia.
 
 ## Checklist Para Agentes
 

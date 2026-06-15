@@ -57,6 +57,14 @@ const saveToMMKV = (key: string, value: any) => {
   }
 };
 
+const deferCacheInvalidation = (callback: () => void) => {
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(callback);
+    return;
+  }
+  Promise.resolve().then(callback);
+};
+
 const stripHeavyGroupStats = (groupStats: GroupStats | null): GroupStats | null => {
   if (!groupStats) return null;
 
@@ -1012,7 +1020,7 @@ export const useStatsStore = create<StatsState>()(
 
         if (age > TTL && isOnline && !allowStale) {
           // Invalidação em background: limpa o cache específico para forçar o próximo fetch
-          setTimeout(() => {
+          deferCacheInvalidation(() => {
             set(state => {
               const newCache = { ...state.userFullStatsCache };
               const newMeta = { ...state.userFullStatsCacheMeta };
@@ -1022,7 +1030,7 @@ export const useStatsStore = create<StatsState>()(
               saveToMMKV('userFullStatsCacheMeta', newMeta);
               return { userFullStatsCache: newCache, userFullStatsCacheMeta: newMeta };
             });
-          }, 100);
+          });
           return null; 
         }
         return cache;
@@ -1047,7 +1055,7 @@ export const useStatsStore = create<StatsState>()(
         const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : !get().isOffline;
 
         if (age > TTL && isOnline && !allowStale) {
-          setTimeout(() => {
+          deferCacheInvalidation(() => {
             set(state => {
               const newCache = { ...state.timeRangeStatsCache };
               const newMeta = { ...state.timeRangeStatsCacheMeta };
@@ -1057,7 +1065,7 @@ export const useStatsStore = create<StatsState>()(
               saveToMMKV('timeRangeStatsCacheMeta', newMeta);
               return { timeRangeStatsCache: newCache, timeRangeStatsCacheMeta: newMeta };
             });
-          }, 100);
+          });
           return null;
         }
         return cache;
@@ -1082,7 +1090,7 @@ export const useStatsStore = create<StatsState>()(
         const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : !get().isOffline;
 
         if (age > TTL && isOnline && !allowStale) {
-          setTimeout(() => {
+          deferCacheInvalidation(() => {
             set(state => {
               const newCache = { ...state.topItemsCache };
               const newMeta = { ...state.topItemsCacheMeta };
@@ -1092,7 +1100,7 @@ export const useStatsStore = create<StatsState>()(
               saveToMMKV('topItemsCacheMeta', newMeta);
               return { topItemsCache: newCache, topItemsCacheMeta: newMeta };
             });
-          }, 100);
+          });
           return null;
         }
         return cache;
