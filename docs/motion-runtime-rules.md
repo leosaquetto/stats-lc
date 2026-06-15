@@ -105,6 +105,8 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Entradas unicas curtas com `opacity`/`transform` podem continuar em tier `conserve`, com duracao reduzida.
    - Loops ambientais, equalizers e pulsos continuam condicionados a viewport, visibilidade e `motionRuntime`.
    - Ambientes caros e nao funcionais, como respirar de uma superficie grande ou vinil idle, rodam apenas em tier `full`; em `balanced` a aura estatica permanece e o movimento funcional continua.
+   - Backdrops grandes da LeoHeader/Home podem pulsar durante entrada, troca de faixa ou troca de paleta, mas devem assentar em ate cerca de `1700ms`; depois disso, a profundidade fica estatica e apenas vinil/tonearm/progresso continuam funcionais.
+   - Nao empilhe multiplos `EngineBreathe` em uma mesma bolha/avatar pequeno. Prefira camadas radiais estaticas e deixe no maximo uma camada viva ligada ao avatar ou estado principal.
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
 
 15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.

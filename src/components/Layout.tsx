@@ -2141,53 +2141,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
-          {shouldAnimateBubble ? (
+          {isBubbleLive ? (
             <>
-              <EngineBreathe
-                active
+              <span
+                aria-hidden="true"
                 className="pointer-events-none absolute inset-0 rounded-full"
-                duration={2.2}
-                fromOpacity={0.24}
-                fromScale={1}
-                toOpacity={0.68}
-                toScale={1}
                 style={{
                   background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
                   filter: 'saturate(1.65) contrast(1.08)',
-                }}
-              />
-              <EngineBreathe
-                active
-                className="pointer-events-none absolute inset-[2px] rounded-full"
-                duration={2.2}
-                fromOpacity={0.2}
-                fromScale={1}
-                toOpacity={0.46}
-                toScale={1}
-                style={{
-                  background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.44) 0%, rgba(255,255,255,0.18) 34%, rgba(255,255,255,0.06) 62%, transparent 100%)',
-                  mixBlendMode: 'screen',
-                }}
-              />
-            </>
-          ) : isBubbleLive ? (
-            <>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-full"
-                style={{
-                  background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 72%, rgba(255,255,255,0.08)) 0%, color-mix(in srgb, ${bubbleAccentColor} 46%, rgba(0,0,0,0.34)) 100%)`,
-                  filter: 'saturate(1.5) contrast(1.05)',
-                  opacity: 0.72,
+                  opacity: shouldAnimateBubble ? 0.68 : 0.72,
                 }}
               />
               <span
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-[2px] rounded-full"
                 style={{
-                  background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.12) 42%, transparent 100%)',
+                  background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 36%, rgba(255,255,255,0.05) 64%, transparent 100%)',
                   mixBlendMode: 'screen',
-                  opacity: 0.42,
+                  opacity: shouldAnimateBubble ? 0.46 : 0.42,
                 }}
               />
             </>

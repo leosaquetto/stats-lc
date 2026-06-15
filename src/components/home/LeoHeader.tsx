@@ -1394,6 +1394,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
     () => getDistinctAmbientColors(artworkPalette, dominantColor),
     [artworkPalette, dominantColor]
   );
+  const [ambientBackdropSettling, setAmbientBackdropSettling] = useState(true);
 
   const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const fetchGroup = useStatsStore(state => state.fetchGroup);
@@ -1750,7 +1751,19 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
   const visualIsLive = playbackOverride?.signature === backendPlaybackSignature
     ? playbackOverride.isPlaying
     : isActuallyLive;
-  useCompositorLoopTelemetry(visualIsLive && shouldRunAmbientMotion, 'leo-header-ambient');
+  useEffect(() => {
+    setAmbientBackdropSettling(true);
+    return motionRuntime.scheduleTask(
+      () => setAmbientBackdropSettling(false),
+      visualIsLive ? 1700 : 1200,
+      'interaction',
+      'leo-header-ambient-settle',
+    );
+  }, [albumImage, dominantColor, vinylPlaybackKey, visualIsLive]);
+  const shouldRunBackdropAmbientMotion = shouldRunFullAmbientMotion && ambientBackdropSettling;
+  const shouldRunLiveBackdropAmbientMotion = visualIsLive && shouldRunBackdropAmbientMotion;
+  const shouldRunIdleBackdropBreathe = !visualIsLive && shouldRunBackdropAmbientMotion;
+  useCompositorLoopTelemetry(shouldRunLiveBackdropAmbientMotion, 'leo-header-ambient');
   const handleVinylPlaybackIntent = useCallback((nextIsPlaying: boolean) => {
     setPlaybackOverride({ signature: backendPlaybackSignature, isPlaying: nextIsPlaying });
   }, [backendPlaybackSignature]);
@@ -1850,9 +1863,9 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                 className={cn(
                   "stats-lc-engine-loop stats-lc-artwork-drift absolute left-1/2 top-[42%] h-[470px] w-[min(150vw,760px)] rounded-full transition-opacity duration-700",
                   visualIsLive ? "opacity-[0.7]" : "opacity-[0.56]",
-                  (!visualIsLive || !shouldRunAmbientMotion) && "stats-lc-ambient-idle-freeze"
+                  !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
                 )}
-                data-active={visualIsLive && shouldRunAmbientMotion ? "true" : "false"}
+                data-active={shouldRunLiveBackdropAmbientMotion ? "true" : "false"}
                 style={{
                   background: `radial-gradient(circle at 62% 34%, ${withAlpha(ambientColorA, 0.46)} 0%, ${withAlpha(ambientColorA, 0.2)} 18%, transparent 44%), radial-gradient(circle at 28% 66%, ${withAlpha(ambientColorB, 0.28)} 0%, ${withAlpha(ambientColorB, 0.12)} 18%, transparent 42%)`,
                   translate: '-50% -50%',
@@ -1861,7 +1874,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             )}
             {track && !visualIsLive && (
               <EngineBreathe
-                active={shouldRunFullAmbientMotion}
+                active={shouldRunIdleBackdropBreathe}
                 className="pointer-events-none absolute left-1/2 top-[42%] h-[340px] w-[min(118vw,620px)] rounded-full"
                 duration={8.5}
                 fromOpacity={0.16}
@@ -1877,9 +1890,9 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             <div
               className={cn(
                 "stats-lc-engine-loop stats-lc-ambient-drift-primary absolute left-1/2 top-[38%] h-[420px] w-[min(136vw,700px)] rounded-full pointer-events-none",
-                (!visualIsLive || !shouldRunAmbientMotion) && "stats-lc-ambient-idle-freeze"
+                !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
               )}
-              data-active={visualIsLive && shouldRunAmbientMotion ? "true" : "false"}
+              data-active={shouldRunLiveBackdropAmbientMotion ? "true" : "false"}
               style={{
                 background: track
                   ? `radial-gradient(circle at 68% 38%, ${withAlpha(ambientColorB, visualIsLive ? 0.62 : 0.34)} 0%, ${withAlpha(ambientColorB, visualIsLive ? 0.18 : 0.1)} 24%, transparent 48%)`
@@ -1890,9 +1903,9 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             <div
               className={cn(
                 "stats-lc-engine-loop stats-lc-ambient-drift-secondary absolute left-1/2 top-[56%] h-[380px] w-[min(128vw,660px)] rounded-full pointer-events-none",
-                (!visualIsLive || !shouldRunAmbientMotion) && "stats-lc-ambient-idle-freeze"
+                !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
               )}
-              data-active={visualIsLive && shouldRunAmbientMotion ? "true" : "false"}
+              data-active={shouldRunLiveBackdropAmbientMotion ? "true" : "false"}
               style={{
                 background: track
                   ? `radial-gradient(circle at 18% 58%, ${withAlpha(ambientColorC, visualIsLive ? 0.5 : 0.26)} 0%, ${withAlpha(ambientColorC, visualIsLive ? 0.16 : 0.08)} 22%, transparent 44%)`
