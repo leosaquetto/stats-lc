@@ -319,7 +319,6 @@ export const UserDetailModal = ({
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: loading ? 0.2 : Math.min((stats.today?.count || 0) * 2, 100) / 100 }}
                         className="h-full w-full origin-left bg-orange-500"
-                        style={{ willChange: 'transform' }}
                       />
                    </div>
                 </div>

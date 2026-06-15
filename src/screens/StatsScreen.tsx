@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
-import { EngineSpinner, SectionHeader, Skeleton, SmartImage } from '../components/shared/CommonUI';
+import { EngineSpinner, SectionHeader, Skeleton, SkeletonSurface, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
 import { statsService } from '../services/statsService';
@@ -342,7 +342,6 @@ const StatsEmptyPanel = ({
       exit={shouldAnimate ? { opacity: 0, y: -8, scale: 0.99 } : { opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: shouldAnimate ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
       className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
-      style={{ willChange: shouldAnimate ? 'transform, opacity' : 'auto' }}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.045] to-transparent" />
       <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-orange-500/[0.12] blur-3xl" />
@@ -372,7 +371,6 @@ const StatsRankingLoading = () => {
       exit={shouldAnimate ? { opacity: 0, y: -8, scale: 0.99 } : { opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: shouldAnimate ? 0.2 : 0.01, ease: [0.16, 1, 0.3, 1] }}
       className="glass-card relative overflow-hidden rounded-[32px] border-white/[0.08] bg-black/42 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)]"
-      style={{ willChange: shouldAnimate ? 'transform, opacity' : 'auto' }}
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/[0.04] to-transparent" />
       <div className="relative z-10 flex flex-col gap-3">
@@ -2013,7 +2011,6 @@ export default function StatsScreen() {
                     exit={shouldAnimateStats ? { opacity: 0, y: -8, scale: 0.985 } : { opacity: 1, y: 0, scale: 1 }}
                     transition={{ duration: shouldAnimateStats ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                     className="glass-aura relative overflow-hidden rounded-[28px] px-5 py-4"
-                    style={{ willChange: 'transform, opacity' }}
                   >
                     <div className="relative z-10 flex items-center gap-4">
                       <div className="glass-aura-orange flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white">
@@ -2065,7 +2062,7 @@ export default function StatsScreen() {
           </div>
 
           {hasReplayItems ? (
-            <Suspense fallback={<div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-aura h-48 rounded-[32px]" />}>
+            <Suspense fallback={<SkeletonSurface className="glass-aura h-48 rounded-[32px]" />}>
               <ReplaySection
                 topArtists={replaySourceItems.artists.slice(0, 20).map((a: any) => ({
                   id: a.id || a.name,
@@ -2237,7 +2234,7 @@ export default function StatsScreen() {
             {/* Distribuição Horária */}
             <div className="transition-opacity duration-300">
               {chartError ? null : isChartLoading && (!hourlyDistributionData || hourlyDistributionData.length === 0 || hourlyDistributionData.every(d => d.streams === 0)) ? (
-                <div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+                <SkeletonSurface className="glass-card p-6 border-white/[0.08] bg-black/40 backdrop-blur-xl flex flex-col gap-5 opacity-40 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-white/30" />
@@ -2257,7 +2254,7 @@ export default function StatsScreen() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </SkeletonSurface>
 	              ) : (() => {
 	                const hasHourlyShape = hourlyDistributionData && hourlyDistributionData.length > 0;
 	                if (!hasHourlyShape) return null;
@@ -2269,7 +2266,7 @@ export default function StatsScreen() {
                         Distribuição baseada em amostra de {chartCoverageLabel} reproduções
                       </p>
                     )}
-                    <Suspense fallback={<div className="stats-lc-engine-loop stats-lc-skeleton-shimmer glass-card p-6 border-white/5 h-36" />}>
+                    <Suspense fallback={<SkeletonSurface className="glass-card p-6 border-white/5 h-36" />}>
                       <DailyActivityHeatmap
                         data={hourlyDistributionData}
                         accentColor={accentColor}

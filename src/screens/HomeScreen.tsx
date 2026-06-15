@@ -3067,7 +3067,7 @@ export default function HomeScreen() {
             </div>
             
             {/* Background Glow */}
-            <div className="stats-lc-engine-loop absolute -inset-10 bg-orange-500/10 blur-[60px] -z-10 rounded-full animate-pulse-slow" />
+            <div className="absolute -inset-10 -z-10 rounded-full bg-orange-500/10 blur-[60px]" />
           </motion.div>
         )}
       </AnimatePresence>

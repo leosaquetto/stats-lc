@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
-import { EngineSpinner, SmartImage } from '../shared/CommonUI';
+import { EngineSpinner, SkeletonSurface, SmartImage } from '../shared/CommonUI';
 import { UserAlbumStatsModal } from './EntityStatsModal';
 import { useMotionRuntime } from '../../hooks/useMotionRuntime';
 import { useModalMotionScope } from '../../hooks/useModalMotionScope';
@@ -175,10 +175,10 @@ export const UserAlbumHistoryModal = ({
            {loading ? (
              <div className="flex flex-col gap-3.5 py-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
-                  <div
+                  <SkeletonSurface
                     key={i}
-                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-20 w-full border border-white/5 rounded-3xl flex items-center px-4 gap-4"
-                    data-active={shouldAnimateModal ? "true" : "false"}
+                    active={shouldAnimateModal}
+                    className="h-20 w-full border border-white/5 rounded-3xl flex items-center px-4 gap-4 bg-white/[0.035]"
                   >
                     <div className="h-5 w-5 bg-white/5 rounded-full" />
                     <div className="h-12 w-12 bg-white/5 rounded-2xl" />
@@ -186,7 +186,7 @@ export const UserAlbumHistoryModal = ({
                       <div className="h-3 w-1/2 bg-white/5 rounded-full" />
                       <div className="h-2 w-1/3 bg-white/5 rounded-full" />
                     </div>
-                  </div>
+                  </SkeletonSurface>
                 ))}
              </div>
            ) : filteredAlbums.length > 0 ? (

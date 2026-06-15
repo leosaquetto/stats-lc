@@ -12,7 +12,7 @@ import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
 import { statsService } from '../services/statsService';
-import { AnimatedNumber, EngineBreathe, EngineEqualizer, EngineShimmer, EngineSpinner, SmartImage } from './shared/CommonUI';
+import { AnimatedNumber, EngineBreathe, EngineEqualizer, EngineShimmer, EngineSpinner, SkeletonSurface, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
@@ -1106,11 +1106,11 @@ const ModalMetricValue = ({
 }) => {
   const displayValue = ready ? value : fallbackValue;
   if (typeof displayValue === 'number') return <AnimatedNumber value={displayValue} />;
-  return <span className="stats-lc-engine-loop stats-lc-skeleton-shimmer block h-5 w-12 rounded-full" />;
+  return <SkeletonSurface as="span" className="block h-5 w-12 rounded-full bg-white/[0.045]" />;
 };
 
 const ModalSkeleton = ({ className = "" }: { className?: string }) => (
-  <span className={clsx("stats-lc-engine-loop stats-lc-skeleton-shimmer block rounded-full", className)} />
+  <SkeletonSurface as="span" className={clsx("block rounded-full bg-white/[0.045]", className)} />
 );
 
 const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {

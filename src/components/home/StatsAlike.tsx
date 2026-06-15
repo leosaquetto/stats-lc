@@ -530,7 +530,6 @@ export const StatsAlike = React.memo(() => {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           className="relative h-[286px] w-full flex items-center justify-center overflow-visible"
-          style={{ willChange: 'transform, opacity' }}
         >
           <div className="absolute h-56 w-56 rounded-full border border-white/[0.04]" />
           <div className="relative glass-card p-6 rounded-[32px] shadow-2xl overflow-hidden">

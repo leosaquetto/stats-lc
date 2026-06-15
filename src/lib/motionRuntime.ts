@@ -23,7 +23,7 @@ type MotionFrameSubscription = Required<MotionFrameSubscriptionOptions> & {
   listener: MotionFrameListener;
 };
 type ScheduledMotionTask = {
-  callback: () => void;
+  callback: () => void | Promise<void>;
   id: number;
   kind: string;
   priority: MotionFramePriority;
@@ -72,6 +72,9 @@ let displayRateMeasured = false;
 let scheduledTaskId = 0;
 let scheduledTaskTimer: number | null = null;
 let compositorLoopId = 0;
+let runtimeErrorCount = 0;
+let lastRuntimeErrorKind = '';
+let lastRuntimeErrorPhase = '';
 
 const getConnection = () => (
   typeof navigator === 'undefined'
@@ -142,6 +145,14 @@ const getCompositorLoopKinds = () => (
   }, {})
 );
 
+const reportRuntimeError = (error: unknown, phase: 'frame' | 'listener' | 'task', kind: string) => {
+  runtimeErrorCount += 1;
+  lastRuntimeErrorKind = kind;
+  lastRuntimeErrorPhase = phase;
+  console.error(`[motionRuntime] ${phase} "${kind}" failed`, error);
+  syncDataset();
+};
+
 const syncDataset = () => {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -167,6 +178,9 @@ const syncDataset = () => {
   root.dataset.statsLcRecentLongTasks = String(longTaskWindow.length);
   root.dataset.statsLcMotionFrameCostMs = String(Math.round(lastSchedulerCostMs * 100) / 100);
   root.dataset.statsLcMotionMaxFrameCostMs = String(Math.round(maxSchedulerCostMs * 100) / 100);
+  root.dataset.statsLcMotionRuntimeErrors = String(runtimeErrorCount);
+  root.dataset.statsLcMotionRuntimeLastErrorKind = lastRuntimeErrorKind;
+  root.dataset.statsLcMotionRuntimeLastErrorPhase = lastRuntimeErrorPhase;
 };
 
 const scheduleNextTask = () => {
@@ -189,7 +203,14 @@ const runScheduledTasks = () => {
   dueTasks.forEach((task) => {
     scheduledTasks.delete(task.id);
     if (task.priority === 'ambient' && (!snapshot.canRunMotion || snapshot.tier === 'conserve')) return;
-    task.callback();
+    try {
+      const result = task.callback();
+      if (result && typeof result.then === 'function') {
+        result.catch((error) => reportRuntimeError(error, 'task', task.kind));
+      }
+    } catch (error) {
+      reportRuntimeError(error, 'task', task.kind);
+    }
   });
 
   syncDataset();
@@ -201,7 +222,13 @@ const emit = () => {
   if (snapshotsEqual(snapshot, nextSnapshot)) return;
   snapshot = nextSnapshot;
   syncDataset();
-  listeners.forEach((listener) => listener());
+  listeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (error) {
+      reportRuntimeError(error, 'listener', 'snapshot');
+    }
+  });
 };
 
 const schedulePressureDecay = () => {
@@ -266,7 +293,11 @@ const frameLoop = (now: number) => {
 
       const deltaMs = subscription.lastRunAt ? now - subscription.lastRunAt : runtimeDeltaMs;
       subscription.lastRunAt = now;
-      subscription.listener({ deltaMs, fps: targetFps, now, tier: snapshot.tier });
+      try {
+        subscription.listener({ deltaMs, fps: targetFps, now, tier: snapshot.tier });
+      } catch (error) {
+        reportRuntimeError(error, 'frame', subscription.priority);
+      }
     });
 
     lastSchedulerCostMs = performance.now() - schedulerStartedAt;
@@ -364,7 +395,7 @@ export const motionRuntime = {
     };
   },
   scheduleTask: (
-    callback: () => void,
+    callback: () => void | Promise<void>,
     delayMs: number,
     priority: MotionFramePriority = 'interaction',
     kind = 'task',
@@ -402,6 +433,9 @@ export const motionRuntime = {
     displayFps: snapshot.displayFps,
     listeners: frameSubscriptions.size,
     maxSchedulerCostMs,
+    runtimeErrorCount,
+    runtimeLastErrorKind: lastRuntimeErrorKind,
+    runtimeLastErrorPhase: lastRuntimeErrorPhase,
     schedulerCostMs: lastSchedulerCostMs,
     taskKinds: getScheduledTaskKinds(),
     tasks: scheduledTasks.size,

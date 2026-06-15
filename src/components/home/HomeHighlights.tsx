@@ -681,7 +681,6 @@ export const HomeHighlights = React.memo(({ userId, onItemClick }: { userId: str
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className="flex flex-col gap-3 my-2 relative"
-      style={{ willChange: 'transform, opacity' }}
     >
       <SectionHeader title="Seus Destaques" icon={<Flame className="h-3.5 w-3.5 text-orange-500" />} />
       <Skeleton className="h-8 w-full rounded-lg" />

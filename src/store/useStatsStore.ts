@@ -13,6 +13,7 @@ import { attachLiveNowPlayingToMember, dedupeIds, getCanonicalMembers, getCanoni
 import { getDominantColor } from '../lib/colorUtils';
 import { buildTopItemsCacheKey } from '../lib/topItemUtils';
 import { preloadImageAssets } from '../lib/assetRuntime';
+import { readRuntimeCacheEntry, setRuntimeCacheEntry } from '../lib/memoryRuntime';
 
 // Mock MMKV for web environment to prevent crashes with native modules
 class MockMMKV {
@@ -249,6 +250,26 @@ const trackStatsFetchedAt = new Map<string, number>();
 const liveProbeRequestInFlight = new Map<string, Promise<boolean>>();
 const lastLiveProbeSignatureByUserId = new Map<string, string>();
 const LIVE_PROBE_COMPLETION_GRACE_MS = 45 * 1000;
+
+const trimUserTrackStats = (userTrackStats: Record<string, number>, activeTrackId: string) => {
+  const retainedTrackIds = new Set(trackStatsFetchedAt.keys());
+  retainedTrackIds.add(activeTrackId);
+
+  const entries = Object.entries(userTrackStats);
+  const retainedEntries = entries.filter(([key]) => {
+    const separatorIndex = key.indexOf(':');
+    const trackId = separatorIndex >= 0 ? key.slice(separatorIndex + 1) : '';
+    return retainedTrackIds.has(trackId);
+  });
+
+  return retainedEntries.length === entries.length
+    ? userTrackStats
+    : Object.fromEntries(retainedEntries);
+};
+
+const markTrackStatsFetched = (trackId: string) => {
+  setRuntimeCacheEntry(trackStatsFetchedAt, trackId, Date.now(), 'small');
+};
 
 const isExpiredInitialLiveProbeItem = (item: any, generatedAt?: string) => {
   const timestamp = item?.playedAt || item?.endTime || item?.timestamp;
@@ -1315,13 +1336,13 @@ export const useStatsStore = create<StatsState>()(
           if (requestedFeaturedUserId) {
             const liveFeaturedUser = liveData.members?.find(member => member.id === requestedFeaturedUserId);
             const recoveryNow = Date.now();
-            const lastRecoveryAt = lastLiveRecentRecoveryAtByUserId.get(requestedFeaturedUserId) || 0;
+            const lastRecoveryAt = readRuntimeCacheEntry(lastLiveRecentRecoveryAtByUserId, requestedFeaturedUserId) || 0;
             if (
               liveFeaturedUser?.nowPlaying &&
               isPlaybackPastDuration(liveFeaturedUser.nowPlaying, recoveryNow) &&
               recoveryNow - lastRecoveryAt >= LIVE_RECENT_RECOVERY_INTERVAL_MS
             ) {
-              lastLiveRecentRecoveryAtByUserId.set(requestedFeaturedUserId, recoveryNow);
+              setRuntimeCacheEntry(lastLiveRecentRecoveryAtByUserId, requestedFeaturedUserId, recoveryNow, 'tiny');
               const latestRecent = await statsService.fetchLatestRecentFresh(requestedFeaturedUserId);
               const recoveredNowPlaying = buildRecoveredNowPlaying(liveFeaturedUser.nowPlaying, latestRecent, recoveryNow);
               if (recoveredNowPlaying) {
@@ -1523,18 +1544,18 @@ export const useStatsStore = create<StatsState>()(
             !lastLiveProbeSignatureByUserId.has(userId) &&
             isExpiredInitialLiveProbeItem(response.item, response.generatedAt)
           ) {
-            lastLiveProbeSignatureByUserId.set(userId, response.signature);
+            setRuntimeCacheEntry(lastLiveProbeSignatureByUserId, userId, response.signature, 'tiny');
             return false;
           }
           if (
-            lastLiveProbeSignatureByUserId.get(userId) === response.signature ||
+            readRuntimeCacheEntry(lastLiveProbeSignatureByUserId, userId) === response.signature ||
             currentSignature === response.signature
           ) {
-            lastLiveProbeSignatureByUserId.set(userId, response.signature);
+            setRuntimeCacheEntry(lastLiveProbeSignatureByUserId, userId, response.signature, 'tiny');
             return false;
           }
 
-          lastLiveProbeSignatureByUserId.set(userId, response.signature);
+          setRuntimeCacheEntry(lastLiveProbeSignatureByUserId, userId, response.signature, 'tiny');
           set((state) => ({
             liveNowPlayingByUserId: {
               ...state.liveNowPlayingByUserId,
@@ -1575,7 +1596,10 @@ export const useStatsStore = create<StatsState>()(
         const key = `${userId}:${trackId}`;
         try {
           const count = await statsService.fetchEntityStats(userId, 'track', trackId);
-          set({ userTrackStats: { ...get().userTrackStats, [key]: count } });
+          markTrackStatsFetched(trackId);
+          set((state) => ({
+            userTrackStats: trimUserTrackStats({ ...state.userTrackStats, [key]: count }, trackId),
+          }));
         } catch (e) {
           console.error("fetchUserTrackStats error:", e);
         }
@@ -1586,7 +1610,7 @@ export const useStatsStore = create<StatsState>()(
         if (!trackId || users.length === 0) return;
 
         const now = Date.now();
-        const cachedAt = trackStatsFetchedAt.get(trackId) || 0;
+        const cachedAt = readRuntimeCacheEntry(trackStatsFetchedAt, trackId) || 0;
         if (
           now - cachedAt < TRACK_STATS_CACHE_TTL_MS &&
           hasTrackStatsForUsers(get().userTrackStats, users, trackId)
@@ -1608,8 +1632,8 @@ export const useStatsStore = create<StatsState>()(
               newStats[`${u.id}:${trackId}`] = groupStats[u.id] || 0;
             });
 
-            set({ userTrackStats: newStats });
-            trackStatsFetchedAt.set(trackId, Date.now());
+            markTrackStatsFetched(trackId);
+            set({ userTrackStats: trimUserTrackStats(newStats, trackId) });
           } catch (e) {
             try {
               const results = await Promise.all(users.map(async (u) => {
@@ -1622,8 +1646,8 @@ export const useStatsStore = create<StatsState>()(
                 newStats[`${userId}:${trackId}`] = count;
               });
 
-              set({ userTrackStats: newStats });
-              trackStatsFetchedAt.set(trackId, Date.now());
+              markTrackStatsFetched(trackId);
+              set({ userTrackStats: trimUserTrackStats(newStats, trackId) });
             } catch (fallbackError) {
               console.error("fetchTrackStatsForAll error:", fallbackError);
             }

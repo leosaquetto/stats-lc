@@ -404,7 +404,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
   const imageRef = useRef<HTMLImageElement>(null);
 
   const imageSrc = error && previousDisplaySrc ? previousDisplaySrc : displaySrc;
-  const hasDisplayableSrc = !!imageSrc && !imageSrc.includes("private.webp");
+  const hasDisplayableSrc = !!imageSrc && !error && !imageSrc.includes("private.webp");
   const previousBelongsToCurrentKey = !cacheKey || stableImageSrcByKey.get(cacheKey) === previousDisplaySrc;
 
   useEffect(() => {
@@ -455,7 +455,7 @@ export const SmartImage = ({ src, fallbackSrc, cacheKey, className, fallback = "
 
   // Get initials from fallback name (max 2 chars)
   const getInitials = (name: string) => {
-    if (!name || typeof name !== 'string') return '?';
+    if (!name || typeof name !== 'string') return '';
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
@@ -642,32 +642,52 @@ export const SectionHeader = ({ title, icon: Icon, action }: { title: string, ic
   </div>
 );
 
-export const ShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => (
-  <VisibleShimmerOverlay duration={duration} className={className} />
+export const ShimmerOverlay = ({
+  active = true,
+  duration = 2.5,
+  className = "",
+}: {
+  active?: boolean;
+  duration?: number;
+  className?: string;
+}) => (
+  active
+    ? (
+      <div className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
+        <EngineShimmer active duration={duration} />
+      </div>
+    )
+    : null
 );
 
-const VisibleShimmerOverlay = ({ duration = 2.5, className = "" }: { duration?: number, className?: string }) => {
-  const {
-    ref: shimmerRef,
-    shouldRunAmbientMotion,
-  } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '180px' });
-
-  return (
-    <div ref={shimmerRef} className={cn("absolute inset-0 overflow-hidden pointer-events-none z-0", className)}>
-      <EngineShimmer active={shouldRunAmbientMotion} duration={duration} />
-    </div>
-  );
-};
+export const SkeletonSurface = ({
+  active = true,
+  as: Tag = 'div',
+  children,
+  className,
+  duration = 2.5,
+}: {
+  active?: boolean;
+  as?: 'div' | 'span';
+  children?: React.ReactNode;
+  className?: string;
+  duration?: number;
+}) => (
+  <Tag className={cn("relative overflow-hidden", className)}>
+    {children}
+    {active && <ShimmerOverlay duration={duration} />}
+  </Tag>
+);
 
 export const Skeleton = ({ className, shimmer = true, rounded = "2xl" }: { className?: string, shimmer?: boolean, rounded?: string }) => (
-  <div className={cn(
-    "relative overflow-hidden bg-white/[0.03] border border-white/[0.05]", 
-    `rounded-${rounded}`,
-    !shimmer && "stats-lc-engine-loop",
-    className
-  )}>
-    {shimmer && <ShimmerOverlay />}
-  </div>
+  <SkeletonSurface
+    active={shimmer}
+    className={cn(
+      "bg-white/[0.03] border border-white/[0.05]",
+      `rounded-${rounded}`,
+      className
+    )}
+  />
 );
 
 export const AnimatedNumber = ({

@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { X, History, Users, RefreshCcw, Send } from 'lucide-react';
-import { SmartImage } from '../shared/CommonUI';
+import { SkeletonSurface, SmartImage } from '../shared/CommonUI';
 import { statsService } from '../../services/statsService';
 import { coreUtils } from '../../services/statsCore';
 import { useMotionRuntime } from '../../hooks/useMotionRuntime';
@@ -126,10 +126,10 @@ export const TrackHistoryModal: React.FC<TrackHistoryModalProps> = ({ track, onC
             {loading ? (
               <div className="flex flex-col gap-2">
                 {[1, 2, 3, 4].map(i => (
-                  <div
+                  <SkeletonSurface
                     key={i}
-                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-16 w-full rounded-2xl border border-white/5"
-                    data-active={shouldAnimateModal ? "true" : "false"}
+                    active={shouldAnimateModal}
+                    className="h-16 w-full rounded-2xl border border-white/5 bg-white/[0.035]"
                   />
                 ))}
               </div>

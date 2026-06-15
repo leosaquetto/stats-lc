@@ -1,32 +1,5 @@
 @import "tailwindcss";
 
-@keyframes shimmer-orange {
-  0% {
-    background-position: -200% center;
-  }
-  100% {
-    background-position: 200% center;
-  }
-}
-
-@keyframes shimmer-border {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes border-glow-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Figtree", sans-serif;
@@ -492,23 +465,6 @@
   backdrop-filter: blur(38px) saturate(170%);
 }
 
-.stats-lc-skeleton-shimmer {
-  position: relative;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025)),
-    rgba(255,255,255,0.045);
-}
-
-.stats-lc-skeleton-shimmer::after {
-  content: "";
-  position: absolute;
-  inset: -80% -45%;
-  transform: translate3d(-45%, 0, 0) rotate(18deg);
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 48%, transparent 100%);
-  animation: stats-lc-skeleton-shimmer 1.35s ease-in-out infinite;
-}
-
 .leo-soft-badge {
   background:
     linear-gradient(135deg, rgba(255,255,255,0.11), rgba(255,255,255,0.024)),
@@ -629,54 +585,19 @@
   mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
-@keyframes stats-lc-skeleton-shimmer {
-  0% { transform: translate3d(-45%, 0, 0) rotate(18deg); }
-  100% { transform: translate3d(45%, 0, 0) rotate(18deg); }
-}
-
-@keyframes pulse-slow {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.1); }
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 8s ease-in-out infinite;
-}
-
-@keyframes pulse-badge {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
-  50% { transform: scale(1.05); box-shadow: 0 0 15px 2px rgba(255, 255, 255, 0.1); }
-}
-
-@keyframes glow-green {
-  0%, 100% { border-color: rgba(74, 222, 128, 0.4); box-shadow: 0 0 5px rgba(74, 222, 128, 0.2); }
-  50% { border-color: rgba(74, 222, 128, 0.8); box-shadow: 0 0 20px rgba(74, 222, 128, 0.5); }
-}
-
-@keyframes shimmer-badge {
-  0% { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
-  50% { opacity: 0.5; }
-  100% { transform: translateX(150%) skewX(-20deg); opacity: 0; }
-}
-
 .ranking-badge {
   @apply duration-500 ease-in-out overflow-hidden relative;
-  transition-property: background-color, border-color, box-shadow, color, opacity, transform, min-width;
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
 }
 
 .ranking-badge::after {
   content: "";
-  @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent;
-  animation: shimmer-badge 3s infinite ease-in-out;
+  position: absolute;
+  inset: -45% -30%;
+  background: linear-gradient(105deg, transparent 32%, rgba(255,255,255,0.18) 48%, transparent 64%);
+  opacity: 0.42;
+  transform: translate3d(28%, 0, 0) skewX(-18deg);
   pointer-events: none;
-}
-
-.ranking-badge.pulse {
-  animation: pulse-badge 2s infinite ease-in-out;
-}
-
-.ranking-badge.glow-up {
-  animation: glow-green 1.5s infinite ease-in-out;
 }
 
 .scrolling-touch {
@@ -684,13 +605,8 @@
 }
 
 @keyframes vinyl-record-idle {
-  0%, 100% { transform: scale(0.996) rotate(-8deg); opacity: 0.72; }
-  50% { transform: scale(1.004) rotate(8deg); opacity: 0.84; }
-}
-
-@keyframes vinyl-record-aura {
-  0%, 100% { opacity: 0.16; transform: scale(0.98); }
-  50% { opacity: 0.34; transform: scale(1.02); }
+  0%, 100% { transform: scale(0.997); }
+  50% { transform: scale(1.003); }
 }
 
 @keyframes stats-lc-ambient-drift-primary {
@@ -711,11 +627,6 @@
   72% { transform: translate3d(-5%, 13%, 0) scale(1.11); }
 }
 
-@keyframes stats-lc-ambient-idle-breathe {
-  0%, 100% { opacity: 0.82; transform: scale(0.997); }
-  50% { opacity: 1; transform: scale(1.008); }
-}
-
 @keyframes progress-fill {
   from { transform: scaleX(var(--progress-start, 0)); }
   to { transform: scaleX(1); }
@@ -732,10 +643,6 @@
 
 .vinyl-record-idle[data-active="true"] {
   animation: vinyl-record-idle calc(12s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
-}
-
-.vinyl-record-aura[data-active="true"] {
-  animation: vinyl-record-aura calc(6s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
 }
 
 .stats-lc-grain {
@@ -783,14 +690,6 @@
   will-change: transform;
 }
 
-.stats-lc-ambient-idle-breathe {
-  transform-origin: 50% 44%;
-}
-
-.stats-lc-ambient-idle-breathe[data-active="true"] {
-  animation: stats-lc-ambient-idle-breathe calc(8.5s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
-}
-
 .stats-lc-ambient-idle-freeze {
   animation-play-state: paused;
 }
@@ -810,9 +709,6 @@
   .stats-lc-ambient-drift-primary,
   .stats-lc-ambient-drift-secondary,
   .stats-lc-artwork-drift {
-    animation: none;
-  }
-  .stats-lc-ambient-idle-breathe {
     animation: none;
   }
 }
@@ -835,11 +731,9 @@
 }
 
 body[data-bottom-track-modal-open="true"] .vinyl-record-idle,
-body[data-bottom-track-modal-open="true"] .vinyl-record-aura,
 body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-primary,
 body[data-bottom-track-modal-open="true"] .stats-lc-ambient-drift-secondary,
-body[data-bottom-track-modal-open="true"] .stats-lc-artwork-drift,
-body[data-bottom-track-modal-open="true"] .animate-pulse-slow {
+body[data-bottom-track-modal-open="true"] .stats-lc-artwork-drift {
   animation-play-state: paused;
 }
 
@@ -876,12 +770,9 @@ html[data-stats-lc-motion-enabled="false"] {
 }
 
 html[data-stats-lc-motion-tier="conserve"] .vinyl-record-idle,
-html[data-stats-lc-motion-tier="conserve"] .vinyl-record-aura,
 html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-drift-primary,
 html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-drift-secondary,
 html[data-stats-lc-motion-tier="conserve"] .stats-lc-artwork-drift,
-html[data-stats-lc-motion-tier="conserve"] .stats-lc-ambient-idle-breathe,
-html[data-stats-lc-motion-tier="conserve"] .animate-pulse-slow,
 html[data-stats-lc-motion-tier="conserve"] .animate-pulse,
 html[data-stats-lc-motion-tier="conserve"] .animate-ping {
   animation-play-state: paused;

@@ -47,12 +47,12 @@ const RankingCard = ({ user, i, rankingType, isLeo, onClick, trend }: any) => {
         <div className="relative">
           <div 
             className={clsx(
-              "stats-lc-engine-loop ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-[background-color,border-color,color,transform] duration-500",
+              "ranking-badge flex h-11 w-11 items-center justify-center rounded-2xl text-[15px] font-black italic shadow-inner border transition-[background-color,border-color,box-shadow,color,transform] duration-500",
               trend > 0 
-                ? "bg-green-500/10 border-green-400/40 text-green-400 glow-up" 
+                ? "bg-green-500/10 border-green-400/60 text-green-400 shadow-[0_0_18px_rgba(74,222,128,0.24)]"
                 : trend < 0
                   ? "bg-red-500/10 border-red-400/40 text-red-400"
-                  : "bg-white/5 border-white/5 text-white/90 pulse"
+                  : "bg-white/5 border-white/5 text-white/90"
             )}
           >
             {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}

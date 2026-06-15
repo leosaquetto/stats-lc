@@ -17,6 +17,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Evitar em areas frequentes: `height`, `width`, `top`, `left`, `filter`, blur dinamico, sombras pesadas.
    - Se a dimensao visual precisa "expandir", manter a caixa estavel e animar escala interna.
    - Superficies repetidas com glass/backdrop devem manter blur base em ate `24px`; valores maiores so para modal unico e com justificativa.
+   - Nao manter `will-change` fixo em entradas finitas, skeletons ou linhas repetidas. Reserve promocao de camada para drag, scroll-linked motion e loops visiveis, voltando a `auto` fora da viewport.
 
 3. Entradas de tela/lista devem ser inteligentes, nao instantaneas.
    - Usar delays curtos e intencionais, normalmente entre `20ms` e `35ms`.
@@ -50,6 +51,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Elementos animados por CSS devem usar `stats-lc-engine-loop`.
    - Quando aplicavel, definir `data-active="true"` ou `data-active="false"`.
    - Nao assumir que `animation-play-state: running` significa loop real; verificar `animation-name !== none`.
+   - Skeletons recorrentes devem usar `Skeleton`/`SkeletonSurface`; nao criar pseudo-elemento com shimmer infinito fora dos componentes `Engine*`.
 
 8. Transicoes devem listar propriedades.
    - Nao usar `transition-all` em `src`.
@@ -58,7 +60,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 9. Assets, cores e caches visuais devem respeitar memoria adaptativa.
    - Use `assetRuntime`, `memoryRuntime`, `readRuntimeCacheEntry` e `setRuntimeCacheEntry` para caches visuais.
    - Nao criar `Map`/arrays visuais sem limite para capas, paletas ou texturas.
+   - Estatisticas de faixa e outros dados efemeros por entidade devem seguir o mesmo orçamento LRU; uma sessao longa nao pode acumular cada entidade visitada.
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
+   - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Enriquecimento de artwork/cor da mesma faixa atualiza o visual no lugar, sem remontar disco, reiniciar rotacao ou mover tonearm.
 
 10. Telemetria deve permanecer separada por boot e pos-boot.
    - Preserve `window.__STATS_LC_PERFORMANCE__`.
@@ -66,6 +70,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Tarefas recorrentes ou longas do scheduler devem declarar `kind`; audite `data-stats-lc-motion-task-kinds`, nao apenas a contagem total.
    - Audite loops por `data-stats-lc-compositor-loop-kinds`; loops visiveis de profundidade nao devem ser removidos apenas para reduzir o numero bruto.
    - Telemetria que depende de `requestAnimationFrame` deve ter fallback nomeado no scheduler central, pois abas ocultas podem suspender frames.
+   - Callbacks de frame, tarefas sincronas/assincronas e listeners devem ser isolados por falha. Uma excecao ou rejeicao local nunca pode interromper o proximo frame nem as demais tarefas; audite `data-stats-lc-motion-runtime-errors`.
 
 11. Browser QA deve usar rotas hash.
    - Home: `/#/`
@@ -90,6 +95,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 14. Modo conservador reduz loops, nao elimina entradas finitas essenciais.
    - Entradas unicas curtas com `opacity`/`transform` podem continuar em tier `conserve`, com duracao reduzida.
    - Loops ambientais, equalizers e pulsos continuam condicionados a viewport, visibilidade e `motionRuntime`.
+   - Ambientes caros e nao funcionais, como respirar de uma superficie grande ou vinil idle, rodam apenas em tier `full`; em `balanced` a aura estatica permanece e o movimento funcional continua.
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
 
 15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.
@@ -119,7 +125,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 - `100vh`/`100dvh` em overlays, sheets, modais ou loaders mobile.
 - Blur dinamico em `initial`, `animate` ou `exit`.
 - Animar `width`/`height` em superficies que aparecem durante scroll, rota, tray ou modal.
+- `will-change` permanente em listas ou animacoes finitas.
 - Loops CSS sem `stats-lc-engine-loop` quando forem recorrentes.
+- Shimmer de skeleton por pseudo-elemento ou loop fora de `Skeleton`/`SkeletonSurface`.
 - Novo loader local de modal quando `LazyModalFallback` resolve.
 - Nova politica paralela de motion fora de `motionRuntime`.
 - Remontar Home, Stats, Circulo ou Ajustes a cada troca de bottom nav.

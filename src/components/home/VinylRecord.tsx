@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Disc } from 'lucide-react';
-import { SmartImage, preloadSmartImages } from '../shared/CommonUI';
+import { EngineBreathe, SmartImage, preloadSmartImages } from '../shared/CommonUI';
 import { adjustBrightness, getPerceivedBrightness, getSaturation, normalizeColor, withAlpha } from '../../lib/colorUtils';
 import { VinylTonearm } from './VinylTonearm';
 import { useViewportMotionGate } from '../../hooks/useViewportMotionGate';
@@ -18,6 +18,7 @@ interface VinylRecordProps {
   dominantColor: string;
   isPlaying: boolean;
   playbackKey?: string;
+  trackIdentity?: string;
   hideTonearm?: boolean;
   onPlaybackIntent?: (isPlaying: boolean) => void;
 }
@@ -48,8 +49,8 @@ const seededValue = (seed: number, index: number) => {
 
 const vinylTextureCache = new Map<string, { seed: number; variant: number }>();
 
-const getTextureProfile = (albumImage: string, dominantColor: string) => {
-  const key = albumImage || dominantColor || 'no-cover';
+const getTextureProfile = (identity: string, dominantColor: string) => {
+  const key = identity || dominantColor || 'no-cover';
   const cached = readRuntimeCacheEntry(vinylTextureCache, key);
   if (cached) return cached;
 
@@ -71,8 +72,8 @@ const getRotationFromTransform = (transform: string) => {
   }
 };
 
-const getVisualIdentity = (_playbackKey: string | undefined, albumImage: string) => (
-  albumImage || 'vinyl-placeholder'
+const getVisualIdentity = (trackIdentity: string | undefined, playbackKey: string | undefined, albumImage: string) => (
+  trackIdentity || playbackKey || albumImage || 'vinyl-placeholder'
 );
 
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
@@ -115,6 +116,7 @@ export const VinylRecord = ({
   dominantColor,
   isPlaying,
   playbackKey,
+  trackIdentity,
   hideTonearm = false,
   onPlaybackIntent
 }: VinylRecordProps) => {
@@ -127,7 +129,7 @@ export const VinylRecord = ({
     shouldRunAmbientMotion,
     motionTier,
   } = useViewportMotionGate<HTMLDivElement>({ rootMargin: '96px' });
-  const initialIdentity = getVisualIdentity(playbackKey, albumImage);
+  const initialIdentity = getVisualIdentity(trackIdentity, playbackKey, albumImage);
   const [visualSnapshot, setVisualSnapshot] = useState<VinylVisualSnapshot>(() => ({
     albumImage,
     dominantColor,
@@ -149,8 +151,9 @@ export const VinylRecord = ({
   const manualPlaybackStartRef = useRef(false);
   const shouldAnimateSpin = !prefersReducedMotion;
   const shouldSpin = isPlaying && spinEnabled && phase === 'playing';
-  useCompositorLoopTelemetry(canAnimate && (shouldSpin || shouldRunAmbientMotion), 'vinyl');
-  const incomingIdentity = getVisualIdentity(playbackKey, albumImage);
+  const shouldRunFullAmbientMotion = shouldRunAmbientMotion && motionTier === 'full';
+  useCompositorLoopTelemetry(canAnimate && (shouldSpin || shouldRunFullAmbientMotion), 'vinyl');
+  const incomingIdentity = getVisualIdentity(trackIdentity, playbackKey, albumImage);
   const incomingVisualRef = useRef({ albumImage, dominantColor, identity: incomingIdentity, playbackKey });
   incomingVisualRef.current = { albumImage, dominantColor, identity: incomingIdentity, playbackKey };
   const transitionMotion = useMemo(
@@ -163,8 +166,8 @@ export const VinylRecord = ({
     [visualSnapshot.dominantColor]
   );
   const textureProfile    = useMemo(
-    () => getTextureProfile(visualSnapshot.albumImage, baseDominantColor),
-    [visualSnapshot.albumImage, baseDominantColor]
+    () => getTextureProfile(visualSnapshot.identity, baseDominantColor),
+    [visualSnapshot.identity, baseDominantColor]
   );
   const textureSeed       = textureProfile.seed;
   const textureVariant: number = 0;
@@ -321,16 +324,56 @@ export const VinylRecord = ({
   }, [incomingIdentity, isPlaying, visualSnapshot.identity]);
 
   useEffect(() => {
-    if (
-      visualSnapshot.identity !== incomingIdentity
-      || visualSnapshot.dominantColor === dominantColor
-    ) return;
+    if (visualSnapshot.identity !== incomingIdentity) return;
 
-    setVisualSnapshot(snapshot => ({
-      ...snapshot,
-      dominantColor,
-    }));
-  }, [dominantColor, incomingIdentity, visualSnapshot.dominantColor, visualSnapshot.identity]);
+    const artworkChanged = visualSnapshot.albumImage !== albumImage;
+    const colorChanged = visualSnapshot.dominantColor !== dominantColor;
+    const playbackKeyChanged = !!playbackKey && visualSnapshot.playbackKey !== playbackKey;
+    if (!artworkChanged && !colorChanged && !playbackKeyChanged) return;
+
+    const requestId = ++visualRequestRef.current;
+    let cancelled = false;
+
+    const syncVisualMetadata = async () => {
+      if (artworkChanged && albumImage) {
+        try {
+          await preloadSmartImages([albumImage], {
+            limit: 1,
+            priority: 'critical',
+            timeoutMs: 1400,
+          });
+        } catch {
+          return;
+        }
+      }
+
+      if (cancelled || requestId !== visualRequestRef.current) return;
+      setVisualSnapshot(snapshot => {
+        if (snapshot.identity !== incomingIdentity) return snapshot;
+        return {
+          ...snapshot,
+          albumImage,
+          dominantColor,
+          playbackKey: playbackKey || snapshot.playbackKey,
+        };
+      });
+    };
+
+    void syncVisualMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    albumImage,
+    dominantColor,
+    incomingIdentity,
+    playbackKey,
+    visualSnapshot.albumImage,
+    visualSnapshot.dominantColor,
+    visualSnapshot.identity,
+    visualSnapshot.playbackKey,
+  ]);
 
   useEffect(() => {
     const node = discRef.current;
@@ -520,18 +563,19 @@ export const VinylRecord = ({
       data-vinyl-playback-key={visualSnapshot.playbackKey}
       data-vinyl-playing={shouldSpin ? "true" : "false"}
       data-vinyl-phase={phase}
+      data-vinyl-revision={visualSnapshot.revision}
       data-vinyl-visual-key={visualSnapshot.identity}
     >
       <>
 
       {/* ── PENUMBRA IDLE — atrás do disco ──────────────────────── */}
       <AnimatePresence>
-        {!shouldSpin && shouldRunAmbientMotion && (
+        {!shouldSpin && (
           <div
-            className="stats-lc-engine-loop vinyl-record-aura absolute inset-[-8%] rounded-full pointer-events-none z-0"
-            data-active="true"
+            className="absolute inset-[-8%] rounded-full pointer-events-none z-0"
             style={{
               background: `radial-gradient(circle at center, ${withAlpha(safeDominantColor, 0.22)} 0%, ${withAlpha(safeDominantColor, 0.1)} 38%, transparent 72%)`,
+              opacity: 0.24,
             }}
           />
         )}
@@ -550,8 +594,8 @@ export const VinylRecord = ({
         transition={transitionMotion.transition}
       >
       <div
-        className={`relative h-full w-full ${!shouldSpin && shouldRunAmbientMotion ? "stats-lc-engine-loop vinyl-record-idle" : ""}`}
-        data-active={!shouldSpin && shouldRunAmbientMotion ? "true" : "false"}
+        className={`relative h-full w-full ${!shouldSpin && shouldRunFullAmbientMotion ? "stats-lc-engine-loop vinyl-record-idle" : ""}`}
+        data-active={!shouldSpin && shouldRunFullAmbientMotion ? "true" : "false"}
       >
       <div className="pointer-events-none absolute left-1/2 top-1/2 h-[4%] w-[4%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/70" />
       <div
@@ -804,7 +848,17 @@ export const VinylRecord = ({
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center bg-stone-900 z-10">
                   <div className="w-2/3 h-2/3 rounded-full border border-white/5 bg-stone-800 flex items-center justify-center shadow-lg">
-                    <Disc className="stats-lc-engine-loop w-1/2 h-1/2 text-white/20 animate-pulse-slow" />
+                    <EngineBreathe
+                      active={shouldRunFullAmbientMotion}
+                      className="flex h-1/2 w-1/2 items-center justify-center"
+                      duration={8}
+                      fromOpacity={0.5}
+                      fromScale={1}
+                      toOpacity={0.8}
+                      toScale={1.08}
+                    >
+                      <Disc className="h-full w-full text-white/20" />
+                    </EngineBreathe>
                   </div>
                 </div>
               )}
@@ -838,7 +892,7 @@ export const VinylRecord = ({
         <VinylTonearm
           state={tonearmState}
           isPlaying={isPlaying}
-          playbackKey={visualSnapshot.playbackKey}
+          playbackKey={visualSnapshot.identity}
           shouldRunAmbientMotion={shouldRunAmbientMotion}
           onUserPlaybackChange={handleTonearmPlaybackChange}
         />

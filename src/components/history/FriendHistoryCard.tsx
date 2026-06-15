@@ -466,7 +466,6 @@ export const FriendHistoryCard = memo(({
                     key={historyItemKey(item, idx)}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    style={{ willChange: "transform, opacity" }}
                     transition={{ delay: Math.min(idx * 0.04, 0.2), duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                     onClick={() => {
                       if (onHistoryItemClick) {

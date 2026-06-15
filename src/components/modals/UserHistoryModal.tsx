@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { coreUtils } from '../../services/statsCore';
 import { statsService } from '../../services/statsService';
 import { statsCacheService } from '../../services/statsCacheService';
-import { EngineEqualizer, EnginePulse, EngineSpinner, SmartImage } from '../shared/CommonUI';
+import { EngineEqualizer, EnginePulse, EngineSpinner, SkeletonSurface, SmartImage } from '../shared/CommonUI';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useStatsStore } from '../../store/useStatsStore';
@@ -763,10 +763,10 @@ export const UserHistoryModal = ({
            {loading ? (
              <div className="flex flex-col gap-3 py-4">
                 {[1,2,3,4,5,6].map(i => (
-                  <div
+                  <SkeletonSurface
                     key={i}
-                    className="stats-lc-engine-loop stats-lc-skeleton-shimmer h-16 w-full rounded-2xl"
-                    data-active={shouldAnimateModal ? "true" : "false"}
+                    active={shouldAnimateModal}
+                    className="h-16 w-full rounded-2xl bg-white/[0.045]"
                   />
                 ))}
              </div>
