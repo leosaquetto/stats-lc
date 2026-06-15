@@ -399,12 +399,10 @@
 }
 
 .bottom-track-stats-modal[data-animation-done="true"] {
-  transform: none !important;
   will-change: auto !important;
 }
 
 .bottom-track-lyrics-modal[data-animation-done="true"] {
-  transform: none !important;
   will-change: auto !important;
 }
 

@@ -9,12 +9,14 @@ import { useMotionRuntime } from './useMotionRuntime';
 interface AutoOrbitRotationOptions {
   enabled: boolean;
   intervalMs: number;
+  kind: string;
   onAdvance: () => void;
 }
 
 export const useAutoOrbitRotation = ({
   enabled,
   intervalMs,
+  kind,
   onAdvance,
 }: AutoOrbitRotationOptions) => {
   const onAdvanceRef = useRef(onAdvance);
@@ -39,7 +41,7 @@ export const useAutoOrbitRotation = ({
         if (cancelled) return;
         onAdvanceRef.current();
         scheduleAdvance();
-      }, delayMs, 'ambient');
+      }, delayMs, 'ambient', kind);
     };
 
     scheduleAdvance();
@@ -47,7 +49,7 @@ export const useAutoOrbitRotation = ({
       cancelled = true;
       cancelTask();
     };
-  }, [enabled, generation, intervalMs, isInteracting, isPageVisible, motionRuntime.canRunMotion, motionRuntime.tier]);
+  }, [enabled, generation, intervalMs, isInteracting, isPageVisible, kind, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   const restart = useCallback(() => {
     setGeneration((value) => value + 1);

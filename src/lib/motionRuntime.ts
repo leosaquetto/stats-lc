@@ -25,6 +25,7 @@ type MotionFrameSubscription = Required<MotionFrameSubscriptionOptions> & {
 type ScheduledMotionTask = {
   callback: () => void;
   id: number;
+  kind: string;
   priority: MotionFramePriority;
   runAt: number;
 };
@@ -127,6 +128,20 @@ const snapshotsEqual = (a: MotionRuntimeSnapshot, b: MotionRuntimeSnapshot) => (
   a.tier === b.tier
 );
 
+const getScheduledTaskKinds = () => (
+  [...scheduledTasks.values()].reduce<Record<string, number>>((counts, task) => {
+    counts[task.kind] = (counts[task.kind] || 0) + 1;
+    return counts;
+  }, {})
+);
+
+const getCompositorLoopKinds = () => (
+  [...compositorLoops.values()].reduce<Record<string, number>>((counts, kind) => {
+    counts[kind] = (counts[kind] || 0) + 1;
+    return counts;
+  }, {})
+);
+
 const syncDataset = () => {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
@@ -138,7 +153,15 @@ const syncDataset = () => {
   if (root.dataset.statsLcMotionEnabled !== nextEnabled) root.dataset.statsLcMotionEnabled = nextEnabled;
   root.dataset.statsLcMotionListeners = String(frameSubscriptions.size);
   root.dataset.statsLcMotionTasks = String(scheduledTasks.size);
+  root.dataset.statsLcMotionTaskKinds = Object.entries(getScheduledTaskKinds())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([kind, count]) => `${kind}:${count}`)
+    .join(',');
   root.dataset.statsLcCompositorLoops = String(compositorLoops.size);
+  root.dataset.statsLcCompositorLoopKinds = Object.entries(getCompositorLoopKinds())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([kind, count]) => `${kind}:${count}`)
+    .join(',');
   root.dataset.statsLcMotionPressure = String(lastPressureScore);
   root.dataset.statsLcRecentLoaf = String(loafWindow.length);
   root.dataset.statsLcRecentLongTasks = String(longTaskWindow.length);
@@ -344,12 +367,14 @@ export const motionRuntime = {
     callback: () => void,
     delayMs: number,
     priority: MotionFramePriority = 'interaction',
+    kind = 'task',
   ) => {
     initMotionRuntime();
     const id = ++scheduledTaskId;
     scheduledTasks.set(id, {
       callback,
       id,
+      kind,
       priority,
       runAt: performance.now() + Math.max(0, delayMs),
     });
@@ -372,11 +397,13 @@ export const motionRuntime = {
     };
   },
   getSchedulerStats: () => ({
+    compositorLoopKinds: getCompositorLoopKinds(),
     compositorLoops: compositorLoops.size,
     displayFps: snapshot.displayFps,
     listeners: frameSubscriptions.size,
     maxSchedulerCostMs,
     schedulerCostMs: lastSchedulerCostMs,
+    taskKinds: getScheduledTaskKinds(),
     tasks: scheduledTasks.size,
     targetFps: snapshot.fps,
   }),

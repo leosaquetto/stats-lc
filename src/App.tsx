@@ -26,7 +26,7 @@ const SettingsScreen = lazy(loadSettingsScreen);
 const CircleScreen = lazy(loadCircleScreen);
 
 const waitForInteractionTask = (delayMs: number) => new Promise<void>((resolve) => {
-  motionRuntimeScheduler.scheduleTask(resolve, delayMs, 'interaction');
+  motionRuntimeScheduler.scheduleTask(resolve, delayMs, 'interaction', 'secondary-route-preload-gap');
 });
 
 const preloadSecondaryRoutes = async (isCancelled: () => boolean) => {
@@ -34,7 +34,7 @@ const preloadSecondaryRoutes = async (isCancelled: () => boolean) => {
   for (const load of loaders) {
     if (isCancelled() || document.visibilityState !== 'visible') return;
     await load().catch(() => undefined);
-    await waitForInteractionTask(350);
+    await waitForInteractionTask(140);
   }
 };
 
@@ -53,29 +53,47 @@ const isChunkLoadError = (error: unknown) => {
   ].some((needle) => message.includes(needle));
 };
 
-const RouteLoader = () => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
-    data-stats-lc-route-loader="true"
-    className="pointer-events-none fixed inset-0 z-[44] flex h-[100svh] min-h-[100svh] w-screen min-w-0 flex-col items-center justify-center gap-4 overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom,0px)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
-  >
+const ROUTE_LOADER_REVEAL_MS = 320;
+
+const RouteLoader = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const cancelReveal = motionRuntimeScheduler.scheduleTask(
+      () => setIsVisible(true),
+      ROUTE_LOADER_REVEAL_MS,
+      'interaction',
+      'route-loader-reveal',
+    );
+    return () => cancelReveal();
+  }, []);
+
+  if (!isVisible) return null;
+
+  return (
     <motion.div
-      initial={{ opacity: 0, y: 8, scale: 0.94 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.22, delay: 0.03, ease: [0.16, 1, 0.3, 1] }}
-      className="flex flex-col items-center justify-center gap-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+      data-stats-lc-route-loader="true"
+      className="pointer-events-none fixed inset-0 z-[44] flex h-[100svh] min-h-[100svh] w-screen min-w-0 flex-col items-center justify-center gap-4 overflow-hidden bg-black px-6 pb-[calc(env(safe-area-inset-bottom,0px)+108px)] pt-[max(env(safe-area-inset-top),40px)] text-center"
     >
-      <div className="ranking-badge relative flex h-14 min-w-14 items-center justify-center rounded-[22px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_32px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]">
-        <EngineSpinner className="h-5 w-5 text-orange-300">
-          <RefreshCcw className="h-full w-full" />
-        </EngineSpinner>
-      </div>
-      <span className="text-[10px] font-black uppercase tracking-[0.26em] text-orange-200/70">Carregando seção</span>
+      <motion.div
+        initial={{ opacity: 0, y: 8, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.22, delay: 0.03, ease: [0.16, 1, 0.3, 1] }}
+        className="flex flex-col items-center justify-center gap-4"
+      >
+        <div className="ranking-badge relative flex h-14 min-w-14 items-center justify-center rounded-[22px] border border-orange-500/35 bg-orange-500/[0.16] px-4 shadow-[0_0_32px_rgba(249,115,22,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]">
+          <EngineSpinner className="h-5 w-5 text-orange-300">
+            <RefreshCcw className="h-full w-full" />
+          </EngineSpinner>
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-[0.26em] text-orange-200/70">Carregando seção</span>
+      </motion.div>
     </motion.div>
-  </motion.div>
-);
+  );
+};
 
 class RouteErrorBoundary extends Component<
   { children: ReactNode; routeKey: string },
@@ -360,7 +378,7 @@ export default function App() {
         } else {
           run();
         }
-      }, 2200, 'ambient');
+      }, 700, 'ambient', 'secondary-route-preload');
     };
     const handleHomeReady = (event: Event) => {
       if ((event as CustomEvent<{ ready?: boolean }>).detail?.ready === true) schedule();

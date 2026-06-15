@@ -314,6 +314,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
   const { restart: restartRotation, interactionProps } = useAutoOrbitRotation({
     enabled: isInsightsVisible && !shouldReduceMotion && insights.length > 1,
     intervalMs: 6500,
+    kind: 'home-insights-rotation',
     onAdvance: advanceInsight,
   });
 

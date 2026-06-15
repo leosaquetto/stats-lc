@@ -1653,7 +1653,7 @@ export default function StatsScreen() {
     if (insights.length <= 1 || !motionRuntime.canRunMotion) return;
     return motionRuntimeScheduler.scheduleTask(() => {
       setCurrentInsightIndex((prev) => (prev + 1) % insights.length);
-    }, 6000, 'ambient');
+    }, 6000, 'ambient', 'stats-insight-rotation');
   }, [currentInsightIndex, insights.length, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   useEffect(() => {

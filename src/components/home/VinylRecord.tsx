@@ -77,8 +77,8 @@ const getVisualIdentity = (_playbackKey: string | undefined, albumImage: string)
 
 const wait = (duration: number) => new Promise<void>((resolve) => window.setTimeout(resolve, duration));
 const steadyRotationDuration = 7200;
-const accelerationDuration = 4200;
-const accelerationRotations = accelerationDuration / steadyRotationDuration / 2;
+const accelerationDuration = 1200;
+const accelerationRotations = accelerationDuration / steadyRotationDuration * 0.72;
 
 const getTransitionMotion = (prefersReducedMotion: boolean) => {
   if (prefersReducedMotion) {
@@ -292,14 +292,7 @@ export const VinylRecord = ({
 
       if (manualPlaybackStartRef.current) {
         manualPlaybackStartRef.current = false;
-        setPhase('booting');
-        setSpinEnabled(false);
-        setTonearmState(canAnimate ? 'lifted' : 'playing');
-        if (canAnimate) await wait(300);
-        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
         setTonearmState('playing');
-        if (canAnimate) await wait(620);
-        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
         setPhase('playing');
         setSpinEnabled(true);
         return;
@@ -362,7 +355,7 @@ export const VinylRecord = ({
         {
           duration: accelerationDuration,
           fill: 'forwards',
-          easing: 'cubic-bezier(0.42, 0, 0.58, 1)'
+          easing: 'cubic-bezier(0.35, 0, 0.65, 0.65)'
         }
       );
 
@@ -845,6 +838,7 @@ export const VinylRecord = ({
         <VinylTonearm
           state={tonearmState}
           isPlaying={isPlaying}
+          playbackKey={visualSnapshot.playbackKey}
           shouldRunAmbientMotion={shouldRunAmbientMotion}
           onUserPlaybackChange={handleTonearmPlaybackChange}
         />

@@ -33,18 +33,11 @@ const NAV_ITEMS = [
 ];
 
 const preloadRouteModules = (path: string) => {
-  const idleWindow = window as Window & {
-    requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
-  };
   const runPreload = () => {
     preloadRouteModule(path).catch(() => undefined);
   };
 
-  if (idleWindow.requestIdleCallback) {
-    idleWindow.requestIdleCallback(runPreload, { timeout: 900 });
-    return;
-  }
-  motionRuntimeScheduler.scheduleTask(runPreload, 0, 'interaction');
+  motionRuntimeScheduler.scheduleTask(runPreload, 0, 'interaction', 'route-module-preload');
 };
 
 const EqualizerIcon = () => {
@@ -1192,6 +1185,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isModalVisible, setIsModalVisible] = React.useState(false);
   const [isLyricsOpen, setIsLyricsOpen] = React.useState(false);
+  const [isLyricsClosing, setIsLyricsClosing] = React.useState(false);
+  const [isStandaloneLyrics, setIsStandaloneLyrics] = React.useState(false);
   const [isAnimationDone, setIsAnimationDone] = React.useState(false);
   const [isLyricsAnimationDone, setIsLyricsAnimationDone] = React.useState(false);
   useModalMotionScope(isOpen);
@@ -1231,6 +1226,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const modalOpenedAtRef = React.useRef(Date.now());
   const cancelLyricsMaskTaskRef = React.useRef<() => void>(() => {});
   const cancelCloseModalTaskRef = React.useRef<() => void>(() => {});
+  const cancelCloseLyricsTaskRef = React.useRef<() => void>(() => {});
 
   React.useEffect(() => () => {
     cancelLyricsMaskTaskRef.current();
@@ -1493,6 +1489,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [lyricsMatch?.writers]);
   const cleanedLyricsText = React.useMemo(() => cleanLyricsForDisplay(lyricsText), [lyricsText]);
   const isPanelFullyReady = panelHydration.metrics && panelHydration.artistStats && panelHydration.history && panelHydration.social;
+  const shouldLoadStatsPanel = isOpen && !isStandaloneLyrics;
+  const shouldRenderLyricsSheet = isLyricsOpen || isLyricsClosing;
 
   React.useEffect(() => {
     if (hasExternalPlayback) return;
@@ -1518,7 +1516,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       setResolvedOwnRecent(preparedRecent.slice(0, 20));
     }
 
-    if (preparedRecent.length >= 8) return;
+    if (preparedRecent.length >= 8 || isStandaloneLyrics) return;
 
     const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       statsService.fetchRecent(panelUser.id, 20, 0)
@@ -1532,13 +1530,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           writeBottomTrackSessionCache(`stats-lc-home-recent:${panelUser.id}`, nextRecent);
         })
         .catch(() => undefined);
-    }, isOpen ? 180 : 900, isOpen ? 'interaction' : 'ambient');
+    }, shouldLoadStatsPanel ? 180 : 900, shouldLoadStatsPanel ? 'interaction' : 'ambient');
 
     return () => {
       cancelled = true;
       cancelTask();
     };
-  }, [getHistoryCache, isOpen, panelUser, setHistoryCache]);
+  }, [getHistoryCache, isStandaloneLyrics, panelUser, setHistoryCache, shouldLoadStatsPanel]);
 
   React.useEffect(() => {
     if (!track?.name || !isOpen) {
@@ -1604,12 +1602,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, [albumId, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
 
   React.useEffect(() => {
-    if (!isOpen || !trackId || !members.length || hasHydratedTrackRanking) return;
+    if (!shouldLoadStatsPanel || !trackId || !members.length || hasHydratedTrackRanking) return;
     const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
       fetchTrackStatsForAll(trackId).catch(() => undefined);
     }, 760, 'interaction');
     return () => cancelTask();
-  }, [fetchTrackStatsForAll, hasHydratedTrackRanking, isOpen, members.length, trackId]);
+  }, [fetchTrackStatsForAll, hasHydratedTrackRanking, members.length, shouldLoadStatsPanel, trackId]);
 
   React.useEffect(() => {
     if (!panelUser?.id || !trackId) {
@@ -1618,13 +1616,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
 
-    if (isOpen && isPanelFullyReady && panelDataKeyRef.current === panelCacheKey) {
+    if (shouldLoadStatsPanel && isPanelFullyReady && panelDataKeyRef.current === panelCacheKey) {
       return;
     }
 
     const cached = readExpiringCache(bottomTrackStatsCache, panelCacheKey);
     if (cached) {
-      if (!isOpen) {
+      if (!shouldLoadStatsPanel) {
         setPanelData(cached.data);
         setPanelHydration(cached.hydration);
         panelDataKeyRef.current = panelCacheKey;
@@ -1638,7 +1636,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return;
     }
 
-    if (!isOpen) {
+    if (!shouldLoadStatsPanel) {
       setPanelData(createInitialBottomTrackStatsPanelData(knownUserTrackCount));
       setPanelHydration(emptyBottomTrackStatsHydration);
       return;
@@ -1700,7 +1698,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       cancelFastTask();
       cancelFullTask();
     };
-  }, [activePlayback?.timestamp, albumId, isOpen, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, trackArtistsSignature, trackId]);
+  }, [activePlayback?.timestamp, albumId, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, shouldLoadStatsPanel, trackArtistsSignature, trackId]);
 
   const ranking = React.useMemo(() => {
     if (!trackId) return [];
@@ -1764,6 +1762,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, []);
 
   React.useEffect(() => () => {
+    cancelCloseLyricsTaskRef.current();
     cancelToastDismissRef.current();
   }, []);
 
@@ -1809,24 +1808,54 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
 
 
+  const finalizeStatsModalClose = React.useCallback((closeToken: number) => {
+    if (modalOpenTokenRef.current !== closeToken || isStandaloneLyrics) return;
+    setIsOpen(false);
+    setPanel('stats');
+    setExternalPlayback(null);
+    cancelCloseModalTaskRef.current();
+    cancelCloseModalTaskRef.current = () => {};
+  }, [isStandaloneLyrics]);
+
+  const finalizeLyricsClose = React.useCallback(() => {
+    if (!isStandaloneLyrics || isModalVisible) return;
+    setIsOpen(false);
+    setIsLyricsClosing(false);
+    setIsStandaloneLyrics(false);
+    setPanel('stats');
+    setExternalPlayback(null);
+    cancelCloseLyricsTaskRef.current();
+    cancelCloseLyricsTaskRef.current = () => {};
+  }, [isModalVisible, isStandaloneLyrics]);
+
   const closeStatsModal = React.useCallback(() => {
     const closeToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = closeToken;
+    setIsStandaloneLyrics(false);
     setIsModalVisible(false);
     setIsLyricsOpen(false);
+    setIsLyricsClosing(false);
     setSelectedTrackLink(null);
     setRecentPickerOpen(false);
     setIsAnimationDone(false);
     animateMotion(historySwipeX, 0, { duration: 0.18, ease: [0.16, 1, 0.3, 1] });
     cancelCloseModalTaskRef.current();
     cancelCloseModalTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
-      if (modalOpenTokenRef.current !== closeToken) return;
-      setIsOpen(false);
-      setPanel('stats');
-      setExternalPlayback(null);
-      cancelCloseModalTaskRef.current = () => {};
-    }, 520, 'interaction');
-  }, [historySwipeX]);
+      finalizeStatsModalClose(closeToken);
+    }, 900, 'interaction', 'bottom-track-close-safety');
+  }, [finalizeStatsModalClose, historySwipeX]);
+
+  const closeLyrics = React.useCallback(() => {
+    const shouldClosePortal = isStandaloneLyrics && !isModalVisible;
+    setIsLyricsClosing(true);
+    setIsLyricsOpen(false);
+    setIsLyricsAnimationDone(false);
+    cancelCloseLyricsTaskRef.current();
+    cancelCloseLyricsTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      setIsLyricsClosing(false);
+      if (shouldClosePortal) finalizeLyricsClose();
+    }, 560, 'interaction', 'lyrics-close-safety');
+  }, [finalizeLyricsClose, isModalVisible, isStandaloneLyrics]);
 
   const handleLyricsDragEnd = React.useCallback((start: BottomTrackDragStart | null, clientX: number, clientY: number) => {
     if (!start || selectedTrackLink) return;
@@ -1850,6 +1879,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     const openToken = modalOpenTokenRef.current + 1;
     modalOpenTokenRef.current = openToken;
     cancelCloseModalTaskRef.current();
+    cancelCloseLyricsTaskRef.current();
+    setIsStandaloneLyrics(false);
+    setIsLyricsClosing(false);
     modalOpenedAtRef.current = Date.now();
     ignoreBackdropClickUntilRef.current = window.performance.now() + 260;
 
@@ -1889,6 +1921,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     });
   }, [knownUserTrackCount, panelCacheKey]);
 
+  const handleOpenLyricsOnly = React.useCallback(() => {
+    const openToken = modalOpenTokenRef.current + 1;
+    modalOpenTokenRef.current = openToken;
+    cancelCloseModalTaskRef.current();
+    cancelCloseLyricsTaskRef.current();
+    modalOpenedAtRef.current = Date.now();
+    setPlaybackIndex(0);
+    setPanel('lyrics');
+    setRecentPickerOpen(false);
+    setSelectedTrackLink(null);
+    setIsAnimationDone(false);
+    setIsStandaloneLyrics(true);
+    setIsLyricsClosing(false);
+    setIsModalVisible(false);
+    setIsOpen(true);
+    setIsLyricsOpen(true);
+  }, []);
+
   const handleBubblePress = React.useCallback(() => {
     if (isModalVisible) {
       closeStatsModal();
@@ -1923,6 +1973,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
   const handleLyrics = React.useCallback(async () => {
     if (!track?.name) return;
+    setIsLyricsClosing(false);
     setIsLyricsOpen(true);
     const requestKey = currentLyricsRequestKey;
     lyricsRequestKeyRef.current = requestKey;
@@ -2061,20 +2112,23 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         setRecentPickerOpen(false);
         historySwipeTokenRef.current += 1;
         historySwipeX.set(0);
-        handleOpenStats(detail.panel || 'stats');
+        if (detail.panel === 'lyrics') {
+          handleOpenLyricsOnly();
+        } else {
+          handleOpenStats();
+        }
         return;
       }
 
       if (detail.panel === 'lyrics') {
-        handleOpenStats('lyrics');
-        handleLyrics();
+        handleOpenLyricsOnly();
       } else {
         handleOpenStats();
       }
     };
     window.addEventListener('stats-lc-open-track-stats', openTrackStats);
     return () => window.removeEventListener('stats-lc-open-track-stats', openTrackStats);
-  }, [handleLyrics, handleOpenStats, historySwipeX]);
+  }, [handleOpenLyricsOnly, handleOpenStats, historySwipeX]);
 
   React.useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -2226,7 +2280,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               "fixed inset-0 z-[1205]",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"
             )}
-            aria-hidden={!isModalVisible}
+            aria-hidden={!isModalVisible && !shouldRenderLyricsSheet}
             style={{ visibility: isOpen ? 'visible' : 'hidden' }}
           >
             <motion.div
@@ -2242,7 +2296,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               onClick={() => {
                 if (window.performance.now() < ignoreBackdropClickUntilRef.current) return;
                 if (isLyricsOpen) {
-                  setIsLyricsOpen(false);
+                  closeLyrics();
                   return;
                 }
                 if (selectedTrackLink) {
@@ -2256,6 +2310,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 closeStatsModal();
               }}
             />
+            {!isStandaloneLyrics && (
             <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+140px)] pt-12 pointer-events-none">
             <motion.section
               ref={modalRef}
@@ -2356,26 +2411,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               data-animation-done={isAnimationDone}
               animate={{
                 opacity: 1,
-                y: isModalVisible ? 0 : '100svh',
+                y: isModalVisible ? '0svh' : '100svh',
                 scale: isModalVisible ? 1 : 0.96,
               }}
               transition={{
-                type: 'spring',
-                stiffness: isModalVisible ? 190 : 260,
-                damping: isModalVisible ? 24 : 30,
-                mass: isModalVisible ? 0.92 : 0.88,
+                ...(isModalVisible
+                  ? { type: 'spring' as const, stiffness: 190, damping: 24, mass: 0.92 }
+                  : { duration: 0.46, ease: [0.4, 0, 0.2, 1] as const }),
               }}
               onAnimationComplete={() => {
                 if (isModalVisible) {
                   setIsAnimationDone(true);
-                } else {
-                  setIsAnimationDone(false);
                 }
               }}
               style={{
                 touchAction: 'none',
                 willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform',
-                transform: isModalVisible && isAnimationDone ? 'none' : undefined,
               }}
             >
               <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -bottom-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
@@ -2957,26 +3008,29 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
             </div>
           </motion.section>
           </div>
+            )}
 
             {/* Separate Lyrics Modal Overlay */}
             <AnimatePresence>
-              {isLyricsOpen && (
+              {shouldRenderLyricsSheet && (
                 <>
                   <motion.div
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    animate={{ opacity: isLyricsOpen ? 1 : 0 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.22, ease: "easeOut" }}
                     className="fixed inset-0 z-[1208] bg-black/40 backdrop-blur-[4px] pointer-events-auto"
-                    onClick={() => setIsLyricsOpen(false)}
+                    onClick={closeLyrics}
                   />
                   <motion.div
                     className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
                     data-animation-done={isLyricsAnimationDone}
                     initial={{ y: '100%' }}
-                    animate={{ y: 0 }}
+                    animate={{ y: isLyricsOpen ? '0%' : '100%' }}
                     exit={{ y: '100%' }}
-                    transition={{ type: 'spring', stiffness: 320, damping: 28, mass: 0.9 }}
+                    transition={isLyricsOpen
+                      ? { type: 'spring', stiffness: 280, damping: 28, mass: 0.86 }
+                      : { duration: 0.46, ease: [0.4, 0, 0.2, 1] }}
                     onAnimationComplete={() => {
                       if (isLyricsOpen) {
                         setIsLyricsAnimationDone(true);
@@ -2989,14 +3043,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     dragElastic={{ top: 0.05, bottom: 0.85 }}
                     onDragEnd={(_, info) => {
                       if (info.offset.y > 100 || info.velocity.y > 450) {
-                        setIsLyricsOpen(false);
+                        closeLyrics();
                       }
                     }}
                     style={{
                       height: '82svh',
                       touchAction: 'none',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
-                      transform: isLyricsOpen && isLyricsAnimationDone ? 'none' : undefined,
                     }}
                   >
                   {/* Drag Handle Area */}
@@ -3271,6 +3324,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
   const bubbleHighlightCancelersRef = React.useRef(new Map<string, () => void>());
+  const hasWarmHomeReady = React.useCallback(() => {
+    if (typeof window === 'undefined') return true;
+    return (
+      window.__STATS_LC_HOME_READY__ === true ||
+      window.sessionStorage?.getItem('stats-lc-home-boot-ready') === '1' ||
+      Boolean(document.documentElement.dataset.statsLcHomeReadyMs)
+    );
+  }, []);
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -3329,7 +3390,13 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
 
     const isHomeIntent = pendingRoutePath === '/';
     const routeReached = pendingRoutePath === location.pathname;
-    if (routeReached && !isHomeIntent) {
+    const warmHomeReady = isHomeIntent && (homeReady || hasWarmHomeReady());
+    if (routeReached && (!isHomeIntent || warmHomeReady)) {
+      setShowRouteIntentCover(false);
+      setPendingRoutePath(null);
+      return;
+    }
+    if (warmHomeReady) {
       setShowRouteIntentCover(false);
       setPendingRoutePath(null);
       return;
@@ -3349,7 +3416,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       cancelReveal();
       cancelSafety();
     };
-  }, [location.pathname, pendingRoutePath]);
+  }, [hasWarmHomeReady, homeReady, location.pathname, pendingRoutePath]);
 
   React.useEffect(() => {
     const handleHomeReady = (event: Event) => {
@@ -3358,6 +3425,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         window.__STATS_LC_HOME_READY__ = true;
         sessionStorage.setItem('stats-lc-home-boot-ready', '1');
       } else if (ready === false) {
+        if (hasWarmHomeReady()) {
+          setHomeReady(true);
+          return;
+        }
         window.__STATS_LC_HOME_READY__ = false;
         sessionStorage.removeItem('stats-lc-home-boot-ready');
       }
@@ -3365,7 +3436,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     };
     window.addEventListener('stats-lc-home-ready', handleHomeReady);
     return () => window.removeEventListener('stats-lc-home-ready', handleHomeReady);
-  }, []);
+  }, [hasWarmHomeReady]);
 
   React.useEffect(() => {
     if (!homeReady) return;
@@ -3388,10 +3459,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
   const isHomeRoute = location.pathname === '/';
   const shouldGateHome = isHomeRoute && !homeReady;
-  const syncTrayExpandedWidth = Math.max(280, Math.min(viewportWidth - 24, 456));
-  const syncTrayCompactWidth = 94;
-  const syncTrayCompactHeight = 36;
-  const syncTrayExpandedHeight = 76;
+  const syncTrayExpandedWidth = Math.max(224, Math.min(viewportWidth - 72, 324));
+  const syncTrayCompactWidth = 70;
+  const syncTrayCompactHeight = 32;
+  const syncTrayExpandedHeight = 56;
   const syncTrayPrimaryMember = activeMembersSorted[0];
 
   return (
@@ -3446,7 +3517,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 damping: 32,
                 mass: 0.78
               }}
-              className="pointer-events-none mb-1 flex h-[84px] w-full justify-center px-3"
+              className="pointer-events-none flex h-[62px] w-full justify-center px-3"
             >
               <div
                 className="relative flex items-center justify-center"
@@ -3454,7 +3525,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               >
                 <motion.div
                   aria-hidden="true"
-                  className="absolute left-1/2 top-1/2 rounded-full bg-black/48 shadow-[0_14px_42px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.09),inset_0_-1px_0_rgba(255,255,255,0.035)] backdrop-blur-2xl will-change-transform"
+                  className="absolute left-1/2 top-1/2 rounded-full bg-black/42 shadow-[0_10px_28px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl will-change-transform"
                   style={{
                     width: syncTrayExpandedWidth,
                     height: syncTrayExpandedHeight,
@@ -3464,6 +3535,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                   }}
                   initial={false}
                   animate={{
+                    opacity: shouldShowExpanded ? 0 : 1,
                     scaleX: shouldShowExpanded ? 1 : syncTrayCompactWidth / syncTrayExpandedWidth,
                     scaleY: shouldShowExpanded ? 1 : syncTrayCompactHeight / syncTrayExpandedHeight,
                   }}
@@ -3495,7 +3567,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     {shouldShowExpanded ? (
                       <motion.div
                         key="expanded-sync-tray"
-                        className="flex h-full w-full min-w-0 items-center justify-center gap-2 overflow-x-auto overflow-y-hidden px-3 no-scrollbar scrolling-touch"
+                        className="flex h-full w-full min-w-0 items-center justify-center gap-2 overflow-x-auto overflow-y-hidden px-1 no-scrollbar scrolling-touch"
                         initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -3547,10 +3619,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                 delay: Math.min(idx * 0.025, 0.08),
                                 ease: [0.16, 1, 0.3, 1],
                               }}
-                              className="leo-soft-badge flex min-w-[188px] max-w-[254px] flex-[0_0_auto] items-center gap-2.5 rounded-full py-2 pl-2 pr-4 active:scale-[0.98]"
+                              className="leo-soft-badge flex min-w-[158px] max-w-[214px] flex-[0_0_auto] items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 active:scale-[0.98]"
                             >
                               <div className="relative shrink-0">
-                                <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                                <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
                                   <AnimatePresence initial={false} mode="popLayout">
                                     <motion.div
                                       key={`${user.id}:${userAvatar}`}
@@ -3570,7 +3642,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                   </AnimatePresence>
                                 </div>
                                 {user.nowPlaying?.isNow && (
-                                  <div className="absolute -bottom-0.5 -right-0.5 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/78">
+                                  <div className="absolute -bottom-0.5 -right-1 z-10 flex h-3.5 w-3.5 items-center justify-center drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
                                     <EqualizerIcon />
                                   </div>
                                 )}
@@ -3579,7 +3651,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                 <AnimatePresence initial={false} mode="wait">
                                   <motion.span
                                     key={`${user.id}:${uSongName}`}
-                                    className="truncate text-[13px] font-black leading-tight text-white"
+                                    className="truncate text-[12px] font-black leading-tight text-white"
                                     initial={{ opacity: 0, y: 5 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -5 }}
@@ -3588,7 +3660,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                                     {uSongName}
                                   </motion.span>
                                 </AnimatePresence>
-                                <span className="mt-0.5 truncate text-[10px] font-bold leading-none text-white/42">
+                                <span className="mt-0.5 truncate text-[9px] font-bold leading-none text-white/42">
                                   {uArtistName}
                                 </span>
                               </div>
@@ -3599,14 +3671,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     ) : (
                       <motion.div
                         key="compact-sync-tray"
-                        className="flex h-full items-center justify-center gap-2 px-2"
+                        className="flex h-full items-center justify-center gap-1.5 px-1.5"
                         initial={{ opacity: 0, y: 7, scale: 0.92 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -5, scale: 0.95 }}
                         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                       >
                         {syncTrayPrimaryMember && (
-                          <div className="h-7 w-7 overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
+                          <div className="h-6 w-6 overflow-hidden rounded-full bg-stone-900 ring-1 ring-white/10">
                             <AnimatePresence initial={false} mode="popLayout">
                               <motion.div
                                 key={`${syncTrayPrimaryMember.id}:${coreUtils.getUserAvatar(syncTrayPrimaryMember.id, syncTrayPrimaryMember.avatar)}`}

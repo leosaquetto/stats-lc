@@ -147,6 +147,7 @@ export const PerceptionsPanel = ({
   const { restart: restartRotation, interactionProps } = useAutoOrbitRotation({
     enabled: isSectionVisible && !shouldReduceMotion && shouldRunAmbientMotion && perceptions.length > 1,
     intervalMs: 5500,
+    kind: 'stats-perceptions-rotation',
     onAdvance: advance,
   });
 

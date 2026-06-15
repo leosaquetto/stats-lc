@@ -33,11 +33,15 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Use `100svh` para overlays mobile.
    - Evite `100vh`, `100dvh` e `calc(100vh...)` no shell, modais e loaders.
    - Loaders de rota devem ser `fixed inset-0`, nao fallback preso ao `main`.
+   - Depois que a Home foi liberada, navegacao quente de volta para `/#/` nao deve mostrar loader de rota; use `data-stats-lc-home-ready-ms`/sessionStorage como sinal de Home aquecida.
+   - Fallback de `Suspense` de rota deve ter revelacao atrasada; se o chunk resolver rapido, nao mostre spinner curto.
 
 6. Modais devem declarar escopo de motion.
    - Use `useModalMotionScope(...)` quando uma superficie modal abrir.
    - O container principal do modal/fallback deve ter `data-stats-lc-modal-surface="true"`.
    - Loops do cenario de fundo devem pausar; loops internos do modal podem continuar se forem essenciais.
+   - Bottom sheets nao devem depender apenas do unmount do `AnimatePresence` para fechar; mantenha estado explicito de closing quando a superficie precisa descer antes de desmontar.
+   - Uma folha standalone de letra nao deve montar nem hidratar o modal de stats da faixa.
 
 7. Loops CSS precisam ser rastreaveis e pausaveis.
    - Elementos animados por CSS devem usar `stats-lc-engine-loop`.
@@ -51,10 +55,13 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 9. Assets, cores e caches visuais devem respeitar memoria adaptativa.
    - Use `assetRuntime`, `memoryRuntime`, `readRuntimeCacheEntry` e `setRuntimeCacheEntry` para caches visuais.
    - Nao criar `Map`/arrays visuais sem limite para capas, paletas ou texturas.
+   - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
 
 10. Telemetria deve permanecer separada por boot e pos-boot.
    - Preserve `window.__STATS_LC_PERFORMANCE__`.
    - Preserve atributos `data-stats-lc-*` usados para auditar long tasks, LoAF, loaders e loops.
+   - Tarefas recorrentes ou longas do scheduler devem declarar `kind`; audite `data-stats-lc-motion-task-kinds`, nao apenas a contagem total.
+   - Audite loops por `data-stats-lc-compositor-loop-kinds`; loops visiveis de profundidade nao devem ser removidos apenas para reduzir o numero bruto.
 
 11. Browser QA deve usar rotas hash.
    - Home: `/#/`

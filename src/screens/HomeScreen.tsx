@@ -168,7 +168,7 @@ const HomeSectionLoader = ({ label = 'Carregando dados do círculo' }: { label?:
 const HOME_ENTRY_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const getHomeEntryTransition = (delay = 0) => ({
   delay,
-  duration: 0.38,
+  duration: 0.52,
   ease: HOME_ENTRY_EASE,
 });
 
@@ -1453,6 +1453,7 @@ const HomePerceptions = ({
   const { restart: restartRotation, interactionProps } = useAutoOrbitRotation({
     enabled: isSectionVisible && !shouldReduceMotion && perceptions.length > 1,
     intervalMs: 5500,
+    kind: 'home-perceptions-rotation',
     onAdvance: advance,
   });
 
@@ -2209,6 +2210,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const hasCoreData = !!groupStats && !!primaryUser;
     const hasRecentBaseline = !primaryUser || recentPrepState === 'ready' || recentPrepState === 'error';
+    const hasReplayBaseline = !primaryUser || replayState === 'ready' || replayState === 'error';
 
     if (hasReleasedHomeRef.current) {
       if (window.__STATS_LC_HOME_READY__ !== true) {
@@ -2220,7 +2222,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const ready = hasCoreData && isVisualWarmupReady && hasRecentBaseline;
+    const ready = hasCoreData && isVisualWarmupReady && hasRecentBaseline && hasReplayBaseline;
 
     if (!ready) {
       const hasBootReady = hasBootReadySession();
@@ -2266,7 +2268,7 @@ export default function HomeScreen() {
       cancelReleaseDelay();
       cancelHiddenTabFallback();
     };
-  }, [groupStats, isAppReady, isVisualWarmupReady, primaryUser, recentPrepState]);
+  }, [groupStats, isAppReady, isVisualWarmupReady, primaryUser, recentPrepState, replayState]);
 
   useEffect(() => {
     // Escuta evento customizado para abrir histórico completo
@@ -2957,7 +2959,7 @@ export default function HomeScreen() {
                 className="relative -mt-[4px] touch-pan-y overflow-visible"
                 initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.985 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={getHomeEntryTransition(0.02)}
+                transition={getHomeEntryTransition(0.05)}
               >
                 <LeoHeader
                   user={primaryUser}
@@ -2972,7 +2974,7 @@ export default function HomeScreen() {
                 className={cn("px-4 sm:px-6 lg:px-8", friendActivityOffset)}
                 initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 16, scale: 0.99 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={getHomeEntryTransition(0.12)}
+                transition={getHomeEntryTransition(0.2)}
               >
                 <FriendActivityReel
                   excludeUserId={primaryUser.id}
@@ -3006,7 +3008,7 @@ export default function HomeScreen() {
         <motion.div
           initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={getHomeEntryTransition(0.2)}
+          transition={getHomeEntryTransition(0.34)}
         >
           <HomeOrbitalHighlights
             totalMinutes={replayTotalMinutesCount}

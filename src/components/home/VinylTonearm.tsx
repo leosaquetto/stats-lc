@@ -5,18 +5,26 @@ import { motionRuntime } from '../../lib/motionRuntime';
 
 interface VinylTonearmProps {
   isPlaying?: boolean;
+  playbackKey?: string;
   shouldRunAmbientMotion?: boolean;
   state?: 'rest' | 'lifted' | 'playing';
-  onUserPlaybackChange?: (isPlaying: boolean) => void;
+  onUserPlaybackChange?: (isPlaying: boolean, level: number) => void;
 }
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
-export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true, state, onUserPlaybackChange }: VinylTonearmProps) => {
+export const VinylTonearm = ({
+  isPlaying = false,
+  playbackKey,
+  shouldRunAmbientMotion = true,
+  state,
+  onUserPlaybackChange,
+}: VinylTonearmProps) => {
   const uniqueId = useId();
   const shouldReduceMotion = useReducedMotion();
   const [level, setLevel] = useState(0.5);
   const [isDragging, setIsDragging] = useState(false);
+  const [isManuallyPositioned, setIsManuallyPositioned] = useState(false);
   const levelRef = useRef(0.5);
   const isDraggingRef = useRef(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -24,7 +32,13 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
 
   const pivotX = 60;
   const pivotY = -18;
-  const armReachBoost = tonearmState === 'playing' ? 2.35 : tonearmState === 'lifted' ? 1.05 : 0;
+  const armReachBoost = isManuallyPositioned
+    ? 2.35 * level
+    : tonearmState === 'playing'
+      ? 2.35
+      : tonearmState === 'lifted'
+        ? 1.05
+        : 0;
   const armLength = 47.2 + armReachBoost;
   // SVG angles use the browser coordinate plane: 0deg points right, 90deg points down.
   // Pivot lives at the tonearm mount. Rest stays outside the record; lifted hovers near the groove.
@@ -32,12 +46,24 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
   const liftedAngle = 139;
   const playAngle = 132.5;
   const angle = restAngle + (playAngle - restAngle) * level;
-  const liftOffset = tonearmState === 'lifted' ? -2.2 : 0;
-  const liftScale = tonearmState === 'lifted' ? 0.992 : 1;
-  const liftOpacity = tonearmState === 'rest' ? 0.58 : tonearmState === 'lifted' ? 0.88 : 0.96;
-  const transition = { duration: 0.72, ease: [0.16, 1, 0.3, 1] as const };
-  const shouldGrooveDrift = tonearmState === 'playing' && shouldRunAmbientMotion && !isDragging && !shouldReduceMotion;
-  const tonearmGroupTransition = { duration: tonearmState === 'rest' ? 0 : 0.72, ease: [0.16, 1, 0.3, 1] as const };
+  const liftOffset = !isManuallyPositioned && tonearmState === 'lifted' ? -2.2 : 0;
+  const liftScale = !isManuallyPositioned && tonearmState === 'lifted' ? 0.992 : 1;
+  const liftOpacity = isManuallyPositioned
+    ? 0.62 + level * 0.34
+    : tonearmState === 'rest'
+      ? 0.58
+      : tonearmState === 'lifted'
+        ? 0.88
+        : 0.96;
+  const transition = {
+    duration: isDragging ? 0 : isManuallyPositioned ? 0.18 : 0.72,
+    ease: [0.16, 1, 0.3, 1] as const,
+  };
+  const shouldGrooveDrift = isPlaying && level >= 0.58 && shouldRunAmbientMotion && !isDragging && !shouldReduceMotion;
+  const tonearmGroupTransition = {
+    duration: isDragging ? 0 : isManuallyPositioned ? 0.18 : tonearmState === 'rest' ? 0 : 0.72,
+    ease: [0.16, 1, 0.3, 1] as const,
+  };
   const angleRadians = angle * Math.PI / 180;
   const unitX = Math.cos(angleRadians);
   const unitY = Math.sin(angleRadians);
@@ -100,11 +126,18 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
   };
 
   useEffect(() => {
-    if (isDraggingRef.current) return;
+    if (isDraggingRef.current || isManuallyPositioned) return;
     const nextLevel = getTargetLevel();
     levelRef.current = nextLevel;
     setLevel(nextLevel);
-  }, [tonearmState]);
+  }, [isManuallyPositioned, tonearmState]);
+
+  useEffect(() => {
+    setIsManuallyPositioned(false);
+    const nextLevel = getTargetLevel();
+    levelRef.current = nextLevel;
+    setLevel(nextLevel);
+  }, [playbackKey]);
 
   useEffect(() => {
     if (!shouldGrooveDrift) return undefined;
@@ -133,11 +166,10 @@ export const VinylTonearm = ({ isPlaying = false, shouldRunAmbientMotion = true,
 
   const commitPointerLevel = () => {
     const nextIsPlaying = levelRef.current >= 0.58;
-    const targetLevel = nextIsPlaying ? 1 : 0;
-    levelRef.current = targetLevel;
-    setLevel(targetLevel);
+    setIsManuallyPositioned(true);
+    setLevel(levelRef.current);
     if (nextIsPlaying !== isPlaying) {
-      onUserPlaybackChange?.(nextIsPlaying);
+      onUserPlaybackChange?.(nextIsPlaying, levelRef.current);
     }
   };
 

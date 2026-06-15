@@ -202,7 +202,7 @@ const LiveElapsedTime = memo(({
       cancelTask = motionRuntime.scheduleTask(() => {
         renderTime();
         scheduleNext();
-      }, 1000, 'interaction');
+      }, 1000, 'interaction', 'leo-header-elapsed-clock');
     };
 
     renderTime();
@@ -634,7 +634,7 @@ function useLivePlaybackProgress({
             }
           }
         });
-    }, delay, 'interaction');
+    }, delay, 'interaction', 'leo-header-completion-check');
 
     return () => cancelCompletionCheck();
   }, [isNow, completionDurationMs, fetchLiveProbe, snapshotVersion, userId]);
@@ -1696,12 +1696,11 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
               ? 'drop-shadow(0 8px 14px rgba(0,0,0,0.16))'
               : 'drop-shadow(0 7px 12px rgba(0,0,0,0.14))'
           }}>
-            <div
-              className="w-full h-full overflow-visible transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
-              style={{
-                transform: visualIsLive ? 'scale(1)' : 'scale(0.916667)',
-                transformOrigin: '50% 50%',
-              }}
+            <motion.div
+              className="h-full w-full overflow-visible"
+              animate={{ scale: visualIsLive ? 1 : 0.916667 }}
+              transition={{ duration: 0.92, ease: [0.16, 1, 0.3, 1] }}
+              style={{ transformOrigin: '50% 50%' }}
             >
               <div
                 className="pointer-events-none absolute inset-[3%] rounded-full"
@@ -1719,7 +1718,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                 playbackKey={vinylPlaybackKey}
                 onPlaybackIntent={handleVinylPlaybackIntent}
               />
-            </div>
+            </motion.div>
           </div>
         )}
         <div className="pointer-events-none relative z-50 px-0 sm:px-2 pt-0 pb-3 sm:pb-4 overflow-visible">
@@ -2051,7 +2050,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               key={`repeats-summary-${track.id || track.name || 'track'}`}
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                              transition={{ duration: 0.34, delay: 0.07, ease: [0.16, 1, 0.3, 1] }}
                               onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
                               whileTap={{ scale: 0.96 }}
                               className="pointer-events-auto flex items-center gap-2 cursor-pointer shrink-0"
@@ -2089,8 +2088,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], onTrackCl
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               transition={{
-                                duration: 0.2,
-                                delay: showRankingSummary || showRepeatsSummary ? 0.045 : 0.015,
+                                duration: 0.34,
+                                delay: showRankingSummary || showRepeatsSummary ? 0.16 : 0.09,
                                 ease: [0.16, 1, 0.3, 1],
                               }}
                               onClick={(e) => {
