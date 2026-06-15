@@ -934,9 +934,13 @@ export const LiveTrackProgress = memo(({
                   <motion.div
                     key="syncing-label"
                     initial={{ opacity: 0, y: 4, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    animate={shouldRunAmbientMotion
+                      ? { opacity: [0.72, 1, 0.78], y: 0, scale: [0.99, 1.015, 0.99] }
+                      : { opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    transition={shouldRunAmbientMotion
+                      ? { duration: 1.45, ease: [0.16, 1, 0.3, 1], repeat: Infinity, repeatType: 'mirror' }
+                      : { duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                     className="stats-lc-dense-label text-center text-[6.4px] font-black uppercase tracking-[0.18em]"
                     style={{ color: syncAccent }}
                   >
@@ -969,54 +973,51 @@ export const LiveTrackProgress = memo(({
             </motion.span>
           </div>
           <div className="w-full h-[5px] rounded-full bg-white/[0.16] overflow-visible relative">
-            <AnimatePresence initial={false} mode="sync">
-              <motion.div
-                key={isSynchronizing ? `sync:${progressAnimationKey}` : `playing:${progressAnimationKey}`}
-                className="h-full w-full rounded-full relative overflow-hidden"
-                initial={{ scaleX: progressScale, opacity: isSynchronizing ? 0.72 : 1 }}
-                animate={{
-                  scaleX: isSynchronizing ? 1 : (isNowPlaying ? progressTargetScale : progressScale),
-                  opacity: 1,
-                }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  duration: isSynchronizing
-                    ? 0.36
-                    : isNowPlaying && progressAnimationMs && progressAnimationMs > 0
-                      ? Math.max(0.2, progressAnimationMs / 1000)
-                      : 0,
-                  ease: isSynchronizing ? [0.16, 1, 0.3, 1] : 'linear'
-                }}
-                style={{
-                  transformOrigin: 'left center',
-                  background: progressFillGradient,
-                  filter: 'brightness(1.16) saturate(1.24) contrast(1.04)',
-                  boxShadow: assertiveProgressColor
-                    ? `0 0 9px ${withAlpha(assertiveProgressColor, 0.66)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.3)}`
-                    : '0 0 9px rgba(255,255,255,0.26), 0 0 18px rgba(255,255,255,0.14)'
-                }}
-              >
-                {isSynchronizing && (
-                  <EngineShimmer
-                    active={shouldRunAmbientMotion}
-                    duration={2.4}
-                    className="h-full"
-                    style={{ background: syncShimmerGradient }}
-                  />
-                )}
-                <motion.div
-                  className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
-                  animate={{ opacity: isSynchronizing ? 0 : 1, scale: isSynchronizing ? 0.72 : 1 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  style={{
-                    boxShadow: assertiveProgressColor
-                      ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.86)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.48)}`
-                      : '0 0 10px rgba(255,255,255,0.5), 0 0 18px rgba(255,255,255,0.22)',
-                    filter: 'brightness(1.14)'
-                  }}
+            <motion.div
+              className="h-full w-full rounded-full relative overflow-hidden"
+              data-stats-lc-leo-progress-key={progressAnimationKey}
+              initial={false}
+              animate={{
+                scaleX: isSynchronizing ? 1 : (isNowPlaying ? progressTargetScale : progressScale),
+                opacity: isSynchronizing ? 0.92 : 1,
+              }}
+              transition={{
+                duration: isSynchronizing
+                  ? 0.36
+                  : isNowPlaying && progressAnimationMs && progressAnimationMs > 0
+                    ? Math.max(0.2, progressAnimationMs / 1000)
+                    : 0,
+                ease: isSynchronizing ? [0.16, 1, 0.3, 1] : 'linear'
+              }}
+              style={{
+                transformOrigin: 'left center',
+                background: progressFillGradient,
+                filter: 'brightness(1.16) saturate(1.24) contrast(1.04)',
+                boxShadow: assertiveProgressColor
+                  ? `0 0 9px ${withAlpha(assertiveProgressColor, 0.66)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.3)}`
+                  : '0 0 9px rgba(255,255,255,0.26), 0 0 18px rgba(255,255,255,0.14)'
+              }}
+            >
+              {isSynchronizing && (
+                <EngineShimmer
+                  active={shouldRunAmbientMotion}
+                  duration={2.4}
+                  className="h-full"
+                  style={{ background: syncShimmerGradient }}
                 />
-              </motion.div>
-            </AnimatePresence>
+              )}
+              <motion.div
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white translate-x-1/2"
+                animate={{ opacity: isSynchronizing ? 0 : 1, scale: isSynchronizing ? 0.72 : 1 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  boxShadow: assertiveProgressColor
+                    ? `0 0 10px ${withAlpha(assertiveProgressColor, 0.86)}, 0 0 20px ${withAlpha(assertiveProgressColor, 0.48)}`
+                    : '0 0 10px rgba(255,255,255,0.5), 0 0 18px rgba(255,255,255,0.22)',
+                  filter: 'brightness(1.14)'
+                }}
+              />
+            </motion.div>
           </div>
         </motion.div>
       )}
@@ -1144,38 +1145,61 @@ const ArenaRankingBubble = ({
         transform: `translate3d(${initialX}px, -50%, 0) scale(${initialScale})`,
         transformOrigin: isHiddenInitial ? 'right center' : 'center center',
         willChange: shouldReduceMotion ? undefined : 'transform, opacity',
-        ...(!shouldReduceMotion && {
-          animation: `arena-bubble-enter 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.05}s backwards`,
-          ['--initial-x' as any]: '0px',
-          ['--final-x' as any]: `${initialX}px`,
-          ['--final-scale' as any]: initialScale,
-          ['--final-opacity' as any]: isHiddenInitial ? 0 : 1,
-        })
       }}
     >
-      <div className="relative z-10 h-11 w-11 overflow-visible rounded-full shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
-        {isSelected && (
-          <div className="pointer-events-none absolute inset-[-3px] z-0 rounded-full bg-[#ff5f00]/34 blur-[2px] shadow-[0_0_16px_rgba(255,95,0,0.44)]" />
-        )}
-        <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
-          <SmartImage src={user.avatar} cacheKey={`leoheader-arena-avatar:${user.id}`} className="h-full w-full object-cover" fallback="" rounded="full" />
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "absolute -bottom-1.5 -right-1.5 z-40 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none shadow-[0_6px_14px_rgba(0,0,0,0.34)] backdrop-blur-md sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
-          isSelected
-            ? "bg-[#ff5f00]/58 text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34),0_6px_14px_rgba(0,0,0,0.34)]"
-            : "leo-soft-badge text-white/86"
-        )}
+      <motion.div
+        className="relative"
+        initial={shouldReduceMotion || isHiddenInitial
+          ? false
+          : { opacity: 0, y: 10, scale: 0.16, rotate: -9 }}
+        animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
+        exit={shouldReduceMotion || isHiddenInitial
+          ? { opacity: 0 }
+          : {
+              opacity: 0,
+              y: -8,
+              scale: 0.14,
+              rotate: 8,
+              transition: {
+                duration: 0.2,
+                delay: Math.max(0, total - index - 1) * 0.032,
+                ease: [0.32, 0, 0.2, 1],
+              },
+            }}
+        transition={{
+          duration: shouldReduceMotion ? 0.01 : 0.44,
+          delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.045,
+          ease: [0.34, 1.56, 0.64, 1],
+          opacity: {
+            duration: shouldReduceMotion ? 0.01 : 0.24,
+            delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.045,
+          },
+        }}
       >
-        {showFirstListenStar ? (
-          <Star className="h-2.5 w-2.5 fill-white text-white" strokeWidth={2.4} />
-        ) : (
-          coreUtils.formatNumber(user.plays)
-        )}
-      </div>
+        <div className="relative z-10 h-11 w-11 overflow-visible rounded-full shadow-[0_14px_20px_rgba(0,0,0,0.42)] sm:h-12 sm:w-12">
+          {isSelected && (
+            <div className="pointer-events-none absolute inset-[-3px] z-0 rounded-full bg-[#ff5f00]/34 blur-[2px] shadow-[0_0_16px_rgba(255,95,0,0.44)]" />
+          )}
+          <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
+            <SmartImage src={user.avatar} cacheKey={`leoheader-arena-avatar:${user.id}`} className="h-full w-full object-cover" fallback="" rounded="full" />
+          </div>
+        </div>
+
+        <div
+          className={cn(
+            "absolute -bottom-1.5 -right-1.5 z-40 flex h-5 min-w-[22px] items-center justify-center rounded-full px-1.5 text-[8px] font-black leading-none shadow-[0_6px_14px_rgba(0,0,0,0.34)] backdrop-blur-md sm:h-5 sm:min-w-[23px] sm:text-[8.5px]",
+            isSelected
+              ? "bg-[#ff5f00]/58 text-orange-50 shadow-[0_0_14px_rgba(255,95,0,0.34),0_6px_14px_rgba(0,0,0,0.34)]"
+              : "leo-soft-badge text-white/86"
+          )}
+        >
+          {showFirstListenStar ? (
+            <Star className="h-2.5 w-2.5 fill-white text-white" strokeWidth={2.4} />
+          ) : (
+            coreUtils.formatNumber(user.plays)
+          )}
+        </div>
+      </motion.div>
     </div>
   );
 };
@@ -1833,7 +1857,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute left-1/2 top-[calc(-10rem-env(safe-area-inset-top,0px))] bottom-[-540px] w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
+          "absolute left-1/2 top-[calc(-10rem-env(safe-area-inset-top,0px))] bottom-[-540px] z-0 w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
@@ -1861,7 +1885,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             {track && (
               <div
                 className={cn(
-                  "stats-lc-engine-loop stats-lc-artwork-drift absolute left-1/2 top-[42%] h-[470px] w-[min(150vw,760px)] rounded-full transition-opacity duration-700",
+                  "stats-lc-engine-loop stats-lc-artwork-drift absolute left-1/2 top-[42%] z-0 h-[470px] w-[min(150vw,760px)] transition-opacity duration-700",
                   visualIsLive ? "opacity-[0.7]" : "opacity-[0.56]",
                   !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
                 )}
@@ -1875,7 +1899,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             {track && !visualIsLive && (
               <EngineBreathe
                 active={shouldRunIdleBackdropBreathe}
-                className="pointer-events-none absolute left-1/2 top-[42%] h-[340px] w-[min(118vw,620px)] rounded-full"
+                className="pointer-events-none absolute left-1/2 top-[42%] z-0 h-[340px] w-[min(118vw,620px)]"
                 duration={8.5}
                 fromOpacity={0.16}
                 fromScale={0.98}
@@ -1889,7 +1913,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             )}
             <div
               className={cn(
-                "stats-lc-engine-loop stats-lc-ambient-drift-primary absolute left-1/2 top-[38%] h-[420px] w-[min(136vw,700px)] rounded-full pointer-events-none",
+                "stats-lc-engine-loop stats-lc-ambient-drift-primary absolute left-1/2 top-[38%] z-0 h-[420px] w-[min(136vw,700px)] pointer-events-none",
                 !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
               )}
               data-active={shouldRunLiveBackdropAmbientMotion ? "true" : "false"}
@@ -1902,7 +1926,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
             />
             <div
               className={cn(
-                "stats-lc-engine-loop stats-lc-ambient-drift-secondary absolute left-1/2 top-[56%] h-[380px] w-[min(128vw,660px)] rounded-full pointer-events-none",
+                "stats-lc-engine-loop stats-lc-ambient-drift-secondary absolute left-1/2 top-[56%] z-0 h-[380px] w-[min(128vw,660px)] pointer-events-none",
                 !shouldRunLiveBackdropAmbientMotion && "stats-lc-ambient-idle-freeze"
               )}
               data-active={shouldRunLiveBackdropAmbientMotion ? "true" : "false"}
@@ -1919,7 +1943,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
         </div>
         {track && (
           <div className={cn(
-            "absolute -right-[190px] -top-[58px] h-[360px] w-[360px] shrink-0 z-40 pointer-events-none"
+            "absolute -right-[190px] -top-[58px] z-40 h-[360px] w-[360px] shrink-0 pointer-events-none"
           )}
           style={{
             filter: visualIsLive
@@ -2153,13 +2177,20 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                         "relative flex w-[calc(100vw-40px)] max-w-[350px] items-start pr-1",
                         visualIsLive && (showRankingSummary ? "mt-2" : "mt-2.5")
                       )}>
-                        <div className="flex min-w-0 w-full flex-wrap items-center gap-3">
+                        <motion.div
+                          layout
+                          className="flex min-w-0 w-full flex-wrap items-center gap-3"
+                          transition={{ duration: shouldReduceMotion ? 0.01 : 0.42, ease: [0.16, 1, 0.3, 1] }}
+                        >
+                          <AnimatePresence initial={false} mode="popLayout">
                           {hasLyricsBadge && (
                             <motion.button
                               key={`lyrics-action-${track.id || track.name || 'track'}`}
                               type="button"
+                              layout="position"
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.96 }}
                               transition={{
                                 duration: 0.55,
                                 delay: 0.38,
@@ -2196,11 +2227,15 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               </span>
                             </motion.button>
                           )}
+                          </AnimatePresence>
+                          <AnimatePresence initial={false} mode="popLayout">
                           {showExclusiveFirstListen ? (
                             <motion.div
                               key={`first-listen-${track.id || track.name || 'track'}`}
+                              layout="position"
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.96 }}
                               transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               className={cn(
                               "leo-soft-badge order-1 flex cursor-pointer items-center rounded-full",
@@ -2220,8 +2255,10 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                           ) : showRankingSummary ? (
                             <motion.div
                               key={`arena-summary-${track.id || track.name || 'track'}`}
+                              layout="position"
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -7, scale: 0.95 }}
                               transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               onClick={handleArenaSummaryClick}
                               whileTap={{ scale: 0.98 }}
@@ -2308,17 +2345,21 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                                         opacity: 1,
                                         transform: `translate3d(${ARENA_BADGE_RIGHT_MORE_LEFT}px, -50%, 0) scale(1)`,
                                         transformOrigin: 'left center',
-                                        ...(!shouldReduceMotion && {
-                                          animation: `arena-bubble-enter 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) ${visibleArenaCount * 0.05}s backwards`,
-                                          ['--initial-x' as any]: '0px',
-                                          ['--final-x' as any]: `${ARENA_BADGE_RIGHT_MORE_LEFT}px`,
-                                          ['--final-scale' as any]: 1,
-                                          ['--final-opacity' as any]: 1,
-                                        })
                                       }}
                                       aria-hidden="true"
                                     >
-                                      +{rightHiddenArenaCount}
+                                      <motion.span
+                                        initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.18 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.16 }}
+                                        transition={{
+                                          duration: shouldReduceMotion ? 0.01 : 0.42,
+                                          delay: shouldReduceMotion ? 0 : visibleArenaCount * 0.045,
+                                          ease: [0.34, 1.56, 0.64, 1],
+                                        }}
+                                      >
+                                        +{rightHiddenArenaCount}
+                                      </motion.span>
                                     </div>
                                   </>
                                 )}
@@ -2327,8 +2368,10 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                           ) : showRepeatsSummary ? (
                             <motion.div
                               key={`repeats-summary-${track.id || track.name || 'track'}`}
+                              layout="position"
                               initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.96 }}
                               transition={{ duration: 0.55, delay: 0.38, ease: [0.16, 1, 0.3, 1] }}
                               onClick={(e) => { e.stopPropagation(); onTrackClick?.({ ...track, type: 'track' }); }}
                               whileTap={{ scale: 0.96 }}
@@ -2360,7 +2403,8 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               </div>
                             </motion.div>
                           ) : null}
-                        </div>
+                          </AnimatePresence>
+                        </motion.div>
                       </div>
                     </div>
                   </motion.div>

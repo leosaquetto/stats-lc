@@ -13,14 +13,20 @@
 
     <script>
       (function () {
-        var standalone = window.navigator.standalone === true ||
-          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-        var screenHeight = window.screen && Number(window.screen.height);
-        var viewportHeight = Number(window.innerHeight);
-        var launchHeight = standalone && screenHeight > 0 ? screenHeight : viewportHeight;
-        if (launchHeight > 0) {
-          document.documentElement.style.setProperty('--stats-lc-launch-height', launchHeight + 'px');
-        }
+        var syncLaunchHeight = function () {
+          var viewportHeight = Math.max(
+            Number(window.innerHeight) || 0,
+            Number(document.documentElement.clientHeight) || 0
+          );
+          if (viewportHeight > 0) {
+            document.documentElement.style.setProperty('--stats-lc-launch-height', viewportHeight + 'px');
+          }
+        };
+        syncLaunchHeight();
+        window.addEventListener('resize', function () {
+          var splash = document.getElementById('splash-screen');
+          if (splash && splash.dataset.dismissed !== '1') syncLaunchHeight();
+        }, { passive: true });
       })();
     </script>
     <style>

@@ -8,8 +8,7 @@
 
 ## Subtarefas pendentes
 
-- [ ] Commitar e fazer push do lote atual.
-- [ ] Reauditar o runtime inteiro contra a meta ampla de engine unica, memoria controlada e 30/60/120 fps.
+- Nenhuma neste lote.
 
 ## Subtarefas concluídas
 
@@ -44,7 +43,20 @@
 - [x] Telemetria de settle ganhou fallback nomeado no scheduler central para abas que suspendem `requestAnimationFrame`.
 - [x] `npm run lint`, `npm run build`, `npm run build:report`, `git diff --check` e varreduras proibidas passaram no lote atual.
 - [x] Orcamento final do lote: entry `140.9/160 kB` gzip; JS total `481.7/500 kB` gzip.
+- [x] Barra de progresso consolidada em uma unica camada mutavel e `Sincronizando` ligado ao runtime.
+- [x] Microanimacoes especificas de Stats, Orbita e Ajustes na bottom nav.
+- [x] Tonearm com um unico loop compositor discreto e camadas ambientais mantidas atras do vinil.
+- [x] RankingSummary com entrada/saida sequencial em wrapper interno, sem disputar transform com o drag imperativo.
+- [x] Lock de scroll da letra reforcado sem `position: fixed`, com folha `88svh` e handle acessivel.
+- [x] Reagrupamento do tray migrado de timer local para `motionRuntime`.
+- [x] Letras/autoria antigas invalidadas imediatamente ao trocar a faixa do historico.
+- [x] Browser `390x844`: tres ciclos completos por Home, Stats, Circulo e Ajustes, todos os filtros/abas acionados, uma cena ativa, overflow/imagens quebradas/console zerados apos assentamento.
+- [x] Browser `390x844`: letra rolou de `scrollTop 0` para `420` mantendo `window.scrollY = 0`; chaining no limite foi bloqueado e os dois handles fecharam seus modais.
+- [x] Browser `390x844`: tres faixas do historico cobriram letra completa e estado link-only, com Genius inline, capas validas, autoria e troca sem conteudo visual antigo.
+- [x] Browser `390x844`: RankingSummary mostrou entrada sequencial no wrapper interno e drag continuo preservou slots de `36px`; barra/tonearm permaneceram singulares.
+- [x] Browser `390x844`: fixture efemera removida apos validar tres pills do tray em `-14px`, separacao para `0px` no scroll e reagrupamento pelo runtime.
+- [x] Lote final commitado e publicado em `origin/main`.
 
 ## Proximo passo concreto
 
-Commitar e publicar o lote; depois iniciar nova auditoria global de runtime, memoria e renderizacao.
+Observar o lote publicado sem iniciar deploy Vercel.

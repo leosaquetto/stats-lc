@@ -50,6 +50,136 @@ const EqualizerIcon = () => {
   );
 };
 
+const NavStatsIcon = ({
+  isActive,
+  shouldAnimate,
+}: {
+  isActive: boolean;
+  shouldAnimate: boolean;
+}) => {
+  const bars = [0.58, 1, 0.74, 0.92, 0.5];
+  return (
+    <span className="flex h-[22px] w-[22px] items-center justify-center gap-[2.2px]" aria-hidden="true">
+      {bars.map((scale, index) => (
+        <motion.span
+          key={index}
+          className={clsx(
+            "w-[2px] origin-center rounded-full",
+            isActive ? "bg-white" : "bg-white/50"
+          )}
+          style={{ height: `${13 + (index % 2) * 5}px` }}
+          initial={false}
+          animate={isActive && shouldAnimate
+            ? { scaleY: [1, scale, 1.18 - scale * 0.12, 1] }
+            : { scaleY: 1 }}
+          transition={{
+            duration: isActive && shouldAnimate ? 0.52 : 0.18,
+            ease: [0.16, 1, 0.3, 1],
+            delay: isActive && shouldAnimate ? index * 0.035 : 0,
+          }}
+        />
+      ))}
+    </span>
+  );
+};
+
+const NavOrbitIcon = ({
+  isActive,
+  shouldAnimate,
+}: {
+  isActive: boolean;
+  shouldAnimate: boolean;
+}) => (
+  <motion.span
+    className="flex h-[22px] w-[22px] items-center justify-center"
+    initial={false}
+    animate={isActive && shouldAnimate
+      ? { rotate: [0, 18, -7, 0], scale: [1, 1.08, 0.99, 1] }
+      : { rotate: 0, scale: 1 }}
+    transition={{ duration: isActive && shouldAnimate ? 0.62 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+  >
+    <Orbit
+      className={clsx(isActive ? "h-[22px] w-[22px] text-white" : "h-[21px] w-[21px] text-white/50 hover:text-white/80")}
+      strokeWidth={isActive ? 2.4 : 1.7}
+    />
+  </motion.span>
+);
+
+const NavSettingsIcon = ({
+  isActive,
+  shouldAnimate,
+}: {
+  isActive: boolean;
+  shouldAnimate: boolean;
+}) => (
+  <motion.svg
+    viewBox="0 0 24 24"
+    className={clsx(isActive ? "h-[22px] w-[22px] text-white" : "h-[21px] w-[21px] text-white/50 hover:text-white/80")}
+    fill="none"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeWidth={isActive ? 2.35 : 1.7}
+    initial={false}
+    animate={isActive && shouldAnimate ? { scale: [1, 1.045, 1] } : { scale: 1 }}
+    transition={{ duration: isActive && shouldAnimate ? 0.5 : 0.18, ease: [0.16, 1, 0.3, 1] }}
+    aria-hidden="true"
+  >
+    <motion.line x1="4" x2="20" y1="6" y2="6" />
+    <motion.line x1="4" x2="20" y1="12" y2="12" />
+    <motion.line x1="4" x2="20" y1="18" y2="18" />
+    <motion.circle
+      cx="9"
+      cy="6"
+      r="1.8"
+      fill="currentColor"
+      animate={isActive && shouldAnimate ? { cx: [9, 13, 9] } : { cx: 9 }}
+      transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1] }}
+    />
+    <motion.circle
+      cx="15"
+      cy="12"
+      r="1.8"
+      fill="currentColor"
+      animate={isActive && shouldAnimate ? { cx: [15, 11, 15] } : { cx: 15 }}
+      transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1], delay: 0.035 }}
+    />
+    <motion.circle
+      cx="11"
+      cy="18"
+      r="1.8"
+      fill="currentColor"
+      animate={isActive && shouldAnimate ? { cx: [11, 16, 11] } : { cx: 11 }}
+      transition={{ duration: 0.56, ease: [0.16, 1, 0.3, 1], delay: 0.07 }}
+    />
+  </motion.svg>
+);
+
+const NavMotionIcon = ({
+  icon: Icon,
+  isActive,
+  path,
+  shouldAnimate,
+}: {
+  icon: typeof Home;
+  isActive: boolean;
+  path: string;
+  shouldAnimate: boolean;
+}) => {
+  if (path === '/stats') return <NavStatsIcon isActive={isActive} shouldAnimate={shouldAnimate} />;
+  if (path === '/circle') return <NavOrbitIcon isActive={isActive} shouldAnimate={shouldAnimate} />;
+  if (path === '/settings') return <NavSettingsIcon isActive={isActive} shouldAnimate={shouldAnimate} />;
+  return (
+    <Icon
+      className={clsx(
+        isActive
+          ? "h-[22px] w-[22px] text-white"
+          : "h-[21px] w-[21px] text-white/50 hover:text-white/80"
+      )}
+      strokeWidth={isActive ? 2.4 : 1.7}
+    />
+  );
+};
+
 const GeniusLogo = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Genius">
     <path
@@ -152,24 +282,17 @@ const BottomNavigation = React.memo(({
                   <motion.div
                     key={`${item.path}-${isActive ? navAnimationKey : 'idle'}`}
                     className="relative z-10 flex items-center justify-center"
-                    initial={isActive && shouldAnimateNav ? { scale: 0.92, rotate: -3, y: 2 } : false}
-                    animate={isActive
-                      ? shouldAnimateNav
-                        ? { scale: [0.92, 1.13, 1.02], rotate: [-3, 4, 0], y: [2, -2, 0] }
-                        : { scale: 1, rotate: 0, y: 0 }
-                      : { scale: 1, rotate: 0, y: 0 }}
+                    initial={false}
+                    animate={{ scale: 1, y: 0 }}
                     whileTap={shouldAnimateNav ? { scale: 0.94 } : undefined}
-                    transition={{ duration: shouldAnimateNav ? (isActive ? 0.42 : 0.2) : 0.01, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: shouldAnimateNav ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
                   >
                     <div className="relative flex h-7 w-7 items-center justify-center">
-                      <Icon
-                        className={clsx(
-                          "transition-[color,filter,opacity,transform] duration-200 ease-out",
-                          isActive
-                            ? "h-[22px] w-[22px] text-white"
-                            : "h-[21px] w-[21px] text-white/50 hover:text-white/80"
-                        )}
-                        strokeWidth={isActive ? 2.4 : 1.7}
+                      <NavMotionIcon
+                        icon={Icon}
+                        isActive={isActive}
+                        path={item.path}
+                        shouldAnimate={shouldAnimateNav}
                       />
                     </div>
                   </motion.div>
@@ -1328,19 +1451,26 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }));
     return [...current, ...history];
   }, [liveTrack, panelUser?.nowPlaying?.isNow, panelUser?.nowPlaying?.timestamp, visiblePlaybackHistory]);
+  const invalidateLyricsForPlaybackChange = React.useCallback(() => {
+    lyricsRequestKeyRef.current = `invalidated:${Date.now()}`;
+    setLyricsMatch(null);
+    setLyricsText(null);
+    setLyricsLoading(false);
+  }, []);
   const selectPlaybackChoice = React.useCallback((index: number) => {
     if (index === playbackIndex) {
       setRecentPickerOpen(false);
       animateMotion(historySwipeX, 0, { duration: 0.16, ease: [0.16, 1, 0.3, 1] });
       return;
     }
+    invalidateLyricsForPlaybackChange();
     setPlaybackIndex(index);
     setPanel('stats');
     setRecentPickerOpen(false);
     historySwipeTokenRef.current += 1;
     historySwipeX.set(index > playbackIndex ? 52 : -52);
     animateMotion(historySwipeX, 0, { duration: 0.2, ease: [0.16, 1, 0.3, 1] });
-  }, [historySwipeX, playbackIndex]);
+  }, [historySwipeX, invalidateLyricsForPlaybackChange, playbackIndex]);
   const animateHistorySwipe = React.useCallback((direction: 'older' | 'newer') => {
     const nextIndex = getAdjacentPlaybackIndex(direction);
 
@@ -1357,13 +1487,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       ease: [0.16, 1, 0.3, 1],
       onComplete: () => {
         if (historySwipeTokenRef.current !== token) return;
+        invalidateLyricsForPlaybackChange();
         setPlaybackIndex(nextIndex);
         setPanel('stats');
         historySwipeX.set(direction === 'older' ? -46 : 46);
         animateMotion(historySwipeX, 0, { duration: 0.2, ease: [0.16, 1, 0.3, 1] });
       },
     });
-  }, [getAdjacentPlaybackIndex, historySwipeX, playbackIndex]);
+  }, [getAdjacentPlaybackIndex, historySwipeX, invalidateLyricsForPlaybackChange, playbackIndex]);
 
   // Modal content uses activePlayback (can navigate history)
   const track = activePlayback?.track;
@@ -1395,7 +1526,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const albumReleaseRawDate = React.useMemo(() => getAlbumReleaseDate(track), [track]);
   const albumReleaseDate = React.useMemo(() => formatAlbumReleaseDate(albumReleaseRawDate), [albumReleaseRawDate]);
   const isBubbleLive = panelUser?.nowPlaying?.isNow === true && playbackIndex === 0 && !hasExternalPlayback;
-  const shouldAnimateBubble = isBubbleLive && !isModalVisible && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const shouldRunBubbleMotion = !isModalVisible && motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const shouldAnimateBubble = isBubbleLive && shouldRunBubbleMotion;
+  const shouldPulseIdleBubble = !isBubbleLive && shouldRunBubbleMotion;
   const bubbleAccentColor = bubbleDominantColor || '#ff5f00';
   const bubbleGlassFilter = motionRuntime.tier === 'conserve'
     ? 'blur(8px) saturate(125%)'
@@ -1453,11 +1586,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     return previousReleaseDayKey === playedDayKey;
   }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
   const writerNames = React.useMemo(() => {
-    return (lyricsMatch?.writers || [])
+    const writers = (lyricsMatch?.writers || [])
       .map((writer) => writer.trim())
       .filter(Boolean)
       .join(', ');
-  }, [lyricsMatch?.writers]);
+    return writers || lyricsMatch?.match?.artist?.trim() || artistName;
+  }, [artistName, lyricsMatch?.match?.artist, lyricsMatch?.writers]);
   const cleanedLyricsText = React.useMemo(() => cleanLyricsForDisplay(lyricsText), [lyricsText]);
   const isPanelFullyReady = panelHydration.metrics && panelHydration.artistStats && panelHydration.history && panelHydration.social;
   const shouldLoadStatsPanel = isOpen && !isStandaloneLyrics;
@@ -2117,6 +2251,75 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     };
   }, [isOpen]);
 
+  React.useEffect(() => {
+    if (typeof document === 'undefined' || !isOpen) return;
+    const { documentElement, body } = document;
+    const lockedScrollY = window.scrollY;
+    const previousRootOverflow = documentElement.style.overflow;
+    const previousRootOverscroll = documentElement.style.overscrollBehavior;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyOverscroll = body.style.overscrollBehavior;
+    let activeTouchScroller: HTMLElement | null = null;
+    let previousTouchY = 0;
+
+    documentElement.style.overflow = 'hidden';
+    documentElement.style.overscrollBehavior = 'none';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+
+    const findLyricsScroller = (target: EventTarget | null) => {
+      return target instanceof Element
+        ? target.closest<HTMLElement>('[data-lyrics-scroll="true"]')
+        : null;
+    };
+    const canScrollLyrics = (element: HTMLElement, deltaY: number) => {
+      if (deltaY < 0) return element.scrollTop > 0;
+      if (deltaY > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
+      return false;
+    };
+    const preventBackgroundWheel = (event: WheelEvent) => {
+      const scroller = findLyricsScroller(event.target);
+      if (scroller && canScrollLyrics(scroller, event.deltaY)) return;
+      event.preventDefault();
+    };
+    const captureTouchStart = (event: TouchEvent) => {
+      activeTouchScroller = findLyricsScroller(event.target);
+      previousTouchY = event.touches[0]?.clientY ?? 0;
+    };
+    const preventBackgroundTouch = (event: TouchEvent) => {
+      const currentY = event.touches[0]?.clientY ?? previousTouchY;
+      const deltaY = previousTouchY - currentY;
+      previousTouchY = currentY;
+      if (!activeTouchScroller || !canScrollLyrics(activeTouchScroller, deltaY)) {
+        event.preventDefault();
+      }
+    };
+    const preserveDocumentScroll = () => {
+      if (Math.abs(window.scrollY - lockedScrollY) > 0.5) {
+        window.scrollTo({ top: lockedScrollY, behavior: 'instant' });
+      }
+    };
+
+    document.addEventListener('wheel', preventBackgroundWheel, { passive: false, capture: true });
+    document.addEventListener('touchstart', captureTouchStart, { passive: true, capture: true });
+    document.addEventListener('touchmove', preventBackgroundTouch, { passive: false, capture: true });
+    window.addEventListener('scroll', preserveDocumentScroll, { passive: true });
+
+    return () => {
+      document.removeEventListener('wheel', preventBackgroundWheel, true);
+      document.removeEventListener('touchstart', captureTouchStart, true);
+      document.removeEventListener('touchmove', preventBackgroundTouch, true);
+      window.removeEventListener('scroll', preserveDocumentScroll);
+      documentElement.style.overflow = previousRootOverflow;
+      documentElement.style.overscrollBehavior = previousRootOverscroll;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehavior = previousBodyOverscroll;
+      if (Math.abs(window.scrollY - lockedScrollY) > 0.5) {
+        window.scrollTo({ top: lockedScrollY, behavior: 'instant' });
+      }
+    };
+  }, [isOpen]);
+
   if (!track && !user) return null;
 
   return (
@@ -2141,41 +2344,65 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           whileTap={{ scale: 0.9 }}
           aria-label={isModalVisible ? "Fechar modal da música" : "Abrir stats da música"}
         >
-          {isBubbleLive ? (
-            <>
-              <span
+          <AnimatePresence initial={false}>
+            {isBubbleLive ? (
+              <motion.span
+                key="live-bubble-base"
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 rounded-full"
                 style={{
                   background: `radial-gradient(circle, color-mix(in srgb, ${bubbleAccentColor} 92%, rgba(255,255,255,0.12)) 0%, color-mix(in srgb, ${bubbleAccentColor} 70%, rgba(0,0,0,0.22)) 72%, color-mix(in srgb, ${bubbleAccentColor} 52%, rgba(0,0,0,0.38)) 100%)`,
                   filter: 'saturate(1.65) contrast(1.08)',
-                  opacity: shouldAnimateBubble ? 0.68 : 0.72,
+                }}
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: shouldAnimateBubble ? 0.68 : 0.72, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+              />
+            ) : (
+              <motion.span
+                key="idle-bubble-base"
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-full bg-white/[0.03]"
+                initial={{ opacity: 0, scale: 1.02 }}
+                animate={{
+                  opacity: shouldPulseIdleBubble ? [0.82, 1, 0.82] : 1,
+                  scale: shouldPulseIdleBubble ? [1, 1.045, 1] : 1,
+                }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{
+                  duration: shouldPulseIdleBubble ? 3.2 : 0.38,
+                  repeat: shouldPulseIdleBubble ? Infinity : 0,
+                  ease: shouldPulseIdleBubble ? "easeInOut" : [0.16, 1, 0.3, 1],
                 }}
               />
-              <span
+            )}
+          </AnimatePresence>
+          <AnimatePresence initial={false}>
+            {isBubbleLive && (
+              <motion.span
+                key="live-bubble-gloss"
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-[2px] rounded-full"
                 style={{
                   background: 'radial-gradient(circle at 45% 36%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.16) 36%, rgba(255,255,255,0.05) 64%, transparent 100%)',
                   mixBlendMode: 'screen',
-                  opacity: shouldAnimateBubble ? 0.46 : 0.42,
                 }}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: shouldAnimateBubble ? 0.46 : 0.42, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.99 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               />
-            </>
-          ) : (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 rounded-full bg-white/[0.03]"
-            />
-          )}
+            )}
+          </AnimatePresence>
           <EngineBreathe
-            active={shouldAnimateBubble}
+            active={shouldAnimateBubble || shouldPulseIdleBubble}
             className="relative z-10 flex h-[32px] w-[32px] items-center justify-center"
-            duration={2.6}
+            duration={shouldPulseIdleBubble ? 4.2 : 2.6}
             fromOpacity={1}
-            fromScale={shouldAnimateBubble ? 0.97 : 1}
+            fromScale={shouldPulseIdleBubble ? 0.985 : shouldAnimateBubble ? 0.97 : 1}
             toOpacity={1}
-            toScale={shouldAnimateBubble ? 1.09 : 1}
+            toScale={shouldPulseIdleBubble ? 1.025 : shouldAnimateBubble ? 1.09 : 1}
           >
             <AnimatePresence initial={false}>
               <motion.div
@@ -2184,9 +2411,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 style={{ backfaceVisibility: 'hidden' }}
                 initial={{
                   opacity: 0,
-                  x: -34,
+                  x: 34,
                   scale: 0.84,
-                  rotate: -48,
+                  rotate: 42,
                   zIndex: 2,
                 }}
                 animate={{
@@ -2198,9 +2425,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 }}
                 exit={{
                   opacity: 0,
-                  x: 24,
+                  x: -24,
                   scale: 0.92,
-                  rotate: 34,
+                  rotate: -28,
                   zIndex: 1,
                 }}
                 transition={{
@@ -2489,7 +2716,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 h-1 w-10 -translate-x-1/2 rounded-full bg-white/22" aria-hidden="true" />
+              <div
+                data-bottom-track-drag-handle="true"
+                className="absolute left-1/2 top-0 z-30 flex h-8 w-24 -translate-x-1/2 cursor-grab touch-none items-center justify-center active:cursor-grabbing"
+                aria-label="Arrastar modal"
+                role="button"
+              >
+                <div className="pointer-events-none h-1 w-10 rounded-full bg-white/24" aria-hidden="true" />
+              </div>
 
               <motion.div className="relative z-10 will-change-transform" style={{ x: historySwipeX }}>
               <div className="flex items-center gap-3 pt-2">
@@ -2502,11 +2736,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </div>
                   )}
                   {panel === 'lyrics' && (
-                    <img
-                      src="/genius_colored.svg"
-                      alt=""
-                      className="absolute bottom-1 right-1 h-5 w-5 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]"
-                    />
+                    <GeniusLogo className="absolute bottom-1 right-1 h-5 w-5 text-yellow-300 drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]" />
                   )}
                 </div>
                 <div className="min-w-0 pt-1">
@@ -2962,14 +3192,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <>
                   <motion.div
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: isLyricsOpen ? 1 : 0.78 }}
+                    animate={{ opacity: 0.78 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: isLyricsOpen ? 0.22 : 0.42, ease: "easeOut" }}
+                    transition={{ duration: isLyricsOpen ? 0.22 : 0.32, ease: "easeOut" }}
                     className="fixed inset-0 z-[1208] bg-black/28 backdrop-blur-[3px] pointer-events-auto"
                     onClick={closeLyrics}
                   />
                   <motion.div
-                    className="fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
+                    className="pointer-events-auto fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
                     data-animation-done={isLyricsAnimationDone}
                     initial={{ y: 'calc(100% + 28px)' }}
                     animate={{ y: isLyricsOpen ? '0%' : 'calc(100% + 28px)' }}
@@ -2993,18 +3223,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       }
                     }}
                     style={{
-                      height: '82svh',
-                      touchAction: 'none',
+                      height: '88svh',
+                      touchAction: 'pan-y',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
                     }}
                   >
                   {/* Drag Handle Area */}
-                  <div
-                    onPointerDown={(e) => dragControls.start(e)}
-                    className="w-full cursor-grab active:cursor-grabbing pb-4 flex flex-col items-center shrink-0 select-none"
+                  <button
+                    type="button"
+                    data-bottom-track-drag-handle="true"
+                    aria-label="Arrastar modal de letra"
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      dragControls.start(e);
+                    }}
+                    className="flex w-full shrink-0 cursor-grab touch-none select-none flex-col items-center pb-4 active:cursor-grabbing"
                   >
                     <div className="pointer-events-none h-1 w-10 rounded-full bg-white/22" aria-hidden="true" />
-                  </div>
+                  </button>
 
                   {/* Header content inside Lyrics Modal */}
                   <div className="flex items-center gap-3 pt-1 shrink-0 select-none">
@@ -3016,11 +3252,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           <Music2 className="h-9 w-9 text-white/36" />
                         </div>
                       )}
-                      <img
-                        src="/genius_colored.svg"
-                        alt=""
-                        className="absolute bottom-1 right-1 h-5 w-5 object-contain drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]"
-                      />
+                      <GeniusLogo className="absolute bottom-1 right-1 h-5 w-5 text-yellow-300 drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]" />
                     </div>
                     <div className="min-w-0 pt-1">
                       <div className="flex items-center gap-2">
@@ -3118,11 +3350,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           className="group flex items-start gap-0.5 text-white/46 transition-colors hover:text-white/70"
                           aria-label="Abrir Genius"
                         >
-                          <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert transition-opacity group-hover:opacity-80" />
+                          <span className="text-[7px] font-black tracking-[0.1em] text-white/58 transition-colors group-hover:text-white/76">GENIUS</span>
                           <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
                         </a>
                       ) : (
-                        <img src="/genius-logo_hor.svg" alt="Genius" className="h-2.5 w-auto opacity-60 grayscale invert" />
+                        <span className="text-[7px] font-black tracking-[0.1em] text-white/44">GENIUS</span>
                       )}
                     </div>
                   </div>
@@ -3254,6 +3486,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     : "Artista";
   
   const [isSyncInfoExpanded, setIsSyncInfoExpanded] = React.useState(false);
+  const [isSyncTraySeparating, setIsSyncTraySeparating] = React.useState(false);
 
   const [showSyncFooter, setShowSyncFooter] = React.useState(false);
   const [viewportWidth, setViewportWidth] = React.useState(() => {
@@ -3264,7 +3497,17 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const [highlightedBubbles, setHighlightedBubbles] = React.useState<Record<string, boolean>>({});
   const syncPointerStartRef = React.useRef<{ x: number; y: number; scrollLeft: number } | null>(null);
   const syncDidDragRef = React.useRef(false);
+  const cancelSyncRegroupTaskRef = React.useRef<() => void>(() => {});
   const bubbleHighlightCancelersRef = React.useRef(new Map<string, () => void>());
+  const markSyncTraySeparating = React.useCallback(() => {
+    setIsSyncTraySeparating(true);
+    cancelSyncRegroupTaskRef.current();
+    cancelSyncRegroupTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
+      setIsSyncTraySeparating(false);
+      cancelSyncRegroupTaskRef.current = () => {};
+    }, 900, 'interaction', 'sync-tray-regroup');
+  }, []);
+  React.useEffect(() => () => cancelSyncRegroupTaskRef.current(), []);
   const hasWarmHomeReady = React.useCallback(() => {
     if (typeof window === 'undefined') return true;
     return (
@@ -3363,10 +3606,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const isStatsOrRanking = location.pathname === '/highlights' || location.pathname === '/ranking';
   const isHomeRoute = location.pathname === '/';
   const shouldGateHome = isHomeRoute && !homeReady;
-  const syncTrayExpandedWidth = Math.max(204, Math.min(viewportWidth - 104, 286));
-  const syncTrayCompactWidth = 62;
-  const syncTrayCompactHeight = 30;
-  const syncTrayExpandedHeight = 48;
+  const syncTrayExpandedWidth = Math.max(188, Math.min(viewportWidth - 128, 254));
+  const syncTrayCompactWidth = 58;
+  const syncTrayCompactHeight = 28;
+  const syncTrayExpandedHeight = 42;
   const syncTrayPrimaryMember = activeMembersSorted[0];
 
   return (
@@ -3417,7 +3660,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                 damping: 32,
                 mass: 0.78
               }}
-              className="pointer-events-none flex h-[50px] w-full justify-center px-3"
+              className="pointer-events-none flex h-[44px] w-full justify-center px-3"
               data-stats-lc-sync-tray="true"
               data-stats-lc-sync-tray-expanded={shouldShowExpanded ? 'true' : 'false'}
             >
@@ -3427,7 +3670,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               >
                 <motion.div
                   aria-hidden="true"
-                  className="absolute left-1/2 top-1/2 rounded-full bg-black/36 shadow-[0_8px_20px_rgba(0,0,0,0.36),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-lg will-change-transform"
+                  className="absolute left-1/2 top-1/2 rounded-full bg-black/34 shadow-[0_6px_18px_rgba(0,0,0,0.34),inset_0_1px_0_rgba(255,255,255,0.055)] backdrop-blur-md will-change-transform"
                   style={{
                     width: syncTrayExpandedWidth,
                     height: syncTrayExpandedHeight,
@@ -3470,7 +3713,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                     {shouldShowExpanded ? (
                       <motion.div
                         key="expanded-sync-tray"
-                        className="flex h-full w-full min-w-0 items-center justify-center gap-1.5 overflow-x-auto overflow-y-hidden px-1 no-scrollbar scrolling-touch"
+                        className="flex h-full w-full min-w-0 items-center justify-start gap-0 overflow-x-auto overflow-y-hidden px-2 no-scrollbar scrolling-touch"
                         initial={{ opacity: 0, y: 10, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -6, scale: 0.98 }}
@@ -3491,8 +3734,10 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                           const deltaScroll = Math.abs(event.currentTarget.scrollLeft - start.scrollLeft);
                           if (deltaX > 6 || deltaY > 6 || deltaScroll > 2) {
                             syncDidDragRef.current = true;
+                            markSyncTraySeparating();
                           }
                         }}
+                        onScroll={markSyncTraySeparating}
                         onPointerUp={() => {
                           syncPointerStartRef.current = null;
                         }}
@@ -3508,24 +3753,27 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                             ? (typeof userTrack.artists[0] === 'string' ? userTrack.artists[0] : (userTrack.artists[0] as any)?.name || "Artista")
                             : "Artista";
                           const isBubbleHighlighted = highlightedBubbles[user.id];
+                          const overlapOffset = idx === 0 ? 0 : (isSyncTraySeparating ? 0 : -14);
 
                           return (
                             <motion.div
                               key={user.id}
                               layout="position"
-                              initial={{ opacity: 0, x: -18, rotate: -2.5, scale: 0.96 }}
-                              animate={isBubbleHighlighted ? { opacity: 1, x: 0, rotate: 0, scale: [1, 1.045, 1] } : { opacity: 1, x: 0, rotate: 0, scale: 1 }}
-                              exit={{ opacity: 0, x: 18, rotate: 2, scale: 0.96 }}
+                              initial={{ opacity: 0, x: -18, rotate: -2.5, scale: 0.96, marginLeft: idx === 0 ? 0 : -10 }}
+                              animate={isBubbleHighlighted
+                                ? { opacity: 1, x: 0, rotate: 0, scale: [1, 1.045, 1], marginLeft: overlapOffset }
+                                : { opacity: 1, x: 0, rotate: 0, scale: 1, marginLeft: overlapOffset }}
+                              exit={{ opacity: 0, x: 18, rotate: 2, scale: 0.96, marginLeft: idx === 0 ? 0 : -8 }}
                               transition={{
                                 layout: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
                                 duration: isBubbleHighlighted ? 1.1 : 0.24,
                                 delay: Math.min(idx * 0.025, 0.08),
                                 ease: [0.16, 1, 0.3, 1],
                               }}
-                              className="leo-soft-badge flex min-w-[142px] max-w-[196px] flex-[0_0_auto] items-center gap-2 rounded-full py-1 pl-1 pr-2.5 active:scale-[0.98]"
+                              className="leo-soft-badge flex min-w-[126px] max-w-[178px] flex-[0_0_auto] items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2 active:scale-[0.98]"
                             >
                               <div className="relative shrink-0">
-                                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
+                                <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
                                   <AnimatePresence initial={false} mode="popLayout">
                                     <motion.div
                                       key={`${user.id}:${userAvatar}`}
@@ -3581,7 +3829,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
                         transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                       >
                         {syncTrayPrimaryMember && (
-                          <div className="h-[23px] w-[23px] overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
+                          <div className="h-[22px] w-[22px] overflow-hidden rounded-full bg-stone-900/80 ring-1 ring-white/10">
                             <AnimatePresence initial={false} mode="popLayout">
                               <motion.div
                                 key={`${syncTrayPrimaryMember.id}:${coreUtils.getUserAvatar(syncTrayPrimaryMember.id, syncTrayPrimaryMember.avatar)}`}

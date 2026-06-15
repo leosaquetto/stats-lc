@@ -205,9 +205,10 @@
 }
 
 @keyframes stats-lc-engine-tonearm-drift {
-  0% { transform: rotate(0deg); }
-  60% { transform: rotate(-1.18deg); }
-  100% { transform: rotate(-0.42deg); }
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  38% { transform: translate3d(0.08px, -0.05px, 0) rotate(-0.46deg); }
+  72% { transform: translate3d(-0.04px, 0.06px, 0) rotate(0.28deg); }
+  100% { transform: translate3d(0, 0, 0) rotate(0deg); }
 }
 
 .stats-lc-engine-tonearm-drift {
@@ -216,7 +217,7 @@
 }
 
 .stats-lc-engine-tonearm-drift[data-active="true"] {
-  animation: stats-lc-engine-tonearm-drift calc(42s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out alternate infinite;
+  animation: stats-lc-engine-tonearm-drift calc(4.8s * var(--stats-lc-engine-runtime-scale, 1)) ease-in-out infinite;
   will-change: transform;
 }
 
@@ -923,15 +924,4 @@ html[data-stats-lc-motion-tier="conserve"] :where(
 @keyframes eq-bar-3 {
   0%, 100% { transform: scaleY(0.15); }
   50% { transform: scaleY(0.8); }
-}
-
-@keyframes arena-bubble-enter {
-  0% {
-    transform: translate3d(var(--initial-x, 0px), -50%, 0) scale(0);
-    opacity: 0;
-  }
-  100% {
-    transform: translate3d(var(--final-x, 0px), -50%, 0) scale(var(--final-scale, 1));
-    opacity: var(--final-opacity, 1);
-  }
 }

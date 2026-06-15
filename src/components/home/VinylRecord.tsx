@@ -290,13 +290,8 @@ export const VinylRecord = ({
     const runPlaybackSequence = async () => {
       if (!isPlaying) {
         setPhase('idle');
-        setTonearmState(canAnimate ? 'lifted' : 'rest');
-        setSpinEnabled(false);
-        if (canAnimate) {
-          await wait(360);
-        }
-        if (cancelled || sequenceId !== playbackSequenceRef.current) return;
         setTonearmState('rest');
+        setSpinEnabled(false);
         return;
       }
 

@@ -1259,7 +1259,10 @@ export const statsService = {
             includeWriters: '1',
           }, false, 0, true).catch(() => null),
         ]);
-        if (lyrics) return { ...match, writers: writersResponse?.writers, lyrics };
+        if (lyrics) {
+          const writers = writersResponse?.writers?.length ? writersResponse.writers : match.writers;
+          return { ...match, writers, lyrics };
+        }
       }
 
       return await fetchFromApi<LyricsFullResponse>('/api/lyrics', {

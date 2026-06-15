@@ -46,6 +46,9 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Todo modal condicional lazy deve ter `key` estavel ligada a entidade aberta, para uma troca de faixa/usuario produzir uma saida e entrada coerentes.
    - Bottom sheets nao devem depender apenas do unmount do `AnimatePresence` para fechar; mantenha estado explicito de closing quando a superficie precisa descer antes de desmontar.
    - Uma folha standalone de letra nao deve montar nem hidratar o modal de stats da faixa.
+   - Conteudo rolavel dentro de modal deve ter scroll proprio (`data-lyrics-scroll`, `overscroll-contain`, `touch-action: pan-y`) e o documento por tras deve ficar travado enquanto a superficie estiver aberta ou fechando.
+   - O lock de scroll deve preservar `window.scrollY`, bloquear `wheel`/`touchmove` fora do scroller permitido e impedir scroll chaining nas extremidades. Nao use `body { position: fixed }`.
+   - Handles visuais de bottom sheet devem ser controles acessiveis, iniciar drag apenas pelo proprio handle e compartilhar o mesmo contrato `data-bottom-track-drag-handle`.
 
 7. Loops CSS precisam ser rastreaveis e pausaveis.
    - Elementos animados por CSS devem usar `stats-lc-engine-loop`.
@@ -68,6 +71,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Controles fisicos manipulados pelo usuario, como tonearm, devem preservar o estado manual ate troca real de faixa; automacao nao pode puxar o controle de volta no mesmo playback.
    - Vinil deve usar identidade estavel da faixa, nunca URL da capa como chave de troca. Enriquecimento tardio de artwork/cor pode entrar depois de preload critico, mas nao pode remontar disco, reiniciar rotacao ou mover tonearm.
    - Barra de reproducao da LeoHeader nao deve trocar para fallback laranja enquanto a paleta da capa ainda esta sendo extraida; mantenha a ultima paleta real ou use neutro ate `getArtworkPalette` resolver.
+   - Barra de reproducao da LeoHeader deve ser uma unica camada mutavel. Nao use `key` dinamica ou `AnimatePresence` no fill interno; sincronizacao troca `scaleX`, `opacity` e shimmer na mesma barra.
    - Correcoes de progresso ao vivo devem acelerar ate o tempo corrigido; nao salte a bolinha/linha de uma posicao antiga para uma posicao nova.
    - RankingSummary do LeoHeader deve hidratar independentemente do modal de track. Se o store nao refletir os dados a tempo, use fallback local unico por faixa e exponha `data-stats-lc-leo-header-ranking-source`.
 
@@ -93,7 +97,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 
 13. Launch e splash fazem parte do runtime visual.
    - PWA iOS deve ter `apple-touch-icon` valido, icones `192/512`, `background_color` preto e launch images para os viewports suportados; nao depender do cartao branco gerado pelo sistema.
-   - Em standalone, congele a altura de launch antes do primeiro paint; nao permita que a splash recentralize quando o viewport do iOS estabilizar.
+   - Em standalone, congele a altura de launch pelo viewport real antes do primeiro paint; nao use `screen.height` para recentralizar a splash quando o viewport do iOS estabilizar.
    - Um novo documento deve invalidar marcadores de Home quente herdados da sessao. Retorno quente dentro do mesmo documento usa estado React, `window.__STATS_LC_HOME_READY__` e telemetria do documento atual.
    - Depois que `data-stats-lc-home-ready-ms` existe no documento atual, nenhum evento tardio pode regredir a Home para fria ou remover o estado quente desse documento.
    - A primeira viewport deve preparar decisoes visuais essenciais antes de sair da splash: dados-base, capas criticas, atividade visivel e badges que mudariam a geometria do header.
@@ -108,6 +112,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Backdrops grandes da LeoHeader/Home podem pulsar durante entrada, troca de faixa ou troca de paleta, mas devem assentar em ate cerca de `1700ms`; depois disso, a profundidade fica estatica e apenas vinil/tonearm/progresso continuam funcionais.
    - Nao empilhe multiplos `EngineBreathe` em uma mesma bolha/avatar pequeno. Prefira camadas radiais estaticas e deixe no maximo uma camada viva ligada ao avatar ou estado principal.
    - `AnimatePresence initial={false}` nao deve ser usado no primeiro viewport quando a superficie precisa de uma entrada perceptivel.
+   - Quando um elemento possui transform imperativo de drag/scroll, entrada e saida finitas devem viver em um wrapper visual interno. Nunca deixe Motion e `requestAnimationFrame` escreverem `transform` no mesmo no.
 
 15. Rotas-tab pesadas sao cenas persistentes, nao paginas descartaveis.
    - Home, Stats, Circulo e Ajustes devem permanecer sob `PersistentRouteScene`/React `Activity`; trocar de secao alterna a cena visivel sem remontar toda a arvore.
@@ -122,10 +127,13 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
 16. Bottom tray, stats sheet e letra usam coreografia curta, centrada e standalone.
    - O minitray de sync deve expandir a partir do centro e manter dimensoes compactas perto da bottom nav; nao crie uma barra de blur maior que o conteudo.
    - O minitray deve abrir compacto por padrao; expansao e estado efemero da sessao visual, nao preferencia persistida em `localStorage`.
+   - Pills do minitray podem ficar levemente sobrepostas em repouso; scroll horizontal separa as pills e o reagrupamento deve ser agendado pelo `motionRuntime`, sem timer visual local.
    - A sheet de stats da musica deve sair por `transform` relativo ao proprio painel, nao por `100svh`/distancia de viewport inteira.
    - A letra aberta pelo LeoHeader deve ser standalone: nao precisa montar o modal de track antes.
    - Backdrop de letra nao pode clarear antes da sheet terminar de descer; overlay e painel precisam manter a mesma linguagem visual durante entrada e saida.
    - Enquanto stats/letra estiverem abertos ou fechando, loops ambientais por tras devem ficar pausados via `useModalMotionScope` e `data-bottom-track-modal-open`.
+   - Icones selecionados da bottom nav devem ter microanimacoes proprias e transform-only. Nao aplique uma rotacao generica no wrapper que concorra com equalizer, orbita ou sliders.
+   - Trocar a faixa ativa de um modal deve invalidar imediatamente letra/autoria anteriores; respostas assincronas so podem atualizar a UI se sua chave ainda corresponder a faixa atual.
 
 ## Padroes Permitidos
 
