@@ -1163,17 +1163,17 @@ const ArenaRankingBubble = ({
               rotate: 8,
               transition: {
                 duration: 0.28,
-                delay: Math.max(0, total - index - 1) * 0.05,
+                delay: Math.max(0, total - index - 1) * 0.18,
                 ease: [0.32, 0, 0.2, 1],
               },
             }}
         transition={{
           duration: shouldReduceMotion ? 0.01 : 0.52,
-          delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.05,
+          delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.18,
           ease: [0.34, 1.56, 0.64, 1],
           opacity: {
-            duration: shouldReduceMotion ? 0.01 : 0.24,
-            delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.05,
+            duration: shouldReduceMotion ? 0.01 : 0.18,
+            delay: shouldReduceMotion || isHiddenInitial ? 0 : index * 0.18,
           },
         }}
       >
@@ -2355,7 +2355,7 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                                         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.16 }}
                                         transition={{
                                           duration: shouldReduceMotion ? 0.01 : 0.42,
-                                          delay: shouldReduceMotion ? 0 : visibleArenaCount * 0.045,
+                                          delay: shouldReduceMotion ? 0 : visibleArenaCount * 0.18,
                                           ease: [0.34, 1.56, 0.64, 1],
                                         }}
                                       >
