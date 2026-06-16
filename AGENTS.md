@@ -17,11 +17,14 @@ npm run dev
 npm run lint
 npm run build
 npm run build:report
+npm run qa:home-mobile
 git diff --check
 ```
 
 `npm run lint` e `npm run build` sao as validacoes principais.
 `npm run build:report` aplica os orcamentos atuais de bundle.
+`npm run qa:home-mobile` valida a Home em 390 x 844 com Playwright quando o
+dev server ja esta rodando em `http://127.0.0.1:3000/#/`.
 
 ## Fluxo Padrao
 
@@ -41,6 +44,7 @@ Use preferencialmente:
 
 - URL: `http://localhost:3000/`
 - viewport mobile: `390 x 844`
+- smoke local: `npm run qa:home-mobile`
 
 Se a ferramenta de browser falhar, nao gaste tempo excessivo: relate a limitacao e use lint/build quando fizer sentido.
 
@@ -88,6 +92,12 @@ Regras importantes:
 - `/api/group-live` e a superficie leve de polling/live.
 - Evite `force=1` em fluxos automaticos; use apenas em acoes manuais claras.
 - Dados live devem trocar a UI so quando o payload necessario estiver pronto.
+- Ao mesclar payload live leve com dados de `/api/group`, preserve dados ricos
+  ja tratados quando a faixa for a mesma: `albumImage`, `album`, `durationMs`,
+  artista principal, artista do album, cores e disponibilidade de catalogo.
+- Para rankings/Replay, `plays` e contagem de reproducoes; `min` deve vir de
+  tempo real (`playedMs`, `totalDurationMs`, `durationMs * plays` ou campo de
+  minutos explicito), nunca de um mero rename de streams/playcount.
 
 ## Home E Performance
 
@@ -118,7 +128,14 @@ Regras importantes:
 
 ### Comportamentos Protegidos Da Home
 
-- `Seus Destaques` deve preservar o palco orbital fluido atual: cards absolutos em orbit mode, item principal em destaque, satelites/cartoes alternando profundidade com `transform`, `opacity`, `filter: blur(...)` e `z-index`; nao converter para lista, grid estatico ou cards empilhados sem duas confirmacoes explicitas do usuario.
+- `Destaques` substitui o antigo `Seus Destaques`: manter grade/carrossel
+  horizontal 3 x 2, edge-to-edge, sem badge de ranking, com loop quando houver
+  mais de uma pagina. Usar `sanitizeTopItems(...)` para artistas, musicas e
+  albuns antes de renderizar. A badge de categoria recolhida e icon-only; o
+  texto completo vive no menu/popover.
+- `Destaques` pode renderizar com base compacta/cache assim que houver dados e
+  continuar hidratando Replay em background; nao bloquear a navegacao esperando
+  Replay profundo.
 - `Top 1 do Circulo` e `Stats Alike` da Home sao exemplos de animacao desejada no app. Preservar aneis, camadas frente/fundo, blur de profundidade, badges e troca suave por `transform`. Nao remover, achatar, trocar por fallback simples, nem "otimizar" esse comportamento para algo menos orbital sem o usuario confirmar duas vezes.
 
 ## LeoHeader E Vinil
