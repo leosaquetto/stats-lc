@@ -292,6 +292,7 @@ const emit = () => {
       reportRuntimeError(error, 'listener', 'snapshot');
     }
   });
+  requestCssEngineLoopAudit(180);
 };
 
 const schedulePressureDecay = () => {
