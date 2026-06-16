@@ -435,7 +435,7 @@ export const HomeInsights: React.FC<HomeInsightsProps> = React.memo(({ onFriendC
         <div className={`flex ${isMain ? '-space-x-3' : '-space-x-2'} shrink-0`}>
           {users.map((user) => (
             <div key={user.id} className={`${userImageSize} overflow-hidden rounded-full bg-white/[0.04] ring-1 ${tone.ring} shadow-[0_10px_24px_rgba(0,0,0,0.28)]`}>
-              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} cacheKey={`home-insight-user:${user.id}`} rounded="full" className="h-full w-full object-cover" fallback="" />
+              <SmartImage src={coreUtils.getUserAvatar(user.id, user.avatar)} cacheKey={`home-insight-user:${user.id}`} rounded="full" className="h-full w-full object-cover" fallback={user.name} />
             </div>
           ))}
         </div>

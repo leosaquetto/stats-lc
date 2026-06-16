@@ -242,7 +242,7 @@ export const FriendActivityReel: React.FC<FriendActivityReelProps> = ({
                             "h-7 w-7 rounded-full border-2 p-0.5 overflow-hidden transition-[border-color,box-shadow,opacity,transform] duration-300",
                             isPlaying ? "border-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]" : "border-white/10"
                           )}>
-                            <SmartImage src={userAvatar} className="h-full w-full object-cover rounded-full" rounded="full" fallback="" />
+                            <SmartImage src={userAvatar} className="h-full w-full object-cover rounded-full" rounded="full" fallback={friend.name} />
                           </div>
                           {isPlaying && (
                             <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-black/80 flex items-center justify-center border border-white/10">

@@ -36,6 +36,14 @@
         min-height: var(--stats-lc-launch-height, 100svh);
         margin: 0;
         background: #000000;
+        color-scheme: dark;
+      }
+
+      #root {
+        width: 100%;
+        min-height: var(--stats-lc-launch-height, 100svh);
+        background: #000000;
+        isolation: isolate;
       }
 
       #splash-screen {
@@ -151,7 +159,7 @@
         }, 350);
       };
     </script>
-    <div id="root"></div>
+    <div id="root" style="min-height: var(--stats-lc-launch-height, 100svh); background: #000000;"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

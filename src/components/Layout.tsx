@@ -184,13 +184,27 @@ const NavMotionIcon = ({
 };
 
 const GeniusLogo = ({ className = "h-4 w-4" }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} role="img" aria-label="Genius">
-    <path
-      fill="currentColor"
-      d="M12.897 1.235c-.36.001-.722.013-1.08.017-.218-.028-.371.225-.352.416-.035 1.012.023 2.025-.016 3.036-.037.841-.555 1.596-1.224 2.08-.5.345-1.118.435-1.671.663.121.78.434 1.556 1.057 2.07 1.189 1.053 3.224.86 4.17-.426.945-1.071.453-2.573.603-3.854.286-.48.937-.132 1.317-.49-.34-1.249-.81-2.529-1.725-3.472a11.125 11.125 0 00-1.08-.04zm-10.42.006C.53 2.992-.386 5.797.154 8.361c.384 2.052 1.682 3.893 3.45 4.997.134-.23.23-.476.09-.73-.95-2.814-.138-6.119 1.986-8.19.014-.986.043-1.976-.003-2.961l-.188-.214c-1.003-.051-2.008 0-3.01-.022zm17.88.055l-.205.356c.265.938.6 1.862.72 2.834.58 3.546-.402 7.313-2.614 10.14-1.816 2.353-4.441 4.074-7.334 4.773-2.66.66-5.514.45-8.064-.543-.068.079-.207.237-.275.318 2.664 2.629 6.543 3.969 10.259 3.498 3.075-.327 5.995-1.865 8.023-4.195 1.935-2.187 3.083-5.07 3.125-7.992.122-3.384-1.207-6.819-3.636-9.19z"
-    />
-  </svg>
+  <img
+    src="/genius_colored.svg"
+    className={className}
+    alt="Genius"
+    draggable={false}
+  />
 );
+
+const GeniusWordmark = ({ className = "h-3 w-auto" }: { className?: string }) => (
+  <img
+    src="/genius-logo_hor.svg"
+    className={className}
+    alt="Genius"
+    draggable={false}
+  />
+);
+
+const isStandaloneDisplayMode = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: standalone)').matches === true || (navigator as any).standalone === true;
+};
 
 const SpotifyMark = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg viewBox="0 0 800 800" className={className} role="img" aria-label="Spotify">
@@ -1284,9 +1298,19 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [isLyricsOpen, setIsLyricsOpen] = React.useState(false);
   const [isLyricsClosing, setIsLyricsClosing] = React.useState(false);
   const [isStandaloneLyrics, setIsStandaloneLyrics] = React.useState(false);
+  const [isStandaloneRuntime, setIsStandaloneRuntime] = React.useState(() => isStandaloneDisplayMode());
   const [isAnimationDone, setIsAnimationDone] = React.useState(false);
   const [isLyricsAnimationDone, setIsLyricsAnimationDone] = React.useState(false);
   useModalMotionScope(isOpen);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia?.('(display-mode: standalone)');
+    const syncStandaloneRuntime = () => setIsStandaloneRuntime(isStandaloneDisplayMode());
+    syncStandaloneRuntime();
+    media?.addEventListener?.('change', syncStandaloneRuntime);
+    return () => media?.removeEventListener?.('change', syncStandaloneRuntime);
+  }, []);
 
   React.useEffect(() => {
     if (!isLyricsOpen) {
@@ -1882,10 +1906,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     const mask = atTop && atBottom
       ? 'none'
       : atTop
-        ? 'linear-gradient(to bottom, black 0%, black calc(100% - 34px), transparent 100%)'
+        ? 'linear-gradient(to bottom, black 0%, black calc(100% - 72px), transparent 100%)'
         : atBottom
           ? 'linear-gradient(to bottom, transparent 0%, black 34px, black 100%)'
-          : 'linear-gradient(to bottom, transparent 0%, black 34px, black calc(100% - 34px), transparent 100%)';
+          : 'linear-gradient(to bottom, transparent 0%, black 34px, black calc(100% - 72px), transparent 100%)';
 
     element.style.webkitMaskImage = mask;
     element.style.maskImage = mask;
@@ -3042,7 +3066,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                             cacheKey={`bottom-track-ranking-avatar:${item.user.id}`}
                             className="h-full w-full object-cover"
                             rounded="full"
-                            fallback=""
+                            fallback={item.user.name || item.user.id}
                           />
                         </div>
                         <span className={clsx(
@@ -3207,6 +3231,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   />
                   <motion.div
                     className="pointer-events-auto fixed inset-x-0 bottom-0 z-[1210] mx-auto flex w-full max-w-[430px] flex-col rounded-t-[30px] border-0 p-4 bottom-track-lyrics-modal"
+                    data-stats-lc-modal-surface="true"
+                    data-stats-lc-lyrics-sheet="standalone"
+                    data-stats-lc-standalone-display={isStandaloneRuntime ? 'true' : 'false'}
                     data-animation-done={isLyricsAnimationDone}
                     initial={{ y: 'calc(100% + 28px)' }}
                     animate={{ y: isLyricsOpen ? '0%' : 'calc(100% + 28px)' }}
@@ -3230,7 +3257,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       }
                     }}
                     style={{
-                      height: '88svh',
+                      height: isStandaloneRuntime ? '94svh' : '78svh',
                       touchAction: 'pan-y',
                       willChange: isLyricsOpen && isLyricsAnimationDone ? 'auto' : 'transform, opacity',
                     }}
@@ -3259,7 +3286,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           <Music2 className="h-9 w-9 text-white/36" />
                         </div>
                       )}
-                      <GeniusLogo className="absolute bottom-1 right-1 h-5 w-5 text-yellow-300 drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]" />
+                      <GeniusLogo className="absolute bottom-1 right-1 h-5 w-5 drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]" />
                     </div>
                     <div className="min-w-0 pt-1">
                       <div className="flex items-center gap-2">
@@ -3296,7 +3323,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         ref={setLyricsScrollElement}
                         data-lyrics-scroll="true"
                         onScroll={updateLyricsScrollMask}
-                        className="flex-1 overflow-y-auto overscroll-contain py-4 pl-1 pr-2 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:text-[16px] custom-scrollbar"
+                        className="flex-1 overflow-y-auto overscroll-contain pb-8 pt-4 pl-1 pr-2 text-[15px] font-black leading-[1.34] text-white/92 [touch-action:pan-y] sm:text-[16px] custom-scrollbar"
                       >
                         <AnimatePresence mode="popLayout">
                           <motion.div
@@ -3347,21 +3374,21 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
                       </button>
                     )}
-                    <div className="mt-3 shrink-0 pb-2 flex select-none items-center justify-center gap-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-white/42">
+                    <div className="mt-5 shrink-0 pb-4 flex select-none items-center justify-center gap-2 text-[7px] font-black uppercase tracking-[0.14em] text-white/42">
                       <span>Powered by</span>
                       {lyricsMatch?.match?.url ? (
                         <a
                           href={lyricsMatch.match.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="group flex items-start gap-0.5 text-white/46 transition-colors hover:text-white/70"
+                          className="group flex items-center gap-1 text-white/46 transition-colors hover:text-white/70"
                           aria-label="Abrir Genius"
                         >
-                          <span className="text-[7px] font-black tracking-[0.1em] text-white/58 transition-colors group-hover:text-white/76">GENIUS</span>
-                          <ExternalLink className="mt-[-2px] h-2 w-2 text-current" strokeWidth={2.6} />
+                          <GeniusWordmark className="h-[9px] w-auto invert opacity-55 transition-opacity group-hover:opacity-80" />
+                          <ExternalLink className="h-2 w-2 text-current" strokeWidth={2.6} />
                         </a>
                       ) : (
-                        <span className="text-[7px] font-black tracking-[0.1em] text-white/44">GENIUS</span>
+                        <GeniusWordmark className="h-[9px] w-auto invert opacity-45" />
                       )}
                     </div>
                   </div>

@@ -181,7 +181,7 @@ export const UserSelectorExplosion: React.FC<UserSelectorExplosionProps> = ({
                   <SmartImage
                     src={coreUtils.getUserAvatar(member.id, member.avatar)}
                     className="h-full w-full object-cover"
-                    fallback=""
+                    fallback={member.name}
                     rounded="full"
                   />
                 </div>

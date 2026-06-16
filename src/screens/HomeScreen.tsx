@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useStatsStore } from '../store/useStatsStore';
-import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { RefreshCcw, AlertTriangle, WifiOff, Users, Sparkles, Loader2, Check, Info, X, Music2, Disc3, Clock3, PlayCircle, UserCircle, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,6 +26,7 @@ import { HomeInsights } from '../components/home/HomeInsights';
 import { FriendHistoryCard } from '../components/history/FriendHistoryCard';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtistName } from '../lib/artistUtils';
+import { sanitizeTopItems } from '../lib/topItemUtils';
 import { useAutoOrbitRotation } from '../hooks/useAutoOrbitRotation';
 import { useViewportMotionGate } from '../hooks/useViewportMotionGate';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
@@ -65,6 +66,8 @@ const HOME_SECONDARY_ROUTES_DEADLINE_MS = 18_000;
 const HOME_BELOW_FOLD_IDLE_HYDRATION_MS = 9_000;
 const HOME_BELOW_FOLD_SCROLL_THRESHOLD_PX = 520;
 const HOME_RECENT_CACHE_VERSION = 'v2-album-resolved';
+const HOME_HIGHLIGHT_PAGE_SIZE = 6;
+const HOME_HIGHLIGHT_MAX_ITEMS = 24;
 const getHomeRecentCacheKey = (userId: string) => `stats-lc-home-recent:${HOME_RECENT_CACHE_VERSION}:${userId}`;
 let homeGroupActivityRuntimeCache: { members: GroupActivityMember[]; settled: boolean } = {
   members: [],
@@ -183,6 +186,13 @@ const getHomeEntryTransition = (delay = 0) => ({
 });
 
 const getReplayItemCount = (item: any) => Number(item?.playedCount || item?.playcount || item?.streams || item?.count || 0) || 0;
+const getNumericField = (...values: any[]) => {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return 0;
+};
 const getReplayItemArtist = (item: any) => {
   const direct = item?.artistName || item?.artist?.name || item?.album?.artist?.name || item?.track?.artist?.name || item?.albumArtist || item?.artist;
   if (typeof direct === 'string' && direct.trim()) return direct;
@@ -197,6 +207,13 @@ const getReplayItemArtist = (item: any) => {
 
 const getReplayItemImage = (item: any) => item?.image || item?.albumImage || item?.album?.image || item?.artist?.image || item?.track?.image || item?.track?.albumImage || '';
 const getReplayItemTitle = (item: any) => item?.name || item?.track?.name || item?.album?.name || item?.artist?.name || 'sem nome';
+const chunkHighlightItems = (items: any[]) => {
+  const chunks: any[][] = [];
+  for (let index = 0; index < items.length; index += HOME_HIGHLIGHT_PAGE_SIZE) {
+    chunks.push(items.slice(index, index + HOME_HIGHLIGHT_PAGE_SIZE));
+  }
+  return chunks;
+};
 
 const getFirstName = (name?: string) => {
   if (!name) return '';
@@ -308,7 +325,7 @@ const HomeHighlightPeriodControls = ({
         ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-3 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
+        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-2.5 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
         aria-label={`Filtro de período: ${activeLabel}`}
         aria-expanded={isOpen}
         whileTap={{ scale: 0.96 }}
@@ -323,7 +340,7 @@ const HomeHighlightPeriodControls = ({
           initial={{ opacity: 0, y: -3 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="stats-lc-compact-label max-w-[126px] text-[9px] font-black uppercase text-white/76"
+          className="stats-lc-compact-label max-w-[64px] text-[9px] font-black uppercase text-white/76 min-[390px]:max-w-[74px] sm:max-w-[126px]"
         >
           {activeLabel}
         </motion.span>
@@ -639,7 +656,8 @@ const HomeHighlightCategoryControl = ({
       <motion.button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="flex h-9 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-3 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
+        title={activeGroup.tabLabel}
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.045] text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
         aria-label={`Categoria de destaque: ${activeGroup.tabLabel}`}
         aria-expanded={isOpen}
         whileTap={{ scale: 0.96 }}
@@ -661,15 +679,6 @@ const HomeHighlightCategoryControl = ({
         >
           <ActiveIcon className="h-4 w-4 shrink-0" />
         </motion.div>
-        <span className="max-w-[82px] truncate text-[9px] font-black uppercase tracking-[0.1em] text-white/78">
-          {activeGroup.tabLabel}
-        </span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }}
-        >
-          <ChevronDown className="h-3 w-3 shrink-0 text-white/56" />
-        </motion.div>
       </motion.button>
 
       <AnimatePresence>
@@ -684,7 +693,7 @@ const HomeHighlightCategoryControl = ({
               damping: 25,
               mass: 0.6,
             }}
-            className="stats-lc-glass-popover absolute left-0 top-11 z-50 w-[190px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[24px] p-2.5"
+            className="stats-lc-glass-popover absolute right-0 top-11 z-50 w-[190px] max-w-[calc(100vw-40px)] overflow-hidden rounded-[24px] p-2.5"
           >
             {groups.map((group, index) => {
               const Icon = group.icon;
@@ -736,126 +745,14 @@ const HomeHighlightCategoryControl = ({
   );
 };
 
-const HIGHLIGHT_VISUAL_CONFIG = {
-  artists: {
-    primary: { width: 136, height: 182 },
-    secondary: { width: 94, height: 126 },
-    primaryRadius: "rounded-[25px]",
-    secondaryRadius: "rounded-[22px]",
-    ringScale: "h-[230px] w-[230px]",
-    dashScale: "h-[172px] w-[172px]",
-  },
-  tracks: {
-    primary: { width: 158, height: 158 },
-    secondary: { width: 112, height: 112 },
-    primaryRadius: "rounded-[32px]",
-    secondaryRadius: "rounded-[26px]",
-    ringScale: "h-[220px] w-[220px]",
-    dashScale: "h-[164px] w-[164px]",
-  },
-  albums: {
-    primary: { width: 170, height: 170 },
-    secondary: { width: 118, height: 118 },
-    primaryRadius: "rounded-[24px]",
-    secondaryRadius: "rounded-[20px]",
-    ringScale: "h-[236px] w-[236px]",
-    dashScale: "h-[178px] w-[178px]",
-  },
-} as const;
-
-type HighlightVisualConfig = (typeof HIGHLIGHT_VISUAL_CONFIG)[HomeHighlightKind];
-
-const HIGHLIGHT_CARD_GAP_PX = 8;
-const HIGHLIGHT_SCROLL_OFFSET_PX = 8;
-const HIGHLIGHT_NEAR_RANGE_MULTIPLIER = 1.15;
-const HIGHLIGHT_FAR_RANGE_MULTIPLIER = 2.35;
-
-const getHighlightStep = (config: HighlightVisualConfig) => config.secondary.width + HIGHLIGHT_CARD_GAP_PX;
-
-const getHighlightLayoutLeft = (index: number, config: HighlightVisualConfig) => (
-  index === 0
-    ? 0
-    : config.primary.width + HIGHLIGHT_CARD_GAP_PX + (index - 1) * getHighlightStep(config)
-);
-
-const getHighlightFocusX = (index: number, config: HighlightVisualConfig) => (
-  Math.max(0, getHighlightLayoutLeft(index, config) - HIGHLIGHT_SCROLL_OFFSET_PX)
-);
-
-const buildHighlightCardMotionConfig = ({
-  index,
-  kind,
-  config,
-  shouldReduceMotion,
-}: {
-  index: number;
-  kind: HomeHighlightKind;
-  config: HighlightVisualConfig;
-  shouldReduceMotion: boolean;
-}) => {
-  const step = getHighlightStep(config);
-  const focusX = getHighlightFocusX(index, config);
-  const baseWidth = index === 0 ? config.primary.width : config.secondary.width;
-  const focusWidth = config.primary.width;
-  const nearWidth = config.secondary.width * 0.94;
-  const farWidth = config.secondary.width * 0.82;
-  const rotationLimit = shouldReduceMotion
-    ? 0
-    : kind === 'albums'
-      ? 12
-      : kind === 'tracks'
-        ? 10
-        : 9;
-  const translateXAmount = shouldReduceMotion ? 0 : Math.min(24, Math.round(step * 0.18));
-  const inputRange = [
-    focusX - step * HIGHLIGHT_FAR_RANGE_MULTIPLIER,
-    focusX - step * HIGHLIGHT_NEAR_RANGE_MULTIPLIER,
-    focusX,
-    focusX + step * HIGHLIGHT_NEAR_RANGE_MULTIPLIER,
-    focusX + step * HIGHLIGHT_FAR_RANGE_MULTIPLIER,
-  ];
-
-  return {
-    inputRange,
-    scaleOutput: shouldReduceMotion
-      ? [1, 1, 1, 1, 1]
-      : [
-          farWidth / baseWidth,
-          nearWidth / baseWidth,
-          focusWidth / baseWidth,
-          nearWidth / baseWidth,
-          farWidth / baseWidth,
-        ],
-    rotateYOutput: shouldReduceMotion
-      ? [0, 0, 0, 0, 0]
-      : [
-          -rotationLimit,
-          rotationLimit * -0.45,
-          0,
-          rotationLimit * 0.45,
-          rotationLimit,
-        ],
-    translateXOutput: shouldReduceMotion
-      ? [0, 0, 0, 0, 0]
-      : [
-          translateXAmount,
-          Math.round(translateXAmount * 0.45),
-          0,
-          Math.round(translateXAmount * -0.45),
-          -translateXAmount,
-        ],
-    opacityOutput: [0.42, 0.76, 1, 0.76, 0.42],
-    zIndexOutput: [20, 64, 120, 64, 20],
-  };
-};
-
 const getHighlightMetricLabel = (item: any, _kind: HomeHighlightKind, metric: 'minutes' | 'plays' = 'plays') => {
   if (metric === 'minutes') return `${coreUtils.formatNumber(getReplayMinutes(item))} min`;
   return `${coreUtils.formatNumber(getReplayItemCount(item))} plays`;
 };
 
 const getHighlightDetailLabel = (item: any, kind: HomeHighlightKind) => {
-  if (kind === 'tracks' || kind === 'albums') return getReplayItemArtist(item);
+  if (kind === 'albums') return getReplayArtistName(item);
+  if (kind === 'tracks') return getReplayItemArtist(item);
   return '';
 };
 
@@ -863,18 +760,14 @@ const buildHighlightDetailItem = (item: any, kind: HomeHighlightKind) => ({
   ...item,
   type: kind === 'artists' ? 'artist' : kind === 'albums' ? 'album' : 'track',
   image: getReplayItemImage(item),
-  artistName: getReplayItemArtist(item),
+  artistName: kind === 'albums' ? getReplayArtistName(item) : getReplayItemArtist(item),
 });
 
-const HomeHighlightOrbitCard = ({
+const HomeHighlightGridCard = ({
   item,
   index,
   kind,
   metric,
-  scrollX,
-  visualConfig,
-  isCentered,
-  isSectionVisible,
   shouldReduceMotion,
   onItemClick,
 }: {
@@ -882,30 +775,10 @@ const HomeHighlightOrbitCard = ({
   index: number;
   kind: HomeHighlightKind;
   metric: 'minutes' | 'plays';
-  scrollX: MotionValue<number>;
-  visualConfig: HighlightVisualConfig;
-  isCentered: boolean;
-  isSectionVisible: boolean;
   shouldReduceMotion: boolean;
   onItemClick?: (item: any) => void;
 }) => {
-  const cardSize = index === 0 ? visualConfig.primary : visualConfig.secondary;
-  const motionConfig = useMemo(
-    () => buildHighlightCardMotionConfig({
-      index,
-      kind,
-      config: visualConfig,
-      shouldReduceMotion,
-    }),
-    [index, kind, shouldReduceMotion, visualConfig]
-  );
-  const translateX = useTransform(scrollX, motionConfig.inputRange, motionConfig.translateXOutput);
-  const scale = useTransform(scrollX, motionConfig.inputRange, motionConfig.scaleOutput);
-  const rotateY = useTransform(scrollX, motionConfig.inputRange, motionConfig.rotateYOutput);
-  const opacity = useTransform(scrollX, motionConfig.inputRange, motionConfig.opacityOutput);
-  const zIndex = useTransform(scrollX, motionConfig.inputRange, motionConfig.zIndexOutput);
-  const pointerEvents = useTransform(opacity, [0, 0.32, 0.33, 1], ['none', 'none', 'auto', 'auto']);
-  const isInteractive = Boolean(isCentered && onItemClick);
+  const isInteractive = Boolean(onItemClick);
   const title = getReplayItemTitle(item);
   const detail = getHighlightDetailLabel(item, kind);
   const metricLabel = getHighlightMetricLabel(item, kind, metric);
@@ -913,7 +786,7 @@ const HomeHighlightOrbitCard = ({
     if (!isInteractive) return;
     onItemClick?.(buildHighlightDetailItem(item, kind));
   }, [isInteractive, item, kind, onItemClick]);
-  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!isInteractive) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
@@ -922,212 +795,166 @@ const HomeHighlightOrbitCard = ({
   }, [handleActivate, isInteractive]);
 
   return (
-    <motion.div
-      data-highlight-card="true"
+    <motion.button
+      type="button"
+      data-home-highlight-card="true"
       data-highlight-index={index}
       data-entity-stats-trigger={kind}
-      data-entity-stats-active={isCentered ? 'true' : undefined}
-      data-entity-stats-primary={index === 0 ? 'true' : undefined}
-      data-entity-stats-satellite={index > 0 ? index + 1 : undefined}
-      role={isInteractive ? 'button' : undefined}
-      tabIndex={isInteractive ? 0 : undefined}
+      data-entity-stats-active={isInteractive ? 'true' : undefined}
       aria-label={isInteractive ? `Abrir ${title}` : undefined}
+      disabled={!isInteractive}
       onClick={isInteractive ? handleActivate : undefined}
       onKeyDown={isInteractive ? handleKeyDown : undefined}
-      className={cn(
-        "relative shrink-0 snap-start",
-        isInteractive && "cursor-pointer"
-      )}
-      style={{
-        width: cardSize.width,
-        height: cardSize.height,
-        opacity,
-        zIndex,
-        pointerEvents,
-        x: translateX,
-        scale,
-        rotateY,
-        transformStyle: 'preserve-3d',
-        willChange: isSectionVisible ? 'transform, opacity' : 'auto',
-        backfaceVisibility: 'hidden',
-      }}
+      className="group relative aspect-[1/1.1] min-w-0 overflow-hidden bg-black text-left disabled:pointer-events-none"
     >
       <motion.div
-        initial={shouldReduceMotion ? { opacity: 1, scale: 1, y: 0, rotateX: 0 } : { opacity: 0, scale: 0.7, y: 20, rotateX: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 14, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{
-          type: 'spring',
-          stiffness: 280,
-          damping: 28,
-          mass: 0.6,
-          delay: index * 0.045,
+          duration: 0.38,
+          ease: [0.16, 1, 0.3, 1],
+          delay: Math.min(index, 7) * 0.025,
         }}
-        whileHover={isInteractive ? { scale: 1.05, transition: { duration: 0.2 } } : undefined}
-        whileTap={isInteractive ? { scale: 0.98 } : undefined}
-        className={cn(
-          "relative h-full w-full bg-black text-left",
-          index === 0 ? visualConfig.primaryRadius : visualConfig.secondaryRadius,
-          kind === 'albums'
-            ? "ring-1 ring-white/12 shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]"
-            : "shadow-[0_-2px_12px_rgba(0,0,0,0.15),0_8px_24px_rgba(0,0,0,0.25)]"
-        )}
-        style={{ transformStyle: 'preserve-3d' }}
+        whileTap={isInteractive ? { scale: 0.985 } : undefined}
+        className="relative h-full w-full overflow-hidden"
       >
-        <div className={cn("relative h-full w-full overflow-hidden", index === 0 ? visualConfig.primaryRadius : visualConfig.secondaryRadius)}>
-          <SmartImage src={getReplayItemImage(item)} className="h-full w-full object-cover" fallback={title} rounded="none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/4 via-black/12 to-black/84" />
-          <div className="absolute bottom-2 left-2 right-2 z-20 min-w-0">
-            {detail && (
-              <span
-                className="mb-0.5 block truncate font-black uppercase tracking-[0.08em] text-white/62"
-                style={{ fontSize: index === 0 ? '6.5px' : '5.5px' }}
-              >
-                {detail}
-              </span>
-            )}
-            <span
-              className="block truncate font-black leading-tight text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.7)]"
-              style={{ fontSize: index === 0 ? '9.5px' : '8px' }}
-            >
-              {title}
+        <SmartImage
+          src={getReplayItemImage(item)}
+          className="h-full w-full object-cover transition-transform duration-500 group-active:scale-[1.025]"
+          fallback={title}
+          rounded="none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/14 to-black/86" />
+        <div className="absolute inset-x-0 bottom-0 z-20 min-w-0 px-2 pb-2.5 pt-8">
+          {detail && (
+            <span className="mb-0.5 block truncate text-[7px] font-black uppercase leading-none tracking-[0.08em] text-white/62 sm:text-[8px]">
+              {detail}
             </span>
-            <span
-              className="mt-0.5 block truncate font-black uppercase tracking-[0.08em] text-orange-200/88"
-              style={{ fontSize: index === 0 ? '7.5px' : '6.5px' }}
-            >
-              {metricLabel}
-            </span>
-          </div>
+          )}
+          <span
+            className="block overflow-hidden text-[11px] font-black leading-[1.04] text-white drop-shadow-[0_6px_14px_rgba(0,0,0,0.75)] sm:text-[12px]"
+            style={{
+              display: '-webkit-box',
+              WebkitBoxOrient: 'vertical',
+              WebkitLineClamp: 2,
+            }}
+          >
+            {title}
+          </span>
+          <span className="mt-1 block truncate text-[9px] font-semibold leading-none text-white/84 sm:text-[10px]">
+            {metricLabel}
+          </span>
         </div>
-        <span
-          className="absolute -left-1 -top-1 z-30 flex min-h-8 min-w-8 items-center justify-center rounded-full bg-black/68 px-2 font-black leading-none text-white shadow-[0_10px_24px_rgba(0,0,0,0.48)] backdrop-blur-xl"
-          style={{ fontSize: index === 0 ? '17px' : '14px' }}
-        >
-          {index + 1}
-        </span>
       </motion.div>
-    </motion.div>
+    </motion.button>
   );
 };
 
-const HomeHighlightOrbitStage = ({
+const HomeHighlightGridStage = ({
   items,
   kind,
   metric,
-  stageHeight,
-  isCentered,
-  isSectionVisible,
-  shouldRunAmbientMotion,
   shouldReduceMotion,
   onItemClick,
 }: {
   items: any[];
   kind: HomeHighlightKind;
   metric: 'minutes' | 'plays';
-  stageHeight: string;
-  isCentered: boolean;
-  isSectionVisible: boolean;
-  shouldRunAmbientMotion: boolean;
   shouldReduceMotion: boolean;
   onItemClick?: (item: any) => void;
 }) => {
-  const visualConfig = HIGHLIGHT_VISUAL_CONFIG[kind];
-  const highlightsScrollRef = useRef<HTMLDivElement | null>(null);
-  const { scrollX } = useScroll({ container: highlightsScrollRef });
-  const maxScrollX = useMemo(
-    () => Math.max(1, getHighlightFocusX(items.length - 1, visualConfig)),
-    [items.length, visualConfig]
+  const pages = useMemo(
+    () => chunkHighlightItems(items.slice(0, HOME_HIGHLIGHT_MAX_ITEMS)),
+    [items]
   );
-  const ringOffsetX = useTransform(
-    scrollX,
-    [0, maxScrollX],
-    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.03)]
+  const canLoop = pages.length > 1;
+  const loopPages = useMemo(
+    () => canLoop ? [...pages, ...pages, ...pages] : pages,
+    [canLoop, pages]
   );
-  const dashOffsetX = useTransform(
-    scrollX,
-    [0, maxScrollX],
-    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.05)]
-  );
-  const glowOffsetX = useTransform(
-    scrollX,
-    [0, maxScrollX],
-    [0, shouldReduceMotion ? 0 : Math.round(maxScrollX * -0.02)]
-  );
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const pageWidthRef = useRef(0);
+  const recenterFrameRef = useRef<number | null>(null);
 
-  if (items.length === 0) return null;
+  useLayoutEffect(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    const updateLayout = () => {
+      pageWidthRef.current = scroller.clientWidth;
+      scroller.scrollLeft = canLoop ? pageWidthRef.current * pages.length : 0;
+    };
+
+    const frame = requestAnimationFrame(updateLayout);
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateLayout)
+      : null;
+    resizeObserver?.observe(scroller);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      if (recenterFrameRef.current) {
+        cancelAnimationFrame(recenterFrameRef.current);
+        recenterFrameRef.current = null;
+      }
+    };
+  }, [canLoop, kind, pages.length]);
+
+  const handleScroll = useCallback(() => {
+    if (!canLoop || recenterFrameRef.current) return;
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    recenterFrameRef.current = requestAnimationFrame(() => {
+      recenterFrameRef.current = null;
+      const pageWidth = pageWidthRef.current || scroller.clientWidth;
+      const loopSpan = pageWidth * pages.length;
+      if (loopSpan <= 0) return;
+
+      if (scroller.scrollLeft < loopSpan * 0.5) {
+        scroller.scrollLeft += loopSpan;
+      } else if (scroller.scrollLeft > loopSpan * 2.5) {
+        scroller.scrollLeft -= loopSpan;
+      }
+    });
+  }, [canLoop, pages.length]);
+
+  if (pages.length === 0) return null;
 
   return (
-    <div className={cn("relative mx-auto w-full max-w-[408px] overflow-visible", stageHeight)}>
-      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
-        <motion.div
-          className={cn("rounded-full border border-white/[0.06]", visualConfig.ringScale)}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 0.5, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          style={{ x: ringOffsetX, willChange: 'transform' }}
-        />
-      </div>
-      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
-        <motion.div
-          className={visualConfig.dashScale}
-          initial={{ opacity: 0, scale: 0.85, rotate: -45 }}
-          animate={{
-            opacity: [0, 0.3, 0.5],
-            scale: 1,
-            rotate: 0,
-          }}
-          transition={{
-            opacity: { duration: 0.6, ease: 'easeOut' },
-            scale: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-            rotate: { duration: 0.5 }
-          }}
-          style={{ x: dashOffsetX, willChange: 'transform' }}
+    <div
+      data-stats-lc-highlights-grid="true"
+      data-stats-lc-highlights-page-count={pages.length}
+      data-stats-lc-highlights-loop={canLoop ? 'true' : 'false'}
+      data-home-horizontal-scroll="true"
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="flex w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain no-scrollbar scrolling-touch"
+    >
+      {loopPages.map((page, pageIndex) => (
+        <div
+          key={`${kind}-page-${pageIndex}`}
+          className="grid w-full min-w-full flex-[0_0_100%] shrink-0 snap-start grid-cols-3 gap-0"
         >
-          <EngineSpin
-            active={shouldRunAmbientMotion && isCentered}
-            duration={58}
-            className="h-full w-full rounded-full border border-dashed border-orange-500/16"
-          />
-        </motion.div>
-      </div>
-      <div className="pointer-events-none absolute left-24 top-[54%] -translate-x-1/2 -translate-y-1/2">
-        <motion.div
-          className="h-[104px] w-[104px] rounded-full bg-orange-500/[0.05] blur-2xl"
-          initial={{ opacity: 0, scale: 0.7 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          style={{ x: glowOffsetX, willChange: 'transform' }}
-        />
-      </div>
-
-      <div
-        ref={highlightsScrollRef}
-        data-home-horizontal-scroll="true"
-        className="absolute inset-x-0 bottom-2 z-20 flex items-end gap-2 overflow-x-auto no-scrollbar px-1 pb-1 pt-5 snap-x snap-mandatory"
-      >
-        {items.map((item, index) => (
-          <HomeHighlightOrbitCard
-            key={`${kind}-rank-${item.id || item.name || index}`}
-            item={item}
-            index={index}
-            kind={kind}
-            metric={metric}
-            scrollX={scrollX}
-            visualConfig={visualConfig}
-            isCentered={isCentered}
-            isSectionVisible={isSectionVisible}
-            shouldReduceMotion={shouldReduceMotion}
-            onItemClick={onItemClick}
-          />
-        ))}
-      </div>
+          {page.map((item, itemIndex) => (
+            <HomeHighlightGridCard
+              key={`${kind}-${pageIndex}-${item.id || item.name || itemIndex}`}
+              item={item}
+              index={itemIndex}
+              kind={kind}
+              metric={metric}
+              shouldReduceMotion={shouldReduceMotion}
+              onItemClick={onItemClick}
+            />
+          ))}
+        </div>
+      ))}
     </div>
   );
 };
 
 const HomeOrbitalHighlights = ({
-  totalMinutes,
-  totalPlays,
   artists,
   tracks,
   albums,
@@ -1137,8 +964,6 @@ const HomeOrbitalHighlights = ({
   onSelectedSubValuesChange,
   onItemClick
 }: {
-  totalMinutes: number;
-  totalPlays: number;
   artists: any[];
   tracks: any[];
   albums: any[];
@@ -1152,17 +977,15 @@ const HomeOrbitalHighlights = ({
   const {
     ref: sectionRef,
     isInViewport: isSectionVisible,
-    shouldRunAmbientMotion,
   } = useViewportMotionGate<HTMLElement>({ rootMargin: '180px' });
   const [activeKind, setActiveKind] = useState<HomeHighlightKind>('artists');
   const [categoryDirection, setCategoryDirection] = useState(1);
   const [isLoadingPeriod, setIsLoadingPeriod] = useState(false);
   const [metric, setMetric] = useState<'minutes' | 'plays'>('plays');
-  const [indicatorTouchStartX, setIndicatorTouchStartX] = useState<number | null>(null);
   const groups = useMemo<Array<{ key: HomeHighlightKind; title: string; tabLabel: string; icon: any; items: any[] }>>(() => [
-    { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, 10) },
-    { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, 12) },
-    { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, 10) }
+    { key: 'artists' as const, title: 'Top artistas', tabLabel: 'Artistas', icon: UserCircle, items: artists.slice(0, HOME_HIGHLIGHT_MAX_ITEMS) },
+    { key: 'tracks' as const, title: 'Top músicas', tabLabel: 'Músicas', icon: Music2, items: tracks.slice(0, HOME_HIGHLIGHT_MAX_ITEMS) },
+    { key: 'albums' as const, title: 'Top álbuns', tabLabel: 'Álbuns', icon: Disc3, items: albums.slice(0, HOME_HIGHLIGHT_MAX_ITEMS) }
   ].filter((group) => group.items.length > 0), [albums, artists, tracks]);
 
   // Controlar loading state quando os dados mudam
@@ -1180,9 +1003,13 @@ const HomeOrbitalHighlights = ({
     }
   }, [activeKind, groups]);
 
-  const stageHeight = "h-[238px] sm:h-[258px]";
   const activeGroup = groups.find((group) => group.key === activeKind) || groups[0];
-  const metricValue = metric === 'minutes' ? totalMinutes : totalPlays;
+  const metricValue = useMemo(() => {
+    if (!activeGroup) return 0;
+    return activeGroup.items.reduce((sum, item) => (
+      sum + (metric === 'minutes' ? getReplayMinutes(item) : getReplayItemCount(item))
+    ), 0);
+  }, [activeGroup, metric]);
 
   const handleCategoryChange = useCallback((newKind: HomeHighlightKind) => {
     if (newKind === activeKind) return;
@@ -1200,41 +1027,20 @@ const HomeOrbitalHighlights = ({
     setActiveKind(newKind);
   }, [activeKind, groups, shouldReduceMotion]);
 
-  const handleIndicatorTouchStart = useCallback((e: React.TouchEvent) => {
-    setIndicatorTouchStartX(e.touches[0].clientX);
-  }, []);
-
-  const handleIndicatorTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!indicatorTouchStartX) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const diff = indicatorTouchStartX - touchEndX;
-
-    if (Math.abs(diff) > 30) {
-      // Haptic feedback no swipe
-      if ('vibrate' in navigator && !shouldReduceMotion) {
-        navigator.vibrate(15);
-      }
-
-      const currentIndex = groups.findIndex(g => g.key === activeKind);
-      if (diff > 0 && currentIndex < groups.length - 1) {
-        handleCategoryChange(groups[currentIndex + 1].key);
-      } else if (diff < 0 && currentIndex > 0) {
-        handleCategoryChange(groups[currentIndex - 1].key);
-      }
-    }
-    setIndicatorTouchStartX(null);
-  }, [activeKind, groups, indicatorTouchStartX, handleCategoryChange, shouldReduceMotion]);
-
   if (groups.length === 0) return null;
 
   return (
-    <section ref={sectionRef} className="relative mb-7 overflow-visible px-4 pb-1 sm:px-6 lg:px-8">
-      <div className="relative overflow-visible rounded-[34px] px-0 pb-1 pt-1">
+    <section
+      ref={sectionRef}
+      data-stats-lc-highlights-kind={activeGroup.key}
+      className="relative mb-7 overflow-visible pb-1"
+    >
+      <div className="relative overflow-visible px-0 pb-1 pt-1">
         <motion.div
           initial={{ opacity: 0, y: -15 }}
           animate={isSectionVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -15 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-2.5 flex items-center justify-between gap-2"
+          className="mb-3 flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8"
         >
           <div className="flex min-w-0 items-center gap-2">
             <motion.div
@@ -1244,42 +1050,39 @@ const HomeOrbitalHighlights = ({
             >
               <Sparkles className="h-5 w-5 shrink-0 text-orange-500" />
             </motion.div>
-            <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.28em] text-white/86">Seus Destaques</h2>
+            <h2 className="shrink-0 text-[12px] font-black uppercase tracking-[0.22em] text-white/86">Destaques</h2>
           </div>
-          <motion.button
-            type="button"
-            onClick={() => setMetric((current) => current === 'minutes' ? 'plays' : 'minutes')}
-            initial={{ opacity: 0, x: 20 }}
-            animate={isSectionVisible ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/[0.06] bg-black/28 px-2.5 py-1.5"
-          >
-            <PlayCircle className="h-3.5 w-3.5 text-orange-300" />
-            <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(metricValue)}</span>
-            <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">{metric === 'minutes' ? 'min' : 'plays'}</span>
-          </motion.button>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={isSectionVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -10 }}
-          transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-1.5 flex items-center gap-2"
-        >
-          {groups.length > 1 && (
-            <HomeHighlightCategoryControl
-              groups={groups}
-              activeGroup={activeGroup}
-              onChange={handleCategoryChange}
+          <div className="flex min-w-0 shrink items-center justify-end gap-1.5">
+            {groups.length > 1 && (
+              <HomeHighlightCategoryControl
+                groups={groups}
+                activeGroup={activeGroup}
+                onChange={handleCategoryChange}
+              />
+            )}
+            <HomeHighlightPeriodControls
+              activeTab={activeTab}
+              selectedSubValues={selectedSubValues}
+              onActiveTabChange={onActiveTabChange}
+              onSelectedSubValuesChange={onSelectedSubValuesChange}
+              onPeriodLoading={() => setIsLoadingPeriod(true)}
             />
-          )}
-          <HomeHighlightPeriodControls
-            activeTab={activeTab}
-            selectedSubValues={selectedSubValues}
-            onActiveTabChange={onActiveTabChange}
-            onSelectedSubValuesChange={onSelectedSubValuesChange}
-            onPeriodLoading={() => setIsLoadingPeriod(true)}
-          />
+            <motion.button
+              type="button"
+              data-stats-lc-highlights-metric-toggle="true"
+              data-stats-lc-highlights-metric={metric}
+              data-stats-lc-highlights-metric-value={metricValue}
+              onClick={() => setMetric((current) => current === 'minutes' ? 'plays' : 'minutes')}
+              initial={{ opacity: 0, x: 20 }}
+              animate={isSectionVisible ? { opacity: 1, x: 0 } : { opacity: 0, x: 20 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.045] px-2.5 text-orange-100 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl transition-[background-color,border-color] hover:bg-white/[0.07] hover:border-white/[0.14]"
+            >
+              <PlayCircle className="h-3.5 w-3.5 shrink-0 text-orange-300" />
+              <span className="text-[10px] font-black text-white">{coreUtils.formatNumber(metricValue)}</span>
+              <span className="text-[7px] font-black uppercase tracking-[0.12em] text-white/38">{metric === 'minutes' ? 'min' : 'plays'}</span>
+            </motion.button>
+          </div>
         </motion.div>
 
         <div className="relative mt-1 select-none overflow-visible">
@@ -1313,8 +1116,8 @@ const HomeOrbitalHighlights = ({
             )}
           </AnimatePresence>
 
-          <article className="relative mx-auto w-full max-w-[430px] overflow-visible">
-            <div className="relative z-10 mx-auto w-full max-w-[430px] overflow-visible">
+          <article className="relative w-full overflow-visible">
+            <div className="relative z-10 w-full overflow-visible">
               <AnimatePresence mode="wait" initial={false} custom={categoryDirection}>
                 <motion.div
                   key={`highlight-grid-${activeGroup.key}`}
@@ -1343,14 +1146,10 @@ const HomeOrbitalHighlights = ({
                     ease: [0.16, 1, 0.3, 1],
                   }}
                 >
-                  <HomeHighlightOrbitStage
+                  <HomeHighlightGridStage
                     items={activeGroup.items}
                     kind={activeGroup.key}
                     metric={metric}
-                    stageHeight={stageHeight}
-                    isCentered={isSectionVisible}
-                    isSectionVisible={isSectionVisible}
-                    shouldRunAmbientMotion={shouldRunAmbientMotion}
                     shouldReduceMotion={shouldReduceMotion}
                     onItemClick={onItemClick}
                   />
@@ -1770,22 +1569,55 @@ const getPerceptionPeriodSentence = (
 };
 
 const getReplayMinutes = (item: any) => {
-  const durationMs = item?.durationMs ?? item?.totalDurationMs ?? item?.playedDurationMs ?? item?.playDurationMs;
-  if (Number.isFinite(durationMs) && durationMs > 0) return Math.max(1, Math.round(durationMs / 60000));
-  return Math.round(item?.minutes ?? item?.playedMinutes ?? item?.streams ?? item?.playcount ?? item?.playedCount ?? item?.count ?? 0);
+  const aggregateDurationMs = getNumericField(
+    item?.totalDurationMs,
+    item?.playedDurationMs,
+    item?.playDurationMs,
+    item?.listenedDurationMs,
+    item?.playedMs,
+    item?.totalPlayedMs,
+    item?.playMs,
+    item?.durationTotalMs,
+    item?.msPlayed
+  );
+  if (aggregateDurationMs > 0) return Math.max(1, Math.round(aggregateDurationMs / 60000));
+
+  const explicitMinutes = getNumericField(
+    item?.totalMinutes,
+    item?.playedMinutes,
+    item?.listenMinutes,
+    item?.listenedMinutes,
+    item?.minutes
+  );
+  if (explicitMinutes > 0) return Math.max(1, Math.round(explicitMinutes));
+
+  const unitDurationMs = getNumericField(item?.durationMs, item?.track?.durationMs, item?.album?.durationMs);
+  const playCount = getReplayItemCount(item);
+  if (unitDurationMs > 0 && playCount > 0) {
+    return Math.max(1, Math.round((unitDurationMs * playCount) / 60000));
+  }
+
+  return 0;
 };
 
 const getReplayDurationMs = (item: any) => {
-  const durationMs = item?.durationMs ?? item?.totalDurationMs ?? item?.playedDurationMs ?? item?.playDurationMs;
-  return Number.isFinite(durationMs) && durationMs > 0 ? durationMs : 0;
+  return getNumericField(
+    item?.totalDurationMs,
+    item?.playedDurationMs,
+    item?.playDurationMs,
+    item?.listenedDurationMs,
+    item?.playedMs,
+    item?.totalPlayedMs,
+    item?.playMs,
+    item?.durationTotalMs,
+    item?.msPlayed,
+    getReplayItemCount(item) > 0 ? getNumericField(item?.durationMs, item?.track?.durationMs, item?.album?.durationMs) * getReplayItemCount(item) : 0
+  );
 };
 
-const getReplayFallbackTotalMinutes = (tracks: any[], totalSongs?: number) => {
+const getReplayFallbackTotalMinutes = (tracks: any[]) => {
   const summedTrackDuration = tracks.reduce((total, track) => total + getReplayDurationMs(track), 0);
   if (summedTrackDuration > 0) return Math.max(1, Math.round(summedTrackDuration / 60000));
-  if (Number.isFinite(totalSongs) && totalSongs && totalSongs > 0) {
-    return totalSongs;
-  }
   return tracks.reduce((total, track) => total + getReplayMinutes(track), 0);
 };
 
@@ -1932,7 +1764,7 @@ export default function HomeScreen() {
   const [, setTrackModalPrepState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolvedRecentPlays, setResolvedRecentPlays] = useState<any[]>([]);
   const [replayTotalMinutesCount, setReplayTotalMinutesCount] = useState(0);
-  const [replayTotalPlaysCount, setReplayTotalPlaysCount] = useState(0);
+  const [, setReplayTotalPlaysCount] = useState(0);
   const [openReplayModal, setOpenReplayModal] = useState<'artists' | 'songs' | 'albums' | null>(null);
   const [replayActiveTab, setReplayActiveTab] = useState<ReplayFilterPeriod>('month');
   const [replaySelectedSubValues, setReplaySelectedSubValues] = useState<ReplaySelectedSubValues>({
@@ -2770,7 +2602,7 @@ export default function HomeScreen() {
         }
         if (!cancelled) {
           setReplayTopItems({ artists, tracks, albums });
-          const fallbackTotal = getReplayFallbackTotalMinutes(tracks, totalSongs) || tracks.length;
+          const fallbackTotal = getReplayFallbackTotalMinutes(tracks);
           const totalMinutes =
             Number.isFinite(totalDurationMs) && totalDurationMs && totalDurationMs > 0
               ? Math.max(1, Math.round(totalDurationMs / 60000))
@@ -2900,9 +2732,24 @@ export default function HomeScreen() {
     };
   }, [isBelowFoldHydrationReady, primaryUser?.id, primaryUser?.nowPlaying?.track?.id, membersSignature]);
 
-  const replayArtists = replayTopItems.artists || [];
-  const replayTracks = replayTopItems.tracks || [];
-  const replayAlbums = replayTopItems.albums || [];
+  const replayArtists = useMemo(() => sanitizeTopItems(replayTopItems.artists || [], 'artist'), [replayTopItems.artists]);
+  const replayTracks = useMemo(() => sanitizeTopItems(replayTopItems.tracks || [], 'track'), [replayTopItems.tracks]);
+  const replayAlbums = useMemo(() => sanitizeTopItems(replayTopItems.albums || [], 'album'), [replayTopItems.albums]);
+  const fallbackTopArtists = useMemo(
+    () => sanitizeTopItems(Array.isArray(primaryUser?.topItems?.artists) ? primaryUser.topItems.artists : [], 'artist'),
+    [primaryUser?.topItems?.artists]
+  );
+  const fallbackTopTracks = useMemo(
+    () => sanitizeTopItems(Array.isArray(primaryUser?.topItems?.tracks) ? primaryUser.topItems.tracks : [], 'track'),
+    [primaryUser?.topItems?.tracks]
+  );
+  const fallbackTopAlbums = useMemo(
+    () => sanitizeTopItems(Array.isArray(primaryUser?.topItems?.albums) ? primaryUser.topItems.albums : [], 'album'),
+    [primaryUser?.topItems?.albums]
+  );
+  const highlightArtists = replayArtists.length > 0 ? replayArtists : fallbackTopArtists;
+  const highlightTracks = replayTracks.length > 0 ? replayTracks : fallbackTopTracks;
+  const highlightAlbums = replayAlbums.length > 0 ? replayAlbums : fallbackTopAlbums;
   const replayModalPeriod = getReplayModalPeriod(replayActiveTab, replaySelectedSubValues);
 
   const handleShareReplay = useCallback(async () => {
@@ -2965,9 +2812,10 @@ export default function HomeScreen() {
   }, [primaryUser?.id]);
 
   const hasReplayData = replayArtists.length > 0 || replayTracks.length > 0 || replayAlbums.length > 0;
+  const hasHighlightData = highlightArtists.length > 0 || highlightTracks.length > 0 || highlightAlbums.length > 0;
   const canHydrateBelowFold = isAppReady && isBelowFoldHydrationReady;
-  const isReplayInitialLoading = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && !hasReplayData;
-  const isReplayUpdating = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && hasReplayData;
+  const isReplayInitialLoading = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && !hasHighlightData;
+  const isReplayUpdating = canHydrateBelowFold && !!primaryUser && replayState !== 'ready' && hasHighlightData;
   const showPipelineSync = false;
   return (
     <>
@@ -3365,7 +3213,7 @@ export default function HomeScreen() {
 
       {isReplayInitialLoading && <HomeSectionLoader label="Carregando seus destaques" />}
 
-      {canHydrateBelowFold && primaryUser && replayState === 'error' && (
+      {canHydrateBelowFold && primaryUser && replayState === 'error' && !hasHighlightData && (
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="glass-aura rounded-[28px] px-5 py-5 text-center">
             <AlertTriangle className="mx-auto h-6 w-6 text-orange-400" />
@@ -3375,18 +3223,18 @@ export default function HomeScreen() {
         </div>
       )}
 
-      {canHydrateBelowFold && primaryUser && (replayState === 'ready' || isReplayUpdating) && (
+      {isAppReady && primaryUser && hasHighlightData && (
         <motion.div
           initial={shouldSkipHomeEntryMotion ? false : { opacity: 0, y: 18, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={getHomeEntryTransition(0.34)}
+          data-stats-lc-home-highlights-source={hasReplayData ? 'replay' : 'top-items'}
+          data-stats-lc-home-highlights-updating={isReplayUpdating ? 'true' : 'false'}
         >
           <HomeOrbitalHighlights
-            totalMinutes={replayTotalMinutesCount}
-            totalPlays={replayTotalPlaysCount}
-            artists={replayArtists}
-            tracks={replayTracks}
-            albums={replayAlbums}
+            artists={highlightArtists}
+            tracks={highlightTracks}
+            albums={highlightAlbums}
             activeTab={replayActiveTab}
             selectedSubValues={replaySelectedSubValues}
             onActiveTabChange={setReplayActiveTab}

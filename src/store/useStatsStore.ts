@@ -317,6 +317,78 @@ const shouldUseIncomingLivePayload = (existing?: any, incoming?: any) => {
   return hasNewerTimestamp;
 };
 
+const hasRichLiveValue = (value: any) => {
+  if (value == null) return false;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return Boolean(trimmed) && !trimmed.includes('private.webp');
+  }
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return Object.keys(value).length > 0;
+  return true;
+};
+
+const preferIncomingLiveValue = (incoming: any, existing: any) =>
+  hasRichLiveValue(incoming) ? incoming : existing;
+
+const mergeTrackPreservingRichLiveData = (existingTrack: any = {}, incomingTrack: any = {}) => {
+  if (!incomingTrack) return existingTrack;
+  const merged = { ...existingTrack, ...incomingTrack };
+  [
+    'albumImage',
+    'image',
+    'artworkUrl',
+    'artistName',
+    'primaryArtistName',
+    'albumArtist',
+    'albumArtistName',
+    'durationMs',
+    'externalIds',
+    'catalogAvailability',
+    'artists',
+  ].forEach((field) => {
+    merged[field] = preferIncomingLiveValue(incomingTrack?.[field], existingTrack?.[field]);
+  });
+
+  if (hasRichLiveValue(existingTrack?.album) || hasRichLiveValue(incomingTrack?.album)) {
+    merged.album = {
+      ...(hasRichLiveValue(existingTrack?.album) ? existingTrack.album : {}),
+      ...(hasRichLiveValue(incomingTrack?.album) ? incomingTrack.album : {}),
+    };
+    merged.album.image = preferIncomingLiveValue(incomingTrack?.album?.image, existingTrack?.album?.image);
+    merged.album.images = preferIncomingLiveValue(incomingTrack?.album?.images, existingTrack?.album?.images);
+    merged.album.artistName = preferIncomingLiveValue(incomingTrack?.album?.artistName, existingTrack?.album?.artistName);
+    merged.album.primaryArtistName = preferIncomingLiveValue(incomingTrack?.album?.primaryArtistName, existingTrack?.album?.primaryArtistName);
+  }
+
+  return merged;
+};
+
+const mergeNowPlayingPreservingRichLiveData = (existing: any, incoming: any) => {
+  if (!incoming) return incoming;
+  if (!existing) return incoming;
+
+  const existingTrack = existing?.track || {};
+  const incomingTrack = incoming?.track || {};
+  const existingTrackKey = String(existingTrack?.id || existingTrack?.name || '').trim();
+  const incomingTrackKey = String(incomingTrack?.id || incomingTrack?.name || '').trim();
+  if (!existingTrackKey || !incomingTrackKey || existingTrackKey !== incomingTrackKey) return incoming;
+
+  const merged = { ...existing, ...incoming };
+  [
+    'durationMs',
+    'dominantColor',
+    'accentColor',
+    'platformCandidate',
+    'serviceCandidate',
+    'platform',
+  ].forEach((field) => {
+    merged[field] = preferIncomingLiveValue(incoming?.[field], existing?.[field]);
+  });
+  merged.track = mergeTrackPreservingRichLiveData(existingTrack, incomingTrack);
+  return merged;
+};
+
 const getPlaybackTimestamp = (playback?: any) => {
   const timestamp = playback?.timestamp || playback?.playedAt || playback?.endTime;
   const parsed = timestamp ? Date.parse(timestamp) : NaN;
@@ -388,6 +460,9 @@ const getLiveRenderSignature = (user: any) => {
     user?.platform?.primary || '',
     nowPlaying?.isNow === true ? 'live' : 'idle',
     track?.id || track?.name || '',
+    track?.albumImage || track?.album?.image || track?.image || '',
+    track?.durationMs || nowPlaying?.durationMs || '',
+    track?.primaryArtistName || track?.albumArtistName || track?.artistName || '',
     playbackKey,
   ].join('|');
 };
@@ -1388,7 +1463,7 @@ export const useStatsStore = create<StatsState>()(
                 const existingUserWithLive = attachLiveNowPlayingToMember(existingUser, nextLiveNowPlayingByUserId);
                 // Merge live data while preserving rich data from /api/group
                 const incomingNowPlaying = shouldUseIncomingLivePayload(existingUserWithLive.nowPlaying, liveUser.nowPlaying)
-                  ? liveUser.nowPlaying
+                  ? mergeNowPlayingPreservingRichLiveData(existingUserWithLive.nowPlaying, liveUser.nowPlaying)
                   : existingUserWithLive.nowPlaying;
 
                 const mergedUser = {

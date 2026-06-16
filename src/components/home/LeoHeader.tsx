@@ -169,6 +169,17 @@ function formatTrackTime(ms: number) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
+const readCurrentScaleX = (element: HTMLElement, fallback: number) => {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const transform = window.getComputedStyle(element).transform;
+    if (!transform || transform === 'none') return fallback;
+    const matrix = new DOMMatrixReadOnly(transform);
+    if (Number.isFinite(matrix.a)) return Math.min(1, Math.max(0, matrix.a));
+  } catch {}
+  return fallback;
+};
+
 const LiveElapsedTime = memo(({
   baseMs,
   durationMs,
@@ -857,10 +868,11 @@ export const LiveTrackProgress = memo(({
     const fill = progressFillRef.current;
     if (!fill) return;
 
+    const visualStartScale = readCurrentScaleX(fill, progressScale);
     progressFillAnimationRef.current?.cancel();
     progressFillAnimationRef.current = null;
 
-    const startScale = progressScale;
+    const startScale = isSynchronizing ? progressScale : visualStartScale;
     const targetScale = isSynchronizing
       ? 1
       : isNowPlaying
@@ -915,7 +927,10 @@ export const LiveTrackProgress = memo(({
     const duration = isNowPlaying && !isSynchronizing && progressAnimationMs && progressAnimationMs > 0
       ? Math.max(200, progressAnimationMs)
       : 0;
-    if (duration <= 0 || Math.abs(targetScale - startScale) <= 0.0001) return;
+    if (duration <= 0 || Math.abs(targetScale - startScale) <= 0.0001) {
+      fill.style.transform = `scaleX(${targetScale})`;
+      return;
+    }
 
     const animation = fill.animate(
       [
@@ -1009,10 +1024,13 @@ export const LiveTrackProgress = memo(({
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           data-stats-lc-leo-progress-mode={isSynchronizing ? 'sync' : 'playing'}
           data-stats-lc-leo-progress-color={assertiveProgressColor || visibleProgressColor || ''}
+          data-stats-lc-leo-progress-scale={progressScale.toFixed(4)}
+          data-stats-lc-leo-progress-target={progressTargetScale.toFixed(4)}
           className="flex w-full origin-left scale-[1.05] flex-col gap-1.5"
         >
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 mb-0.5">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-2 mb-0.5">
             <motion.span
+              className="inline-flex items-baseline leading-none"
               animate={{ opacity: isSynchronizing ? 0 : 1, y: isSynchronizing ? -1 : 0 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
@@ -1020,10 +1038,10 @@ export const LiveTrackProgress = memo(({
                 baseMs={elapsedMs}
                 durationMs={durationMs}
                 isRunning={isNowPlaying && !isSynchronizing}
-                className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
+                className="text-[8px] font-black leading-none text-white/40 uppercase tracking-[0.08em] tabular-nums"
               />
             </motion.span>
-            <div className="mx-auto flex h-3 min-w-0 max-w-[min(152px,44vw)] items-center justify-center overflow-hidden">
+            <div className="mx-auto flex min-w-0 max-w-[min(152px,44vw)] items-baseline justify-center overflow-hidden leading-none">
               <motion.div
                 layout
                 animate={shouldRunSyncCompositorLoop
@@ -1042,17 +1060,17 @@ export const LiveTrackProgress = memo(({
                   'SINCRONIZANDO'
                 ) : (
                   <>
-                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">OUVINDO NO</span>
+                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black leading-none text-white/40 uppercase">OUVINDO NO</span>
                     <div className="text-white/40 flex items-center overflow-visible scale-[0.88]">
                       {PlatformLogo}
                     </div>
-                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black text-white/40 uppercase">{PlatformName}</span>
+                    <span className="stats-lc-dense-label shrink-0 text-[5.8px] font-black leading-none text-white/40 uppercase">{PlatformName}</span>
                   </>
                 )}
               </motion.div>
             </div>
             <motion.span
-              className="text-[8px] font-black text-white/40 uppercase tracking-[0.08em] tabular-nums"
+              className="inline-flex items-baseline text-[8px] font-black leading-none text-white/40 uppercase tracking-[0.08em] tabular-nums"
               animate={{ opacity: isSynchronizing ? 0 : 1, y: isSynchronizing ? -1 : 0 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
@@ -1267,7 +1285,7 @@ const ArenaRankingBubble = ({
             <div className="pointer-events-none absolute inset-[-3px] z-0 rounded-full bg-[#ff5f00]/34 blur-[2px] shadow-[0_0_16px_rgba(255,95,0,0.44)]" />
           )}
           <div className="relative z-10 h-full w-full overflow-hidden rounded-full">
-            <SmartImage src={user.avatar} cacheKey={`leoheader-arena-avatar:${user.id}`} className="h-full w-full object-cover" fallback="" rounded="full" />
+            <SmartImage src={user.avatar} cacheKey={`leoheader-arena-avatar:${user.id}`} className="h-full w-full object-cover" fallback={user.name} rounded="full" />
           </div>
         </div>
 
@@ -1910,6 +1928,51 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
     }
   };
 
+  const lyricsActionBadge = hasLyricsBadge ? (
+    <motion.button
+      key={`lyrics-action-${track?.id || track?.name || 'track'}`}
+      type="button"
+      layout="position"
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.96 }}
+      transition={{
+        duration: 0.55,
+        delay: 0.38,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
+          detail: { panel: 'lyrics' }
+        }));
+      }}
+      whileTap={{ scale: 0.94 }}
+      className={cn(
+        "leo-soft-badge pointer-events-auto relative order-2 z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
+        visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
+      )}
+      aria-label="Abrir letra"
+      data-stats-lc-lyrics-badge="confirmed"
+    >
+      <BookOpen
+        className={cn(
+          "transition-colors duration-500",
+          visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
+          visualIsLive ? "text-orange-400" : "text-white/40"
+        )}
+        strokeWidth={2.4}
+      />
+      <span className={cn(
+        "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
+        visualIsLive ? "text-[7.5px]" : "text-[7px]",
+        visualIsLive ? "text-white/60" : "text-white/40"
+      )}>
+        Letra
+      </span>
+    </motion.button>
+  ) : null;
+
   return (
     <div ref={headerMotionRef} className={cn(
       "relative -mt-3 px-5 sm:px-8 overflow-visible",
@@ -1932,15 +1995,15 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
       >
         {/* Open ambient header backdrop */}
         <div className={cn(
-          "absolute left-1/2 top-[calc(-15rem-env(safe-area-inset-top,0px))] bottom-[-600px] z-0 w-[180vw] min-w-[860px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
+          "absolute left-1/2 top-[calc(-22rem-env(safe-area-inset-top,0px))] bottom-[-680px] z-0 w-[190vw] min-w-[920px] -translate-x-1/2 isolate overflow-visible transition-[box-shadow,opacity] duration-500 pointer-events-none",
           isHighlighted
             ? "shadow-[0_0_40px_rgba(249,115,22,0.38)]"
             : "shadow-[0_24px_70px_-45px_rgba(0,0,0,0.9)]"
         )}
         style={{
           backgroundColor: '#020202',
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 58%, rgba(0,0,0,0.84) 72%, rgba(0,0,0,0.46) 90%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 14%, black 58%, rgba(0,0,0,0.84) 72%, rgba(0,0,0,0.46) 90%, transparent 100%)'
+          maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 0%, black 20%, black 60%, rgba(0,0,0,0.82) 76%, rgba(0,0,0,0.42) 92%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.96) 0%, black 20%, black 60%, rgba(0,0,0,0.82) 76%, rgba(0,0,0,0.42) 92%, transparent 100%)'
         }}
         >
           <motion.div
@@ -2258,52 +2321,6 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                           transition={{ duration: shouldReduceMotion ? 0.01 : 0.42, ease: [0.16, 1, 0.3, 1] }}
                         >
                           <AnimatePresence initial={false} mode="popLayout">
-                          {hasLyricsBadge && (
-                            <motion.button
-                              key={`lyrics-action-${track.id || track.name || 'track'}`}
-                              type="button"
-                              layout="position"
-                              initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 5, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.96 }}
-                              transition={{
-                                duration: 0.55,
-                                delay: 0.38,
-                                ease: [0.16, 1, 0.3, 1],
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.dispatchEvent(new CustomEvent('stats-lc-open-track-stats', {
-                                  detail: { panel: 'lyrics' }
-                                }));
-                              }}
-                              whileTap={{ scale: 0.94 }}
-                              className={cn(
-                                "leo-soft-badge pointer-events-auto relative z-[90] flex shrink-0 cursor-pointer items-center rounded-full transition-colors",
-                                showRankingSummary ? "order-2" : "order-1",
-                                visualIsLive ? "h-8 gap-2 pl-3 pr-2.5" : "h-7 gap-1.5 pl-2.5 pr-2"
-                              )}
-                              aria-label="Abrir letra"
-                            >
-                              <BookOpen
-                                className={cn(
-                                  "transition-colors duration-500",
-                                  visualIsLive ? "h-3 w-3" : "h-2.5 w-2.5",
-                                  visualIsLive ? "text-orange-400" : "text-white/40"
-                                )}
-                                strokeWidth={2.4}
-                              />
-                              <span className={cn(
-                                "font-black uppercase tracking-[0.18em] leading-none transition-colors duration-500",
-                                visualIsLive ? "text-[7.5px]" : "text-[7px]",
-                                visualIsLive ? "text-white/60" : "text-white/40"
-                              )}>
-                                Letra
-                              </span>
-                            </motion.button>
-                          )}
-                          </AnimatePresence>
-                          <AnimatePresence initial={false} mode="popLayout">
                           {showExclusiveFirstListen ? (
                             <motion.div
                               key={`first-listen-${track.id || track.name || 'track'}`}
@@ -2481,6 +2498,9 @@ export const LeoHeader = memo(({ user, streamsToday, recentPlays = [], preparedL
                               </div>
                             </motion.div>
                           ) : null}
+                          </AnimatePresence>
+                          <AnimatePresence initial={false} mode="popLayout">
+                            {lyricsActionBadge}
                           </AnimatePresence>
                         </motion.div>
                       </div>
