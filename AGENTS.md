@@ -44,10 +44,6 @@ Use preferencialmente:
 
 Se a ferramenta de browser falhar, nao gaste tempo excessivo: relate a limitacao e use lint/build quando fizer sentido.
 
-Nao criar nem sugerir arquivos temporarios de verificacao/browser/performance
-para este repo; isso ja travou sessao. Use Browser/Chrome, comandos diretos
-ou probes inline, sem deixar artefato de verifier no workspace.
-
 ## Estrategia Mobile Atual
 
 - Continuar desenvolvimento, performance e QA pela webapp.
@@ -61,7 +57,6 @@ ou probes inline, sem deixar artefato de verifier no workspace.
 
 ## Nao Fazer Sem Pedido Explicito
 
-- Redesign amplo.
 - Mexer em vinis/LeoHeader sem relacao direta com a tarefa.
 - Redis/KV/cache backend novo.
 - Service worker, Workbox, PWA offline ou CSP bloqueante.
