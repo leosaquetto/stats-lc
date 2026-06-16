@@ -61,6 +61,9 @@ function cn(...inputs: ClassValue[]) {
 const HOME_CACHE_TTL = 15 * 60 * 1000;
 const HOME_CRITICAL_WARMUP_TIMEOUT_MS = 1800;
 const HOME_MOTION_PRESSURE_DEADLINE_MS = 16_000;
+const HOME_SECONDARY_ROUTES_DEADLINE_MS = 18_000;
+const HOME_BELOW_FOLD_IDLE_HYDRATION_MS = 9_000;
+const HOME_BELOW_FOLD_SCROLL_THRESHOLD_PX = 520;
 const HOME_RECENT_CACHE_VERSION = 'v2-album-resolved';
 const getHomeRecentCacheKey = (userId: string) => `stats-lc-home-recent:${HOME_RECENT_CACHE_VERSION}:${userId}`;
 let homeGroupActivityRuntimeCache: { members: GroupActivityMember[]; settled: boolean } = {
@@ -1870,6 +1873,7 @@ export default function HomeScreen() {
     window.sessionStorage?.removeItem('stats-lc-home-boot-ready');
   };
   const hasBootReadySession = () => window.__STATS_LC_HOME_READY_DOCUMENT__ === true;
+  const hasSecondaryRoutesReady = () => window.__STATS_LC_SECONDARY_ROUTES_READY__ === true;
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const liveStreamsTodayByUserId = useStatsStore(state => state.liveStreamsTodayByUserId);
@@ -1916,6 +1920,8 @@ export default function HomeScreen() {
   const [preparedHeaderLyrics, setPreparedHeaderLyrics] = useState<{ key: string; hasLyrics: boolean } | null>(null);
   const [showInitialModal, setShowInitialModal] = useState(false);
   const [bootMotionPressureDeadline, setBootMotionPressureDeadline] = useState(() => hasBootReadySession());
+  const [secondaryRoutesReady, setSecondaryRoutesReady] = useState(() => hasBootReadySession() || hasSecondaryRoutesReady());
+  const [bootSecondaryRoutesDeadline, setBootSecondaryRoutesDeadline] = useState(() => hasBootReadySession());
   const [replayState, setReplayState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [replayTopItems, setReplayTopItems] = useState<{ artists: any[]; tracks: any[]; albums: any[] }>({
     artists: [],
@@ -1975,6 +1981,30 @@ export default function HomeScreen() {
   }, [bootMotionPressureDeadline]);
 
   useEffect(() => {
+    if (hasReleasedHomeRef.current || bootSecondaryRoutesDeadline) return;
+    return motionRuntimeScheduler.scheduleTask(
+      () => setBootSecondaryRoutesDeadline(true),
+      HOME_SECONDARY_ROUTES_DEADLINE_MS,
+      'interaction',
+      'home-secondary-routes-deadline',
+    );
+  }, [bootSecondaryRoutesDeadline]);
+
+  useEffect(() => {
+    if (hasSecondaryRoutesReady()) {
+      setSecondaryRoutesReady(true);
+      return undefined;
+    }
+    const handleSecondaryRoutesReady = (event: Event) => {
+      if ((event as CustomEvent<{ ready?: boolean }>).detail?.ready === true) {
+        setSecondaryRoutesReady(true);
+      }
+    };
+    window.addEventListener('stats-lc-secondary-routes-ready', handleSecondaryRoutesReady);
+    return () => window.removeEventListener('stats-lc-secondary-routes-ready', handleSecondaryRoutesReady);
+  }, []);
+
+  useEffect(() => {
     if (!isAppReady) return;
     markHomeReadyDocument();
     window.dispatchEvent(new CustomEvent('stats-lc-home-ready', { detail: { ready: true } }));
@@ -1989,12 +2019,33 @@ export default function HomeScreen() {
       setIsBelowFoldHydrationReady(true);
       return undefined;
     }
-    return motionRuntimeScheduler.scheduleTask(
-      () => setIsBelowFoldHydrationReady(true),
-      1400,
+    let released = false;
+    let frame = 0;
+    const releaseBelowFold = () => {
+      if (released) return;
+      released = true;
+      setIsBelowFoldHydrationReady(true);
+    };
+    const handleScroll = () => {
+      if (released || frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        if (window.scrollY >= HOME_BELOW_FOLD_SCROLL_THRESHOLD_PX) releaseBelowFold();
+      });
+    };
+    const cancelIdleHydration = motionRuntimeScheduler.scheduleTask(
+      releaseBelowFold,
+      HOME_BELOW_FOLD_IDLE_HYDRATION_MS,
       'interaction',
-      'home-below-fold-hydration',
+      'home-below-fold-idle-hydration',
     );
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => {
+      cancelIdleHydration();
+      window.removeEventListener('scroll', handleScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, [isAppReady]);
 
   useEffect(() => {
@@ -2440,6 +2491,12 @@ export default function HomeScreen() {
       !homeMotionRuntime.isPageVisible ||
       homeMotionRuntime.tier === 'full' ||
       bootMotionPressureDeadline;
+    const hasSecondaryRouteBaseline =
+      hasBootReadySession() ||
+      secondaryRoutesReady ||
+      bootSecondaryRoutesDeadline ||
+      homeMotionRuntime.saveData ||
+      !homeMotionRuntime.isPageVisible;
 
     if (hasReleasedHomeRef.current) {
       if (window.__STATS_LC_HOME_READY__ !== true) {
@@ -2458,7 +2515,8 @@ export default function HomeScreen() {
       hasFriendActivityBaseline &&
       hasHeaderRankingBaseline &&
       hasHeaderLyricsBaseline &&
-      hasMotionRevealBudget;
+      hasMotionRevealBudget &&
+      hasSecondaryRouteBaseline;
 
     if (!ready) {
       const hasBootReady = hasBootReadySession();
@@ -2540,6 +2598,8 @@ export default function HomeScreen() {
     primaryUser,
     preparedHeaderLyrics?.key,
     recentPrepState,
+    secondaryRoutesReady,
+    bootSecondaryRoutesDeadline,
   ]);
 
   useEffect(() => {

@@ -84,6 +84,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Audite loops CSS por `data-stats-lc-css-engine-running-loops`, `data-stats-lc-active-route-running-loops` e `data-stats-lc-hidden-route-running-loops`, nao por inspecao visual subjetiva.
    - Telemetria que depende de `requestAnimationFrame` deve ter fallback nomeado no scheduler central, pois abas ocultas podem suspender frames.
    - Callbacks de frame, tarefas sincronas/assincronas e listeners devem ser isolados por falha. Uma excecao ou rejeicao local nunca pode interromper o proximo frame nem as demais tarefas; audite `data-stats-lc-motion-runtime-errors`.
+   - Long Animation Frame e sinal direcional de pressao, mas nao deve sozinho congelar locomocao compositor. `longtask` real pesa mais; `conserve` e reservado para pressao severa, preferencias do usuario, economia de dados ou rede fraca.
 
 11. Browser QA deve usar rotas hash.
    - Home: `/#/`
@@ -102,6 +103,7 @@ Este documento existe para impedir que novas superficies reintroduzam animacoes 
    - Um novo documento deve invalidar marcadores de Home quente herdados da sessao. Retorno quente dentro do mesmo documento usa estado React, `window.__STATS_LC_HOME_READY__` e telemetria do documento atual.
    - Depois que `data-stats-lc-home-ready-ms` existe no documento atual, nenhum evento tardio pode regredir a Home para fria ou remover o estado quente desse documento.
    - A primeira viewport deve preparar decisoes visuais essenciais antes de sair da splash: dados-base, capas criticas, atividade visivel e badges que mudariam a geometria do header.
+   - Se a splash precisar esperar chunks essenciais de rota, espere. Depois que a Home aparece, trabalho abaixo da dobra deve hidratar por scroll/idle longo, nao em timer curto que concorra com o primeiro toque na bottom nav.
    - Home fria deve preferir liberar quando `motionRuntime.tier === 'full'`; `balanced` ainda e fase de pressao e so deve liberar por deadline de seguranca ou acessibilidade/reducao de motion.
    - Mova chamadas ja existentes para o boot e entregue o resultado preparado ao componente; nao duplique requests so para evitar uma entrada tardia.
    - Inicie a entrada finita da Home quando a splash ja estiver dissolvendo. Nao execute toda a coreografia atras de uma splash opaca para depois revelar tudo pronto.

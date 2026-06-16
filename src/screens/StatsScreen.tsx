@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { cn } from '../lib/utils';
+import { useLocation } from 'react-router-dom';
 import { EngineSpinner, SectionHeader, Skeleton, SkeletonSurface, SmartImage } from '../components/shared/CommonUI';
 import { coreUtils, GROUP_USERS } from '../services/statsCore';
 import { UserStats, TopItem } from '../types/stats';
@@ -48,15 +49,15 @@ import { getVisibleMembers } from '../lib/memberSelectors';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
 import { LazyModalFallback } from '../components/shared/LazyModalFallback';
 
-const DailyActivityHeatmap = lazy(() => import('../components/stats/DailyActivityHeatmap').then(module => ({ default: module.DailyActivityHeatmap })));
-const StatsBattleModal = lazy(() => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal })));
-const TrackLeaderboardModal = lazy(() => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal })));
-const TrackHistoryModal = lazy(() => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal })));
-const UserAlbumStatsModal = lazy(() => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserAlbumStatsModal })));
-const UserArtistStatsModal = lazy(() => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserArtistStatsModal })));
-const ReplaySection = lazy(() => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection })));
+const loadDailyActivityHeatmap = () => import('../components/stats/DailyActivityHeatmap').then(module => ({ default: module.DailyActivityHeatmap }));
+const loadStatsBattleModal = () => import('../components/modals/UserModals').then(module => ({ default: module.StatsBattleModal }));
+const loadTrackLeaderboardModal = () => import('../components/modals/TrackLeaderboardModal').then(module => ({ default: module.TrackLeaderboardModal }));
+const loadTrackHistoryModal = () => import('../components/modals/TrackHistoryModal').then(module => ({ default: module.TrackHistoryModal }));
+const loadUserAlbumStatsModal = () => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserAlbumStatsModal }));
+const loadUserArtistStatsModal = () => import('../components/modals/EntityStatsModal').then(module => ({ default: module.UserArtistStatsModal }));
+const loadReplaySection = () => import('../components/home/ReplaySection').then(module => ({ default: module.ReplaySection }));
 
-const ActivityAreaChart = lazy(async () => {
+const loadActivityAreaChart = async () => {
   const {
     AreaChart,
     Area,
@@ -112,7 +113,27 @@ const ActivityAreaChart = lazy(async () => {
       </AreaChart>
     ),
   };
-});
+};
+
+export const preloadStatsSections = () => Promise.allSettled([
+  loadDailyActivityHeatmap(),
+  loadStatsBattleModal(),
+  loadTrackLeaderboardModal(),
+  loadTrackHistoryModal(),
+  loadUserAlbumStatsModal(),
+  loadUserArtistStatsModal(),
+  loadReplaySection(),
+  loadActivityAreaChart(),
+]);
+
+const DailyActivityHeatmap = lazy(loadDailyActivityHeatmap);
+const StatsBattleModal = lazy(loadStatsBattleModal);
+const TrackLeaderboardModal = lazy(loadTrackLeaderboardModal);
+const TrackHistoryModal = lazy(loadTrackHistoryModal);
+const UserAlbumStatsModal = lazy(loadUserAlbumStatsModal);
+const UserArtistStatsModal = lazy(loadUserArtistStatsModal);
+const ReplaySection = lazy(loadReplaySection);
+const ActivityAreaChart = lazy(loadActivityAreaChart);
 
 const MeasuredActivityAreaChart = ({ data, chartMetric, accentColor }: { data: any[]; chartMetric: 'streams' | 'hours'; accentColor: string }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -401,6 +422,13 @@ const StatsRankingLoading = () => {
   );
 };
 
+const StatsDeepHydrationPlaceholder = () => (
+  <div className="flex flex-col gap-3" data-stats-lc-stats-deep-hydration="pending">
+    <SkeletonSurface className="glass-aura h-24 rounded-[28px] opacity-70" />
+    <SkeletonSurface className="glass-card h-40 rounded-[32px] opacity-55" />
+  </div>
+);
+
 type Filter = 'Hoje' | 'Semana' | 'Mês' | 'Ano' | 'Total';
 type ItemType = 'artists' | 'tracks' | 'albums';
 type StatsSection = 'overview' | 'replay' | 'rankings';
@@ -472,11 +500,14 @@ const getReplayItemMinutes = (source: any, type: ItemType) => {
 };
 
 export default function StatsScreen() {
+  const location = useLocation();
   const motionRuntime = useMotionRuntime();
+  const isStatsRouteActive = location.pathname === '/stats' || location.pathname === '/highlights';
   const shouldAnimateStats = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
   const [activeFilter, setActiveFilter] = useState<Filter>('Mês');
   const [activeType, setActiveType] = useState<ItemType>('artists');
   const [activeStatsSection, setActiveStatsSection] = useState<StatsSection>('overview');
+  const [isStatsDeepHydrationReady, setIsStatsDeepHydrationReady] = useState(false);
   
   const [battleOpponent, setBattleOpponent] = useState<UserStats | null>(null);
   const [fullUserData, setFullUserData] = useState<any>(null);
@@ -514,6 +545,21 @@ export default function StatsScreen() {
   });
   const [isFriendReplayLoading, setIsFriendReplayLoading] = useState(false);
   const showScrollTopRef = useRef(false);
+
+  useEffect(() => {
+    if (!isStatsRouteActive) {
+      setIsStatsDeepHydrationReady(false);
+      return undefined;
+    }
+
+    const cancelHydration = motionRuntimeScheduler.scheduleTask(
+      () => setIsStatsDeepHydrationReady(true),
+      1200,
+      'interaction',
+      'stats-deep-hydration',
+    );
+    return () => cancelHydration();
+  }, [isStatsRouteActive]);
 
   useEffect(() => {
     let frame = 0;
@@ -622,6 +668,8 @@ export default function StatsScreen() {
   }, [battleOpponent]);
 
   useEffect(() => {
+    if (!isStatsRouteActive || !isStatsDeepHydrationReady) return undefined;
+
     let cancelled = false;
     async function loadFullData() {
       if (!CURRENT_USER_ID) {
@@ -640,12 +688,17 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID]);
+  }, [CURRENT_USER_ID, isStatsDeepHydrationReady, isStatsRouteActive]);
 
   const [datesData, setDatesData] = useState<any>(null);
   const [cardinalityData, setCardinalityData] = useState<any>(null);
 
   useEffect(() => {
+    if (!isStatsRouteActive || !isStatsDeepHydrationReady) {
+      setIsChartLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
     async function loadChartData() {
       if (!CURRENT_USER_ID) {
@@ -881,9 +934,11 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, fullUserData, chartRetryNonce]);
+  }, [CURRENT_USER_ID, activeFilter, fullUserData, chartRetryNonce, isStatsDeepHydrationReady, isStatsRouteActive]);
 
   const dailyEvolutionData = useMemo(() => {
+    if (!isStatsDeepHydrationReady) return [];
+
     // Robust multi-path navigation for API response
     const datesContainer = datesData?.stats || datesData?.data || datesData;
     const datesItems = datesContainer?.items || datesContainer?.stats?.items || datesContainer;
@@ -1338,9 +1393,11 @@ export default function StatsScreen() {
     }
 
     return [];
-  }, [datesData, historyData, activeFilter, fullUserData]);
+  }, [datesData, historyData, activeFilter, fullUserData, isStatsDeepHydrationReady]);
 
   const hourlyDistributionData = useMemo(() => {
+    if (!isStatsDeepHydrationReady) return [];
+
     // Robust multi-path navigation for API response
     const datesContainer = datesData?.stats || datesData?.data || datesData;
     const datesItems = datesContainer?.items || datesContainer?.stats?.items || datesContainer;
@@ -1435,7 +1492,7 @@ export default function StatsScreen() {
     }
 
     return Object.values(hourlyMap);
-  }, [datesData, historyData, fullUserData, activeFilter]);
+  }, [datesData, historyData, fullUserData, activeFilter, isStatsDeepHydrationReady]);
 
   const getStatsByFilter = () => {
     if (!fullUserData) return null;
@@ -1502,6 +1559,7 @@ export default function StatsScreen() {
   }, [cardinalityData, activePeriodArtists, activePeriodTracks, activePeriodAlbums]);
 
   const insights = useMemo(() => {
+    if (!isStatsDeepHydrationReady) return [];
     if (!user) return [];
     const list = [];
     const periodName = activeFilter === 'Hoje' ? 'hoje' : activeFilter === 'Semana' ? 'esta semana' : activeFilter === 'Mês' ? 'este mês' : activeFilter === 'Ano' ? 'este ano' : 'todo o período';
@@ -1640,7 +1698,7 @@ export default function StatsScreen() {
     }
 
     return list;
-  }, [user, activePeriodArtists, activePeriodTracks, activePeriodAlbums, periodSummaryStats, activeFilter, members, CURRENT_USER_ID]);
+  }, [user, activePeriodArtists, activePeriodTracks, activePeriodAlbums, periodSummaryStats, activeFilter, members, CURRENT_USER_ID, isStatsDeepHydrationReady]);
 
   // Reset index when filter/insights list change to prevent out of bounds
   useEffect(() => {
@@ -1655,6 +1713,8 @@ export default function StatsScreen() {
   }, [currentInsightIndex, insights.length, motionRuntime.canRunMotion, motionRuntime.tier]);
 
   useEffect(() => {
+    if (!isStatsRouteActive || !isStatsDeepHydrationReady) return undefined;
+
     let cancelled = false;
     async function loadAllPeriodData() {
       if (!CURRENT_USER_ID) return;
@@ -1707,9 +1767,11 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, activeStatsSection, topItemsRetryNonce, user?.topItems]);
+  }, [CURRENT_USER_ID, activeFilter, activeStatsSection, topItemsRetryNonce, user?.topItems, isStatsDeepHydrationReady, isStatsRouteActive]);
 
   useEffect(() => {
+    if (!isStatsRouteActive || !isStatsDeepHydrationReady) return undefined;
+
     let cancelled = false;
     async function loadFriendReplayData() {
       if (!replayOwnerId || replayOwnerId === CURRENT_USER_ID) {
@@ -1756,13 +1818,14 @@ export default function StatsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [CURRENT_USER_ID, activeFilter, members, replayOwnerId]);
+  }, [CURRENT_USER_ID, activeFilter, members, replayOwnerId, isStatsDeepHydrationReady, isStatsRouteActive]);
 
   const topItems = useMemo(() => {
+    if (!isStatsDeepHydrationReady) return [];
     if (activeType === 'artists') return activePeriodArtists;
     if (activeType === 'tracks') return activePeriodTracks;
     return activePeriodAlbums;
-  }, [activeType, activePeriodArtists, activePeriodTracks, activePeriodAlbums]);
+  }, [activeType, activePeriodArtists, activePeriodTracks, activePeriodAlbums, isStatsDeepHydrationReady]);
 
   const filteredTopItems = useMemo(() => {
     if (!searchQuery.trim()) return topItems;
@@ -1972,7 +2035,7 @@ export default function StatsScreen() {
             </div>
           </motion.div>
 
-          {CURRENT_USER_ID && (activePeriodTracks.length > 0 || activePeriodArtists.length > 0) && (
+          {isStatsDeepHydrationReady && CURRENT_USER_ID && (activePeriodTracks.length > 0 || activePeriodArtists.length > 0) && (
             <PerceptionsPanel
               tracks={activePeriodTracks}
               artists={activePeriodArtists}
@@ -1983,7 +2046,7 @@ export default function StatsScreen() {
           )}
 
           {/* Insights + Replay */}
-          {insights.length > 0 && (
+          {isStatsDeepHydrationReady && insights.length > 0 && (
             <div className="flex flex-col gap-3">
               <SectionHeader
                 title="Insights de Reprodução"
@@ -2027,10 +2090,13 @@ export default function StatsScreen() {
               })()}
             </div>
           )}
+          {!isStatsDeepHydrationReady && <StatsDeepHydrationPlaceholder />}
         </>
       )}
 
-      {activeStatsSection === 'replay' && (
+      {activeStatsSection === 'replay' && !isStatsDeepHydrationReady && <StatsDeepHydrationPlaceholder />}
+
+      {activeStatsSection === 'replay' && isStatsDeepHydrationReady && (
         <div className="flex flex-col gap-3">
           <SectionHeader
             title="Replay do Período"
@@ -2123,7 +2189,7 @@ export default function StatsScreen() {
         </div>
       )}
 
-      {activeStatsSection === 'overview' && (
+      {activeStatsSection === 'overview' && isStatsDeepHydrationReady && (
         <>
           {/* Análise Temporal - Gráficos */}
           <div className="flex flex-col gap-3">
@@ -2281,7 +2347,9 @@ export default function StatsScreen() {
         </>
       )}
 
-      {activeStatsSection === 'rankings' && (
+      {activeStatsSection === 'rankings' && !isStatsDeepHydrationReady && <StatsDeepHydrationPlaceholder />}
+
+      {activeStatsSection === 'rankings' && isStatsDeepHydrationReady && (
         <>
           {/* Rankings Section */}
           <SectionHeader 

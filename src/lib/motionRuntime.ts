@@ -97,11 +97,11 @@ const computeSnapshot = (): MotionRuntimeSnapshot => {
   const connection = getConnection();
   const saveData = Boolean(connection?.saveData);
   const weakConnection = connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g';
-  const pressureScore = longTaskWindow.length * 0.7 + loafWindow.length * 0.45;
+  const pressureScore = longTaskWindow.length * 0.75 + loafWindow.length * 0.18;
   lastPressureScore = Math.round(pressureScore * 10) / 10;
-  const tier: MotionRuntimeTier = prefersReducedMotion || saveData || weakConnection || pressureScore >= 14
+  const tier: MotionRuntimeTier = prefersReducedMotion || saveData || weakConnection || pressureScore >= 28
     ? 'conserve'
-    : pressureScore >= 5
+    : pressureScore >= 8
       ? 'balanced'
       : 'full';
   const canRunMotion = isPageVisible && !prefersReducedMotion;

@@ -199,7 +199,7 @@ export const VinylRecord = ({
     : motionTier === 'balanced'
       ? 'blur(34px) saturate(1.12) contrast(0.9)'
       : 'blur(44px) saturate(1.16) contrast(0.88)';
-  const artworkResinOpacity = isPlaying ? 0.24 : 0.18;
+  const abstractResinOpacity = isPlaying ? 0.34 : 0.24;
 
   phaseRef.current = phase;
   spinEnabledRef.current = spinEnabled;
@@ -664,22 +664,30 @@ export const VinylRecord = ({
             : 'none'
         }}
       >
-        {visualSnapshot.albumImage && (
-          <div
-            data-vinyl-artwork-resin="true"
-            className="absolute rounded-full pointer-events-none z-[10]"
-            style={{
-              inset: artworkResinInset,
-              backgroundImage: `url("${visualSnapshot.albumImage}")`,
-              backgroundPosition: `${34 + seededValue(textureSeed, 512) * 32}% ${32 + seededValue(textureSeed, 640) * 36}%`,
-              backgroundSize: '155%',
-              filter: artworkResinFilter,
-              mixBlendMode: 'color-dodge',
-              opacity: artworkResinOpacity,
-              transform: `translate3d(0,0,0) rotate(${(seededValue(textureSeed, 736) - 0.5) * 18}deg) scale(1.08)`,
-            }}
-          />
-        )}
+        <div
+          data-vinyl-artwork-resin="abstract"
+          className="absolute rounded-full pointer-events-none z-[10]"
+          style={{
+            inset: artworkResinInset,
+            background: `
+              radial-gradient(circle at ${24 + seededValue(textureSeed, 512) * 44}% ${18 + seededValue(textureSeed, 640) * 42}%, ${withAlpha(lightColor, 0.24)} 0%, transparent 28%),
+              radial-gradient(circle at ${58 + seededValue(textureSeed, 704) * 28}% ${50 + seededValue(textureSeed, 768) * 30}%, ${withAlpha(darkColor, 0.18)} 0%, transparent 36%),
+              conic-gradient(
+                from ${82 + seededValue(textureSeed, 736) * 112}deg,
+                transparent 0deg,
+                ${withAlpha(safeDominantColor, 0.2)} 44deg,
+                transparent 118deg,
+                ${withAlpha(lightColor, 0.12)} 204deg,
+                transparent 292deg,
+                ${withAlpha(darkColor, 0.12)} 360deg
+              )
+            `,
+            filter: artworkResinFilter,
+            mixBlendMode: 'screen',
+            opacity: abstractResinOpacity,
+            transform: `translate3d(0,0,0) rotate(${(seededValue(textureSeed, 736) - 0.5) * 18}deg) scale(1.08)`,
+          }}
+        />
         {/* Camada base translúcida do vinil. */}
         <div
           className="absolute inset-0 rounded-full pointer-events-none z-[11]"

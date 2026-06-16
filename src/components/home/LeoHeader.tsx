@@ -808,7 +808,7 @@ export const LiveTrackProgress = memo(({
   const AppleMusicLogo = () => (
     <svg
       viewBox="0 0 17 21"
-      className="h-[1.42em] min-w-[1.02em] w-auto object-contain fill-current -translate-y-[0.5px]"
+      className="h-[2.52em] min-w-[1.66em] w-auto object-contain fill-current -translate-y-[0.5px]"
       aria-labelledby="apple-music-logo-title"
       role="img"
     >

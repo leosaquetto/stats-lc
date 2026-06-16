@@ -26,17 +26,46 @@ const StatsScreen = lazy(loadStatsScreen);
 const SettingsScreen = lazy(loadSettingsScreen);
 const CircleScreen = lazy(loadCircleScreen);
 
+const SECONDARY_ROUTE_BOOT_PRELOAD_TIMEOUT_MS = 12_000;
+
 const waitForInteractionTask = (delayMs: number) => new Promise<void>((resolve) => {
   motionRuntimeScheduler.scheduleTask(resolve, delayMs, 'interaction', 'secondary-route-preload-gap');
 });
 
-const preloadSecondaryRoutes = async (isCancelled: () => boolean) => {
-  const loaders = [loadStatsScreen, loadCircleScreen, loadSettingsScreen];
+const preloadSecondaryRoutes = async (isCancelled: () => boolean, gapMs = 140) => {
+  const loaders = [
+    async () => {
+      const module = await loadStatsScreen();
+      await module.preloadStatsSections?.();
+    },
+    async () => {
+      const module = await loadCircleScreen();
+      await module.preloadCircleSections?.();
+    },
+    async () => {
+      await loadSettingsScreen();
+    },
+  ];
   for (const load of loaders) {
     if (isCancelled() || document.visibilityState !== 'visible') return;
     await load().catch(() => undefined);
-    await waitForInteractionTask(140);
+    await waitForInteractionTask(gapMs);
   }
+};
+
+const markSecondaryRoutesReady = (ready: boolean) => {
+  if (typeof window === 'undefined') return;
+  window.__STATS_LC_SECONDARY_ROUTES_READY__ = ready;
+  document.documentElement.dataset.statsLcSecondaryRoutesReady = ready ? 'true' : 'false';
+  window.dispatchEvent(new CustomEvent('stats-lc-secondary-routes-ready', { detail: { ready } }));
+};
+
+const shouldBootPreloadSecondaryRoutes = () => {
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return false;
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+  return !(connection?.saveData || connection?.effectiveType === 'slow-2g' || connection?.effectiveType === '2g');
 };
 
 const CHUNK_RELOAD_KEY = 'stats-lc-chunk-reload-attempted';
@@ -377,6 +406,7 @@ export default function App() {
 
     let cancelled = false;
     let cancelSettleSplash = () => {};
+    let cancelBootPreloadDeadline = () => {};
     const minVisibleUntil = Date.now() + 650;
     const settleSplash = () => {
       const delay = Math.max(0, minVisibleUntil - Date.now());
@@ -385,12 +415,43 @@ export default function App() {
         if (!cancelled) setInitialBootSettled(true);
       }, delay, 'interaction');
     };
+    const bootPreloadSecondaryRoutes = async () => {
+      if (!shouldBootPreloadSecondaryRoutes()) {
+        if (!cancelled) markSecondaryRoutesReady(true);
+        return;
+      }
 
-    fetchStats().then(settleSplash).catch(settleSplash);
+      markSecondaryRoutesReady(false);
+      const deadline = new Promise<void>((resolve) => {
+        cancelBootPreloadDeadline = motionRuntimeScheduler.scheduleTask(
+          resolve,
+          SECONDARY_ROUTE_BOOT_PRELOAD_TIMEOUT_MS,
+          'interaction',
+          'secondary-route-boot-preload-deadline',
+        );
+      });
+      const preload = preloadSecondaryRoutes(() => cancelled, 90)
+        .then(() => {
+          if (!cancelled) markSecondaryRoutesReady(true);
+        });
+      await Promise.race([preload, deadline]);
+      cancelBootPreloadDeadline();
+    };
+
+    fetchStats()
+      .then(() => {
+        void bootPreloadSecondaryRoutes();
+        settleSplash();
+      })
+      .catch(() => {
+        markSecondaryRoutesReady(true);
+        settleSplash();
+      });
 
     return () => {
       cancelled = true;
       cancelSettleSplash();
+      cancelBootPreloadDeadline();
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('storage', handleStorage);
@@ -415,9 +476,15 @@ export default function App() {
 
     const run = () => {
       if (cancelled || document.visibilityState !== 'visible') return;
-      preloadSecondaryRoutes(() => cancelled).catch(() => undefined);
+      if (window.__STATS_LC_SECONDARY_ROUTES_READY__ === true) return;
+      preloadSecondaryRoutes(() => cancelled)
+        .then(() => {
+          if (!cancelled) markSecondaryRoutesReady(true);
+        })
+        .catch(() => undefined);
     };
     const schedule = () => {
+      if (window.__STATS_LC_SECONDARY_ROUTES_READY__ === true) return;
       if (cancelled || idleId !== null) return;
       cancelPreloadSchedule();
       cancelPreloadSchedule = motionRuntimeScheduler.scheduleTask(() => {

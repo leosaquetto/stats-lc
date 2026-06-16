@@ -19,6 +19,7 @@ import { useStatsStore } from '../store/useStatsStore';
 import { getCanonicalMembersWithLive, getVisibleMembersWithLive } from '../lib/memberSelectors';
 import { useMotionRuntime } from '../hooks/useMotionRuntime';
 import { LazyModalFallback } from '../components/shared/LazyModalFallback';
+import { motionRuntime as motionRuntimeScheduler } from '../lib/motionRuntime';
 
 const loadRankingScreen = () => import('./RankingScreen');
 const loadAlikeScreen = () => import('./AlikeScreen');
@@ -50,6 +51,8 @@ const tabs: Array<{ id: CircleTab; label: string; icon: typeof Trophy }> = [
   { id: 'affinity', label: 'Afinidade', icon: HeartHandshake },
 ];
 
+const CIRCLE_DEEP_HYDRATION_IDLE_MS = 5000;
+const CIRCLE_DEEP_HYDRATION_SCROLL_THRESHOLD_PX = 420;
 const validTabs = new Set<CircleTab>(tabs.map((tab) => tab.id));
 const emptyOrbitSummary: OrbitSummary = { received: 0, sent: 0, sentListened: 0, unread: 0 };
 const defaultOrbitUserId = 'leo';
@@ -322,6 +325,17 @@ const CircleTabLoader = ({ label }: { label: string }) => (
     </div>
     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-200/70">{label}</p>
   </motion.div>
+);
+
+const CircleDeepHydrationPlaceholder = () => (
+  <div className="mx-4 flex flex-col gap-3" data-stats-lc-circle-deep-hydration="pending">
+    <div className="relative h-24 overflow-hidden rounded-[28px] border border-white/7 bg-white/[0.028]">
+      <ShimmerOverlay duration={3.4} />
+    </div>
+    <div className="relative h-32 overflow-hidden rounded-[30px] border border-orange-500/10 bg-orange-500/[0.035]">
+      <ShimmerOverlay duration={3.8} />
+    </div>
+  </div>
 );
 
 const CircleModalLoader = () => <LazyModalFallback label="Abrindo detalhes" />;
@@ -709,7 +723,7 @@ function DuelsSection() {
   );
 }
 
-function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
+function OrbitOverviewSection({ onOpenOrbits, isDeepHydrationReady }: { onOpenOrbits: () => void; isDeepHydrationReady: boolean }) {
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const isLoading = useStatsStore(state => state.isLoading);
@@ -781,102 +795,108 @@ function OrbitOverviewSection({ onOpenOrbits }: { onOpenOrbits: () => void }) {
         onOpenOrbits={onOpenOrbits}
       />
 
-      {groupStats ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="px-4 sm:px-6 lg:px-8"
-        >
-          <div className="custom-scrollbar">
-            <LiveGroupOverview
-              users={arenaMembers}
-              lastUpdate={groupStats.lastUpdated}
-            />
-          </div>
-        </motion.div>
-      ) : isLoading ? (
-        <div className="px-4 sm:px-6 lg:px-8">
-          <LiveGroupOverviewSkeleton />
-        </div>
-      ) : null}
+      {!isDeepHydrationReady && <CircleDeepHydrationPlaceholder />}
 
-      <CircleNowRail members={recentTracks} />
-
-      <CirclePulseInsights members={recentTracks} featuredUserId={featuredUserId} />
-
-      <OrbitSummaryPreview currentUserId={orbitUserId} onOpen={onOpenOrbits} />
-
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="px-4 sm:px-6 lg:px-8 -mt-2"
-      >
-        <SectionHeader title="Timeline da Sessão" />
-      </motion.div>
-
-      <div className="flex flex-col gap-2 custom-scrollbar h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
-        {isLoading ? (
-          [1, 2, 3, 4, 5].map(i => (
+      {isDeepHydrationReady && (
+        <>
+          {groupStats ? (
             <motion.div
-              key={`orbit-hist-skeleton-${i}`}
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col"
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="px-4 sm:px-6 lg:px-8"
             >
-              <div className="flex items-center justify-between p-3.5 rounded-[28px] glass border-white/10 relative overflow-hidden bg-white/[0.01]">
-                <ShimmerOverlay duration={3} />
-                <div className="flex items-center gap-3.5 min-w-0 z-10 w-full relative">
-                  <div className="relative shrink-0">
-                    <div className="h-12 w-12 rounded-full bg-white/5 border border-white/5 shadow-inner" />
-                  </div>
-                  <div className="flex flex-col gap-2 flex-1">
-                    <div className="h-3 w-32 bg-white/10 rounded-full" />
-                    <div className="h-2 w-20 bg-white/5 rounded-full" />
-                  </div>
-                </div>
-                <div className="h-3 w-8 bg-white/10 rounded-full shrink-0 mr-1 relative z-10" />
+              <div className="custom-scrollbar">
+                <LiveGroupOverview
+                  users={arenaMembers}
+                  lastUpdate={groupStats.lastUpdated}
+                />
               </div>
             </motion.div>
-          ))
-        ) : (
-          <AnimatePresence initial={false}>
-            {recentTracks.slice(0, visibleHistory).map((user, idx) => (
-              <motion.div
-                key={user.id || `orbit-hist-${idx}`}
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <FriendHistoryCard
-                  user={user}
-                  index={idx}
-                  onTrackClick={setSelectedTrackHistory}
-                  onFullHistoryClick={(userStats) => setViewingFullHistoryUser(userStats)}
-                  showFullHistoryButton
-                  showInlineHistory
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
+          ) : isLoading ? (
+            <div className="px-4 sm:px-6 lg:px-8">
+              <LiveGroupOverviewSkeleton />
+            </div>
+          ) : null}
 
-        {!isLoading && recentTracks.length > visibleHistory && (
-          <button
-            type="button"
-            onClick={() => {
-              setVisibleHistory(recentTracks.length);
-            }}
-            className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-[color,transform,border-color] duration-200 flex items-center justify-center gap-2.5 group"
+          <CircleNowRail members={recentTracks} />
+
+          <CirclePulseInsights members={recentTracks} featuredUserId={featuredUserId} />
+
+          <OrbitSummaryPreview currentUserId={orbitUserId} onOpen={onOpenOrbits} />
+
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="px-4 sm:px-6 lg:px-8 -mt-2"
           >
-            <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
-            <span>Expandir todos</span>
-          </button>
-        )}
-      </div>
+            <SectionHeader title="Timeline da Sessão" />
+          </motion.div>
+
+          <div className="flex flex-col gap-2 custom-scrollbar h-auto overflow-hidden px-4 sm:px-6 lg:px-8">
+            {isLoading ? (
+              [1, 2, 3, 4, 5].map(i => (
+                <motion.div
+                  key={`orbit-hist-skeleton-${i}`}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex flex-col"
+                >
+                  <div className="flex items-center justify-between p-3.5 rounded-[28px] glass border-white/10 relative overflow-hidden bg-white/[0.01]">
+                    <ShimmerOverlay duration={3} />
+                    <div className="flex items-center gap-3.5 min-w-0 z-10 w-full relative">
+                      <div className="relative shrink-0">
+                        <div className="h-12 w-12 rounded-full bg-white/5 border border-white/5 shadow-inner" />
+                      </div>
+                      <div className="flex flex-col gap-2 flex-1">
+                        <div className="h-3 w-32 bg-white/10 rounded-full" />
+                        <div className="h-2 w-20 bg-white/5 rounded-full" />
+                      </div>
+                    </div>
+                    <div className="h-3 w-8 bg-white/10 rounded-full shrink-0 mr-1 relative z-10" />
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <AnimatePresence initial={false}>
+                {recentTracks.slice(0, visibleHistory).map((user, idx) => (
+                  <motion.div
+                    key={user.id || `orbit-hist-${idx}`}
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <FriendHistoryCard
+                      user={user}
+                      index={idx}
+                      onTrackClick={setSelectedTrackHistory}
+                      onFullHistoryClick={(userStats) => setViewingFullHistoryUser(userStats)}
+                      showFullHistoryButton
+                      showInlineHistory
+                    />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            )}
+
+            {!isLoading && recentTracks.length > visibleHistory && (
+              <button
+                type="button"
+                onClick={() => {
+                  setVisibleHistory(recentTracks.length);
+                }}
+                className="w-full mt-2 mb-2 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white/80 glass rounded-[28px] border border-white/5 active:scale-[0.98] transition-[color,transform,border-color] duration-200 flex items-center justify-center gap-2.5 group"
+              >
+                <Users className="h-3.5 w-3.5 text-orange-500/50 group-hover:text-orange-500 transition-colors" />
+                <span>Expandir todos</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -1038,13 +1058,72 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
   const navigate = useNavigate();
   const motionRuntime = useMotionRuntime();
   const shouldAnimateCircle = motionRuntime.canRunMotion && motionRuntime.tier !== 'conserve';
+  const isCircleRouteActive = location.pathname === '/circle' || location.pathname === '/ranking' || location.pathname === '/alike';
   const [activeTab, setActiveTab] = useState<CircleTab>(() => getRequestedTab(location.search, initialTab));
+  const [isCircleDeepHydrationReady, setIsCircleDeepHydrationReady] = useState(false);
 
   useEffect(() => {
     setActiveTab(getRequestedTab(location.search, initialTab));
   }, [initialTab, location.search]);
 
+  useEffect(() => {
+    if (!isCircleRouteActive) {
+      setIsCircleDeepHydrationReady(false);
+      return undefined;
+    }
+    if (activeTab !== 'now') {
+      setIsCircleDeepHydrationReady(true);
+      return undefined;
+    }
+    if (isCircleDeepHydrationReady) return undefined;
+
+    let released = false;
+    let frame = 0;
+    let userScrollIntent = false;
+    const scrollBaseline = window.scrollY;
+    const releaseHydration = () => {
+      if (released) return;
+      released = true;
+      setIsCircleDeepHydrationReady(true);
+    };
+    const handleScroll = () => {
+      if (!userScrollIntent || released || frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const scrollDelta = Math.max(0, window.scrollY - scrollBaseline);
+        if (scrollDelta >= CIRCLE_DEEP_HYDRATION_SCROLL_THRESHOLD_PX) releaseHydration();
+      });
+    };
+    const markUserScrollIntent = () => {
+      userScrollIntent = true;
+      handleScroll();
+    };
+    const handleScrollKey = (event: KeyboardEvent) => {
+      if (['ArrowDown', 'PageDown', ' ', 'Spacebar'].includes(event.key)) markUserScrollIntent();
+    };
+    const cancelIdleHydration = motionRuntimeScheduler.scheduleTask(
+      releaseHydration,
+      CIRCLE_DEEP_HYDRATION_IDLE_MS,
+      'interaction',
+      'circle-deep-hydration-idle',
+    );
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('wheel', markUserScrollIntent, { passive: true });
+    window.addEventListener('touchmove', markUserScrollIntent, { passive: true });
+    window.addEventListener('keydown', handleScrollKey);
+    handleScroll();
+    return () => {
+      cancelIdleHydration();
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('wheel', markUserScrollIntent);
+      window.removeEventListener('touchmove', markUserScrollIntent);
+      window.removeEventListener('keydown', handleScrollKey);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [activeTab, isCircleDeepHydrationReady, isCircleRouteActive]);
+
   const selectTab = (tab: CircleTab) => {
+    if (tab !== 'now') setIsCircleDeepHydrationReady(true);
     setActiveTab(tab);
     navigate(`/circle?tab=${tab}`, { replace: true });
   };
@@ -1094,10 +1173,10 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
           transition={{ duration: shouldAnimateCircle ? 0.18 : 0.01, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col gap-5"
         >
-      {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} />}
-      {activeTab === 'orbits' && <CircleOrbitsTab />}
-      {activeTab === 'arena' && <CircleArenaTab />}
-      {activeTab === 'affinity' && <CircleAffinityTab />}
+          {activeTab === 'now' && <OrbitOverviewSection onOpenOrbits={() => selectTab('orbits')} isDeepHydrationReady={isCircleDeepHydrationReady} />}
+          {activeTab === 'orbits' && <CircleOrbitsTab />}
+          {activeTab === 'arena' && <CircleArenaTab />}
+          {activeTab === 'affinity' && <CircleAffinityTab />}
         </motion.div>
       </AnimatePresence>
     </div>
