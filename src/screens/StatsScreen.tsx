@@ -1539,9 +1539,44 @@ export default function StatsScreen() {
     return { count: 0, durationMs: 0 };
   }, [activeRangeStats, currentStats, historyData]);
 
-  const chartDisplayData = useMemo(() => {
-    return dailyEvolutionData;
-  }, [dailyEvolutionData]);
+  const chartDisplayData = useMemo(() => dailyEvolutionData, [dailyEvolutionData]);
+  const chartDisplayTotals = useMemo(() => (
+    chartDisplayData.reduce(
+      (acc, point) => ({
+        streams: acc.streams + (Number(point.streams) || 0),
+        hours: acc.hours + (Number(point.hours) || 0),
+      }),
+      { streams: 0, hours: 0 }
+    )
+  ), [chartDisplayData]);
+  const shouldUseConsolidatedTotalChart =
+    activeFilter === 'Total' &&
+    periodSummaryStats.count > 0 &&
+    chartDisplayData.length > 0 &&
+    chartDisplayTotals.streams > 0 &&
+    chartDisplayTotals.streams < periodSummaryStats.count * 0.2;
+  const visualChartDisplayData = useMemo(() => {
+    if (!shouldUseConsolidatedTotalChart) return chartDisplayData;
+
+    return [
+      {
+        date: 'sample',
+        displayLabel: 'Amostra',
+        timestamp: 0,
+        streams: chartDisplayTotals.streams,
+        duration: 0,
+        hours: Number(chartDisplayTotals.hours.toFixed(2)),
+      },
+      {
+        date: 'total',
+        displayLabel: 'Total',
+        timestamp: 1,
+        streams: periodSummaryStats.count,
+        duration: periodSummaryStats.durationMs,
+        hours: Number((periodSummaryStats.durationMs / 3600000).toFixed(2)),
+      },
+    ];
+  }, [chartDisplayData, chartDisplayTotals.hours, chartDisplayTotals.streams, periodSummaryStats.count, periodSummaryStats.durationMs, shouldUseConsolidatedTotalChart]);
   const chartCoverage = datesData?.coverage;
   const isChartCoveragePartial = chartCoverage?.partial === true;
   const chartCoverageLabel = isChartCoveragePartial
@@ -1899,11 +1934,12 @@ export default function StatsScreen() {
             <button
               key={f}
               type="button"
+              aria-pressed={activeFilter === f}
               onClick={() => {
                 setStatsPeriod(f);
               }}
               className={clsx(
-                "filter-pill stats-lc-compact-label relative z-10 flex-1 shrink-0 cursor-pointer select-none rounded-full px-1.5 py-3 text-center text-[10px] font-black uppercase transition-[background-color,color,filter,transform] duration-200",
+                "filter-pill stats-lc-compact-label relative z-10 flex min-h-11 flex-1 shrink-0 cursor-pointer select-none items-center justify-center rounded-full px-1.5 py-3 text-center text-[10px] font-black uppercase transition-[background-color,color,filter,transform] duration-200",
                 activeFilter === f
                   ? "bg-white/[0.055] text-orange-400 drop-shadow-[0_0_10px_rgba(249,115,22,0.25)]"
                   : "text-white/45 hover:bg-white/[0.035] hover:text-white/75"
@@ -1927,8 +1963,9 @@ export default function StatsScreen() {
                 type="button"
                 onClick={() => setActiveStatsSection(section.id)}
                 aria-current={isActive ? 'page' : undefined}
+                aria-pressed={isActive}
                 className={clsx(
-                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7.5px] font-black uppercase transition-[color,transform] duration-200 active:scale-[0.96]",
+                  "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7.5px] font-black uppercase transition-[color,transform] duration-200 active:scale-[0.96]",
                   isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
                 )}
               >
@@ -2054,10 +2091,20 @@ export default function StatsScreen() {
                 action={insights.length > 1 ? (
                   <div className="glass-aura flex items-center gap-1 rounded-full px-2 py-1">
                     <span className="mr-1 text-[9px] font-black text-white/45">{((currentInsightIndex % insights.length) + 1)}/{insights.length}</span>
-                    <button type="button" onClick={() => setCurrentInsightIndex((prev) => (prev - 1 + insights.length) % insights.length)} className="rounded-full p-1 text-white/55 active:scale-90">
+                    <button
+                      type="button"
+                      aria-label="Insight anterior"
+                      onClick={() => setCurrentInsightIndex((prev) => (prev - 1 + insights.length) % insights.length)}
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white/55 transition-[background-color,color,transform] active:scale-90 hover:bg-white/[0.055] hover:text-white/75"
+                    >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => setCurrentInsightIndex((prev) => (prev + 1) % insights.length)} className="rounded-full p-1 text-white/55 active:scale-90">
+                    <button
+                      type="button"
+                      aria-label="Próximo insight"
+                      onClick={() => setCurrentInsightIndex((prev) => (prev + 1) % insights.length)}
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-white/55 transition-[background-color,color,transform] active:scale-90 hover:bg-white/[0.055] hover:text-white/75"
+                    >
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -2217,6 +2264,14 @@ export default function StatsScreen() {
                       amostra
                     </div>
                   )}
+                  {shouldUseConsolidatedTotalChart && (
+                    <div
+                      className="rounded-full border border-orange-500/20 bg-orange-500/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em] text-orange-200/70"
+                      title="O total consolidado foi usado para evitar que a amostra temporal pareça zerada."
+                    >
+                      consolidado
+                    </div>
+                  )}
                   <div className="bg-orange-500/10 border border-orange-500/30 py-1 px-2.5 rounded-full text-[8.5px] font-black uppercase tracking-widest text-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.15)]">
                     {activeFilter}
                   </div>
@@ -2272,7 +2327,7 @@ export default function StatsScreen() {
                   </div>
                 ) : (() => {
                   // Check if all data points are zero
-                  const hasRealData = chartDisplayData.length > 0 && chartDisplayData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
+                  const hasRealData = visualChartDisplayData.length > 0 && visualChartDisplayData.some(d => (d.streams || 0) > 0 || (d.hours || 0) > 0);
 
                   if (!hasRealData) {
                     return (
@@ -2290,7 +2345,7 @@ export default function StatsScreen() {
 
                   return (
                     <div className={clsx("h-full w-full transition-opacity duration-200", isChartLoading && "opacity-35 pointer-events-none")}>
-                      <MeasuredActivityAreaChart data={chartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
+                      <MeasuredActivityAreaChart data={visualChartDisplayData} chartMetric={chartMetric} accentColor={accentColor} />
                     </div>
                   );
                 })()}

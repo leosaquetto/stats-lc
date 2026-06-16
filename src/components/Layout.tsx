@@ -2452,6 +2452,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       {typeof document !== 'undefined' && isOpen && createPortal(
           <div
             data-stats-lc-modal-surface="true"
+            role={isModalVisible || shouldRenderLyricsSheet ? 'dialog' : undefined}
+            aria-modal={isModalVisible || shouldRenderLyricsSheet ? true : undefined}
+            aria-label={isStandaloneLyrics || panel === 'lyrics' ? 'Letra da música' : 'Stats da música'}
+            tabIndex={isModalVisible || shouldRenderLyricsSheet ? -1 : undefined}
             className={clsx(
               "fixed inset-0 z-[1205]",
               isModalVisible ? "pointer-events-auto" : "pointer-events-none"

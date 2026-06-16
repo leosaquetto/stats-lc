@@ -357,8 +357,9 @@ export default function SettingsScreen() {
                 type="button"
                 onClick={() => scrollToSection(item.id)}
                 aria-current={activeSection === item.id ? 'page' : undefined}
+                aria-label={`Ir para seção ${item.label}`}
                 className={clsx(
-                  'stats-lc-compact-label relative z-20 min-w-[72px] shrink-0 rounded-2xl px-3.5 py-2 text-center text-[8px] font-black uppercase transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]',
+                  'stats-lc-compact-label relative z-20 flex min-h-11 min-w-[76px] shrink-0 items-center justify-center rounded-2xl px-3.5 py-2 text-center text-[8px] font-black uppercase transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]',
                   activeSection === item.id
                     ? 'bg-orange-500/16 text-orange-300 shadow-[inset_0_0_0_1px_rgba(255,95,0,0.18)]'
                     : 'text-white/42 hover:bg-white/[0.045] hover:text-white/72'
@@ -568,7 +569,7 @@ export default function SettingsScreen() {
                 <button
                   type="button"
                   onClick={() => setIsHistoryOpen(true)}
-                  className="flex h-10 items-center gap-2 rounded-2xl bg-orange-500 px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-orange-500/15 transition-[background-color,box-shadow,transform] duration-200 active:scale-95"
+                  className="flex min-h-11 items-center gap-2 rounded-2xl bg-orange-500 px-3 text-[10px] font-black uppercase tracking-[0.1em] text-white shadow-lg shadow-orange-500/15 transition-[background-color,box-shadow,transform] duration-200 active:scale-95"
                 >
                   Abrir
                   <ChevronRight className="h-3.5 w-3.5" />

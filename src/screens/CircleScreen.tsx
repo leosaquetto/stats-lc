@@ -1129,7 +1129,7 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
   };
 
   return (
-    <div className="relative flex flex-col gap-5 overflow-x-clip">
+    <div className="relative flex flex-col gap-5 overflow-x-clip pb-28">
       <div className="pointer-events-none absolute -top-28 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-orange-500/[0.055] blur-3xl" />
       <div className="sticky top-[max(env(safe-area-inset-top),12px)] z-40 px-4">
         <div className="grid grid-cols-4 gap-1 rounded-3xl border border-white/8 bg-black/72 p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
@@ -1143,8 +1143,9 @@ export default function CircleScreen({ initialTab = 'now' }: CircleScreenProps) 
                 type="button"
                 onClick={() => selectTab(tab.id)}
                 aria-current={isActive ? 'page' : undefined}
+                aria-pressed={isActive}
                 className={clsx(
-                  "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-[color,transform] duration-200 active:scale-[0.96]",
+                  "relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[7px] font-black uppercase tracking-[0.1em] transition-[color,transform] duration-200 active:scale-[0.96]",
                   isActive ? "text-orange-400" : "text-white/35 hover:text-white/60"
                 )}
               >

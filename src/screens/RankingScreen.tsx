@@ -453,14 +453,16 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
       </header>
 
       {/* Range Selector */}
-      <div className="stats-lc-glass-popover flex gap-2 overflow-x-auto rounded-3xl p-1 no-scrollbar scroll-fade-h">
+      <div className="stats-lc-glass-popover flex w-full max-w-full min-w-0 gap-1 rounded-3xl p-1">
         {ranges.map((r) => (
           <button
             key={r.id}
+            type="button"
             onClick={() => setActiveRange(r.id)}
             aria-current={activeRange === r.id ? 'page' : undefined}
+            aria-pressed={activeRange === r.id}
             className={clsx(
-              "px-5 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-[background-color,color,box-shadow,transform] duration-200 shrink-0 active:scale-[0.96]",
+              "flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-2xl px-1.5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-[background-color,color,box-shadow,transform] duration-200 active:scale-[0.96]",
               activeRange === r.id 
                 ? "bg-white text-black shadow-lg shadow-white/10" 
                 : "text-white/30 hover:text-white/60"
@@ -472,12 +474,13 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
       </div>
       
       {/* Ranking Type Selector */}
-      <div className="stats-lc-glass-popover flex gap-2 self-start rounded-3xl p-1">
+      <div className="stats-lc-glass-popover flex w-full max-w-full min-w-0 gap-1.5 overflow-x-auto rounded-3xl p-1 no-scrollbar sm:self-start sm:w-auto">
         <button
+          type="button"
           onClick={() => setRankingType('streams')}
           aria-pressed={rankingType === 'streams'}
           className={clsx(
-            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
+            "flex min-h-11 shrink-0 items-center justify-center rounded-2xl px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
             rankingType === 'streams' 
               ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
               : "text-white/30 hover:text-white/60"
@@ -486,10 +489,11 @@ export default function RankingScreen({ embedded = false }: RankingScreenProps) 
           Mais Tocadas
         </button>
         <button
+          type="button"
           onClick={() => setRankingType('duration')}
           aria-pressed={rankingType === 'duration'}
           className={clsx(
-            "px-4 py-2 rounded-2xl text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
+            "flex min-h-11 shrink-0 items-center justify-center rounded-2xl px-4 py-2 text-[9px] font-bold uppercase tracking-widest transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.96]",
             rankingType === 'duration' 
               ? "bg-orange-500/20 text-orange-500 border border-orange-500/20" 
               : "text-white/30 hover:text-white/60"

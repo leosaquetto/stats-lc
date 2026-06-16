@@ -299,12 +299,18 @@ export const PerceptionsPanel = ({
                 key={`perception-dot-${item.title}`}
                 type="button"
                 onClick={() => goTo(index)}
-                className={cn(
-                  "h-1.5 rounded-full transition-[width,background-color]",
-                  index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
-                )}
+                className="flex h-11 min-w-11 items-center justify-center rounded-full transition-transform active:scale-95"
                 aria-label={`Abrir ${item.title}`}
-              />
+                aria-pressed={index === activeIndex}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 rounded-full transition-[width,background-color]",
+                    index === activeIndex ? "w-5 bg-orange-500" : "w-1.5 bg-white/18"
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
             ))}
           </div>
         )}
