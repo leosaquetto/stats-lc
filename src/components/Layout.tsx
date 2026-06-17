@@ -6,13 +6,13 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Sparkles, Moon, Rabbit } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, PieChart, Trophy, Flame, Repeat2, Sunrise, TimerReset, BadgePercent } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
 import { coreUtils } from '../services/statsCore';
-import { statsService } from '../services/statsService';
-import { AnimatedNumber, EngineBreathe, EngineEqualizer, EngineShimmer, EngineSpinner, SkeletonSurface, SmartImage } from './shared/CommonUI';
+import { statsService, type TrackStoryResponse } from '../services/statsService';
+import { AnimatedNumber, EngineBreathe, EngineEqualizer, EngineSpinner, SkeletonSurface, SmartImage } from './shared/CommonUI';
 import { attachLiveNowPlayingToMember, getCanonicalMembersWithLive } from '../lib/memberSelectors';
 import { getMainArtist, getMainArtistName } from '../lib/artistUtils';
 import { parseTrackTitleBadges } from '../lib/trackTitleBadges';
@@ -482,30 +482,24 @@ const formatFullDate = (value: any) => {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const formatBadgeDate = (timestamp: string | number) => {
-  const time = parseDateMs(timestamp);
-  if (!time) return '';
-  const date = new Date(time);
+const formatTinyDate = (value: any) => {
+  if (!value) return 'sem registro';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return 'sem registro';
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
+
+const formatTinyTime = (value: any) => {
+  if (!value) return '';
+  const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return '';
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  const dateStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+};
 
-  if (dateStart === todayStart.getTime()) {
-    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  }
-  if (dateStart === yesterdayStart.getTime()) return 'ONTEM';
-
-  const currentYear = new Date().getFullYear();
-  const year = date.getFullYear();
-
-  const options: Intl.DateTimeFormatOptions = year === currentYear
-    ? { day: 'numeric', month: 'short' }
-    : { day: 'numeric', month: 'short', year: 'numeric' };
-
-  return date.toLocaleDateString('pt-BR', options).replace(/\sde\s/g, ' ').toUpperCase();
+const clampPercent = (value: any) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
 };
 
 const parseDateMs = (value: any) => {
@@ -520,19 +514,6 @@ const parseDateMs = (value: any) => {
   }
   const parsed = value ? new Date(value).getTime() : 0;
   return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const getSaoPauloDayKey = (value: any) => {
-  const time = parseDateMs(value);
-  if (!time) return '';
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(time));
-  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${map.year}-${map.month}-${map.day}`;
 };
 
 const getReleaseDateDayKey = (value: any) => {
@@ -603,49 +584,6 @@ const cleanLyricsForDisplay = (lyrics?: string | null) => {
   }
 
   return output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-};
-
-const getDayKey = (value: any) => {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return '';
-  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-};
-
-const getStreamTime = (item: any) => {
-  const value = item?.playedAt || item?.timestamp || item?.endTime || item?.date || item?.createdAt;
-  const time = value ? new Date(value).getTime() : 0;
-  return Number.isFinite(time) ? time : 0;
-};
-
-const summarizeTrackHistory = (items: any[], currentTimestamp?: string) => {
-  const currentTime = currentTimestamp ? new Date(currentTimestamp).getTime() : 0;
-  const history = items
-    .filter((item) => {
-      const time = getStreamTime(item);
-      if (!time) return false;
-      if (!currentTime) return true;
-      return Math.abs(time - currentTime) > 90_000;
-    })
-    .sort((a, b) => getStreamTime(a) - getStreamTime(b));
-  const years = history.reduce<Record<string, number>>((acc, item) => {
-    const year = new Date(getStreamTime(item)).getFullYear();
-    if (Number.isFinite(year)) acc[String(year)] = (acc[String(year)] || 0) + 1;
-    return acc;
-  }, {});
-  const bestYear = Object.entries(years).sort((a, b) => b[1] - a[1])[0];
-  return {
-    firstPlayedAt: history[0] ? getStreamTime(history[0]) : 0,
-    lastPlayedAt: history[history.length - 1] ? getStreamTime(history[history.length - 1]) : 0,
-    bestYear: bestYear ? bestYear[0] : '',
-    bestYearCount: bestYear ? bestYear[1] : 0,
-  };
-};
-
-const getEarliestStream = (items: any[]) => {
-  return items
-    .map((item) => getStreamTime(item))
-    .filter((time) => time > 0)
-    .sort((a, b) => a - b)[0] || 0;
 };
 
 const getRecentPlaybackTrack = (user: any) => {
@@ -724,8 +662,14 @@ type BottomTrackStatsPanelData = {
   artistStats: Array<{ id: string; name: string; image: string; key: string; count: number }>;
   circleFirstListen: { user: any; playedAt: number } | null;
   circleFirstListeners: Array<{ user: any; playedAt: number }>;
-  hasFriendHistory: boolean;
-  trackHistory: { firstPlayedAt: number; lastPlayedAt: number; bestYear: string; bestYearCount: number };
+  releaseListeners: Array<{ user: any; playedAt: number; count: number }>;
+  ranking: Array<{ user: any; count: number; position: number }>;
+  groupTotalPlays: number | null;
+  cakePiecePercent: number | null;
+  trackHistory: { firstPlayedAt: number; lastPlayedAt: number; previousPlayedAt: number; bestYear: string; bestYearCount: number };
+  wrapped: TrackStoryResponse['history']['wrapped'];
+  advanced: TrackStoryResponse['advanced'];
+  coveragePartial: boolean;
 };
 
 type BottomTrackStatsHydrationState = {
@@ -762,8 +706,14 @@ const emptyBottomTrackStatsPanelData: BottomTrackStatsPanelData = {
   artistStats: [],
   circleFirstListen: null,
   circleFirstListeners: [],
-  hasFriendHistory: false,
-  trackHistory: { firstPlayedAt: 0, lastPlayedAt: 0, bestYear: '', bestYearCount: 0 },
+  releaseListeners: [],
+  ranking: [],
+  groupTotalPlays: null,
+  cakePiecePercent: null,
+  trackHistory: { firstPlayedAt: 0, lastPlayedAt: 0, previousPlayedAt: 0, bestYear: '', bestYearCount: 0 },
+  wrapped: null,
+  advanced: null,
+  coveragePartial: false,
 };
 
 const emptyBottomTrackStatsHydration: BottomTrackStatsHydrationState = {
@@ -795,13 +745,20 @@ const createPreloadedBottomTrackStatsPanelData = (knownTrackCount?: number, acti
     artistStats: [],
     circleFirstListen: null,
     circleFirstListeners: [],
-    hasFriendHistory: false,
+    releaseListeners: [],
+    ranking: [],
+    groupTotalPlays: null,
+    cakePiecePercent: null,
     trackHistory: {
       firstPlayedAt: playedAt,
       lastPlayedAt: playedAt,
+      previousPlayedAt: 0,
       bestYear: '',
       bestYearCount: 0,
     },
+    wrapped: null,
+    advanced: null,
+    coveragePartial: false,
   };
 };
 
@@ -847,39 +804,6 @@ const readExpiringCache = <T,>(cache: Map<string, { expiresAt: number; data: T }
     return null;
   }
   return cached.data;
-};
-
-const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> => {
-  if (typeof window === 'undefined') return promise.catch(() => fallback);
-  let timeoutId = 0;
-  try {
-    return await Promise.race([
-      promise.catch(() => fallback),
-      new Promise<T>((resolve) => {
-        timeoutId = window.setTimeout(() => resolve(fallback), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
-  }
-};
-
-const runLimited = async <T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>
-): Promise<R[]> => {
-  const results: R[] = [];
-  let nextIndex = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const currentIndex = nextIndex;
-      nextIndex += 1;
-      results[currentIndex] = await worker(items[currentIndex]);
-    }
-  });
-  await Promise.all(workers);
-  return results;
 };
 
 const loadLyricsMatch = (trackName: string, artistName: string) => {
@@ -943,6 +867,87 @@ const getBottomTrackStatsLookupKey = (
   members.map((member) => member.id).filter(Boolean).sort().join('|'),
 );
 
+const resolveStoryUser = (members: any[], fallbackUser: any, id: string, key?: string) => {
+  return members.find((member) => member.id === id || member.key === key)
+    || (fallbackUser?.id === id ? fallbackUser : null)
+    || { id, key, name: key || id, avatar: '' };
+};
+
+const createPanelDataFromTrackStory = ({
+  story,
+  user,
+  trackArtists,
+  members,
+  knownTrackCount,
+  currentTimestamp,
+}: {
+  story: TrackStoryResponse;
+  user: any;
+  trackArtists: Array<{ id: string; name: string; image: string; key: string }>;
+  members: any[];
+  knownTrackCount?: number;
+  currentTimestamp?: any;
+}): BottomTrackStatsPanelData => {
+  const artistCountById = new Map(story.counts.artists.map((artist) => [artist.id, artist.count]));
+  const artistStats = trackArtists.map((artist) => ({
+    ...artist,
+    count: artist.id ? artistCountById.get(artist.id) ?? 0 : 0,
+  }));
+  const primaryArtistCount = artistStats[0]?.count || 0;
+  const firstListeners = (story.social.firstListeners || [])
+    .filter((entry) => entry.playedAt > 0)
+    .map((entry) => ({
+      user: resolveStoryUser(members, user, entry.id, entry.key),
+      playedAt: entry.playedAt,
+      count: entry.count,
+    }));
+  const firstPlayedAt = parseDateMs(story.history.firstPlayedAt);
+  const fallbackCurrentTime = entryTimestampMs(currentTimestamp);
+  const ownFirstListen = firstPlayedAt > 0 && !firstListeners.some((entry) => entry.user?.id === user?.id)
+    ? [{ user, playedAt: firstPlayedAt, count: story.counts.track || knownTrackCount || 0 }]
+    : [];
+  const firstDayListeners = [...firstListeners, ...ownFirstListen]
+    .sort((a, b) => a.playedAt - b.playedAt);
+  const releaseListeners = (story.social.releaseListeners || [])
+    .filter((entry) => entry.playedAt > 0)
+    .map((entry) => ({
+      user: resolveStoryUser(members, user, entry.id, entry.key),
+      playedAt: entry.playedAt,
+      count: entry.count,
+    }));
+  const ranking = (story.social.ranking || []).map((entry) => ({
+    user: resolveStoryUser(members, user, entry.id, entry.key),
+    count: entry.count,
+    position: entry.position,
+  }));
+  const bestYear = story.history.bestYear;
+
+  return {
+    artistStats,
+    entityStats: {
+      artist: primaryArtistCount,
+      track: story.counts.track ?? knownTrackCount ?? 0,
+      album: story.counts.album ?? 0,
+    },
+    circleFirstListen: firstDayListeners[0] || null,
+    circleFirstListeners: firstDayListeners,
+    releaseListeners,
+    ranking,
+    groupTotalPlays: ranking.reduce((sum, entry) => sum + entry.count, 0),
+    cakePiecePercent: story.social.cakePiecePercent,
+    trackHistory: {
+      firstPlayedAt: firstPlayedAt || fallbackCurrentTime,
+      lastPlayedAt: parseDateMs(story.history.lastPlayedAt) || fallbackCurrentTime,
+      previousPlayedAt: parseDateMs(story.history.previousPlayedAt),
+      bestYear: bestYear ? String(bestYear.year) : '',
+      bestYearCount: bestYear?.count || 0,
+    },
+    wrapped: story.history.wrapped,
+    advanced: story.advanced,
+    coveragePartial: !!story.coverage?.partial,
+  };
+};
+
 const loadBottomTrackStatsPanelData = async ({
   user,
   trackId,
@@ -951,6 +956,7 @@ const loadBottomTrackStatsPanelData = async ({
   members,
   currentTimestamp,
   knownTrackCount,
+  releaseDate,
   mode = 'full',
 }: {
   user: any;
@@ -960,6 +966,7 @@ const loadBottomTrackStatsPanelData = async ({
   members: any[];
   currentTimestamp?: any;
   knownTrackCount?: number;
+  releaseDate?: any;
   mode?: 'fast' | 'full';
 }): Promise<BottomTrackStatsPanelSnapshot> => {
   const cacheKey = getBottomTrackStatsLookupKey(user, trackId, albumId, trackArtists, members);
@@ -971,62 +978,34 @@ const loadBottomTrackStatsPanelData = async ({
   if (running) return running;
 
   const promise = (async () => {
-    const artistsToFetch = trackArtists.filter((artist) => artist.id);
-    const [artistCounts, trackCount, album, history] = await Promise.all([
-      Promise.all(artistsToFetch.map((artist) =>
-        withTimeout(statsService.fetchEntityStats(user.id, 'artist', artist.id), mode === 'fast' ? 1200 : 2200, 0)
-      )),
-      typeof knownTrackCount === 'number'
-        ? Promise.resolve(knownTrackCount)
-        : withTimeout(statsService.fetchEntityStats(user.id, 'track', trackId), mode === 'fast' ? 1200 : 2200, 0),
-      albumId ? withTimeout(statsService.fetchEntityStats(user.id, 'album', albumId), mode === 'fast' ? 1200 : 2200, 0) : Promise.resolve(0),
-      withTimeout(statsService.fetchEntityStreams(user.id, 'track', trackId, 240), mode === 'fast' ? 1400 : 2800, []),
-    ]);
-    const memberHistories = mode === 'fast'
-      ? []
-      : await runLimited(
-        members.filter((member) => member.id !== user.id),
-        3,
-        (member) =>
-        withTimeout(
-          statsService.fetchEntityStreams(member.id, 'track', trackId, 80)
-            .then((items) => ({ member, items })),
-          1800,
-          { member, items: [] }
-        )
-      );
-    const nextArtistStats = artistsToFetch.map((artist, index) => ({
-      ...artist,
-      count: artistCounts[index] || 0,
-    }));
-    const primaryArtistCount = nextArtistStats[0]?.count || 0;
-    const ownEntry = { member: user, playedAt: getEarliestStream(history), hasItems: history.length > 0 };
-    const friendEntries = [
-      ownEntry,
-      ...memberHistories.map(({ member, items }) => {
-        return { member, playedAt: getEarliestStream(items), hasItems: items.length > 0 };
-      }),
-    ]
-      .filter((entry) => entry.playedAt > 0)
-      .sort((a, b) => a.playedAt - b.playedAt);
-    const friendsWithHistory = friendEntries.filter((entry) => entry.member.id !== user.id);
-    const firstEntry = friendEntries[0];
-    const firstDayEntries = firstEntry
-      ? friendEntries.filter((entry) => getDayKey(entry.playedAt) === getDayKey(firstEntry.playedAt))
-      : [];
+    if (mode === 'fast') {
+      return {
+        data: createPreloadedBottomTrackStatsPanelData(knownTrackCount, { timestamp: currentTimestamp }),
+        hydration: {
+          metrics: typeof knownTrackCount === 'number',
+          artistStats: false,
+          history: !!currentTimestamp,
+          social: false,
+        },
+      };
+    }
 
-    const data: BottomTrackStatsPanelData = {
-      artistStats: nextArtistStats,
-      entityStats: { artist: primaryArtistCount, track: trackCount, album },
-      trackHistory: summarizeTrackHistory(history, currentTimestamp || user?.nowPlaying?.timestamp),
-      circleFirstListen: friendsWithHistory.length > 0 && firstEntry
-        ? { user: firstEntry.member, playedAt: firstEntry.playedAt }
-        : null,
-      circleFirstListeners: friendsWithHistory.length > 0
-        ? firstDayEntries.map((entry) => ({ user: entry.member, playedAt: entry.playedAt }))
-        : [],
-      hasFriendHistory: friendsWithHistory.length > 0,
-    };
+    const story = await statsService.fetchTrackStory({
+      userId: user.id,
+      trackId,
+      albumId,
+      artistIds: trackArtists.map((artist) => artist.id).filter(Boolean),
+      releaseDate,
+      currentPlayedAt: currentTimestamp,
+    });
+    const data = createPanelDataFromTrackStory({
+      story,
+      user,
+      trackArtists,
+      members,
+      knownTrackCount,
+      currentTimestamp,
+    });
     const snapshot: BottomTrackStatsPanelSnapshot = {
       data,
       hydration: {
@@ -1063,7 +1042,7 @@ const ArtistNamesInline = ({ artists, fallback }: { artists: Array<{ name: strin
 
         return (
           <React.Fragment key={`${name}-${index}`}>
-            {separator && <span className="text-orange-300/72">{separator}</span>}
+            {separator && <span className="text-white/36">{separator}</span>}
             <span>{name}</span>
           </React.Fragment>
         );
@@ -1253,11 +1232,305 @@ const ModalSkeleton = ({ className = "" }: { className?: string }) => (
   <SkeletonSurface as="span" className={clsx("block rounded-full bg-white/[0.045]", className)} />
 );
 
+const TwoLineText = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
+  <span
+    className={clsx("block min-w-0 overflow-hidden", className)}
+    style={{
+      display: '-webkit-box',
+      WebkitLineClamp: 2,
+      WebkitBoxOrient: 'vertical',
+    }}
+  >
+    {children}
+  </span>
+);
+
+const StoryMetricCard = ({
+  icon: Icon,
+  label,
+  title,
+  value,
+  children,
+}: {
+  icon: typeof Music2;
+  label: string;
+  title: string;
+  value: React.ReactNode;
+  children?: React.ReactNode;
+}) => (
+  <div className="stats-lc-soft-white-glass min-w-0 rounded-[20px] p-3">
+    <div className="flex items-center gap-2 text-white/46">
+      <Icon className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+      <span className="min-w-0 text-[6.5px] font-black uppercase leading-none tracking-[0.12em]">{label}</span>
+    </div>
+    <TwoLineText className="mt-2 text-[11px] font-black leading-[1.05] text-white/86">{title}</TwoLineText>
+    <strong className="mt-2 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(18px, 5.2vw, 23px)' }}>
+      {value}
+    </strong>
+    {children}
+  </div>
+);
+
+const StoryField = ({
+  icon: Icon,
+  label,
+  value,
+  children,
+}: {
+  icon: typeof Music2;
+  label: string;
+  value?: React.ReactNode;
+  children?: React.ReactNode;
+}) => (
+  <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
+    <div className="flex items-center gap-1.5 text-white/42">
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+      <span className="text-[6.5px] font-black uppercase leading-none tracking-[0.12em]">{label}</span>
+    </div>
+    {value != null && (
+      <div className="mt-1.5 text-[10px] font-black leading-tight text-white/82">{value}</div>
+    )}
+    {children}
+  </div>
+);
+
+const CompactStoryItem = ({
+  icon: Icon,
+  label,
+  value,
+  valueClassName,
+  children,
+}: {
+  icon: typeof Music2;
+  label: string;
+  value?: React.ReactNode;
+  valueClassName?: string;
+  children?: React.ReactNode;
+}) => (
+  <div className="min-w-0 px-1 py-0.5">
+    <div className="flex min-w-0 items-center gap-1.5 text-white/42">
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+      <span className="min-w-0 text-[6.5px] font-black uppercase leading-[0.95] tracking-[0.09em]">{label}</span>
+    </div>
+    {value != null && (
+      <div className={clsx("mt-1.5 min-w-0 text-[10px] font-black leading-tight text-white/82", valueClassName)}>{value}</div>
+    )}
+    {children}
+  </div>
+);
+
+const DateTimeBadge = ({ value, empty = 'sem registro' }: { value: any; empty?: string }) => {
+  const date = formatTinyDate(value);
+  if (date === 'sem registro') {
+    return <span className="inline-flex rounded-full bg-white/[0.065] px-2 py-1 text-[9px] font-black leading-none text-white/54">{empty}</span>;
+  }
+  const time = formatTinyTime(value);
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-white/[0.075] px-2 py-1 font-black leading-none text-white/82">
+      <span className="text-[9px] tabular-nums">{date}</span>
+      {time && <span className="text-[8px] tabular-nums text-white/48">{time}</span>}
+    </span>
+  );
+};
+
+const DateBadge = ({ value, empty = 'sem registro' }: { value: any; empty?: string }) => {
+  const date = formatTinyDate(value);
+  return (
+    <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] font-black leading-none tabular-nums text-white/82">
+      {date === 'sem registro' ? empty : date}
+    </span>
+  );
+};
+
+const ReleaseBadge = ({ value }: { value: any }) => {
+  const date = formatTinyDate(value);
+  return (
+    <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] font-black leading-none tabular-nums text-white/82">
+      {date}
+    </span>
+  );
+};
+
+const AvatarStack = ({
+  entries,
+  limit = 5,
+  className = "mt-2",
+}: {
+  entries: Array<{ user: any; playedAt?: number; count?: number }>;
+  limit?: number;
+  className?: string;
+}) => {
+  const visible = entries.slice(0, limit);
+  if (visible.length === 0) return <span className="text-[10px] font-black text-white/42">sem registro</span>;
+
+  return (
+    <div className={clsx("flex min-w-0 items-center gap-2", className)}>
+      <div className="flex -space-x-2">
+        {visible.map((entry, index) => (
+          <span key={`${entry.user?.id || index}-${entry.playedAt || ''}`} className="h-6 w-6 overflow-hidden rounded-full bg-white/[0.06] ring-1 ring-white/[0.12]">
+            <SmartImage
+              src={coreUtils.getUserAvatar(entry.user?.id, entry.user?.avatar)}
+              className="h-full w-full object-cover"
+              rounded="full"
+              fallback={entry.user?.name || '?'}
+            />
+          </span>
+        ))}
+      </div>
+      {entries.length > limit && (
+        <span className="text-[9px] font-black text-white/48">+{entries.length - limit}</span>
+      )}
+    </div>
+  );
+};
+
+const CompactAvatarRank = ({ ranking, limit = 5 }: { ranking: Array<{ user: any; count: number; position: number }>; limit?: number }) => {
+  const visible = ranking.slice(0, limit);
+  if (visible.length === 0) return null;
+  return (
+    <div className="flex min-w-0 items-center">
+      <div className="flex -space-x-2.5">
+        {visible.map((item) => (
+          <span key={item.user?.id || item.position} className="relative h-7 w-7 shrink-0 rounded-full bg-white/[0.06] ring-1 ring-white/[0.12]">
+            <span className="block h-full w-full overflow-hidden rounded-full">
+              <SmartImage
+                src={coreUtils.getUserAvatar(item.user?.id, item.user?.avatar)}
+                cacheKey={`bottom-track-ranking-avatar:${item.user?.id || item.position}`}
+                className="h-full w-full object-cover"
+                rounded="full"
+                fallback={item.user?.name || '?'}
+              />
+            </span>
+            <span className="absolute -top-1 -right-1 rounded-full bg-white/[0.18] px-1 text-[6px] font-black leading-[10px] text-white">
+              #{item.position}
+            </span>
+            <span className="absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full bg-white/[0.16] px-1 py-[1px] text-center text-[6px] font-black leading-none text-white/88 backdrop-blur-md">
+              {coreUtils.formatNumber(item.count)}
+            </span>
+          </span>
+        ))}
+      </div>
+      {ranking.length > limit && (
+        <span className="ml-3 text-[8px] font-black text-white/42">+{ranking.length - limit}</span>
+      )}
+    </div>
+  );
+};
+
+const TimelineStack = ({
+  releaseValue,
+  firstPlayValue,
+  previousPlayValue,
+}: {
+  releaseValue: any;
+  firstPlayValue: any;
+  previousPlayValue: any;
+}) => (
+  <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
+    <div className="space-y-2">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
+          <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.2} />
+          Release
+        </span>
+        <ReleaseBadge value={releaseValue} />
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
+          <Clock3 className="h-3.5 w-3.5" strokeWidth={2.2} />
+          Primeiro play
+        </span>
+        <DateTimeBadge value={firstPlayValue} />
+      </div>
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
+          <TimerReset className="h-3.5 w-3.5" strokeWidth={2.2} />
+          Último play
+        </span>
+        <DateTimeBadge value={previousPlayValue} empty="sem anterior" />
+      </div>
+    </div>
+  </div>
+);
+
+const SocialBubble = ({
+  entries,
+  label,
+}: {
+  entries: Array<{ user: any; playedAt?: number; count?: number }>;
+  label: string;
+}) => (
+  <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-1.5 text-white/42">
+        <UsersRound className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+        <span className="min-w-0 text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">{label}</span>
+      </div>
+      <AvatarStack entries={entries} limit={7} className="" />
+    </div>
+  </div>
+);
+
+const GroupStatsBubble = ({
+  cakePiecePercent,
+  groupTotalPlays,
+  ranking,
+}: {
+  cakePiecePercent: number | null;
+  groupTotalPlays: number | null;
+  ranking: Array<{ user: any; count: number; position: number }>;
+}) => {
+  if (groupTotalPlays == null && cakePiecePercent == null && ranking.length === 0) return null;
+  return (
+    <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
+      <div className={clsx("grid gap-2", cakePiecePercent != null ? "grid-cols-2" : "grid-cols-1")}>
+        {groupTotalPlays != null && (
+          <CompactStoryItem icon={AudioLines} label="Plays do grupo" value={coreUtils.formatNumber(groupTotalPlays)} />
+        )}
+        {cakePiecePercent != null && (
+          <CompactStoryItem icon={PieChart} label="Cake" value={`${cakePiecePercent}%`} />
+        )}
+      </div>
+      {ranking.length > 0 && (
+        <div className={clsx((groupTotalPlays != null || cakePiecePercent != null) && "mt-2 border-t border-white/[0.06] pt-2")}>
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5 text-white/42">
+              <Trophy className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+              <span className="text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">Ranking</span>
+            </div>
+            <CompactAvatarRank ranking={ranking} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatMiniBubble = ({
+  icon: Icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: typeof Music2;
+  label: string;
+  value: React.ReactNode;
+  detail?: React.ReactNode;
+}) => (
+  <div className="bottom-track-stats-surface min-w-[94px] flex-1 rounded-[16px] px-3 py-2">
+    <div className="flex min-w-0 items-center gap-1.5 text-white/42">
+      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+      <span className="min-w-0 truncate text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">{label}</span>
+    </div>
+    <div className="mt-1.5 text-[10px] font-black leading-tight text-white/82">{value}</div>
+    {detail && <div className="mt-1 text-[8px] font-bold leading-tight text-white/38">{detail}</div>}
+  </div>
+);
+
 const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const groupStats = useStatsStore(state => state.groupStats);
   const liveNowPlayingByUserId = useStatsStore(state => state.liveNowPlayingByUserId);
   const userTrackStats = useStatsStore(state => state.userTrackStats);
-  const fetchTrackStatsForAll = useStatsStore(state => state.fetchTrackStatsForAll);
   const getHistoryCache = useStatsStore(state => state.getHistoryCache);
   const setHistoryCache = useStatsStore(state => state.setHistoryCache);
   const motionRuntime = useMotionRuntime();
@@ -1356,10 +1629,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   }, []);
 
   const members = React.useMemo(() => getCanonicalMembersWithLive(groupStats, liveNowPlayingByUserId), [groupStats, liveNowPlayingByUserId]);
-  const panelUser = React.useMemo(() => {
-    if (!externalPlayback?.userId) return user;
-    return members.find((member) => member.id === externalPlayback.userId) || user;
-  }, [externalPlayback?.userId, members, user]);
+  const panelUser = user;
   const panelUserId = panelUser?.id;
   React.useEffect(() => {
     setResolvedOwnRecent([]);
@@ -1592,26 +1862,20 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     [albumId, membersSignature, panelUserId, trackArtistsSignature, trackId]
   );
   const knownUserTrackCount = userTrackStats[`${panelUserId}:${trackId}`];
-  const hasHydratedTrackRanking = React.useMemo(() => {
-    if (!trackId || members.length === 0) return false;
-    return members.every((member) => Object.prototype.hasOwnProperty.call(userTrackStats, `${member.id}:${trackId}`));
-  }, [members, trackId, userTrackStats]);
-  const { entityStats, artistStats, circleFirstListen, circleFirstListeners, hasFriendHistory, trackHistory } = panelData;
-  const isReleaseDayFirstListen = React.useMemo(() => {
-    if (!albumReleaseRawDate || !circleFirstListen?.playedAt) return false;
-    const releaseDayKey = getReleaseDateDayKey(albumReleaseRawDate);
-    const playedDayKey = getSaoPauloDayKey(circleFirstListen.playedAt);
-    if (!releaseDayKey || !playedDayKey) return false;
-
-    if (releaseDayKey === playedDayKey) return true;
-
-    const releaseDate = new Date(`${releaseDayKey}T00:00:00.000Z`);
-    if (!Number.isFinite(releaseDate.getTime())) return false;
-    releaseDate.setUTCDate(releaseDate.getUTCDate() - 1);
-    const previousReleaseDayKey = releaseDate.toISOString().slice(0, 10);
-
-    return previousReleaseDayKey === playedDayKey;
-  }, [albumReleaseRawDate, circleFirstListen?.playedAt]);
+  const {
+    entityStats,
+    artistStats,
+    circleFirstListen,
+    circleFirstListeners,
+    releaseListeners,
+    ranking: storyRanking,
+    groupTotalPlays,
+    cakePiecePercent,
+    trackHistory,
+    wrapped,
+    advanced,
+    coveragePartial,
+  } = panelData;
   const writerNames = React.useMemo(() => {
     const writers = (lyricsMatch?.writers || [])
       .map((writer) => writer.trim())
@@ -1727,19 +1991,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         members,
         currentTimestamp: undefined,
         knownTrackCount: knownUserTrackCount,
+        releaseDate: albumReleaseRawDate,
         mode: 'full',
       }).catch(() => undefined);
     }, 800, 'ambient');
     return () => cancelTask();
-  }, [albumId, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
-
-  React.useEffect(() => {
-    if (!shouldLoadStatsPanel || !trackId || !members.length || hasHydratedTrackRanking) return;
-    const cancelTask = motionRuntimeScheduler.scheduleTask(() => {
-      fetchTrackStatsForAll(trackId).catch(() => undefined);
-    }, 760, 'interaction');
-    return () => cancelTask();
-  }, [fetchTrackStatsForAll, hasHydratedTrackRanking, members.length, shouldLoadStatsPanel, trackId]);
+  }, [albumId, albumReleaseRawDate, isOpen, knownUserTrackCount, members, panelUser, trackArtists, trackId]);
 
   React.useEffect(() => {
     if (!panelUser?.id || !trackId) {
@@ -1791,11 +2048,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
           trackId,
           albumId,
           trackArtists,
-          members,
-          currentTimestamp: activePlayback?.timestamp,
-          knownTrackCount: knownUserTrackCount,
-          mode: 'fast',
-        }).then((snapshot) => {
+        members,
+        currentTimestamp: activePlayback?.timestamp,
+        knownTrackCount: knownUserTrackCount,
+        releaseDate: albumReleaseRawDate,
+        mode: 'fast',
+      }).then((snapshot) => {
           if (cancelled || panelRequestKeyRef.current !== requestKey) return;
           React.startTransition(() => {
             setPanelData(snapshot.data);
@@ -1814,6 +2072,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         members,
         currentTimestamp: activePlayback?.timestamp,
         knownTrackCount: knownUserTrackCount,
+        releaseDate: albumReleaseRawDate,
         mode: 'full',
       }).then((snapshot) => {
         if (cancelled || panelRequestKeyRef.current !== requestKey) return;
@@ -1830,55 +2089,39 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       cancelFastTask();
       cancelFullTask();
     };
-  }, [activePlayback?.timestamp, albumId, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, shouldLoadStatsPanel, trackArtistsSignature, trackId]);
+  }, [activePlayback?.timestamp, albumId, albumReleaseRawDate, isPanelFullyReady, knownUserTrackCount, membersSignature, panelCacheKey, panelUser, shouldLoadStatsPanel, trackArtistsSignature, trackId]);
 
-  const ranking = React.useMemo(() => {
-    if (!trackId) return [];
-    return members
-      .map(member => ({
-        user: member,
-        count: userTrackStats[`${member.id}:${trackId}`] || 0,
-      }))
-      .filter(item => item.count > 0)
-      .sort((a, b) => b.count - a.count);
-  }, [members, trackId, userTrackStats]);
-  const hasPreviousTrackHistory = panelHydration.history && !!trackHistory.firstPlayedAt;
-  const historyReferencePlayedAt = trackHistory.lastPlayedAt
+  const historyReferencePlayedAt = trackHistory.previousPlayedAt
+    || trackHistory.lastPlayedAt
     || trackHistory.firstPlayedAt
     || entryTimestampMs(activePlayback?.timestamp)
     || modalOpenedAtRef.current;
-  const firstPlayedBadgeAt = trackHistory.firstPlayedAt || historyReferencePlayedAt;
-  const lastPlayedBadgeAt = trackHistory.lastPlayedAt || historyReferencePlayedAt;
-  const historyYear = trackHistory.bestYear || String(new Date(historyReferencePlayedAt).getFullYear());
-  const historyYearCount = trackHistory.bestYearCount || 1;
-  const visibleSocialRanking = hasHydratedTrackRanking ? ranking : [];
-  const shouldShowSocialRankingBadge = visibleSocialRanking.length > 1;
-  const circleFirstName = circleFirstListen?.user?.name?.split(/\s+/)[0]?.toLowerCase() || '';
+  const firstPlayDate = trackHistory.firstPlayedAt || historyReferencePlayedAt;
+  const previousPlayDate = trackHistory.previousPlayedAt || 0;
   const firstDayGroup = circleFirstListeners.length > 0
     ? circleFirstListeners
     : circleFirstListen
       ? [circleFirstListen]
       : [];
-  const hasFirstDayGroup = firstDayGroup.length > 1;
-  const socialInsight = circleFirstListen
-    ? hasFirstDayGroup
-      ? isReleaseDayFirstListen
-        ? `Vocês foram os primeiros do círculo a ouvirem essa faixa na data de lançamento, ${formatFullDate(circleFirstListen.playedAt)}.`
-        : `Vocês foram os primeiros do círculo a ouvirem essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
-      : circleFirstListen.user.id === panelUser?.id
-      ? isReleaseDayFirstListen
-        ? `Você foi o primeiro do círculo a ouvir essa faixa na data de lançamento, ${formatFullDate(circleFirstListen.playedAt)}.`
-        : `Você foi o primeiro do círculo a ouvir essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
-      : isReleaseDayFirstListen
-        ? `${circleFirstName.charAt(0).toUpperCase()}${circleFirstName.slice(1)} foi o primeiro do círculo a ouvir essa faixa na data de lançamento, ${formatFullDate(circleFirstListen.playedAt)}.`
-        : `${circleFirstName.charAt(0).toUpperCase()}${circleFirstName.slice(1)} foi o primeiro do círculo a ouvir essa faixa em ${formatFullDate(circleFirstListen.playedAt)}.`
-    : hasFriendHistory
-      ? 'O círculo já ouviu, mas sem data confiável.'
-      : 'Só você ouviu essa faixa por enquanto.';
+  const hasReleaseListeners = releaseListeners.length > 0;
+  const socialEntries = hasReleaseListeners ? releaseListeners : firstDayGroup;
+  const socialLabel = hasReleaseListeners
+    ? 'Ouviram no lançamento'
+    : firstDayGroup.length > 1
+      ? 'Ouviram primeiro'
+      : 'Ouviu primeiro';
+  const hasSocialEntries = socialEntries.length > 0;
   const trackMetricReady = panelHydration.metrics || typeof knownUserTrackCount === 'number';
-  const socialAvatarEntries = React.useMemo(() => {
-    return firstDayGroup.length > 0 ? firstDayGroup : [{ user: panelUser, playedAt: 0 }];
-  }, [firstDayGroup, panelUser]);
+  const visibleSocialRanking = storyRanking.length > 0 ? storyRanking : [];
+  const shouldShowAdvancedStats = (entityStats.track || knownUserTrackCount || 0) > 10 && !!advanced;
+  const daypartPercent = clampPercent(advanced?.daypart?.percent);
+  const daypartLabel = advanced?.daypart
+    ? `${daypartPercent ?? 0}% ${advanced.daypart.label}`
+    : 'sem registro';
+  const daysSinceLabel = advanced?.daysSinceFirst != null ? `${advanced.daysSinceFirst}d` : 'sem registro';
+  const loopFactorDate = advanced?.loopFactor?.day
+    ? `${advanced.loopFactor.day}T12:00:00.000Z`
+    : null;
   const artistStatSkeletons = (trackArtists.length > 0
     ? trackArtists
     : [{ id: 'artist-skeleton', name: artistName || 'Artista', image: artistImage || '', key: 'artist-skeleton' }]
@@ -2515,7 +2758,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
             />
             {!isStandaloneLyrics && (
-            <div className="absolute inset-0 flex items-end justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-12 pointer-events-none">
+            <div className="absolute inset-0 flex items-start justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+98px)] pt-[calc(env(safe-area-inset-top,0px)+58px)] pointer-events-none">
             <motion.section
               ref={modalRef}
               initial={{ opacity: 1, y: 540, scale: 0.985 }}
@@ -2610,12 +2853,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               className={clsx(
                 "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-0 pointer-events-auto",
-                "z-10 h-auto"
+                "z-10 h-auto max-h-[calc(100svh-164px)]"
               )}
               data-animation-done={isAnimationDone}
               animate={{
                 opacity: 1,
-                y: isModalVisible ? 0 : 540,
+                y: isModalVisible ? 0 : -36,
                 scale: isModalVisible ? 1 : 0.985,
               }}
               transition={{
@@ -2629,7 +2872,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 }
               }}
               style={{
-                touchAction: 'none',
+                touchAction: 'pan-y',
                 willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform',
               }}
             >
@@ -2658,18 +2901,22 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   onPointerUp={(event) => event.stopPropagation()}
                   onClick={(event) => event.stopPropagation()}
                 >
-                  {olderPlaybackIndex !== playbackIndex ? (
-                    <button
-                      type="button"
-                      aria-label="Abrir música anterior do seu histórico"
-                      onClick={() => selectPlaybackChoice(olderPlaybackIndex)}
-                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
-                    >
-                      <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
-                    </button>
-                  ) : (
-                    <span className="h-11 w-11" aria-hidden="true" />
-                  )}
+                  <button
+                    type="button"
+                    aria-label="Abrir música anterior do seu histórico"
+                    disabled={olderPlaybackIndex === playbackIndex}
+                    onClick={() => {
+                      if (olderPlaybackIndex !== playbackIndex) {
+                        selectPlaybackChoice(olderPlaybackIndex);
+                      }
+                    }}
+                    className={clsx(
+                      "bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.32]",
+                      olderPlaybackIndex === playbackIndex && "text-white/[0.42]"
+                    )}
+                  >
+                    <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
+                  </button>
                   <button
                     type="button"
                     data-recent-toggle="true"
@@ -2677,27 +2924,31 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onClick={() => setRecentPickerOpen(value => !value)}
                     className={clsx(
                       "bottom-track-controls-button flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 transition-[background-color,transform,color] active:scale-95",
-                      recentPickerOpen ? "bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-[0_4px_12px_rgba(249,115,22,0.35)]" : "text-white/84"
+                      recentPickerOpen ? "bg-white/[0.14] text-white shadow-[0_4px_12px_rgba(255,255,255,0.08)]" : "text-white/84"
                     )}
                   >
                     <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
                     <span className="ml-2 text-[8px] font-black uppercase tracking-[0.14em]">Recentes</span>
                   </button>
-                  {newerPlaybackIndex !== playbackIndex ? (
-                    <button
-                      type="button"
-                      aria-label="Voltar para música mais recente"
-                      onClick={() => selectPlaybackChoice(newerPlaybackIndex)}
-                      className="bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95"
-                    >
-                      <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
-                    </button>
-                  ) : (
-                    <span className="h-11 w-11" aria-hidden="true" />
-                  )}
+                  <button
+                    type="button"
+                    aria-label="Voltar para música mais recente"
+                    disabled={newerPlaybackIndex === playbackIndex}
+                    onClick={() => {
+                      if (newerPlaybackIndex !== playbackIndex) {
+                        selectPlaybackChoice(newerPlaybackIndex);
+                      }
+                    }}
+                    className={clsx(
+                      "bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.32]",
+                      newerPlaybackIndex === playbackIndex && "text-white/[0.42]"
+                    )}
+                  >
+                    <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
+                  </button>
                 </motion.div>
               )}
-              <div className="bottom-track-stats-body-backdrop relative w-full overflow-hidden rounded-[30px] p-4">
+              <div className="bottom-track-stats-body-backdrop relative flex max-h-[calc(100svh-164px)] w-full flex-col overflow-hidden rounded-[30px] p-4">
                 <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
@@ -2725,7 +2976,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                             onClick={() => selectPlaybackChoice(item.index)}
                             className={clsx(
                               "flex w-full items-center gap-3 rounded-[18px] px-2.5 py-2 text-left transition-[background-color,transform,color] active:scale-[0.985]",
-                              isSelected ? "bg-orange-500/18 text-white" : "text-white/66 hover:bg-white/[0.045]"
+                              isSelected ? "bg-white/[0.12] text-white" : "text-white/66 hover:bg-white/[0.045]"
                             )}
                           >
                             <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
@@ -2736,7 +2987,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                               )}
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className={clsx("block text-[7px] font-black uppercase tracking-[0.14em]", isSelected ? "text-orange-200" : "text-white/34")}>{item.label}</span>
+                              <span className={clsx("block text-[7px] font-black uppercase tracking-[0.14em]", isSelected ? "text-white/64" : "text-white/34")}>{item.label}</span>
                               <span className="mt-0.5 block truncate text-[11px] font-black leading-tight">{item.title}</span>
                               <span className="mt-0.5 block truncate text-[9px] font-bold text-white/38">{item.artist}</span>
                             </span>
@@ -2756,8 +3007,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="pointer-events-none h-1 w-10 rounded-full bg-white/24" aria-hidden="true" />
               </div>
 
-              <motion.div className="relative z-10 will-change-transform" style={{ x: historySwipeX }}>
-              <div className="flex items-center gap-3 pt-2">
+              <motion.div className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 will-change-transform custom-scrollbar" style={{ x: historySwipeX, touchAction: 'pan-y' }}>
+              <div className="flex h-16 items-center gap-3 pt-1">
                 <div className="stats-lc-soft-white-glass relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
@@ -2766,390 +3017,166 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       <Music2 className="h-9 w-9 text-white/36" />
                     </div>
                   )}
-                  {panel === 'lyrics' && (
-                    <GeniusLogo className="absolute bottom-1 right-1 h-5 w-5 text-yellow-300 drop-shadow-[0_5px_10px_rgba(0,0,0,0.34)]" />
-                  )}
                 </div>
-                <div className="min-w-0 pt-1">
-                  <div className="flex items-center gap-2">
-                    <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
-                      {panel === 'lyrics' ? 'Letra' : activePlaybackLabel || 'Stats da música'}
-                    </span>
-                    {panel === 'lyrics' && (
-                      <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-yellow-100/70">
-                        Genius
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-1 flex min-w-0 max-w-full items-start gap-1.5">
-                    <ModalScrollingTrackTitle title={parsedTrackTitle.displayTitle || trackTitle} wide={parsedTrackTitle.badges.length === 0} />
-                    <TrackTitleBadges badges={parsedTrackTitle.badges} className="pt-0.5" />
-                  </div>
-                  <p className="mt-1 text-xs font-semibold leading-tight text-white/48">
+                <div className="flex h-16 min-w-0 flex-1 flex-col justify-center">
+                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.18em] text-white/42">
+                    {activePlaybackLabel || 'Stats da música'}
+                  </span>
+                  <TwoLineText className="mt-0.5 text-[20px] font-black leading-[0.98] text-white">
+                    {parsedTrackTitle.displayTitle || trackTitle}
+                  </TwoLineText>
+                  <p className="mt-0.5 text-[11px] font-semibold leading-[1.05] text-white/52">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
-                  <div className="mt-1 flex w-full min-w-0 items-center justify-between gap-2 text-[10px] font-black uppercase leading-tight tracking-[0.05em] text-white/28">
-                    <div className="min-w-0 flex-1">
-                      <ModalScrollingAlbumName albumName={albumName} />
-                    </div>
-                    {panel === 'stats' && albumReleaseDate && (
-                      <span
-                        className={clsx(
-                          "inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[7px] leading-none tracking-[0.09em]",
-                          isReleaseDayFirstListen
-                            ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
-                            : "stats-lc-soft-white-glass text-white"
-                        )}
-                        title={isReleaseDayFirstListen ? "Primeira escuta no dia do lançamento" : "Data de lançamento"}
-                      >
-                        {isReleaseDayFirstListen && (
-                          <span className="absolute inset-0 rounded-full">
-                            <EngineShimmer
-                              active
-                              duration={2.5}
-                              className="opacity-50"
-                              style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
-                            />
-                          </span>
-                        )}
-                        <CalendarDays className={clsx(
-                          "h-2.5 w-2.5 relative z-10",
-                          !isReleaseDayFirstListen && "text-orange-300"
-                        )} />
-                        <span className="relative z-10">{albumReleaseDate}</span>
-                      </span>
-                    )}
-                  </div>
-            </div>
-          </div>
-
-
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
-                  <UserCircle className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Artista</span>
-                  <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
-                    <ModalMetricValue ready={panelHydration.metrics} value={entityStats.artist} />
-                  </strong>
-                </div>
-                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
-                  <ListMusic className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Faixa</span>
-                  <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
-                    <ModalMetricValue ready={trackMetricReady} value={entityStats.track} fallbackValue={knownUserTrackCount} />
-                  </strong>
-                </div>
-                <div className="stats-lc-soft-white-glass min-w-0 rounded-[22px] p-3">
-                  <Disc3 className="mb-2 h-4 w-4 text-orange-300" />
-                  <span className="block text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">Álbum</span>
-                  <strong className="mt-1 block whitespace-nowrap font-black tabular-nums leading-none text-white" style={{ fontSize: 'clamp(17px, 5.2vw, 22px)' }}>
-                    <ModalMetricValue ready={panelHydration.metrics} value={entityStats.album} />
-                  </strong>
+                  <TwoLineText className="mt-0.5 text-[9px] font-black uppercase leading-[1.05] tracking-[0.05em] text-white/30">
+                    {albumName}
+                  </TwoLineText>
                 </div>
               </div>
 
-              {trackArtists.length > 1 && (
-                panelHydration.artistStats && artistStats.length > 1 ? (
-                <div className="mt-3 flex w-full gap-2 overflow-x-auto no-scrollbar px-px pb-1" data-home-horizontal-scroll="true">
-                  {artistStats.map((artist) => (
-                    <div
-                      key={artist.key}
-                      className="bottom-track-stats-surface flex min-w-0 items-center gap-2 rounded-full pl-2.5 pr-4 py-2"
-                    >
-                      <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.05]">
-                        <SmartImage src={artist.image || artistImage} className="h-full w-full object-cover" rounded="full" fallback={artist.name} />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="block truncate text-[7px] font-black uppercase leading-none tracking-[0.13em] text-white/34">{artist.name}</span>
-                        <span className="mt-1 block text-[10px] font-black uppercase leading-none tabular-nums text-white"><AnimatedNumber value={artist.count} /></span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                ) : (
-                <div className="mt-3 flex w-full gap-2 overflow-x-auto no-scrollbar px-px pb-1" data-home-horizontal-scroll="true" aria-hidden="true">
-                  {artistStatSkeletons.map((artist, index) => (
-                    <div
-                      key={`${artist.key || artist.id || artist.name}-${index}`}
-                      className="bottom-track-stats-surface flex min-w-[132px] max-w-[220px] shrink-0 items-center gap-2 rounded-full px-2.5 py-2"
-                    >
-                      <div className="h-8 w-8 overflow-hidden rounded-full bg-white/[0.05]">
-                        {artist.image ? (
-                          <SmartImage src={artist.image} className="h-full w-full object-cover" rounded="full" fallback="" />
-                        ) : (
-                          <ModalSkeleton className="h-full w-full rounded-full" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <ModalSkeleton className="h-2.5 w-14 max-w-full" />
-                        <ModalSkeleton className="mt-1 h-3 w-8" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                )
-              )}
-
-              {panelHydration.history && trackHistory && (
-                <div className="mt-2 grid w-full grid-cols-[max-content_max-content_max-content_minmax(0,1fr)] items-center gap-1.5">
-                  <span
-                    className={clsx(
-                      "inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em]",
-                      isReleaseDayFirstListen
-                        ? "relative bg-orange-400/70 text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)] overflow-hidden"
-                        : "bottom-track-stats-surface text-white"
-                    )}
-                    title="Primeiro stream"
-                  >
-                    {isReleaseDayFirstListen && (
-                      <span className="absolute inset-0 rounded-full">
-                        <EngineShimmer
-                          active
-                          duration={2.5}
-                          className="opacity-50"
-                          style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
-                        />
-                      </span>
-                    )}
-                    <Sparkles className={clsx(
-                      "h-2.5 w-2.5 relative z-10",
-                      !isReleaseDayFirstListen && "text-orange-300"
-                    )} fill="currentColor" />
-                    <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(firstPlayedBadgeAt)}</span>
-                  </span>
-                  <span
-                    className="inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
-                    title="Último stream"
-                  >
-                    <Moon className="h-2.5 w-2.5 relative z-10 text-orange-300" fill="currentColor" />
-                    <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(lastPlayedBadgeAt)}</span>
-                  </span>
-                  {historyYear && (
-                    <span
-                      className="inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-1 whitespace-nowrap rounded-full px-2 text-[7px] font-black leading-none tracking-[0.09em] bottom-track-stats-surface text-white"
-                      title="Ano recorde"
-                    >
-                      <span className="relative z-10 inline-flex items-center justify-center rounded bg-orange-300 px-0.5 py-0.5 font-black tracking-[-0.04em]" style={{ fontSize: '7.5px', color: 'rgba(0,0,0,0.75)' }}>{historyYearCount}×</span>
-                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{historyYear}</span>
-                    </span>
-                  )}
-                  {firstDayGroup.length > 0 && (
-                    <span
-                      className="relative inline-flex h-[25px] min-h-[25px] max-h-[25px] min-w-0 flex-nowrap items-center justify-center gap-0.5 overflow-hidden whitespace-nowrap rounded-full bg-orange-400/70 px-1.5 text-[7px] font-black leading-none tracking-[0.04em] text-orange-100 shadow-[0_0_16px_rgba(255,122,26,0.35)]"
-                      title="Primeiros ouvintes do círculo"
-                    >
-                      <EngineShimmer
-                        active
-                        duration={2.5}
-                        className="pointer-events-none opacity-50"
-                        style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
-                      />
-                      <span className="relative z-10 flex -space-x-1.5">
-                        {firstDayGroup.slice(0, 3).map((listener, idx) => (
-                          <span
-                            key={listener.user?.id || idx}
-                            className="h-4 w-4 overflow-hidden rounded-full bg-white/[0.08]"
-                          >
-                            <SmartImage
-                              src={listener.user?.avatar}
-                              className="h-full w-full object-cover"
-                              rounded="full"
-                              fallback={listener.user?.name || '?'}
-                            />
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <StoryMetricCard
+                  icon={UserCircle}
+                  label="Artista"
+                  title={trackArtists[0]?.name || artistName}
+                  value={<ModalMetricValue ready={panelHydration.metrics} value={entityStats.artist} />}
+                >
+                  {trackArtists.length > 1 && (
+                    <div className="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
+                      {(panelHydration.artistStats ? artistStats.slice(1) : artistStatSkeletons.slice(1)).map((artist, index) => (
+                        <div key={artist.key || artist.id || index} className="flex min-w-0 items-center gap-1.5">
+                          <span className="h-5 w-5 shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
+                            {artist.image ? (
+                              <SmartImage src={artist.image} className="h-full w-full object-cover" rounded="full" fallback="" />
+                            ) : (
+                              <ModalSkeleton className="h-full w-full rounded-full" />
+                            )}
                           </span>
-                        ))}
-                      </span>
-                      <Rabbit className="relative z-10 h-3.5 w-3.5 shrink-0 text-orange-100" strokeWidth={2.5} />
-                      <span className="relative z-10 whitespace-nowrap text-[7px] leading-none">{formatBadgeDate(circleFirstListen?.playedAt || firstPlayedBadgeAt)}</span>
-                    </span>
+                          <span className="min-w-0 flex-1 truncate text-[7px] font-black uppercase tracking-[0.08em] text-white/46">{artist.name}</span>
+                          <span className="text-[8px] font-black tabular-nums text-white/72">
+                            {panelHydration.artistStats ? <AnimatedNumber value={(artist as any).count || 0} /> : <ModalSkeleton className="h-2.5 w-5" />}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </div>
-              )}
+                </StoryMetricCard>
+                <StoryMetricCard
+                  icon={ListMusic}
+                  label="Faixa"
+                  title={parsedTrackTitle.displayTitle || trackTitle}
+                  value={<ModalMetricValue ready={trackMetricReady} value={entityStats.track} fallbackValue={knownUserTrackCount} />}
+                />
+                <StoryMetricCard
+                  icon={Disc3}
+                  label="Álbum"
+                  title={albumName}
+                  value={<ModalMetricValue ready={panelHydration.metrics} value={entityStats.album} />}
+                />
+              </div>
 
               {panelHydration.history ? (
-                hasPreviousTrackHistory ? (
                 <motion.div
-                  className="mt-3"
+                  className="mt-3 space-y-2"
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.16, ease: 'easeOut' }}
                 >
-                  <div className={clsx("grid w-full gap-1.5 px-px", trackHistory.bestYear ? "grid-cols-[1fr_1fr_1.05fr]" : "grid-cols-2")}>
-                    <div className={clsx(
-                      "bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5",
-                      isReleaseDayFirstListen && "relative overflow-hidden !bg-orange-400/70 ring-1 ring-orange-400/50 shadow-[0_0_20px_rgba(255,122,26,0.35)] backdrop-filter-none"
-                    )}>
-                      {isReleaseDayFirstListen && (
-                        <div className="absolute inset-0 overflow-hidden rounded-full">
-                          <EngineShimmer
-                            active
-                            duration={2.5}
-                            className="opacity-50"
-                            style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)' }}
-                          />
-                        </div>
+                  <TimelineStack
+                    releaseValue={albumReleaseRawDate || albumReleaseDate}
+                    firstPlayValue={firstPlayDate}
+                    previousPlayValue={previousPlayDate}
+                  />
+
+                  {wrapped && (
+                    <StoryField icon={CalendarDays} label="Wrapped">
+                      <div className="mt-2 grid grid-cols-3 gap-1.5">
+                        {wrapped.periods.map((period) => (
+                          <div
+                            key={period.key}
+                            className={clsx(
+                              "rounded-full px-2 py-2 text-center",
+                              period.highlight ? "bg-white/[0.16] text-white" : "bg-white/[0.055] text-white/58"
+                            )}
+                          >
+                            <span className="block text-[8px] font-black uppercase leading-none tracking-[0.08em]">{period.label}</span>
+                            <span className="mt-1 block text-[11px] font-black leading-none tabular-nums">{coreUtils.formatNumber(period.count)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </StoryField>
+                  )}
+
+                  {hasSocialEntries && (
+                    <SocialBubble entries={socialEntries} label={socialLabel} />
+                  )}
+
+                  <GroupStatsBubble
+                    cakePiecePercent={cakePiecePercent}
+                    groupTotalPlays={groupTotalPlays}
+                    ranking={visibleSocialRanking}
+                  />
+
+                  {shouldShowAdvancedStats && advanced && (
+                    <div className="flex flex-wrap gap-2">
+                      <StatMiniBubble
+                        icon={Flame}
+                        label="Streak"
+                        value={`${advanced.streak.days || 0} dias`}
+                        detail={(advanced.streak.start || advanced.streak.end)
+                          ? `${formatFullDate(advanced.streak.start)} - ${formatFullDate(advanced.streak.end)}`
+                          : undefined}
+                      />
+                      {advanced.loopFactor && (
+                        <StatMiniBubble
+                          icon={Repeat2}
+                          label="Loop factor"
+                          value={(
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                              <DateBadge value={loopFactorDate} />
+                              <span className="rounded-full bg-white/[0.075] px-2 py-1 text-[9px] leading-none text-white/82">{advanced.loopFactor.count}x</span>
+                            </span>
+                          )}
+                        />
                       )}
-                      <span className={clsx(
-                        "relative z-10 block text-[6px] font-black uppercase leading-none tracking-[0.08em]",
-                        isReleaseDayFirstListen ? "text-orange-200/60" : "text-white/36"
-                      )}>Primeiro stream</span>
-                      <span className={clsx(
-                        "relative z-10 mt-1 block whitespace-nowrap text-[10px] font-black leading-none",
-                        isReleaseDayFirstListen ? "text-orange-100" : "text-white/82"
-                      )}>{formatFullDate(trackHistory.firstPlayedAt)}</span>
+                      {advanced.daypart && (
+                        <StatMiniBubble
+                          icon={Sunrise}
+                          label="Hora"
+                          value={daypartLabel}
+                        />
+                      )}
+                      {advanced.daysSinceFirst != null && (
+                        <StatMiniBubble
+                          icon={Clock3}
+                          label="Days since"
+                          value={daysSinceLabel}
+                        />
+                      )}
+                      <StatMiniBubble
+                        icon={BadgePercent}
+                        label="Top 1K"
+                        value={advanced.top1kPosition ? `#${advanced.top1kPosition}` : 'OUT'}
+                      />
                     </div>
-                    <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5">
-                      <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Último stream</span>
-                      <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">{formatFullDate(trackHistory.lastPlayedAt)}</span>
+                  )}
+
+                  {coveragePartial && (
+                    <div className="bottom-track-stats-surface rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] text-white/38">
+                      Dados parciais nesta abertura
                     </div>
-                    {trackHistory.bestYear && (
-                    <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-1.5">
-                      <span className="block text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/36">Ano recorde</span>
-                      <span className="mt-1 block whitespace-nowrap text-[10px] font-black leading-none text-white/82">
-                        {trackHistory.bestYearCount}x em {trackHistory.bestYear}
-                      </span>
-                    </div>
-                    )}
-                  </div>
+                  )}
                 </motion.div>
-                ) : (
-                <motion.div
-                  className="mt-3 rounded-[22px] bg-orange-500/[0.09] px-4 py-3 text-[11px] font-black leading-snug text-orange-100/86"
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                >
-                  Essa é sua primeira reprodução dessa faixa!
-                </motion.div>
-                )
               ) : (
-                <div className="mt-3 grid grid-cols-2 gap-1.5" aria-hidden="true">
-                  <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-2">
-                    <ModalSkeleton className="h-2 w-16" />
-                    <ModalSkeleton className="mt-1.5 h-3 w-20" />
-                  </div>
-                  <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-2">
-                    <ModalSkeleton className="h-2 w-16" />
-                    <ModalSkeleton className="mt-1.5 h-3 w-20" />
-                  </div>
-                  <div className="bottom-track-stats-surface min-w-0 rounded-full px-3 py-2">
-                    <ModalSkeleton className="h-2 w-14" />
-                    <ModalSkeleton className="mt-1.5 h-3 w-24" />
-                  </div>
+                <div className="mt-3 grid grid-cols-2 gap-2" aria-hidden="true">
+                  {[1, 2, 3, 4].map((item) => (
+                    <div key={item} className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-3">
+                      <ModalSkeleton className="h-2 w-16" />
+                      <ModalSkeleton className="mt-2 h-3 w-24" />
+                    </div>
+                  ))}
                 </div>
               )}
-
-              <motion.div
-                className="mt-3 flex w-full items-center gap-2 overflow-x-auto no-scrollbar px-px pb-1"
-                data-home-horizontal-scroll="true"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.16, ease: 'easeOut' }}
-              >
-                {shouldShowSocialRankingBadge && (
-                  <div
-                    className="bottom-track-stats-surface flex h-[48px] w-max shrink-0 items-center rounded-full px-3 py-1.5"
-                    aria-label="ranking de reproduções no círculo"
-                  >
-                    {visibleSocialRanking.map((item, index) => (
-                      <div
-                        key={item.user.id}
-                        className="relative -mr-3 shrink-0 last:mr-0"
-                        style={{ zIndex: visibleSocialRanking.length - index }}
-                      >
-                        <div className={clsx(
-                          "stats-lc-soft-white-glass h-[29px] w-[29px] overflow-hidden rounded-full",
-                          "ring-0"
-                        )}>
-                          <SmartImage
-                            src={coreUtils.getUserAvatar(item.user.id, item.user.avatar)}
-                            cacheKey={`bottom-track-ranking-avatar:${item.user.id}`}
-                            className="h-full w-full object-cover"
-                            rounded="full"
-                            fallback={item.user.name || item.user.id}
-                          />
-                        </div>
-                        <span className={clsx(
-                          "stats-lc-soft-white-glass absolute -bottom-1 left-1/2 min-w-[18px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none",
-                          "text-white"
-                        )}>
-                          {item.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {!hasHydratedTrackRanking && (
-                  <div className="bottom-track-stats-surface flex h-[48px] min-w-[88px] shrink-0 items-center rounded-full px-3 py-1.5" aria-hidden="true">
-                    <ModalSkeleton className="h-7 w-14" />
-                  </div>
-                )}
-                {panelHydration.social ? (
-                  <div className={clsx(
-                    "bottom-track-stats-surface relative flex h-[48px] items-center gap-2 overflow-hidden rounded-full px-3 py-1",
-                    shouldShowSocialRankingBadge ? "min-w-0 flex-1" : "w-full min-w-full max-w-[310px] shrink-0",
-                    isReleaseDayFirstListen && "!bg-orange-400/70 ring-1 ring-orange-400/50 shadow-[0_0_20px_rgba(255,122,26,0.35)] backdrop-filter-none"
-                  )}
-                  >
-                    {isReleaseDayFirstListen && (
-                      <div className="absolute inset-0 z-0 overflow-hidden rounded-full pointer-events-none">
-                        <EngineShimmer
-                          active
-                          duration={2.5}
-                          className="opacity-50"
-                          style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%)' }}
-                        />
-                      </div>
-                    )}
-                    <div
-                      className="flex h-full min-w-0 flex-1 overflow-x-auto overflow-y-hidden no-scrollbar relative z-10"
-                      data-home-horizontal-scroll="true"
-                    >
-                      <div
-                        className="flex min-w-full shrink-0 items-center gap-2 py-1"
-                        style={{
-                          width: socialInsight.length > 56 ? '24rem' : '100%',
-                          minWidth: socialInsight.length > 56 ? '24rem' : '100%',
-                        }}
-                      >
-                        <div className="relative flex h-9 shrink-0 items-center py-0.5 pl-1 pr-2">
-                          {socialAvatarEntries.map((entry, index) => (
-                            <MemoizedSocialAvatar
-                              key={`${entry.user?.id || user?.id || index}-${entry.playedAt}`}
-                              entry={entry}
-                              index={index}
-                              total={socialAvatarEntries.length}
-                            />
-                          ))}
-                        </div>
-                        <span className={clsx(
-                          "block max-h-[2.3em] min-w-0 flex-1 overflow-hidden whitespace-normal text-[9px] font-bold leading-[1.12]",
-                          isReleaseDayFirstListen ? "text-orange-100/80" : "text-white/58"
-                        )}>
-                          {socialInsight}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className={clsx(
-                      "bottom-track-stats-surface relative flex h-[48px] items-center gap-2 overflow-hidden rounded-full px-3 py-1",
-                      shouldShowSocialRankingBadge ? "min-w-0 flex-1" : "w-full min-w-full max-w-[310px] shrink-0"
-                    )}
-                    aria-hidden="true"
-                  >
-                    <div className="relative flex h-9 shrink-0 items-center py-0.5 pl-1 pr-2">
-                      <ModalSkeleton className="-mr-2.5 h-[29px] w-[29px] rounded-full" />
-                      <ModalSkeleton className="-mr-2.5 h-[29px] w-[29px] rounded-full opacity-75" />
-                    </div>
-                    <div className="relative w-full max-w-[220px] space-y-1.5 py-1">
-                      <ModalSkeleton className="h-2.5 w-36 max-w-full" />
-                      <ModalSkeleton className="h-2.5 w-24" />
-                    </div>
-                  </div>
-                )}
-              </motion.div>
 
               <div className="mt-4 flex items-center gap-2">
                 {track?.name && (
@@ -3290,7 +3317,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </div>
                     <div className="min-w-0 pt-1">
                       <div className="flex items-center gap-2">
-                        <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-orange-400">
+                        <span className="block text-[8px] font-black uppercase tracking-[0.24em] text-white/42">
                           Letra
                         </span>
                         <span className="rounded-full border border-yellow-300/20 bg-yellow-300/10 px-2 py-0.5 text-[7px] font-black uppercase tracking-[0.14em] text-yellow-100/70">
@@ -3314,7 +3341,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   <div className="mt-4 flex-1 select-none overflow-hidden flex flex-col min-h-0">
                     {lyricsLoading ? (
                       <div className="flex flex-1 items-center justify-center">
-                        <EngineSpinner className="h-5 w-5 text-orange-300">
+                        <EngineSpinner className="h-5 w-5 text-white/58">
                           <Loader2 className="h-full w-full" />
                         </EngineSpinner>
                       </div>
@@ -3343,12 +3370,12 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       </div>
                     ) : lyricsMatch?.hasLyrics === false ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-5 text-center text-white/52">
-                        <FileText className="h-7 w-7 text-orange-300/70" />
+                        <FileText className="h-7 w-7 text-white/48" />
                         <span className="text-[10px] font-black uppercase tracking-[0.16em]">letra indisponível</span>
                       </div>
                     ) : lyricsMatch?.hasLyrics && lyricsMatch.match?.url ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-5 text-center">
-                        <FileText className="h-8 w-8 text-orange-300" />
+                        <FileText className="h-8 w-8 text-white/58" />
                         <div>
                           <p className="text-sm font-black leading-tight text-white/82">Letra encontrada</p>
                           <p className="mt-2 text-[11px] font-bold leading-snug text-white/45">
@@ -3370,7 +3397,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                         onClick={handleLyrics}
                         className="flex flex-1 w-full flex-col items-center justify-center gap-3 text-white/52"
                       >
-                        <FileText className="h-7 w-7 text-orange-300" />
+                        <FileText className="h-7 w-7 text-white/58" />
                         <span className="text-[10px] font-black uppercase tracking-[0.16em]">carregar letra</span>
                       </button>
                     )}

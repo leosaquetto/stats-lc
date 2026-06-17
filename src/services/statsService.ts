@@ -551,6 +551,60 @@ export type SimultaneousListeningQuery = {
   signal?: AbortSignal;
 };
 
+export type TrackStoryQuery = {
+  userId: string;
+  trackId: string;
+  albumId?: string;
+  artistIds?: string[];
+  releaseDate?: any;
+  currentPlayedAt?: any;
+  signal?: AbortSignal;
+};
+
+export type TrackStoryResponse = {
+  ok: boolean;
+  user: string;
+  userId: string;
+  trackId: string;
+  albumId?: string | null;
+  artistIds: string[];
+  generatedAt: string;
+  counts: {
+    track: number | null;
+    album: number | null;
+    artists: Array<{ id: string; count: number | null; durationMs: number | null }>;
+  };
+  history: {
+    count: number | null;
+    firstPlayedAt: string | null;
+    lastPlayedAt: string | null;
+    previousPlayedAt: string | null;
+    bestYear: { year: number; count: number; previousYearCount: number; nextYearCount: number } | null;
+    wrapped: {
+      mode: 'year' | 'month';
+      periods: Array<{ key: string; year?: number; month?: number; label: string; count: number; highlight: boolean }>;
+    } | null;
+  };
+  advanced: {
+    streak: { days: number; start: string | null; end: string | null };
+    loopFactor: { day: string; count: number } | null;
+    daypart: { key: string; label: string; count: number; percent: number } | null;
+    daysSinceFirst: number | null;
+    top1kPosition: number | null;
+  } | null;
+  social: {
+    firstListeners: Array<{ key: string; id: string; playedAt: number; count: number }>;
+    releaseListeners: Array<{ key: string; id: string; playedAt: number; count: number }>;
+    ranking: Array<{ key: string; id: string; count: number; durationMs: number; minutes: number; position: number }>;
+    ownPosition: number | null;
+    cakePiecePercent: number | null;
+    heardOnRelease: boolean;
+    heardFirst: boolean;
+  };
+  specialCards?: any[];
+  coverage?: any;
+};
+
 export type GroupActivityMember = {
   key: string;
   userId: string;
@@ -1198,6 +1252,18 @@ export const statsService = {
       gapMinutes: query.gapMinutes || 10,
       limit: query.limit || 12,
       perUserLimit: query.perUserLimit || 1000,
+    }, false, 1, true, { signal: query.signal });
+  },
+
+  async fetchTrackStory(query: TrackStoryQuery): Promise<TrackStoryResponse> {
+    const userParam = coreUtils.getUserApiParam(query.userId);
+    return fetchFromApi<TrackStoryResponse>('/api/track-story', {
+      user: userParam,
+      track: query.trackId,
+      ...(query.albumId ? { album: query.albumId } : {}),
+      ...(query.artistIds?.length ? { artists: query.artistIds.filter(Boolean).join(',') } : {}),
+      ...(query.releaseDate ? { releaseDate: query.releaseDate } : {}),
+      ...(query.currentPlayedAt ? { currentPlayedAt: query.currentPlayedAt } : {}),
     }, false, 1, true, { signal: query.signal });
   },
 
