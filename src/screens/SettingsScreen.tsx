@@ -204,8 +204,12 @@ export default function SettingsScreen() {
     if (!confirmed) return;
 
     setFeaturedUserId(user.id);
-    localStorage.setItem('stats-lc-has-selected-user', '1');
-    sessionStorage.removeItem('stats-lc-home-boot-ready');
+    try {
+      localStorage.setItem('stats-lc-has-selected-user', '1');
+    } catch {}
+    try {
+      sessionStorage.removeItem('stats-lc-home-boot-ready');
+    } catch {}
     window.__STATS_LC_HOME_READY__ = false;
     window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
     window.location.hash = '#/';
@@ -289,12 +293,20 @@ export default function SettingsScreen() {
         'stats-cache_timeRangeStatsCacheMeta',
         'stats-cache_topItemsCache',
         'stats-cache_topItemsCacheMeta',
-      ].forEach(key => localStorage.removeItem(key));
-
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('stats-cache_')) localStorage.removeItem(key);
+      ].forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch {}
       });
-      sessionStorage.clear();
+
+      try {
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('stats-cache_')) localStorage.removeItem(key);
+        });
+      } catch {}
+      try {
+        sessionStorage.clear();
+      } catch {}
 
       if ('caches' in window) {
         const cacheKeys = await caches.keys();

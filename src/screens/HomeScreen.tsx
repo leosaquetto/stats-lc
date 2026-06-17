@@ -103,6 +103,32 @@ const getHomeRecentItemKey = (item: any) => {
   return `${track?.id || track?.name || 'track'}:${item?.playedAt || item?.timestamp || item?.endTime || item?.date || ''}:${item?.isLive ? 'live' : 'history'}`;
 };
 
+const setHomeBootReadySession = () => {
+  try {
+    window.sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+  } catch {}
+};
+
+const removeHomeBootReadySession = () => {
+  try {
+    window.sessionStorage.removeItem('stats-lc-home-boot-ready');
+  } catch {}
+};
+
+const hasSelectedUserStorageFlag = () => {
+  try {
+    return window.localStorage.getItem('stats-lc-has-selected-user') === '1';
+  } catch {
+    return false;
+  }
+};
+
+const setSelectedUserStorageFlag = () => {
+  try {
+    window.localStorage.setItem('stats-lc-has-selected-user', '1');
+  } catch {}
+};
+
 const mergeHomeRecentItems = (freshItems: any[], existingItems: any[]) => {
   const merged: any[] = [];
   const seen = new Set<string>();
@@ -1697,12 +1723,12 @@ export default function HomeScreen() {
   const markHomeReadyDocument = () => {
     window.__STATS_LC_HOME_READY__ = true;
     window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
-    window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+    setHomeBootReadySession();
   };
   const clearHomeReadyDocument = () => {
     window.__STATS_LC_HOME_READY__ = false;
     window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
-    window.sessionStorage?.removeItem('stats-lc-home-boot-ready');
+    removeHomeBootReadySession();
   };
   const hasBootReadySession = () => window.__STATS_LC_HOME_READY_DOCUMENT__ === true;
   const hasSecondaryRoutesReady = () => window.__STATS_LC_SECONDARY_ROUTES_READY__ === true;
@@ -1896,7 +1922,7 @@ export default function HomeScreen() {
     if (!requestedMember?.id || requestedMember.id === featuredUserId) return;
 
     setFeaturedUserId(requestedMember.id);
-    localStorage.setItem('stats-lc-has-selected-user', '1');
+    setSelectedUserStorageFlag();
     setShowInitialModal(false);
   }, [allMembers, featuredUserId, location.pathname, setFeaturedUserId]);
 
@@ -2268,9 +2294,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!groupStats || isLoading) return;
 
-    const hasPreviouslySelectedUser =
-      typeof localStorage !== 'undefined' &&
-      localStorage.getItem('stats-lc-has-selected-user') === '1';
+    const hasPreviouslySelectedUser = hasSelectedUserStorageFlag();
 
     if (!featuredUserId && members.length > 0 && !hasPreviouslySelectedUser) {
       setFeaturedUserId(members[0].id);
@@ -2828,13 +2852,13 @@ export default function HomeScreen() {
             featuredUserId={featuredUserId || ''}
             onSelectUser={(userId) => {
               setFeaturedUserId(userId);
-              localStorage.setItem('stats-lc-has-selected-user', '1');
+              setSelectedUserStorageFlag();
               setShowInitialModal(false);
             }}
             onClose={() => {
               if (!primaryUser && members.length > 0) {
                 setFeaturedUserId(members[0].id);
-                localStorage.setItem('stats-lc-has-selected-user', '1');
+                setSelectedUserStorageFlag();
               }
               setShowInitialModal(false);
             }}
@@ -2956,7 +2980,7 @@ export default function HomeScreen() {
               featuredUserId={featuredUserId || ''}
               onSelectUser={(userId) => {
                 setFeaturedUserId(userId);
-                localStorage.setItem('stats-lc-has-selected-user', '1');
+                setSelectedUserStorageFlag();
                 setShowUserSelector(false);
                 setAvatarClickPosition(null);
               }}

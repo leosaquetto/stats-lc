@@ -790,6 +790,18 @@ const writeBottomTrackSessionCache = (key: string, value: any) => {
   } catch {}
 };
 
+const setHomeBootReadySession = () => {
+  try {
+    window.sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+  } catch {}
+};
+
+const removeHomeBootReadySession = () => {
+  try {
+    window.sessionStorage.removeItem('stats-lc-home-boot-ready');
+  } catch {}
+};
+
 const normalizeBottomTrackRecentItems = (items: any[]) => items
   .map(statsService.normalizeRecentStream)
   .filter((item: any) => item?.track?.name);
@@ -3630,18 +3642,18 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       if (ready === true) {
         window.__STATS_LC_HOME_READY__ = true;
         window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
-        sessionStorage.setItem('stats-lc-home-boot-ready', '1');
+        setHomeBootReadySession();
       } else if (ready === false) {
         if (hasWarmHomeReady()) {
           window.__STATS_LC_HOME_READY__ = true;
           window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
-          window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+          setHomeBootReadySession();
           setHomeReady(true);
           return;
         }
         window.__STATS_LC_HOME_READY__ = false;
         window.__STATS_LC_HOME_READY_DOCUMENT__ = false;
-        sessionStorage.removeItem('stats-lc-home-boot-ready');
+        removeHomeBootReadySession();
       }
       setHomeReady(ready === true);
     };
@@ -3653,7 +3665,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
     if (!homeReady) return;
     window.__STATS_LC_HOME_READY__ = true;
     window.__STATS_LC_HOME_READY_DOCUMENT__ = true;
-    window.sessionStorage?.setItem('stats-lc-home-boot-ready', '1');
+    setHomeBootReadySession();
     window.__STATS_LC_DISMISS_SPLASH__?.();
   }, [homeReady]);
 

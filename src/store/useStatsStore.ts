@@ -22,17 +22,29 @@ class MockMMKV {
     this.id = options.id;
   }
   getString(key: string) {
-    return localStorage.getItem(`${this.id}_${key}`);
+    try {
+      return localStorage.getItem(`${this.id}_${key}`);
+    } catch {
+      return null;
+    }
   }
   set(key: string, value: string) {
-    localStorage.setItem(`${this.id}_${key}`, value);
+    try {
+      localStorage.setItem(`${this.id}_${key}`, value);
+    } catch {}
   }
   getNumber(key: string) {
-    const val = localStorage.getItem(`${this.id}_${key}`);
-    return val ? Number(val) : undefined;
+    try {
+      const val = localStorage.getItem(`${this.id}_${key}`);
+      return val ? Number(val) : undefined;
+    } catch {
+      return undefined;
+    }
   }
   delete(key: string) {
-    localStorage.removeItem(`${this.id}_${key}`);
+    try {
+      localStorage.removeItem(`${this.id}_${key}`);
+    } catch {}
   }
 }
 
@@ -835,8 +847,10 @@ export const useStatsStore = create<StatsState>()(
         const nextUserId = userId && (validIds.size === 0 || validIds.has(userId))
           ? userId
           : members[0]?.id || '';
-        if (typeof localStorage !== 'undefined' && nextUserId) {
-          localStorage.setItem('stats-lc-has-selected-user', '1');
+        if (nextUserId) {
+          try {
+            localStorage.setItem('stats-lc-has-selected-user', '1');
+          } catch {}
         }
         set({ featuredUserId: nextUserId });
       },
