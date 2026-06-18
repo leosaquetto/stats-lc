@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, PieChart, Trophy, Flame, Repeat2, Sunrise, TimerReset, BadgePercent } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, PieChart, Trophy, Flame, Repeat2, Sunrise, TimerReset, BadgePercent, Info } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -487,6 +487,20 @@ const formatTinyDate = (value: any) => {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return 'sem registro';
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+};
+
+const formatCatalogTinyDate = (value: any) => {
+  const releaseDayKey = getReleaseDateDayKey(value);
+  if (!releaseDayKey) return 'sem registro';
+  const [year, month, day] = releaseDayKey.split('-').map(Number);
+  if (!year || !month || !day) return 'sem registro';
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.toLocaleDateString('pt-BR', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
 };
 
 const formatTinyTime = (value: any) => {
@@ -1338,26 +1352,65 @@ const DateTimeBadge = ({ value, empty = 'sem registro' }: { value: any; empty?: 
   }
   const time = formatTinyTime(value);
   return (
-    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-white/[0.075] px-2 py-1 font-black leading-none text-white/82">
-      <span className="text-[9px] tabular-nums">{date}</span>
-      {time && <span className="text-[8px] tabular-nums text-white/48">{time}</span>}
+    <span className="inline-flex max-w-full items-center justify-end gap-1 font-black leading-none text-white/82">
+      {time && (
+        <span className="inline-flex rounded-full bg-white/[0.065] px-1.5 py-1 text-[6.5px] font-black tabular-nums text-white/54">
+          {time}
+        </span>
+      )}
+      <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] tabular-nums">
+        {date}
+      </span>
     </span>
   );
 };
 
-const DateBadge = ({ value, empty = 'sem registro' }: { value: any; empty?: string }) => {
+const DateBadge = ({ value, empty = 'sem registro', plain = false }: { value: any; empty?: string; plain?: boolean }) => {
   const date = formatTinyDate(value);
   return (
-    <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] font-black leading-none tabular-nums text-white/82">
+    <span className={clsx(
+      "inline-flex text-[9px] font-black leading-none tabular-nums text-white/82",
+      plain ? "px-0 py-1" : "rounded-full bg-white/[0.075] px-2 py-1"
+    )}>
       {date === 'sem registro' ? empty : date}
     </span>
   );
 };
 
-const ReleaseBadge = ({ value }: { value: any }) => {
+const DateInfoValue = ({
+  value,
+  empty = 'sem registro',
+  onInfo,
+}: {
+  value: any;
+  empty?: string;
+  onInfo: () => void;
+}) => {
   const date = formatTinyDate(value);
+  if (date === 'sem registro') return <DateBadge value={value} empty={empty} plain />;
   return (
-    <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] font-black leading-none tabular-nums text-white/82">
+    <span className="inline-flex max-w-full items-center gap-1">
+      <DateBadge value={value} empty={empty} plain />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onInfo();
+        }}
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.075] text-white/58 transition-colors hover:text-white"
+        aria-label="Ver detalhes do play"
+      >
+        <Info className="h-3 w-3" strokeWidth={2.4} />
+      </button>
+    </span>
+  );
+};
+
+const ReleaseBadge = ({ value }: { value: any }) => {
+  const catalogDate = formatCatalogTinyDate(value);
+  const date = catalogDate === 'sem registro' && typeof value === 'string' && value.trim() ? value : catalogDate;
+  return (
+    <span className="inline-flex px-0 py-1 text-[9px] font-black leading-none tabular-nums text-white/82">
       {date}
     </span>
   );
@@ -1433,50 +1486,79 @@ const TimelineStack = ({
   releaseValue,
   firstPlayValue,
   previousPlayValue,
+  onFirstPlayInfo,
+  onPreviousPlayInfo,
 }: {
   releaseValue: any;
   firstPlayValue: any;
   previousPlayValue: any;
+  onFirstPlayInfo: () => void;
+  onPreviousPlayInfo: () => void;
 }) => (
-  <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
-    <div className="space-y-2">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
-          <CalendarDays className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Release
-        </span>
-        <ReleaseBadge value={releaseValue} />
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
-          <Clock3 className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Primeiro play
-        </span>
-        <DateTimeBadge value={firstPlayValue} />
-      </div>
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-[6.5px] font-black uppercase leading-none tracking-[0.1em] text-white/42">
-          <TimerReset className="h-3.5 w-3.5" strokeWidth={2.2} />
-          Último play
-        </span>
-        <DateTimeBadge value={previousPlayValue} empty="sem anterior" />
-      </div>
-    </div>
+  <div className="flex flex-wrap gap-2">
+    <StatMiniBubble
+      icon={CalendarDays}
+      label="Release"
+      value={<ReleaseBadge value={releaseValue} />}
+    />
+    <StatMiniBubble
+      icon={Clock3}
+      label="Primeiro play"
+      value={<DateInfoValue value={firstPlayValue} onInfo={onFirstPlayInfo} />}
+    />
+    <StatMiniBubble
+      icon={TimerReset}
+      label="Último play"
+      value={<DateInfoValue value={previousPlayValue} empty="sem anterior" onInfo={onPreviousPlayInfo} />}
+    />
   </div>
 );
+
+const WrappedCompactBubble = ({ wrapped }: { wrapped: TrackStoryResponse['history']['wrapped'] }) => {
+  if (!wrapped) return null;
+  return (
+    <div className="bottom-track-stats-surface flex min-w-0 flex-col rounded-[18px] px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-1.5 text-white/42">
+        <CalendarDays className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+        <span className="text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">Wrapped</span>
+      </div>
+      <div className="mt-[5px] flex min-w-0 flex-1 flex-col justify-between gap-[5px]">
+        {wrapped.periods.map((period) => (
+          <div
+            key={period.key}
+            className={clsx(
+              "flex min-w-0 items-center justify-between gap-1.5 rounded-full px-2 py-1",
+              period.highlight ? "bg-white/[0.16] text-white" : "bg-white/[0.055] text-white/58"
+            )}
+          >
+            <span className="min-w-0 truncate text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">{period.label}</span>
+            <span className="shrink-0 text-[9px] font-black leading-none tabular-nums">{coreUtils.formatNumber(period.count)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const SocialBubble = ({
   entries,
   label,
+  dateValue,
 }: {
   entries: Array<{ user: any; playedAt?: number; count?: number }>;
   label: string;
+  dateValue?: any;
 }) => (
   <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
     <div className="flex min-w-0 items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-1.5 text-white/42">
         <UsersRound className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
         <span className="min-w-0 text-[6.5px] font-black uppercase leading-none tracking-[0.1em]">{label}</span>
+        {dateValue && (
+          <span className="shrink-0 rounded-full bg-white/[0.075] px-1.5 py-[2px] text-[7px] font-black leading-none tabular-nums text-white/66">
+            {formatTinyDate(dateValue)}
+          </span>
+        )}
       </div>
       <AvatarStack entries={entries} limit={7} className="" />
     </div>
@@ -1622,6 +1704,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const modalPointerStartRef = React.useRef<BottomTrackDragStart | null>(null);
   const lyricsPointerStartRef = React.useRef<BottomTrackDragStart | null>(null);
   const lyricsScrollRef = React.useRef<HTMLDivElement | null>(null);
+  const statsScrollRef = React.useRef<HTMLDivElement | null>(null);
   const historySwipeX = useMotionValue(0);
   const historySwipeTokenRef = React.useRef(0);
   const ignoreBackdropClickUntilRef = React.useRef(0);
@@ -1631,11 +1714,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const modalOpenTokenRef = React.useRef(0);
   const modalOpenedAtRef = React.useRef(Date.now());
   const cancelLyricsMaskTaskRef = React.useRef<() => void>(() => {});
+  const cancelStatsMaskTaskRef = React.useRef<() => void>(() => {});
   const cancelCloseModalTaskRef = React.useRef<() => void>(() => {});
   const cancelCloseLyricsTaskRef = React.useRef<() => void>(() => {});
 
   React.useEffect(() => () => {
     cancelLyricsMaskTaskRef.current();
+    cancelStatsMaskTaskRef.current();
     cancelCloseModalTaskRef.current();
     cancelToastDismissRef.current();
   }, []);
@@ -2118,10 +2203,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const hasReleaseListeners = releaseListeners.length > 0;
   const socialEntries = hasReleaseListeners ? releaseListeners : firstDayGroup;
   const socialLabel = hasReleaseListeners
-    ? 'Ouviram no lançamento'
+    ? releaseListeners.length > 1
+      ? 'Ouviram no lançamento'
+      : 'Ouviu no lançamento'
     : firstDayGroup.length > 1
       ? 'Ouviram primeiro'
       : 'Ouviu primeiro';
+  const socialDateValue = hasReleaseListeners ? null : socialEntries[0]?.playedAt;
   const hasSocialEntries = socialEntries.length > 0;
   const trackMetricReady = panelHydration.metrics || typeof knownUserTrackCount === 'number';
   const visibleSocialRanking = storyRanking.length > 0 ? storyRanking : [];
@@ -2130,7 +2218,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const daypartLabel = advanced?.daypart
     ? `${daypartPercent ?? 0}% ${advanced.daypart.label}`
     : 'sem registro';
-  const daysSinceLabel = advanced?.daysSinceFirst != null ? `${advanced.daysSinceFirst}d` : 'sem registro';
   const loopFactorDate = advanced?.loopFactor?.day
     ? `${advanced.loopFactor.day}T12:00:00.000Z`
     : null;
@@ -2148,10 +2235,62 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     }, 1800, 'interaction');
   }, []);
 
+  const showFirstPlayInfo = React.useCallback(() => {
+    const time = formatTinyTime(firstPlayDate) || 'sem horário';
+    const days = advanced?.daysSinceFirst != null ? ` • ${advanced.daysSinceFirst} dias` : '';
+    showToast(`Primeiro play ${time}${days}`);
+  }, [advanced?.daysSinceFirst, firstPlayDate, showToast]);
+
+  const showPreviousPlayInfo = React.useCallback(() => {
+    const time = formatTinyTime(previousPlayDate) || 'sem horário';
+    showToast(`Último play ${time}`);
+  }, [previousPlayDate, showToast]);
+
   React.useEffect(() => () => {
     cancelCloseLyricsTaskRef.current();
+    cancelStatsMaskTaskRef.current();
     cancelToastDismissRef.current();
   }, []);
+
+  const updateStatsScrollMask = React.useCallback(() => {
+    const element = statsScrollRef.current;
+    if (!element) return;
+    const atTop = element.scrollTop <= 2;
+    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 2;
+    const mask = atTop && atBottom
+      ? 'none'
+      : atTop
+        ? 'linear-gradient(to bottom, black 0%, black calc(100% - 54px), transparent 100%)'
+        : atBottom
+          ? 'linear-gradient(to bottom, transparent 0%, black 30px, black 100%)'
+          : 'linear-gradient(to bottom, transparent 0%, black 30px, black calc(100% - 54px), transparent 100%)';
+
+    element.style.webkitMaskImage = mask;
+    element.style.maskImage = mask;
+  }, []);
+
+  const scheduleStatsScrollMask = React.useCallback(() => {
+    if (typeof window === 'undefined') return;
+    cancelStatsMaskTaskRef.current();
+    window.requestAnimationFrame(() => {
+      updateStatsScrollMask();
+      window.requestAnimationFrame(updateStatsScrollMask);
+      cancelStatsMaskTaskRef.current = motionRuntimeScheduler.scheduleTask(() => {
+        updateStatsScrollMask();
+        cancelStatsMaskTaskRef.current = () => {};
+      }, 180, 'interaction');
+    });
+  }, [updateStatsScrollMask]);
+
+  React.useEffect(() => {
+    if (!isModalVisible || panel !== 'stats') return;
+    scheduleStatsScrollMask();
+  }, [isModalVisible, panel, panelData, panelHydration, playbackIndex, scheduleStatsScrollMask]);
+
+  const setStatsScrollElement = React.useCallback((element: HTMLDivElement | null) => {
+    statsScrollRef.current = element;
+    if (element) scheduleStatsScrollMask();
+  }, [scheduleStatsScrollMask]);
 
   const updateLyricsScrollMask = React.useCallback(() => {
     const element = lyricsScrollRef.current;
@@ -2549,30 +2688,30 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     body.style.overflow = 'hidden';
     body.style.overscrollBehavior = 'none';
 
-    const findLyricsScroller = (target: EventTarget | null) => {
+    const findModalScroller = (target: EventTarget | null) => {
       return target instanceof Element
-        ? target.closest<HTMLElement>('[data-lyrics-scroll="true"]')
+        ? target.closest<HTMLElement>('[data-bottom-track-modal-scroll="true"],[data-lyrics-scroll="true"]')
         : null;
     };
-    const canScrollLyrics = (element: HTMLElement, deltaY: number) => {
+    const canScrollModal = (element: HTMLElement, deltaY: number) => {
       if (deltaY < 0) return element.scrollTop > 0;
       if (deltaY > 0) return element.scrollTop + element.clientHeight < element.scrollHeight - 1;
       return false;
     };
     const preventBackgroundWheel = (event: WheelEvent) => {
-      const scroller = findLyricsScroller(event.target);
-      if (scroller && canScrollLyrics(scroller, event.deltaY)) return;
+      const scroller = findModalScroller(event.target);
+      if (scroller && canScrollModal(scroller, event.deltaY)) return;
       event.preventDefault();
     };
     const captureTouchStart = (event: TouchEvent) => {
-      activeTouchScroller = findLyricsScroller(event.target);
+      activeTouchScroller = findModalScroller(event.target);
       previousTouchY = event.touches[0]?.clientY ?? 0;
     };
     const preventBackgroundTouch = (event: TouchEvent) => {
       const currentY = event.touches[0]?.clientY ?? previousTouchY;
       const deltaY = previousTouchY - currentY;
       previousTouchY = currentY;
-      if (!activeTouchScroller || !canScrollLyrics(activeTouchScroller, deltaY)) {
+      if (!activeTouchScroller || !canScrollModal(activeTouchScroller, deltaY)) {
         event.preventDefault();
       }
     };
@@ -2786,7 +2925,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   animateMotion(historySwipeX, 0, { duration: 0.14, ease: [0.16, 1, 0.3, 1] });
                   return;
                 }
-                if (target.closest('button,a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
+                if (target.closest('button,a,input,textarea,select,[data-home-horizontal-scroll],[data-bottom-track-modal-scroll],[data-lyrics-scroll]')) return;
                 modalPointerStartRef.current = { x: event.clientX, y: event.clientY };
               }}
               onPointerMoveCapture={(event) => {
@@ -2819,7 +2958,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   animateMotion(historySwipeX, 0, { duration: 0.14, ease: [0.16, 1, 0.3, 1] });
                   return;
                 }
-                if (target.closest('a,input,textarea,select,[data-home-horizontal-scroll],[data-lyrics-scroll]')) return;
+                if (target.closest('a,input,textarea,select,[data-home-horizontal-scroll],[data-bottom-track-modal-scroll],[data-lyrics-scroll]')) return;
                 modalPointerStartRef.current = { x: touch.clientX, y: touch.clientY };
               }}
               onTouchMoveCapture={(event) => {
@@ -2978,7 +3117,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onPointerUp={(event) => event.stopPropagation()}
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <div className="max-h-[238px] overflow-y-auto pr-1 no-scrollbar">
+                    <div data-bottom-track-modal-scroll="true" className="max-h-[238px] overflow-y-auto pr-1 no-scrollbar">
                       {recentPickerItems.map((item) => {
                         const isSelected = playbackIndex === item.index;
                         return (
@@ -3019,8 +3158,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="pointer-events-none h-1 w-10 rounded-full bg-white/24" aria-hidden="true" />
               </div>
 
-              <motion.div className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 will-change-transform custom-scrollbar" style={{ x: historySwipeX, touchAction: 'pan-y' }}>
-              <div className="flex h-16 items-center gap-3 pt-1">
+              <div className="relative z-20 flex h-16 shrink-0 items-center gap-3 pt-1">
                 <div className="stats-lc-soft-white-glass relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
@@ -3046,7 +3184,14 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <motion.div
+                ref={setStatsScrollElement}
+                data-bottom-track-modal-scroll="true"
+                onScroll={updateStatsScrollMask}
+                className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 will-change-transform custom-scrollbar"
+                style={{ x: historySwipeX, touchAction: 'pan-y' }}
+              >
+              <div className="grid grid-cols-3 gap-2">
                 <StoryMetricCard
                   icon={UserCircle}
                   label="Artista"
@@ -3098,29 +3243,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     releaseValue={albumReleaseRawDate || albumReleaseDate}
                     firstPlayValue={firstPlayDate}
                     previousPlayValue={previousPlayDate}
+                    onFirstPlayInfo={showFirstPlayInfo}
+                    onPreviousPlayInfo={showPreviousPlayInfo}
                   />
-
                   {wrapped && (
-                    <StoryField icon={CalendarDays} label="Wrapped">
-                      <div className="mt-2 grid grid-cols-3 gap-1.5">
-                        {wrapped.periods.map((period) => (
-                          <div
-                            key={period.key}
-                            className={clsx(
-                              "rounded-full px-2 py-2 text-center",
-                              period.highlight ? "bg-white/[0.16] text-white" : "bg-white/[0.055] text-white/58"
-                            )}
-                          >
-                            <span className="block text-[8px] font-black uppercase leading-none tracking-[0.08em]">{period.label}</span>
-                            <span className="mt-1 block text-[11px] font-black leading-none tabular-nums">{coreUtils.formatNumber(period.count)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </StoryField>
+                    <WrappedCompactBubble wrapped={wrapped} />
                   )}
 
                   {hasSocialEntries && (
-                    <SocialBubble entries={socialEntries} label={socialLabel} />
+                    <SocialBubble entries={socialEntries} label={socialLabel} dateValue={socialDateValue} />
                   )}
 
                   <GroupStatsBubble
@@ -3158,13 +3289,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           value={daypartLabel}
                         />
                       )}
-                      {advanced.daysSinceFirst != null && (
-                        <StatMiniBubble
-                          icon={Clock3}
-                          label="Days since"
-                          value={daysSinceLabel}
-                        />
-                      )}
                       <StatMiniBubble
                         icon={BadgePercent}
                         label="Top 1K"
@@ -3190,7 +3314,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 </div>
               )}
 
-              <div className="mt-4 flex items-center gap-2">
+              </motion.div>
+
+              <div className="relative z-20 mt-3 flex shrink-0 items-center gap-2">
                 {track?.name && (
                   <button
                     type="button"
@@ -3250,7 +3376,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </motion.div>
             </div>
           </motion.section>
           </div>

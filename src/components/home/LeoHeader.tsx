@@ -816,10 +816,10 @@ export const LiveTrackProgress = memo(({
 
   );
 
-  const AppleMusicLogo = () => (
+  const AppleMusicLogo = ({ className = '' }: { className?: string }) => (
     <svg
       viewBox="0 0 17 21"
-      className="h-[2.52em] min-w-[1.66em] w-auto object-contain fill-current -translate-y-[0.5px]"
+      className={cn("h-[2.52em] min-w-[1.66em] w-auto object-contain fill-current -translate-y-[0.5px]", className)}
       aria-labelledby="apple-music-logo-title"
       role="img"
     >
@@ -838,6 +838,9 @@ export const LiveTrackProgress = memo(({
     />
   );
   const PlatformLogo = platform === 'spotify' ? <SpotifyIcon /> : <AppleMusicLogo />;
+  const IdlePlatformLogo = platform === 'spotify'
+    ? <SpotifyIcon />
+    : <AppleMusicLogo className="h-[12px] min-w-[9px] -translate-y-[0.25px]" />;
   const PlatformName = platform === 'spotify' ? 'SPOTIFY' : platform === 'appleMusic' ? 'APPLE MUSIC' : 'MUSIC';
 
   useEffect(() => {
@@ -980,7 +983,7 @@ export const LiveTrackProgress = memo(({
               <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">OUVIU NO</span>
               <div className="flex shrink-0 items-center justify-center gap-1 overflow-visible">
                 <div className="text-white/35 flex items-center overflow-visible">
-                  {PlatformLogo}
+                  {IdlePlatformLogo}
                 </div>
                 <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">{PlatformName}</span>
               </div>
