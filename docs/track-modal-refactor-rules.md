@@ -20,11 +20,16 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 - Quando apenas o miolo rolar, o fade do miolo deve ser dinamico: sem fade no topo quando o conteudo ja comeca ali, e sem fade no rodape quando o conteudo ja terminou.
 - A identidade geral escura/glass do stats.lc permanece.
 - Preferencia travada: bolhas compactas separadas, nao painel unico grande.
+- O passe de 2026-06-20 autoriza portar a narrativa visual do redesign
+  competitivo para este bubble apenas como linguagem interna: `Sua historia`,
+  timeline em trilho, Wrapped com barras e grupo/ranking premium devem continuar
+  dentro das superficies translúcidas originais.
 - Evitar vazios horizontais e verticais.
 - Bolhas com poucas informacoes podem compartilhar a mesma linha.
 - Quando uma informacao nao existir e for decorativa/social/ranking, nao reservar espaco vazio.
 - Campos essenciais podem usar fallback curto.
-- Remover laranja interno de destaque, shimmer e badges antigas ate a nova regra visual ser definida.
+- Laranja pode voltar como acento pequeno de leitura e progresso, mas nao como
+  banho geral, shimmer antigo ou badge pesada.
 - Usar vidro neutro branco/cinza nos destaques internos.
 - Botoes de acao inferiores devem ser simetricos e harmonicos.
 
