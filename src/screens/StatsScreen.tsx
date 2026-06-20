@@ -2604,6 +2604,19 @@ export default function StatsScreen() {
             ) : (
               <TrackLeaderboardModal
                 track={selectedTrack}
+                userId={CURRENT_USER_ID}
+                playback={(selectedTrack as any)?.playback || (
+                  (
+                    selectedTrack?.id
+                    && user?.nowPlaying?.track?.id
+                    && String(selectedTrack.id) === String(user.nowPlaying.track.id)
+                  ) || (
+                    selectedTrack?.name
+                    && user?.nowPlaying?.track?.name === selectedTrack.name
+                  )
+                    ? user?.nowPlaying
+                    : undefined
+                )}
                 onClose={() => setSelectedTrack(null)}
                 onArtistClick={(artist) => setSelectedTrack({ ...artist, type: 'artist' })}
               />

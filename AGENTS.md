@@ -164,7 +164,10 @@ Regras importantes:
 - `src/components/home/FriendActivityReel.tsx`: atividade do circulo.
 - `src/components/home/FriendsMonthlyHighlights.tsx`: Top 1 do Circulo.
 - `src/components/home/StatsAlike.tsx`: afinidade na Home.
-- `src/components/modals/TrackLeaderboardModal.tsx`: modal da faixa/artista/album.
+- `src/components/modals/TrackLeaderboardModal.tsx`: historia competitiva e
+  ranking da faixa; artista e album abrem seus modais dedicados.
+- `docs/track-leaderboard-modal-rules.md`: contrato visual, de dados e QA do
+  modal competitivo da faixa; nao confundir com a bolha inferior.
 - `src/store/useStatsStore.ts`: Zustand, cache, fetchGroup, fetchGroupLive.
 - `src/services/statsService.ts`: API client e normalizacao.
 - `src/lib/memberSelectors.ts`: membros canonicos/visiveis/live.

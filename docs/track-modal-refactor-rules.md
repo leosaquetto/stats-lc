@@ -5,7 +5,8 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 ## Escopo
 
 - Superficie alvo: `BottomTrackStatsBubble` em `src/components/Layout.tsx`.
-- Nao refatorar o `TrackLeaderboardModal` de ranking nesta etapa.
+- Este documento nao rege o `TrackLeaderboardModal` competitivo, que possui
+  contrato proprio em `docs/track-leaderboard-modal-rules.md`.
 - Modal web-first; nada de Expo, Capacitor ou React Native agora.
 - Viewport principal de validacao: `390x790`, equivalente ao iPhone 16E informado.
 - Sem commit automatico.

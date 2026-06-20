@@ -2743,7 +2743,12 @@ export default function HomeScreen() {
     setTrackModalPrepState('loading');
 
     loadTrackLeaderboardModule()
-      .then((module) => module.preloadTrackLeaderboardStats(track, members))
+      .then((module) => module.preloadTrackLeaderboardStats(
+        track,
+        members,
+        primaryUser?.id,
+        primaryUser?.nowPlaying,
+      ))
       .then(() => {
         if (!cancelled) setTrackModalPrepState('ready');
       })
@@ -2754,7 +2759,13 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [isBelowFoldHydrationReady, primaryUser?.id, primaryUser?.nowPlaying?.track?.id, membersSignature]);
+  }, [
+    isBelowFoldHydrationReady,
+    membersSignature,
+    primaryUser?.id,
+    primaryUser?.nowPlaying?.timestamp,
+    primaryUser?.nowPlaying?.track?.id,
+  ]);
 
   const replayArtists = useMemo(() => sanitizeTopItems(replayTopItems.artists || [], 'artist'), [replayTopItems.artists]);
   const replayTracks = useMemo(() => sanitizeTopItems(replayTopItems.tracks || [], 'track'), [replayTopItems.tracks]);
@@ -2888,7 +2899,20 @@ export default function HomeScreen() {
               {selectedTrack && (
                 <TrackLeaderboardModal
                   key={`home-track-${selectedTrack.id || selectedTrack.name}`}
-                  track={selectedTrack} 
+                  track={selectedTrack}
+                  userId={primaryUser?.id}
+                  playback={(selectedTrack as any)?.playback || (
+                    (
+                      selectedTrack?.id
+                      && primaryUser?.nowPlaying?.track?.id
+                      && String(selectedTrack.id) === String(primaryUser.nowPlaying.track.id)
+                    ) || (
+                      selectedTrack?.name
+                      && primaryUser?.nowPlaying?.track?.name === selectedTrack.name
+                    )
+                      ? primaryUser?.nowPlaying
+                      : undefined
+                  )}
                   onClose={() => setSelectedTrack(null)}
                   onArtistClick={(artist) => setSelectedArtist({ ...artist, type: 'artist' })}
                 />
