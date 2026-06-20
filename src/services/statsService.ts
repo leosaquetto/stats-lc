@@ -591,6 +591,7 @@ export type TrackStoryResponse = {
     daypart: { key: string; label: string; count: number; percent: number } | null;
     daysSinceFirst: number | null;
     top1kPosition: number | null;
+    topYearPosition: number | null;
   } | null;
   social: {
     firstListeners: Array<{ key: string; id: string; playedAt: number; count: number }>;
