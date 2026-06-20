@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, PieChart, Trophy, Flame, Repeat2, Sunrise, TimerReset, BadgePercent, Info, Crown, Headphones, Play } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, Trophy, Flame, Repeat2, TimerReset, BadgePercent, Crown, Headphones, Play, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -1410,7 +1410,7 @@ const PersonalStoryBubble = ({
   albumValue: number;
   albumReady: boolean;
 }) => (
-  <div className="bottom-track-stats-surface min-w-0 rounded-[22px] px-3.5 py-3">
+  <div className="bottom-track-stats-surface min-h-[132px] min-w-0 rounded-[22px] px-3.5 py-3">
     <div className="flex min-w-0 items-center gap-1.5 text-white/44">
       <AudioLines className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
       <span className="min-w-0 text-[7px] font-black uppercase leading-none tracking-[0.18em]">Sua história</span>
@@ -1468,74 +1468,6 @@ const PersonalStoryBubble = ({
   </div>
 );
 
-const StoryField = ({
-  icon: Icon,
-  label,
-  value,
-  children,
-}: {
-  icon: typeof Music2;
-  label: string;
-  value?: React.ReactNode;
-  children?: React.ReactNode;
-}) => (
-  <div className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-2.5">
-    <div className="flex items-center gap-1.5 text-white/42">
-      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-      <span className="text-[6.5px] font-black uppercase leading-none tracking-[0.12em]">{label}</span>
-    </div>
-    {value != null && (
-      <div className="mt-1.5 text-[10px] font-black leading-tight text-white/82">{value}</div>
-    )}
-    {children}
-  </div>
-);
-
-const CompactStoryItem = ({
-  icon: Icon,
-  label,
-  value,
-  valueClassName,
-  children,
-}: {
-  icon: typeof Music2;
-  label: string;
-  value?: React.ReactNode;
-  valueClassName?: string;
-  children?: React.ReactNode;
-}) => (
-  <div className="min-w-0 px-1 py-0.5">
-    <div className="flex min-w-0 items-center gap-1.5 text-white/42">
-      <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-      <span className="min-w-0 text-[6.5px] font-black uppercase leading-[0.95] tracking-[0.09em]">{label}</span>
-    </div>
-    {value != null && (
-      <div className={clsx("mt-1.5 min-w-0 text-[10px] font-black leading-tight text-white/82", valueClassName)}>{value}</div>
-    )}
-    {children}
-  </div>
-);
-
-const DateTimeBadge = ({ value, empty = 'sem registro' }: { value: any; empty?: string }) => {
-  const date = formatTinyDate(value);
-  if (date === 'sem registro') {
-    return <span className="inline-flex rounded-full bg-white/[0.065] px-2 py-1 text-[9px] font-black leading-none text-white/54">{empty}</span>;
-  }
-  const time = formatTinyTime(value);
-  return (
-    <span className="inline-flex max-w-full items-center justify-end gap-1 font-black leading-none text-white/82">
-      {time && (
-        <span className="inline-flex rounded-full bg-white/[0.065] px-1.5 py-1 text-[6.5px] font-black tabular-nums text-white/54">
-          {time}
-        </span>
-      )}
-      <span className="inline-flex rounded-full bg-white/[0.075] px-2 py-1 text-[9px] tabular-nums">
-        {date}
-      </span>
-    </span>
-  );
-};
-
 const DateBadge = ({ value, empty = 'sem registro', plain = false }: { value: any; empty?: string; plain?: boolean }) => {
   const date = formatTinyDate(value);
   return (
@@ -1544,35 +1476,6 @@ const DateBadge = ({ value, empty = 'sem registro', plain = false }: { value: an
       plain ? "px-0 py-1" : "rounded-full bg-white/[0.075] px-2 py-1"
     )}>
       {date === 'sem registro' ? empty : date}
-    </span>
-  );
-};
-
-const DateInfoValue = ({
-  value,
-  empty = 'sem registro',
-  onInfo,
-}: {
-  value: any;
-  empty?: string;
-  onInfo: () => void;
-}) => {
-  const date = formatTinyDate(value);
-  if (date === 'sem registro') return <DateBadge value={value} empty={empty} plain />;
-  return (
-    <span className="inline-flex max-w-full items-center gap-1">
-      <DateBadge value={value} empty={empty} plain />
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onInfo();
-        }}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.075] text-white/58 transition-colors hover:text-white"
-        aria-label="Ver detalhes do play"
-      >
-        <Info className="h-3 w-3" strokeWidth={2.4} />
-      </button>
     </span>
   );
 };
@@ -1713,7 +1616,7 @@ const TimelineStack = ({
   ];
 
   return (
-    <div className="bottom-track-stats-surface min-w-0 rounded-[22px] px-3.5 py-3">
+    <div className="bottom-track-stats-surface min-h-[132px] min-w-0 rounded-[22px] px-3.5 py-3">
       <div className="flex min-w-0 items-center gap-1.5 text-white/44">
         <Clock3 className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
         <span className="min-w-0 text-[7px] font-black uppercase leading-none tracking-[0.18em]">Linha do tempo</span>
@@ -1772,7 +1675,7 @@ const WrappedCompactBubble = ({ wrapped, animateBars = false }: { wrapped: Track
   if (!wrapped) return null;
   const maxCount = Math.max(1, ...wrapped.periods.map((period) => period.count || 0));
   return (
-    <div className="bottom-track-stats-surface flex min-w-0 flex-col rounded-[22px] px-3.5 py-3">
+    <div className="bottom-track-stats-surface flex min-h-[142px] min-w-0 flex-col rounded-[22px] px-3.5 py-3">
       <div className="flex min-w-0 items-center gap-1.5 text-white/42">
         <CalendarDays className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
         <span className="text-[7px] font-black uppercase leading-none tracking-[0.18em]">Wrapped</span>
@@ -1843,102 +1746,186 @@ const SocialBubble = ({
   </div>
 );
 
-const GroupStatsBubble = ({
+const GroupOriginalCard = ({
   cakePiecePercent,
   groupTotalPlays,
-  ranking,
+  socialEntries,
+  socialText,
   animateRing = false,
 }: {
   cakePiecePercent: number | null;
   groupTotalPlays: number | null;
-  ranking: Array<{ user: any; count: number; position: number }>;
+  socialEntries: Array<{ user: any; playedAt?: number; count?: number }>;
+  socialText?: string;
   animateRing?: boolean;
 }) => {
-  if (groupTotalPlays == null && cakePiecePercent == null && ranking.length === 0) return null;
+  if (groupTotalPlays == null && cakePiecePercent == null && socialEntries.length === 0) return null;
   const safePercent = cakePiecePercent == null ? 0 : clampPercent(cakePiecePercent);
+
   return (
-    <div className="bottom-track-stats-surface min-w-0 rounded-[22px] px-3.5 py-3">
+    <div className="bottom-track-stats-surface flex min-h-[142px] min-w-0 flex-col rounded-[22px] px-3.5 py-3">
       <div className="flex min-w-0 items-center gap-1.5 text-white/44">
-        <UsersRound className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-        <span className="min-w-0 text-[7px] font-black uppercase leading-none tracking-[0.18em]">Plays do grupo</span>
+        <UsersRound className="h-4 w-4 shrink-0" strokeWidth={2.1} />
+        <span className="min-w-0 text-[9px] font-black uppercase leading-none tracking-[0.16em]">Seu grupo</span>
       </div>
-      <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-          {groupTotalPlays != null && (
-            <CompactStoryItem icon={AudioLines} label="Grupo" value={coreUtils.formatNumber(groupTotalPlays)} />
-          )}
-          {cakePiecePercent != null && (
-            <CompactStoryItem icon={PieChart} label="Sua fatia" value={`${safePercent}%`} />
-          )}
+      <div className="mt-3 flex min-w-0 flex-1 items-center justify-between gap-2">
+        <div className="min-w-0">
+          <strong className="block text-[30px] font-black leading-none tracking-[-0.04em] text-white">
+            {groupTotalPlays == null ? '—' : coreUtils.formatNumber(groupTotalPlays)}
+          </strong>
+          <span className="mt-1 block text-[10px] font-semibold leading-tight text-white/50">plays totais</span>
         </div>
         {cakePiecePercent != null && (
           <motion.div
-            className="relative h-[62px] w-[62px] shrink-0 rounded-full p-[3px]"
+            className="relative h-[82px] w-[82px] shrink-0 rounded-full p-[6px]"
             style={{
-              background: `conic-gradient(rgba(251,146,60,0.92) ${safePercent}%, rgba(255,255,255,0.10) ${safePercent}% 100%)`,
+              background: `conic-gradient(rgba(251,146,60,0.95) ${safePercent}%, rgba(255,255,255,0.13) ${safePercent}% 100%)`,
             }}
             initial={animateRing ? { opacity: 0.5, scale: 0.86, rotate: -10 } : false}
             animate={{ opacity: 1, scale: 1, rotate: 0 }}
             transition={{ duration: animateRing ? 0.24 : 0.08, ease: [0.22, 1, 0.36, 1] }}
             aria-label={`Sua fatia ${safePercent}%`}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-black/62 text-center backdrop-blur-md">
-              <span className="text-[15px] font-black leading-none tabular-nums text-white">{safePercent}%</span>
-              <span className="mt-0.5 text-[6px] font-black uppercase leading-none tracking-[0.08em] text-white/42">da faixa</span>
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-black/68 text-center">
+              <span className="text-[22px] font-black leading-none tabular-nums text-white">{safePercent}%</span>
+              <span className="mt-1 text-[8px] font-black leading-none text-white/42">da faixa</span>
             </div>
           </motion.div>
         )}
       </div>
-      {ranking.length > 0 && (
-        <div className="mt-3 flex min-w-0 items-center justify-between gap-3 border-t border-white/[0.055] pt-2.5">
-          <div className="flex min-w-0 items-center gap-1.5 text-white/42">
-            <Trophy className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-            <span className="text-[7px] font-black uppercase leading-none tracking-[0.12em]">Ranking</span>
-          </div>
-          <CompactAvatarRank ranking={ranking} />
+      {socialEntries.length > 0 && (
+        <div className="mt-2 flex min-w-0 items-center gap-2">
+          <AvatarStack entries={socialEntries} limit={4} className="" />
+          {socialText && (
+            <span className="min-w-0 text-[8px] font-black leading-tight text-orange-300/86">
+              {socialText}
+            </span>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-const StatMiniBubble = ({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  onInfo,
-  className,
+const RankingOriginalCard = ({
+  ranking,
+  userId,
 }: {
-  icon: typeof Music2;
-  label: string;
-  value: React.ReactNode;
-  detail?: React.ReactNode;
-  onInfo?: () => void;
-  className?: string;
-}) => (
-  <div className={clsx("bottom-track-stats-surface min-w-0 rounded-[15px] px-2.5 py-2", className)}>
-    <div className="flex min-w-0 items-center justify-between gap-1.5 text-white/42">
-      <div className="flex min-w-0 items-center gap-1.5">
-        <Icon className="h-3 w-3 shrink-0" strokeWidth={2.2} />
-        <span className="min-w-0 truncate text-[6px] font-black uppercase leading-none tracking-[0.08em]">{label}</span>
+  ranking: Array<{ user: any; count: number; position: number }>;
+  userId?: string;
+}) => {
+  if (ranking.length === 0) return null;
+  const currentRank = ranking.find((item) => item.user?.id === userId) || ranking[0];
+  const visible = ranking.slice(0, 5);
+
+  return (
+    <div className="bottom-track-stats-surface flex min-h-[142px] min-w-0 flex-col rounded-[22px] px-3.5 py-3">
+      <div className="flex min-w-0 items-center gap-1.5 text-white/44">
+        <Trophy className="h-4 w-4 shrink-0" strokeWidth={2.1} />
+        <span className="min-w-0 text-[9px] font-black uppercase leading-none tracking-[0.16em]">Ranking</span>
       </div>
-      {onInfo && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onInfo();
-          }}
-          className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-white/[0.065] text-white/54 transition-colors hover:text-white"
-          aria-label={`Ver detalhes de ${label}`}
-        >
-          <Info className="h-2.5 w-2.5" strokeWidth={2.4} />
-        </button>
+      <div className="mt-4 flex min-w-0 items-start justify-between gap-1">
+        {visible.map((item) => {
+          const highlighted = item.user?.id === userId;
+          return (
+            <div key={item.user?.id || item.position} className="flex min-w-0 flex-1 flex-col items-center">
+              <span className={clsx(
+                "relative h-9 w-9 shrink-0 rounded-full border bg-white/[0.06]",
+                highlighted ? "border-orange-300/70 shadow-[0_0_0_2px_rgba(249,115,22,0.22)]" : "border-white/[0.08]"
+              )}>
+                <span className="block h-full w-full overflow-hidden rounded-full">
+                  <SmartImage
+                    src={coreUtils.getUserAvatar(item.user?.id, item.user?.avatar)}
+                    cacheKey={`bottom-track-ranking-original:${item.user?.id || item.position}`}
+                    className="h-full w-full object-cover"
+                    rounded="full"
+                    fallback={item.user?.name || '?'}
+                  />
+                </span>
+                <span className={clsx(
+                  "absolute -bottom-2 left-1/2 min-w-[22px] -translate-x-1/2 rounded-full px-1.5 py-[2px] text-center text-[7px] font-black leading-none",
+                  highlighted ? "bg-orange-500 text-white" : "bg-white/[0.16] text-white/82"
+                )}>
+                  #{item.position}
+                </span>
+              </span>
+              <span className={clsx("mt-3 text-[10px] font-black tabular-nums", highlighted ? "text-orange-300" : "text-white/58")}>
+                {coreUtils.formatNumber(item.count)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {currentRank && (
+        <div className="mt-auto pt-2 text-[10px] font-semibold text-white/38">
+          Você está em <span className="font-black text-white/76">#{currentRank.position}</span> de {ranking.length}
+        </div>
       )}
     </div>
-    <div className="mt-1.5 text-[9.5px] font-black leading-tight text-white/82">{value}</div>
-    {detail && <div className="mt-1 text-[8px] font-bold leading-tight text-white/38">{detail}</div>}
+  );
+};
+
+const InsightsOriginalCard = ({
+  advanced,
+  daypartPercent,
+}: {
+  advanced: TrackStoryResponse['advanced'];
+  daypartPercent: number;
+}) => {
+  if (!advanced) return null;
+  return (
+    <div className="bottom-track-stats-surface flex min-h-[142px] min-w-0 flex-col rounded-[22px] px-3.5 py-3">
+      <div className="flex min-w-0 items-center gap-1.5 text-white/44">
+        <Sparkles className="h-4 w-4 shrink-0" strokeWidth={2.1} />
+        <span className="min-w-0 text-[9px] font-black uppercase leading-none tracking-[0.16em]">Insights</span>
+      </div>
+      <div className="mt-4 grid flex-1 grid-cols-3 divide-x divide-white/[0.075]">
+        <div className="flex min-w-0 flex-col items-center justify-center px-1 text-center">
+          <Flame className="mb-2 h-[22px] w-[22px] text-orange-400" strokeWidth={2.25} />
+          <strong className="text-[24px] font-black leading-none text-white">{advanced.streak.days || 0}</strong>
+          <span className="mt-1 text-[8px] font-semibold leading-tight text-white/46">dias seguidos</span>
+        </div>
+        <div className="flex min-w-0 flex-col items-center justify-center px-1 text-center">
+          <Repeat2 className="mb-2 h-[22px] w-[22px] text-violet-300" strokeWidth={2.25} />
+          <strong className="text-[24px] font-black leading-none text-white">{advanced.loopFactor?.count || 0}x</strong>
+          <span className="mt-1 text-[8px] font-semibold leading-tight text-white/46">em um dia</span>
+        </div>
+        <div className="flex min-w-0 flex-col items-center justify-center px-1 text-center">
+          <Clock3 className="mb-2 h-[22px] w-[22px] text-orange-400" strokeWidth={2.25} />
+          <strong className="text-[24px] font-black leading-none text-white">{daypartPercent}%</strong>
+          <span className="mt-1 text-[8px] font-semibold leading-tight text-white/46">{advanced.daypart?.label || 'período'}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ArtistOriginalCard = ({
+  artistName,
+  artistImage,
+  value,
+  ready,
+}: {
+  artistName: string;
+  artistImage?: string;
+  value: number;
+  ready: boolean;
+}) => (
+  <div className="bottom-track-stats-surface flex min-w-0 items-center gap-3 rounded-[22px] px-3.5 py-3">
+    <span className="h-[58px] w-[58px] shrink-0 overflow-hidden rounded-full bg-white/[0.06]">
+      {artistImage ? (
+        <SmartImage src={artistImage} className="h-full w-full object-cover" rounded="full" fallback="" />
+      ) : (
+        <UserCircle className="m-4 h-6 w-6 text-white/38" />
+      )}
+    </span>
+    <div className="min-w-0">
+      <div className="truncate text-[12px] font-black leading-tight text-white/82">{artistName}</div>
+      <div className="mt-1 text-[22px] font-black leading-none text-violet-300">
+        <ModalMetricValue ready={ready} value={value} />
+      </div>
+      <div className="mt-1 text-[9px] font-semibold text-white/44">plays</div>
+    </div>
   </div>
 );
 
@@ -2257,6 +2244,16 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const statsAppUrl = isAppleMusicUser && trackId ? `statsam://track/${trackId}` : undefined;
   const trackLinks = React.useMemo(() => getTrackLinks(track, statsAppUrl), [track, statsAppUrl]);
   const shouldReserveGeniusLink = !!track?.name && lyricsMatch?.hasLyrics !== false;
+  const statsTrackLink = trackLinks.find((link) => link.kind === 'statsfm') || trackLinks[0] || null;
+  const externalTrackLink = trackLinks.find((link) => link.kind !== 'statsfm')
+    || (lyricsMatch?.match?.url
+      ? ({
+        kind: 'genius',
+        label: 'Genius',
+        url: lyricsMatch.match.url,
+        appUrl: lyricsMatch.match.url,
+      } as TrackLink)
+      : null);
   const currentLyricsRequestKey = React.useMemo(() => {
     if (!track?.name) return '';
     return `${trackId || 'track'}:${getLyricsCacheKey(track.name, artistName)}:${activePlayback?.timestamp || ''}`;
@@ -2533,6 +2530,9 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const socialDateValue = hasReleaseListeners ? null : socialEntries[0]?.playedAt;
   const hasSocialEntries = socialEntries.length > 0;
   const socialIncludesFeaturedUser = hasReleaseListeners && socialEntries.some((entry) => entry.user?.id === panelUserId);
+  const socialGroupText = hasSocialEntries
+    ? `${socialEntries.length} pessoa${socialEntries.length > 1 ? 's' : ''} ${hasReleaseListeners ? 'no lançamento' : 'no primeiro dia'}`
+    : '';
   const trackMetricReady = panelHydration.metrics || typeof knownUserTrackCount === 'number';
   const visibleSocialRanking = storyRanking.length > 0 ? storyRanking : [];
   const shouldShowAdvancedStats = (entityStats.track || knownUserTrackCount || 0) > 10 && !!advanced;
@@ -2838,6 +2838,23 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       }
     } catch {}
     setSelectedTrackLink(null);
+  };
+
+  const shareCurrentTrack = async () => {
+    const primaryLink = trackLinks.find((link) => link.kind === 'statsfm') || trackLinks[0];
+    const fallbackUrl = primaryLink?.url || lyricsMatch?.match?.url || window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${trackTitle} - ${artistName}`,
+          text: `${trackTitle} - ${artistName}`,
+          url: fallbackUrl,
+        });
+      } else {
+        await navigator.clipboard?.writeText(fallbackUrl);
+        showToast('Link copiado para a área de transferência.');
+      }
+    } catch {}
   };
 
   const handleLyrics = React.useCallback(async () => {
@@ -3501,8 +3518,8 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="pointer-events-none h-1 w-10 rounded-full bg-white/24" aria-hidden="true" />
               </div>
 
-              <div className="relative z-20 flex h-16 shrink-0 items-center gap-3 pt-1">
-                <div className="stats-lc-soft-white-glass relative h-16 w-16 shrink-0 overflow-hidden rounded-[18px]">
+              <div className="relative z-20 -mx-4 -mt-4 flex h-[104px] shrink-0 items-center gap-3 border-b border-white/[0.075] px-4 pb-3 pt-5">
+                <div className="stats-lc-soft-white-glass relative h-[74px] w-[74px] shrink-0 overflow-hidden rounded-[20px]">
                   {artwork ? (
                     <SmartImage src={artwork} className="h-full w-full object-cover" rounded="none" fallback="" />
                   ) : (
@@ -3511,140 +3528,147 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </div>
                   )}
                 </div>
-                <div className="flex h-16 min-w-0 flex-1 flex-col justify-center">
-                  <div className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="block shrink-0 text-[7px] font-black uppercase leading-none tracking-[0.18em] text-white/42">
+                <div className="flex h-[74px] min-w-0 flex-1 flex-col justify-center pr-10">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="block shrink-0 text-[8px] font-black uppercase leading-none tracking-[0.18em] text-white/44">
                       {activePlaybackLabel || 'Stats da música'}
                     </span>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" aria-hidden="true" />
                     <TrackTopBadges advanced={advanced} />
                   </div>
-                  <TwoLineText className="mt-0.5 text-[18px] font-black leading-[0.98] text-white">
+                  <TwoLineText className="mt-1 text-[22px] font-black leading-[0.98] tracking-[-0.03em] text-white">
                     {parsedTrackTitle.displayTitle || trackTitle}
                   </TwoLineText>
-                  <p className="mt-0.5 truncate text-[10px] font-semibold leading-[1.05] text-white/52">
+                  <p className="mt-1 truncate text-[12px] font-black leading-[1.05] text-orange-400">
                     <ArtistNamesInline artists={trackArtists} fallback={artistName} />
                   </p>
-                  <p className="mt-0.5 truncate text-[8px] font-black uppercase leading-[1.05] tracking-[0.04em] text-white/30">
+                  <p className="mt-1 truncate text-[9px] font-black uppercase leading-[1.05] tracking-[0.16em] text-white/34">
                     {albumName}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={closeStatsModal}
+                  className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035] text-white/48 transition-[background-color,color,transform] active:scale-95"
+                  aria-label="Fechar stats da música"
+                >
+                  <X className="h-6 w-6" strokeWidth={2.1} />
+                </button>
               </div>
 
               <motion.div
                 ref={setStatsScrollElement}
                 data-bottom-track-modal-scroll="true"
                 onScroll={updateStatsScrollMask}
-                className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-14 pr-1 will-change-transform custom-scrollbar"
+                className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-16 pr-1 will-change-transform custom-scrollbar"
                 style={{ x: historySwipeX, touchAction: 'pan-y' }}
               >
-              <motion.div {...getStatsGroupMotion(0)}>
-                <PersonalStoryBubble
-                  trackTitle={parsedTrackTitle.displayTitle || trackTitle}
-                  trackValue={entityStats.track}
-                  trackReady={trackMetricReady}
-                  trackFallbackValue={knownUserTrackCount}
-                  artistName={trackArtists[0]?.name || artistName}
-                  artistImage={artistImage}
-                  artistValue={entityStats.artist}
-                  artistReady={panelHydration.metrics}
-                  additionalArtists={panelHydration.artistStats ? artistStats.slice(1) : artistStatSkeletons.slice(1)}
-                  albumName={albumName}
-                  albumImage={artwork}
-                  albumValue={entityStats.album}
-                  albumReady={panelHydration.metrics}
-                />
-              </motion.div>
+                {panelHydration.history ? (
+                  <motion.div className="space-y-3" {...getStatsGroupMotion(0)}>
+                    {hasSocialEntries && (
+                      <motion.div {...getStatsGroupMotion(1)}>
+                        <SocialBubble
+                          entries={socialEntries}
+                          label={socialLabel}
+                          dateValue={socialDateValue}
+                          featured={socialIncludesFeaturedUser}
+                        />
+                      </motion.div>
+                    )}
 
-              {panelHydration.history ? (
-                <motion.div
-                  className="mt-2 space-y-2"
-                  {...getStatsGroupMotion(1)}
-                >
-                  <motion.div {...getStatsGroupMotion(2)}>
-                    <TimelineStack
-                      releaseValue={albumReleaseRawDate || albumReleaseDate}
-                      firstPlayValue={firstPlayDate}
-                      previousPlayValue={previousPlayDate}
-                      onFirstPlayInfo={showFirstPlayInfo}
-                      onPreviousPlayInfo={showPreviousPlayInfo}
-                      loopFactorDate={loopFactorDate}
-                      loopFactorCount={advanced?.loopFactor?.count}
-                      animateRail={shouldAnimateStatsGroups}
-                    />
-                  </motion.div>
-                  {wrapped && (
+                    <motion.div {...getStatsGroupMotion(2)}>
+                      <PersonalStoryBubble
+                        trackTitle={parsedTrackTitle.displayTitle || trackTitle}
+                        trackValue={entityStats.track}
+                        trackReady={trackMetricReady}
+                        trackFallbackValue={knownUserTrackCount}
+                        artistName={trackArtists[0]?.name || artistName}
+                        artistImage={artistImage}
+                        artistValue={entityStats.artist}
+                        artistReady={panelHydration.metrics}
+                        additionalArtists={panelHydration.artistStats ? artistStats.slice(1) : artistStatSkeletons.slice(1)}
+                        albumName={albumName}
+                        albumImage={artwork}
+                        albumValue={entityStats.album}
+                        albumReady={panelHydration.metrics}
+                      />
+                    </motion.div>
+
                     <motion.div {...getStatsGroupMotion(3)}>
-                      <WrappedCompactBubble wrapped={wrapped} animateBars={shouldAnimateStatsGroups} />
-                    </motion.div>
-                  )}
-
-                  {hasSocialEntries && (
-                    <motion.div {...getStatsGroupMotion(4)}>
-                      <SocialBubble
-                        entries={socialEntries}
-                        label={socialLabel}
-                        dateValue={socialDateValue}
-                        featured={socialIncludesFeaturedUser}
+                      <TimelineStack
+                        releaseValue={albumReleaseRawDate || albumReleaseDate}
+                        firstPlayValue={firstPlayDate}
+                        previousPlayValue={previousPlayDate}
+                        onFirstPlayInfo={showFirstPlayInfo}
+                        onPreviousPlayInfo={showPreviousPlayInfo}
+                        loopFactorDate={loopFactorDate}
+                        loopFactorCount={advanced?.loopFactor?.count}
+                        animateRail={shouldAnimateStatsGroups}
                       />
                     </motion.div>
-                  )}
 
-                  <motion.div {...getStatsGroupMotion(5)}>
-                    <GroupStatsBubble
-                      cakePiecePercent={cakePiecePercent}
-                      groupTotalPlays={groupTotalPlays}
-                      ranking={visibleSocialRanking}
-                      animateRing={shouldAnimateStatsGroups}
-                    />
+                    {(wrapped || (shouldShowAdvancedStats && advanced)) && (
+                      <motion.div
+                        className={clsx(
+                          "grid gap-3",
+                          wrapped && shouldShowAdvancedStats && advanced ? "grid-cols-2" : "grid-cols-1"
+                        )}
+                        {...getStatsGroupMotion(4)}
+                      >
+                        {wrapped && <WrappedCompactBubble wrapped={wrapped} animateBars={shouldAnimateStatsGroups} />}
+                        {shouldShowAdvancedStats && advanced && (
+                          <InsightsOriginalCard advanced={advanced} daypartPercent={daypartPercent} />
+                        )}
+                      </motion.div>
+                    )}
+
+                    {(groupTotalPlays != null || cakePiecePercent != null || visibleSocialRanking.length > 0) && (
+                      <motion.div
+                        className={clsx(
+                          "grid gap-3",
+                          visibleSocialRanking.length > 0 ? "grid-cols-2" : "grid-cols-1"
+                        )}
+                        {...getStatsGroupMotion(5)}
+                      >
+                        <GroupOriginalCard
+                          cakePiecePercent={cakePiecePercent}
+                          groupTotalPlays={groupTotalPlays}
+                          socialEntries={socialEntries}
+                          socialText={socialGroupText}
+                          animateRing={shouldAnimateStatsGroups}
+                        />
+                        <RankingOriginalCard ranking={visibleSocialRanking} userId={panelUserId} />
+                      </motion.div>
+                    )}
+
+                    <motion.div {...getStatsGroupMotion(6)}>
+                      <ArtistOriginalCard
+                        artistName={trackArtists[0]?.name || artistName}
+                        artistImage={artistImage}
+                        value={entityStats.artist}
+                        ready={panelHydration.metrics}
+                      />
+                    </motion.div>
+
+                    {coveragePartial && (
+                      <motion.div
+                        className="bottom-track-stats-surface rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] text-white/38"
+                        {...getStatsGroupMotion(7)}
+                      >
+                        Dados parciais nesta abertura
+                      </motion.div>
+                    )}
                   </motion.div>
-
-                  {shouldShowAdvancedStats && advanced && (
-                    <motion.div className="grid grid-cols-2 gap-2" {...getStatsGroupMotion(6)}>
-                      <StatMiniBubble
-                        icon={Flame}
-                        label="Streak"
-                        value={`${advanced.streak.days || 0} dias seguidos`}
-                        onInfo={showStreakInfo}
-                      />
-                      {advanced.loopFactor && (
-                        <StatMiniBubble
-                          icon={Repeat2}
-                          label="Looping Day"
-                          value={(
-                            <span className="inline-flex flex-wrap items-center gap-1">
-                              <DateBadge value={loopFactorDate} />
-                              <span className="rounded-full bg-white/[0.075] px-2 py-1 text-[9px] leading-none text-white/82">{advanced.loopFactor.count}x</span>
-                            </span>
-                          )}
-                        />
-                      )}
-                      {advanced.daypart && (
-                        <StatMiniBubble
-                          icon={Sunrise}
-                          label="Hora"
-                          value={daypartFact}
-                          className="col-span-2 py-2"
-                        />
-                      )}
-                    </motion.div>
-                  )}
-
-                  {coveragePartial && (
-                    <div className="bottom-track-stats-surface rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] text-white/38">
-                      Dados parciais nesta abertura
-                    </div>
-                  )}
-                </motion.div>
-              ) : (
-                <div className="mt-3 grid grid-cols-2 gap-2" aria-hidden="true">
-                  {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-3">
-                      <ModalSkeleton className="h-2 w-16" />
-                      <ModalSkeleton className="mt-2 h-3 w-24" />
-                    </div>
-                  ))}
-                </div>
-              )}
+                ) : (
+                  <div className="grid grid-cols-2 gap-2" aria-hidden="true">
+                    {[1, 2, 3, 4].map((item) => (
+                      <div key={item} className="bottom-track-stats-surface min-w-0 rounded-[18px] px-3 py-3">
+                        <ModalSkeleton className="h-2 w-16" />
+                        <ModalSkeleton className="mt-2 h-3 w-24" />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
               </motion.div>
 
@@ -3655,10 +3679,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onClick={handleLyrics}
                     disabled={lyricsLoading || lyricsMatch?.hasLyrics === false}
                     className={clsx(
-                      "stats-lc-soft-white-glass flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                      "stats-lc-soft-white-glass flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full border px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
                         ? "cursor-not-allowed text-white/28"
-                        : "border-0 text-white/72 hover:text-white"
+                        : "border-orange-500/42 bg-orange-500/[0.055] text-orange-100/88 shadow-[0_0_24px_rgba(255,112,24,0.11)] hover:text-white"
                     )}
                   >
                     {lyricsLoading ? (
@@ -3673,26 +3697,24 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </span>
                   </button>
                 )}
-                {(trackLinks.length > 0 || shouldReserveGeniusLink) && (
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {trackLinks.map((link) => (
-                      <TrackLinkIconButton key={link.label} link={link} onChoose={chooseTrackLink} />
-                    ))}
-                    {lyricsMatch?.match?.url ? (
-                      <TrackLinkIconButton
-                        link={{
-                          kind: 'genius',
-                          label: 'Genius',
-                          url: lyricsMatch.match.url,
-                          appUrl: lyricsMatch.match.url,
-                        }}
-                        onChoose={chooseTrackLink}
-                      />
-                    ) : shouldReserveGeniusLink ? (
-                      <span className="h-10 w-10 shrink-0 rounded-full bg-white/[0.035] opacity-0" aria-hidden="true" />
-                    ) : null}
-                  </div>
+                {statsTrackLink ? (
+                  <TrackLinkIconButton link={statsTrackLink} onChoose={chooseTrackLink} />
+                ) : (
+                  <span className="h-10 w-10 shrink-0 rounded-full bg-white/[0.035] opacity-0" aria-hidden="true" />
                 )}
+                <button
+                  type="button"
+                  onClick={shareCurrentTrack}
+                  className="stats-lc-soft-white-glass flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:text-white"
+                  aria-label="Compartilhar faixa"
+                >
+                  <Share className="h-4 w-4" strokeWidth={2.35} />
+                </button>
+                {externalTrackLink ? (
+                  <TrackLinkIconButton link={externalTrackLink} onChoose={chooseTrackLink} />
+                ) : shouldReserveGeniusLink ? (
+                  <span className="h-10 w-10 shrink-0 rounded-full bg-white/[0.035] opacity-0" aria-hidden="true" />
+                ) : null}
               </div>
 
               <AnimatePresence>

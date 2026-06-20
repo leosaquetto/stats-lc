@@ -13,17 +13,21 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 
 ## Direcao Visual
 
-- O modal deve ser uma ficha unica, top-aligned, com margem segura no topo.
+- O modal deve ser uma ficha unica, top-aligned, com margem segura no topo,
+  visualmente proxima do modal original de track story.
 - Header do modal deve ficar fixo: capa, contexto, titulo, artista e album nao rolam junto com o miolo.
 - A regua de acoes (`Ver letra`, links de musica e Genius) deve ficar fixa no rodape interno da ficha.
 - Apenas o miolo do modal deve rolar.
 - Quando apenas o miolo rolar, o fade do miolo deve ser dinamico: sem fade no topo quando o conteudo ja comeca ali, e sem fade no rodape quando o conteudo ja terminou.
-- A identidade geral escura/glass do stats.lc permanece.
+- A identidade geral escura/glass do stats.lc permanece, mas a superficie interna
+  deve ser mais densa/escura do que a bolha fraca anterior.
 - Preferencia travada: bolhas compactas separadas, nao painel unico grande.
-- O passe de 2026-06-20 autoriza portar a narrativa visual do redesign
-  competitivo para este bubble apenas como linguagem interna: `Sua historia`,
-  timeline em trilho, Wrapped com barras e grupo/ranking premium devem continuar
-  dentro das superficies translúcidas originais.
+- O passe de 2026-06-20 substitui a direcao "card fraco/cru": o bubble deve
+  receber praticamente a estrutura visual do modal original de track story,
+  preservando a infraestrutura propria do `BottomTrackStatsBubble` (transparencia
+  controlada, performance, footer/header fixos e navegacao de recentes).
+- `Sua historia`, timeline em trilho, Wrapped com barras, Insights, Seu grupo,
+  Ranking e card de artista devem seguir a hierarquia do modal original.
 - Evitar vazios horizontais e verticais.
 - Bolhas com poucas informacoes podem compartilhar a mesma linha.
 - Quando uma informacao nao existir e for decorativa/social/ranking, nao reservar espaco vazio.
@@ -35,7 +39,8 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 
 ## Header
 
-- Manter capa em `64x64`.
+- Manter capa maior e premium, entre `74x74` e `86x86` no mobile, ajustando para
+  nao estourar titulos longos.
 - O bloco `Stats da musica + titulo + artista + album` deve ocupar visualmente a mesma altura da capa.
 - Reduzir levemente fonte do titulo, leading e margens verticais se necessario.
 - Titulo da faixa em ate duas linhas.
@@ -44,14 +49,16 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 
 ## Blocos Principais
 
-- Existem tres blocos principais: artista, faixa e album.
+- O bloco `Sua historia` substitui os tres cards antigos separados de faixa,
+  artista e album.
 - Eles representam quanto o usuario em destaque reproduziu cada item.
 - O usuario em destaque e a perspectiva de "minhas reproducoes".
 - `ARTISTA` deve virar o nome do artista principal + contagem.
 - Se houver mais de um artista, os artistas adicionais devem aparecer no mesmo bloco, como mini linha/avatar/nome/plays, sem abrir um bloco grande separado.
 - `FAIXA` deve virar o titulo da faixa + contagem.
 - `ALBUM` deve virar o nome do album + contagem.
-- Esses tres blocos sao o padrao visual das bolhas maiores.
+- Esses tres valores vivem em uma unica bolha maior, com divisores discretos,
+  conforme o modal original.
 
 ## Datas E Timeline
 
@@ -88,13 +95,11 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
 
 ## Grupo, Cake E Ranking
 
-- Renomear definitivamente para `Plays do grupo`.
+- Renomear para `Seu grupo` quando o layout estiver no modo originalizado.
 - `Reproducoes do grupo`: total do grupo somado.
 - `Cake piece`: percentual que minhas reproducoes representam no total do circulo/grupo.
-- Juntar `Plays do grupo` e `Cake` em uma bolha compacta de grupo.
-- Bolha `Grupo`:
-  - linha 1: `Plays do grupo` e `Cake`.
-  - linha 2: ranking compacto, apenas se houver ranking.
+- `Seu grupo` e `Ranking` devem preferir cards separados lado a lado quando
+  houver dados para ambos, como no modal original.
 - O ranking deve usar avatares circulares menores.
 - Evitar pills largas no ranking.
 - Posicao e plays devem virar microbadges sobrepostos ou adjacentes ao avatar.
@@ -131,8 +136,9 @@ Documento vivo para guiar a refatoracao do modal de stats da musica no stats.lc.
   - `Days since`: dias desde a primeira vez que ouviu.
   - `Top 1K`: posicao da musica no top 1000 do usuario; se nao estiver, mostrar `OUT`.
 - `Loop factor` nao deve mostrar horario, pois pode haver reproducoes em horarios diferentes no mesmo dia.
-- Avancados devem ficar em bolhas separadas compactas, nao em uma caixa grande com sobra.
-- Usar grid fluido que reocupa espaco quando um campo nao existe.
+- Avancados devem aparecer como card `Insights` quando houver mais de 10 plays,
+  com streak, loop factor e periodo do dia em colunas compactas.
+- Se nao houver dados avancados, omitir `Insights` sem reservar espaco.
 
 ## API E Dados
 
