@@ -418,17 +418,16 @@
   content: "";
   position: absolute;
   inset-inline: 0;
-  bottom: -292px;
+  bottom: -348px;
   z-index: 0;
-  height: 340px;
+  height: 356px;
   pointer-events: none;
   background:
-    radial-gradient(circle at 78% 6%, rgba(255, 111, 20, 0.075), transparent 40%),
-    radial-gradient(circle at 14% 24%, rgba(37, 211, 137, 0.048), transparent 46%),
-    linear-gradient(180deg, rgba(4,5,9,0.12), rgba(2,3,6,0.34) 46%, rgba(2,3,6,0.62)),
-    rgba(0,0,0,0.22);
-  -webkit-backdrop-filter: blur(20px) saturate(168%);
-  backdrop-filter: blur(20px) saturate(168%);
+    radial-gradient(circle at 78% 4%, rgba(255, 111, 20, 0.052), transparent 40%),
+    radial-gradient(circle at 14% 22%, rgba(37, 211, 137, 0.036), transparent 46%),
+    linear-gradient(180deg, rgba(4,5,9,0), rgba(2,3,6,0.055) 42%, rgba(2,3,6,0.22));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 0;
   box-shadow: none;
 }
@@ -580,7 +579,7 @@
     rgba(255,255,255,0.025);
   border-color: transparent;
   box-shadow:
-    0 10px 24px rgba(0,0,0,0.22),
+    0 8px 18px rgba(0,0,0,0.14),
     inset 0 1px 0 rgba(255,255,255,0.09);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   backdrop-filter: blur(18px) saturate(160%);
@@ -593,7 +592,6 @@
     rgba(0,0,0,0.38);
   border-color: transparent;
   box-shadow:
-    0 0 28px rgba(255,113,24,0.23),
     inset 0 1px 0 rgba(255,230,190,0.17);
 }
 
@@ -602,7 +600,7 @@
   border: 0;
   -webkit-backdrop-filter: blur(12px) saturate(140%);
   backdrop-filter: blur(12px) saturate(140%);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
   transition: background-color 0.2s, border-color 0.2s, transform 0.14s;
 }
 

@@ -3595,7 +3595,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 <div className="pointer-events-none h-1 w-10 rounded-full bg-white/24" aria-hidden="true" />
               </div>
 
-              <div className="relative z-20 -mx-4 -mt-4 shrink-0 px-4 pb-4 pt-5">
+              <div className="relative z-20 -mx-4 -mt-4 shrink-0 px-4 pb-2 pt-5">
                 {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
                   <button
                     type="button"
@@ -3621,7 +3621,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     )}
                   </div>
                   <div className="flex min-h-[112px] min-w-0 flex-1 flex-col justify-center pr-12">
-                    <TwoLineText className="text-[24px] font-black leading-[0.96] tracking-[-0.04em] text-white">
+                    <TwoLineText className="text-[17px] font-black leading-[1.02] tracking-[-0.035em] text-white">
                       {parsedTrackTitle.displayTitle || trackTitle}
                     </TwoLineText>
                     <p className="mt-1.5 truncate text-[13px] font-medium leading-[1.05] text-white/64">
@@ -3642,7 +3642,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 ref={setStatsScrollElement}
                 data-bottom-track-modal-scroll="true"
                 onScroll={updateStatsScrollMask}
-                className="relative z-10 mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-16 pr-1 will-change-transform custom-scrollbar"
+                className="relative z-10 mt-1 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-20 pr-1 will-change-transform custom-scrollbar"
                 style={{ x: historySwipeX, touchAction: 'pan-y' }}
               >
                 {panelHydration.history ? (
@@ -3755,7 +3755,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
               </motion.div>
 
-              <div className="relative z-20 mt-3 flex shrink-0 translate-y-2 items-center gap-2">
+              <div className="relative z-20 mt-3 flex shrink-0 translate-y-6 items-center gap-2">
                 {track?.name && (
                   <button
                     type="button"
@@ -3765,7 +3765,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       "stats-lc-soft-white-glass bottom-track-primary-action flex min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
                       lyricsMatch?.hasLyrics === false
                         ? "cursor-not-allowed text-white/28"
-                        : "bg-orange-500/[0.105] text-orange-100 shadow-[0_0_26px_rgba(255,112,24,0.20)] hover:text-white"
+                        : "bg-orange-500/[0.105] text-orange-100 hover:text-white"
                     )}
                   >
                     {lyricsLoading ? (
