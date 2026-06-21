@@ -6,7 +6,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, Trophy, Flame, Repeat2, TimerReset, BadgePercent, Crown, Headphones, Play, Sparkles } from 'lucide-react';
+import { Home, AudioLines, SlidersHorizontal, WifiOff, Orbit, Music2, FileText, Loader2, Disc3, UserCircle, ListMusic, BookOpen, ExternalLink, Copy, Share, ChevronLeft, ChevronRight, CalendarDays, Clock3, UsersRound, Trophy, Flame, Repeat2, TimerReset, Crown, Headphones, Play, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence, animate as animateMotion, useMotionValue, useDragControls } from 'motion/react';
 import { clsx } from 'clsx';
 import { useStatsStore } from '../store/useStatsStore';
@@ -1344,9 +1344,10 @@ const StoryMetricCard = ({
 );
 
 const TrackTopBadges = ({ advanced }: { advanced: TrackStoryResponse['advanced'] }) => {
+  const currentYear = new Date().getFullYear();
   const badges = [
-    advanced?.top1kPosition && { key: 'top1k', label: 'No seu Top 1K', value: `#${advanced.top1kPosition}`, icon: Crown },
-    advanced?.topYearPosition && { key: 'topYear', label: 'No seu Top Ano', value: `#${advanced.topYearPosition}`, icon: BadgePercent },
+    advanced?.top1kPosition && { key: 'top1k', label: 'TOP 1K', value: `#${advanced.top1kPosition}`, icon: Crown },
+    advanced?.topYearPosition && { key: 'topYear', label: `TOP ${currentYear}`, value: `#${advanced.topYearPosition}`, icon: Flame },
   ].filter(Boolean) as Array<{ key: 'top1k' | 'topYear'; label: string; value: string; icon: typeof Crown }>;
   if (badges.length === 0) return null;
   return (
@@ -1357,16 +1358,16 @@ const TrackTopBadges = ({ advanced }: { advanced: TrackStoryResponse['advanced']
           <span
             key={badge.key}
             className={clsx(
-              "inline-flex min-w-0 items-center justify-center gap-2 rounded-full bg-white/[0.065] px-3 py-2 text-[9px] font-black uppercase leading-none tracking-[0.105em] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+              "inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full bg-white/[0.065] px-2.5 py-2 text-[9px] font-black uppercase leading-none tracking-[0.08em] text-white/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
               badges.length > 1 ? "w-full" : "w-full max-w-[230px]"
             )}
           >
             <Icon
-              className={clsx("h-3.5 w-3.5 shrink-0", badge.key === 'top1k' ? "text-orange-300" : "text-white/64")}
+              className={clsx("h-3.5 w-3.5 shrink-0", badge.key === 'top1k' ? "text-orange-300" : "text-orange-300/85")}
               strokeWidth={2.35}
             />
-            <span className="min-w-0 truncate">{badge.label}</span>
             <span className="shrink-0 text-orange-200">{badge.value}</span>
+            <span className="shrink-0 whitespace-nowrap">{badge.label}</span>
           </span>
         );
       })}
