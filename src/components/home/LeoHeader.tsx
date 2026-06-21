@@ -979,16 +979,16 @@ export const LiveTrackProgress = memo(({
             initial={{ opacity: 0 }} animate={{ opacity: 0.58 }} exit={{ opacity: 0 }}
             className="flex flex-col gap-1.5 w-full"
           >
-            <div className="mb-1 flex min-w-0 flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5">
-              <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">OUVIU NO</span>
+            <div className="mb-1 flex min-w-0 flex-nowrap items-center justify-center gap-x-1 overflow-hidden whitespace-nowrap">
+              <span className="stats-lc-dense-label shrink-0 text-[6.5px] font-black text-white/35 uppercase">OUVIU NO</span>
               <div className="flex shrink-0 items-center justify-center gap-1 overflow-visible">
                 <div className="text-white/35 flex items-center overflow-visible">
                   {IdlePlatformLogo}
                 </div>
-                <span className="stats-lc-dense-label shrink-0 text-[7px] font-black text-white/35 uppercase">{PlatformName}</span>
+                <span className="stats-lc-dense-label shrink-0 text-[6.5px] font-black text-white/35 uppercase">{PlatformName}</span>
               </div>
-              <span className="text-[7px] font-black text-white/18" aria-hidden="true">•</span>
-              <span className="stats-lc-dense-label max-w-[140px] text-[7px] font-black text-white/35 uppercase">{timeLabel}</span>
+              <span className="shrink-0 text-[6.5px] font-black text-white/18" aria-hidden="true">•</span>
+              <span className="stats-lc-dense-label shrink-0 text-[6.5px] font-black text-white/35 uppercase">{timeLabel}</span>
             </div>
             <div className="w-full h-1 rounded-full bg-white/10 overflow-hidden">
               <div className="h-full w-full bg-white/20" />

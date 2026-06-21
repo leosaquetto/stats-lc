@@ -689,6 +689,13 @@ const formatPlaybackTimeLabel = (value: any) => {
   return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}, ${timeLabel}`;
 };
 
+const formatRecentCurrentLabel = (timestamp: any, isNow?: boolean) => {
+  if (isNow) return 'Ao vivo';
+  const time = entryTimestampMs(timestamp);
+  if (!time) return 'Atual';
+  return Date.now() - time <= 5 * 60 * 1000 ? 'Atual' : formatPlaybackTimeLabel(timestamp);
+};
+
 const getPlaybackHistoryEntries = (user: any) => {
   const source = Array.isArray(user?.recent)
     ? user.recent
@@ -1560,8 +1567,8 @@ const TimelineStack = ({
   releaseValue: any;
   firstPlayValue: any;
   previousPlayValue: any;
-  onFirstPlayInfo: () => void;
-  onPreviousPlayInfo: () => void;
+  onFirstPlayInfo: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onPreviousPlayInfo: (event: React.MouseEvent<HTMLButtonElement>) => void;
   loopFactorDate?: any;
   loopFactorCount?: number;
   animateRail?: boolean;
@@ -1572,7 +1579,7 @@ const TimelineStack = ({
       icon: CalendarDays,
       label: 'Release',
       value: <TimelineReleaseBadge value={releaseValue} />,
-      accent: 'text-orange-500 border-orange-500/72 bg-[#07090d]',
+      accent: 'text-orange-500 border-orange-500/72',
     },
     {
       key: 'first',
@@ -1580,7 +1587,7 @@ const TimelineStack = ({
       label: 'Primeiro play',
       value: <TimelineDateBadge value={firstPlayValue} empty="sem registro" />,
       onInfo: onFirstPlayInfo,
-      accent: 'text-orange-500 border-orange-500/72 bg-[#07090d]',
+      accent: 'text-orange-500 border-orange-500/72',
     },
     ...(loopFactorCount && loopFactorDate
       ? [{
@@ -1589,7 +1596,7 @@ const TimelineStack = ({
         label: 'Looping day',
         value: <TimelineDateBadge value={loopFactorDate} empty="sem registro" />,
         loopCount: loopFactorCount,
-        accent: 'text-violet-200 border-violet-300/72 bg-[#07090d] shadow-[0_0_18px_rgba(168,85,247,0.16)]',
+        accent: 'text-violet-200 border-violet-300/72 shadow-[0_0_18px_rgba(168,85,247,0.16)]',
       }]
       : []),
     {
@@ -1598,7 +1605,7 @@ const TimelineStack = ({
       label: 'Último play',
       value: <TimelineDateBadge value={previousPlayValue} empty="sem anterior" />,
       onInfo: onPreviousPlayInfo,
-      accent: 'text-orange-500 border-orange-500/72 bg-[#07090d]',
+      accent: 'text-orange-500 border-orange-500/72',
     },
   ];
 
@@ -1609,13 +1616,20 @@ const TimelineStack = ({
         <span className="min-w-0 text-[7px] font-black uppercase leading-none tracking-[0.18em]">Linha do tempo</span>
       </div>
       <div className="relative mt-3 grid min-w-0 gap-1" style={{ gridTemplateColumns: `repeat(${nodes.length}, minmax(0, 1fr))` }}>
-        <motion.span
-          className="pointer-events-none absolute left-[10%] right-[10%] top-[20px] z-0 h-px origin-left rounded-full bg-gradient-to-r from-orange-500/95 via-violet-300/75 to-orange-500/95 shadow-[0_0_13px_rgba(249,115,22,0.24)]"
-          aria-hidden="true"
-          initial={animateRail ? { scaleX: 0.05, opacity: 0.72 } : false}
-          animate={{ scaleX: 1, opacity: 1 }}
-          transition={{ duration: animateRail ? 0.42 : 0.1, ease: [0.22, 1, 0.36, 1] }}
-        />
+        {nodes.slice(0, -1).map((node, index) => (
+          <motion.span
+            key={`rail-${node.key}`}
+            className="pointer-events-none absolute top-[20px] z-0 h-px origin-left rounded-full bg-gradient-to-r from-orange-500/95 via-violet-300/75 to-orange-500/95 shadow-[0_0_13px_rgba(249,115,22,0.24)]"
+            style={{
+              left: `calc(${((index + 0.5) / nodes.length) * 100}% + 20px)`,
+              width: `calc(${100 / nodes.length}% - 40px)`,
+            }}
+            aria-hidden="true"
+            initial={animateRail ? { scaleX: 0.05, opacity: 0.72 } : false}
+            animate={{ scaleX: 1, opacity: 1 }}
+            transition={{ duration: animateRail ? 0.42 : 0.1, delay: animateRail ? index * 0.035 : 0, ease: [0.22, 1, 0.36, 1] }}
+          />
+        ))}
         {nodes.map((node, index) => {
           const Icon = node.icon;
           const circleClassName = clsx(
@@ -1646,7 +1660,7 @@ const TimelineStack = ({
                   type="button"
                   onClick={(event) => {
                     event.stopPropagation();
-                    node.onInfo?.();
+                    node.onInfo?.(event);
                   }}
                   className="group mx-auto block rounded-full outline-none focus-visible:ring-2 focus-visible:ring-orange-300/45"
                   aria-label={`Ver detalhes de ${node.label}`}
@@ -1955,7 +1969,8 @@ const ArtistsOriginalStrip = ({
   return (
     <div className="bottom-track-stats-surface min-w-0 overflow-hidden rounded-[18px] py-2 pl-3">
       <div
-        className="flex min-w-0 snap-x snap-mandatory items-center gap-2 overflow-x-auto overscroll-x-contain pr-6 no-scrollbar"
+        data-home-horizontal-scroll="true"
+        className="flex min-w-0 snap-x snap-mandatory items-center gap-2 overflow-x-auto overscroll-x-contain pr-6 no-scrollbar [touch-action:pan-x]"
         aria-label="Artistas da faixa"
       >
         {visible.map((artist, index) => (
@@ -2062,6 +2077,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const [selectedTrackLink, setSelectedTrackLink] = React.useState<TrackLink | null>(null);
   const [trackLinkSheetAnchor, setTrackLinkSheetAnchor] = React.useState({ right: 16, bottom: 16 });
   const [toastMessage, setToastMessage] = React.useState('');
+  const [toastAnchor, setToastAnchor] = React.useState<{ x: number; y: number } | null>(null);
   const cancelToastDismissRef = React.useRef<() => void>(() => {});
   const [panelData, setPanelData] = React.useState<BottomTrackStatsPanelData>(emptyBottomTrackStatsPanelData);
   const [panelHydration, setPanelHydration] = React.useState<BottomTrackStatsHydrationState>(emptyBottomTrackStatsHydration);
@@ -2118,7 +2134,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
         return true;
       })
       .sort((a, b) => entryTimestampMs(b.timestamp) - entryTimestampMs(a.timestamp))
-      .slice(0, 12);
+      .slice(0, 20);
   }, [ownRecentCandidates, panelUser]);
   const liveTrack = panelUser?.nowPlaying?.track;
   const getPlaybackMatchKey = React.useCallback((playback: { track?: any; timestamp?: any } | null | undefined) => {
@@ -2153,11 +2169,17 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       durationMs: panelUser?.nowPlaying?.durationMs || liveTrack?.durationMs,
     };
   }, [liveTrack, panelUser?.nowPlaying?.durationMs, panelUser?.nowPlaying?.platform, panelUser?.nowPlaying?.timestamp]);
+  const primaryPlayback = React.useMemo(() => {
+    if (panelUser?.nowPlaying?.isNow === true && livePlayback?.track?.name) {
+      return livePlayback;
+    }
+    return playbackHistory[0] || livePlayback;
+  }, [livePlayback, panelUser?.nowPlaying?.isNow, playbackHistory]);
   const visiblePlaybackHistory = React.useMemo(() => {
     return playbackHistory
       .map((entry, index) => ({ entry, index: index + 1 }))
-      .filter(({ entry, index }) => index !== 1 || !livePlayback || !isSamePlayback(livePlayback, entry));
-  }, [isSamePlayback, livePlayback, playbackHistory]);
+      .filter(({ entry, index }) => index !== 1 || !primaryPlayback || !isSamePlayback(primaryPlayback, entry));
+  }, [isSamePlayback, playbackHistory, primaryPlayback]);
   const visiblePlaybackIndexes = React.useMemo(() => [0, ...visiblePlaybackHistory.map(item => item.index)], [visiblePlaybackHistory]);
   const getAdjacentPlaybackIndex = React.useCallback((direction: 'older' | 'newer') => {
     if (direction === 'older') {
@@ -2174,10 +2196,10 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       return externalPlayback;
     }
     if (playbackIndex <= 0 || playbackHistory.length === 0) {
-      return livePlayback;
+      return primaryPlayback;
     }
     return playbackHistory[Math.min(playbackIndex - 1, playbackHistory.length - 1)] || null;
-  }, [externalPlayback, livePlayback, playbackHistory, playbackIndex]);
+  }, [externalPlayback, playbackHistory, playbackIndex, primaryPlayback]);
 
   // Bubble always shows current track (index 0), independent of modal navigation
   const bubblePlayback = React.useMemo(() => {
@@ -2190,14 +2212,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
   const activePlaybackTimestamp = entryTimestampMs(activePlayback?.timestamp);
   const activePlaybackLabel = activePlaybackTimestamp ? formatPlaybackTimeLabel(activePlayback?.timestamp) : 'Stats da música';
   const recentPickerItems = React.useMemo(() => {
-    const current = liveTrack
+    const currentTrack = primaryPlayback?.track;
+    const current = currentTrack
       ? [{
         index: 0,
-        label: panelUser?.nowPlaying?.isNow === true ? 'Ao vivo' : 'Atual',
-        title: liveTrack.name || 'Música',
-        artist: getTrackArtistName(liveTrack),
-        image: getTrackArtwork(liveTrack),
-        timestamp: panelUser?.nowPlaying?.timestamp,
+        label: formatRecentCurrentLabel(primaryPlayback?.timestamp, panelUser?.nowPlaying?.isNow === true),
+        title: currentTrack.name || 'Música',
+        artist: getTrackArtistName(currentTrack),
+        image: getTrackArtwork(currentTrack),
+        timestamp: primaryPlayback?.timestamp,
       }]
       : [];
     const history = visiblePlaybackHistory.map(({ entry, index }) => ({
@@ -2209,7 +2232,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
       timestamp: entry.timestamp,
     }));
     return [...current, ...history];
-  }, [liveTrack, panelUser?.nowPlaying?.isNow, panelUser?.nowPlaying?.timestamp, visiblePlaybackHistory]);
+  }, [panelUser?.nowPlaying?.isNow, primaryPlayback, visiblePlaybackHistory]);
   const invalidateLyricsForPlaybackChange = React.useCallback(() => {
     lyricsRequestKeyRef.current = `invalidated:${Date.now()}`;
     setLyricsMatch(null);
@@ -2365,7 +2388,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     setPlaybackIndex(0);
     historySwipeTokenRef.current += 1;
     historySwipeX.set(0);
-  }, [hasExternalPlayback, historySwipeX, liveTrack?.id, liveTrack?.name, panelUserId]);
+  }, [hasExternalPlayback, historySwipeX, panelUserId, primaryPlayback?.track?.id, primaryPlayback?.track?.name, primaryPlayback?.timestamp]);
 
   React.useEffect(() => {
     if (!panelUser?.id) {
@@ -2618,24 +2641,35 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
     : [{ id: 'artist-skeleton', name: artistName || 'Artista', image: artistImage || '', key: 'artist-skeleton' }]
   ).slice(0, Math.max(2, Math.min(trackArtists.length || 2, 3)));
 
-  const showToast = React.useCallback((message: string) => {
+  const showToast = React.useCallback((message: string, event?: React.MouseEvent<HTMLElement>) => {
     cancelToastDismissRef.current();
+    if (event && modalRef.current) {
+      const modalRect = modalRef.current.getBoundingClientRect();
+      const targetRect = event.currentTarget.getBoundingClientRect();
+      setToastAnchor({
+        x: Math.min(modalRect.width - 84, Math.max(84, targetRect.left - modalRect.left + targetRect.width / 2)),
+        y: Math.min(modalRect.height - 110, Math.max(68, targetRect.top - modalRect.top - 10)),
+      });
+    } else {
+      setToastAnchor(null);
+    }
     setToastMessage(message);
     cancelToastDismissRef.current = motionRuntimeScheduler.scheduleTask(() => {
       setToastMessage('');
+      setToastAnchor(null);
       cancelToastDismissRef.current = () => {};
     }, 1800, 'interaction');
   }, []);
 
-  const showFirstPlayInfo = React.useCallback(() => {
+  const showFirstPlayInfo = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     const time = formatTinyTime(firstPlayDate) || 'sem horário';
     const days = advanced?.daysSinceFirst != null ? ` • ${advanced.daysSinceFirst} dias` : '';
-    showToast(`Primeiro play ${time}${days}`);
+    showToast(`Primeiro play ${time}${days}`, event);
   }, [advanced?.daysSinceFirst, firstPlayDate, showToast]);
 
-  const showPreviousPlayInfo = React.useCallback(() => {
+  const showPreviousPlayInfo = React.useCallback((event: React.MouseEvent<HTMLElement>) => {
     const time = formatTinyTime(previousPlayDate) || 'sem horário';
-    showToast(`Último play ${time}`);
+    showToast(`Último play ${time}`, event);
   }, [previousPlayDate, showToast]);
 
   const showStreakInfo = React.useCallback(() => {
@@ -3507,7 +3541,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
                     data-recent-picker="true"
-                    className="bottom-track-recent-picker absolute inset-x-3 top-14 z-40 max-h-[254px] overflow-hidden rounded-[24px] p-2"
+                    className="bottom-track-recent-picker absolute inset-x-3 top-14 z-40 max-h-[min(560px,calc(100svh-190px))] overflow-hidden rounded-[24px] p-2"
                     initial={{ opacity: 0, y: -12, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -12, scale: 0.95 }}
@@ -3520,7 +3554,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     onPointerUp={(event) => event.stopPropagation()}
                     onClick={(event) => event.stopPropagation()}
                   >
-                    <div data-bottom-track-modal-scroll="true" className="max-h-[238px] overflow-y-auto pr-1 no-scrollbar">
+                    <div data-bottom-track-modal-scroll="true" className="max-h-[min(544px,calc(100svh-206px))] overflow-y-auto pr-1 no-scrollbar">
                       {recentPickerItems.map((item) => {
                         const isSelected = playbackIndex === item.index;
                         return (
@@ -3602,7 +3636,6 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </div>
                   </div>
                 </div>
-                <TrackTopBadges advanced={advanced} />
               </div>
 
               <motion.div
@@ -3614,7 +3647,13 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               >
                 {panelHydration.history ? (
                   <motion.div className="space-y-3" {...getStatsGroupMotion(0)}>
-                    <motion.div {...getStatsGroupMotion(1)}>
+                    {(advanced?.top1kPosition || advanced?.topYearPosition) && (
+                      <motion.div {...getStatsGroupMotion(1)}>
+                        <TrackTopBadges advanced={advanced} />
+                      </motion.div>
+                    )}
+
+                    <motion.div {...getStatsGroupMotion(2)}>
                       <PersonalStoryBubble
                         trackValue={entityStats.track}
                         trackReady={trackMetricReady}
@@ -3628,7 +3667,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       />
                     </motion.div>
 
-                    <motion.div {...getStatsGroupMotion(2)}>
+                    <motion.div {...getStatsGroupMotion(3)}>
                       <TimelineStack
                         releaseValue={albumReleaseRawDate || albumReleaseDate}
                         firstPlayValue={firstPlayDate}
@@ -3642,7 +3681,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     </motion.div>
 
                     {panelHydration.social && hasSocialEntries && (
-                      <motion.div {...getStatsGroupMotion(3)}>
+                      <motion.div {...getStatsGroupMotion(4)}>
                         <SocialBubble
                           entries={socialEntries}
                           label={socialLabel}
@@ -3659,7 +3698,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           "grid gap-3",
                           wrapped && shouldShowAdvancedStats && advanced ? "grid-cols-2" : "grid-cols-1"
                         )}
-                        {...getStatsGroupMotion(4)}
+                        {...getStatsGroupMotion(5)}
                       >
                         {wrapped && <WrappedCompactBubble wrapped={wrapped} animateBars={shouldAnimateStatsGroups} />}
                         {shouldShowAdvancedStats && advanced && (
@@ -3674,7 +3713,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                           "grid gap-3",
                           visibleSocialRanking.length > 0 ? "grid-cols-2" : "grid-cols-1"
                         )}
-                        {...getStatsGroupMotion(5)}
+                        {...getStatsGroupMotion(6)}
                       >
                         <GroupOriginalCard
                           cakePiecePercent={cakePiecePercent}
@@ -3687,7 +3726,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       </motion.div>
                     )}
 
-                    <motion.div {...getStatsGroupMotion(6)}>
+                    <motion.div {...getStatsGroupMotion(7)}>
                       <ArtistsOriginalStrip
                         artists={panelHydration.artistStats ? artistStats : artistStatSkeletons}
                         ready={panelHydration.artistStats}
@@ -3697,7 +3736,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     {coveragePartial && (
                       <motion.div
                         className="bottom-track-stats-surface rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[0.08em] text-white/38"
-                        {...getStatsGroupMotion(7)}
+                        {...getStatsGroupMotion(8)}
                       >
                         Dados parciais nesta abertura
                       </motion.div>
@@ -3768,7 +3807,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.98 }}
                     transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-                    className="stats-lc-soft-white-glass absolute inset-x-8 bottom-5 z-40 rounded-full px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82"
+                    className={clsx(
+                      "stats-lc-soft-white-glass absolute z-40 rounded-full px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.08em] text-white/82",
+                      toastAnchor ? "w-max max-w-[240px] -translate-x-1/2 -translate-y-full" : "inset-x-8 bottom-5"
+                    )}
+                    style={toastAnchor ? { left: toastAnchor.x, top: toastAnchor.y } : undefined}
                   >
                     {toastMessage}
                   </motion.div>
