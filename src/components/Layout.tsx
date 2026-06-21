@@ -3326,7 +3326,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
             />
             {!isStandaloneLyrics && (
-            <div className="absolute inset-0 flex items-start justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+98px)] pt-[calc(env(safe-area-inset-top,0px)+58px)] pointer-events-none">
+            <div className="absolute inset-0 flex items-start justify-center px-3 pb-[calc(env(safe-area-inset-bottom,0px)+36px)] pt-[calc(env(safe-area-inset-top,0px)+58px)] pointer-events-none">
             <motion.section
               ref={modalRef}
               initial={{ opacity: 0, y: -28, scale: 0.972 }}
@@ -3421,7 +3421,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               }}
               className={clsx(
                 "bottom-track-stats-modal relative w-full max-w-[430px] overflow-visible rounded-[30px] border-0 p-0 pointer-events-auto",
-                "z-10 h-auto max-h-[calc(100svh-164px)]"
+                "z-10 h-auto max-h-[calc(100svh-104px)]"
               )}
               data-animation-done={isAnimationDone}
               animate={{
@@ -3444,16 +3444,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                 willChange: isModalVisible && isAnimationDone ? 'auto' : 'transform',
               }}
             >
-              <div className="bottom-track-stats-controls-glass-layer pointer-events-none absolute inset-x-0 -bottom-[58px] z-0 h-[58px] rounded-[29px]" aria-hidden="true" />
               {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
                 <motion.div
-                  className="absolute inset-x-0 -bottom-[58px] z-30 flex items-center justify-center gap-3"
-                  initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                  className="pointer-events-none absolute inset-x-[-6px] top-1/2 z-40 flex -translate-y-1/2 items-center justify-between"
+                  initial={{ opacity: 0, scale: 0.96 }}
                   animate={isModalVisible && isAnimationDone
-                    ? { opacity: 1, y: 0, scale: 1 }
-                    : { opacity: 0, y: 18, scale: 0.94 }
+                    ? { opacity: 1, scale: 1 }
+                    : { opacity: 0, scale: 0.96 }
                   }
-                  exit={{ opacity: 0, y: 18, scale: 0.94 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
                   transition={{
                     type: 'spring',
                     stiffness: 280,
@@ -3479,24 +3478,11 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       }
                     }}
                     className={clsx(
-                      "bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.32]",
-                      olderPlaybackIndex === playbackIndex && "text-white/[0.42]"
+                      "bottom-track-controls-button pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full text-white/66 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.14]",
+                      olderPlaybackIndex === playbackIndex && "text-white/[0.32]"
                     )}
                   >
-                    <ChevronLeft className="h-5 w-5" strokeWidth={2.5} />
-                  </button>
-                  <button
-                    type="button"
-                    data-recent-toggle="true"
-                    aria-label="Abrir lista das suas recentes"
-                    onClick={() => setRecentPickerOpen(value => !value)}
-                    className={clsx(
-                      "bottom-track-controls-button flex h-10 min-w-10 items-center justify-center rounded-full px-3.5 transition-[background-color,transform,color] active:scale-95",
-                      recentPickerOpen ? "bg-white/[0.14] text-white shadow-[0_4px_12px_rgba(255,255,255,0.08)]" : "text-white/84"
-                    )}
-                  >
-                    <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
-                    <span className="ml-2 text-[8px] font-black uppercase tracking-[0.14em]">Recentes</span>
+                    <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.5} />
                   </button>
                   <button
                     type="button"
@@ -3508,15 +3494,15 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       }
                     }}
                     className={clsx(
-                      "bottom-track-controls-button flex h-11 w-11 items-center justify-center rounded-full text-white/82 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.32]",
-                      newerPlaybackIndex === playbackIndex && "text-white/[0.42]"
+                      "bottom-track-controls-button pointer-events-auto flex h-9 w-9 items-center justify-center rounded-full text-white/66 transition-[opacity,transform,color] active:scale-95 disabled:pointer-events-none disabled:opacity-[0.14]",
+                      newerPlaybackIndex === playbackIndex && "text-white/[0.32]"
                     )}
                   >
-                    <ChevronRight className="h-5 w-5" strokeWidth={2.5} />
+                    <ChevronRight className="h-[18px] w-[18px]" strokeWidth={2.5} />
                   </button>
                 </motion.div>
               )}
-              <div className="bottom-track-stats-body-backdrop relative flex max-h-[calc(100svh-164px)] w-full flex-col overflow-hidden rounded-[30px] p-4">
+              <div className="bottom-track-stats-body-backdrop relative flex max-h-[calc(100svh-104px)] w-full flex-col overflow-visible rounded-t-[30px] rounded-b-none p-4">
                 <AnimatePresence>
                 {recentPickerOpen && panel === 'stats' && (
                   <motion.div
@@ -3576,6 +3562,20 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
               </div>
 
               <div className="relative z-20 -mx-4 -mt-4 shrink-0 px-4 pb-4 pt-5">
+                {visiblePlaybackHistory.length > 0 && panel === 'stats' && !hasExternalPlayback && (
+                  <button
+                    type="button"
+                    data-recent-toggle="true"
+                    aria-label="Abrir lista das suas recentes"
+                    onClick={() => setRecentPickerOpen(value => !value)}
+                    className={clsx(
+                      "bottom-track-controls-button absolute right-4 top-5 z-40 flex h-10 w-10 items-center justify-center rounded-full transition-[background-color,transform,color] active:scale-95",
+                      recentPickerOpen ? "bg-white/[0.14] text-white shadow-[0_4px_12px_rgba(255,255,255,0.08)]" : "text-white/78"
+                    )}
+                  >
+                    <ListMusic className="h-[18px] w-[18px]" strokeWidth={2.4} />
+                  </button>
+                )}
                 <div className="flex min-w-0 items-center gap-4">
                   <div className="stats-lc-soft-white-glass relative h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[25px]">
                     {artwork ? (
@@ -3586,7 +3586,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
                       </div>
                     )}
                   </div>
-                  <div className="flex min-h-[112px] min-w-0 flex-1 flex-col justify-center">
+                  <div className="flex min-h-[112px] min-w-0 flex-1 flex-col justify-center pr-12">
                     <TwoLineText className="text-[24px] font-black leading-[0.96] tracking-[-0.04em] text-white">
                       {parsedTrackTitle.displayTitle || trackTitle}
                     </TwoLineText>
@@ -3716,7 +3716,7 @@ const BottomTrackStatsBubble = React.memo(({ user }: { user: any }) => {
 
               </motion.div>
 
-              <div className="relative z-20 mt-3 flex shrink-0 items-center gap-2">
+              <div className="relative z-20 mt-3 flex shrink-0 translate-y-2 items-center gap-2">
                 {track?.name && (
                   <button
                     type="button"

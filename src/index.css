@@ -397,7 +397,7 @@
     0 18px 48px rgba(0,0,0,0.46),
     0 34px 78px rgba(0,0,0,0.32),
     inset 0 1px 0 rgba(255,255,255,0.075);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .bottom-track-stats-body-backdrop::before {
@@ -414,10 +414,21 @@
   opacity: 0.96;
 }
 
-.bottom-track-stats-controls-glass-layer {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+.bottom-track-stats-body-backdrop::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: -280px;
+  z-index: 0;
+  height: 306px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 78% 0%, rgba(255, 111, 20, 0.12), transparent 34%),
+    radial-gradient(circle at 14% 28%, rgba(37, 211, 137, 0.06), transparent 42%),
+    linear-gradient(180deg, rgba(4,5,9,0.56), rgba(2,3,6,0.86) 58%, rgba(2,3,6,0.96)),
+    rgba(0,0,0,0.54);
+  -webkit-backdrop-filter: blur(20px) saturate(168%);
+  backdrop-filter: blur(20px) saturate(168%);
   border: 0;
   box-shadow: none;
 }
